@@ -308,6 +308,12 @@ class Connector(Plugin, ABC):
 
     #: The family this source belongs to.
     source_kind: SourceKind = SourceKind.RELATIONAL
+    #: Which configuration field a resolved credential fills. Declared by the
+    #: connector rather than encoded in the reference, because a reference's
+    #: fragment already means something else — which field of a JSON document
+    #: to take — and one syntax cannot carry both meanings without producing
+    #: failures nobody can read.
+    credential_field: str = "password"
 
     def __init__(self, config: dict[str, Any], *, policy: ReadPolicy | None = None) -> None:
         self.config = config

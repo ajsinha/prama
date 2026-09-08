@@ -5,6 +5,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from prama.connect.builtin import register_builtin
 from prama.connect.registry import ConnectorRegistry
 from prama.core.errors import NotFoundError, ValidationError
 from prama.db import Database
+from prama.secrets import MemorySecretProvider, SecretResolutionError, SecretResolver
 from prama.semantic.services import (
     ConnectionService,
     ConnectivityService,
@@ -212,3 +214,81 @@ class TestBindingSuggestions:
                 tenant_id, connection_id
             )
         assert suggestions == []
+
+
+class TestCredentialResolution:
+    """A connection stores a reference; the credential arrives at the last moment."""
+
+    async def test_the_stored_declaration_never_holds_the_credential(
+        self, started_database: Database, tenant_id: str, source: Path
+    ) -> None:
+        # The property the whole design rests on: this record can be exported to
+        # Git, diffed in a pull request and shown in the UI.
+        async with started_database.unit_of_work() as uow:
+            connection_id = await _connection(uow, tenant_id, source)
+            declared = await uow.connections.current(connection_id)
+            assert declared is not None
+            assert "password" not in json.dumps(declared.config_json or {})
+
+    async def test_a_referenced_secret_reaches_the_connector(
+        self, started_database: Database, tenant_id: str, source: Path, registry
+    ) -> None:
+        resolver = SecretResolver([MemorySecretProvider({"pg": "from-the-vault"})])
+        async with started_database.unit_of_work() as uow:
+            connection_id = await _connection(uow, tenant_id, source)
+            declared = await uow.connections.current(connection_id)
+            assert declared is not None
+            declared.credential_ref = "memory://pg"
+            connector = await ConnectivityService(
+                uow, registry=registry, secrets=resolver
+            ).connector_for(connection_id)
+            assert connector.config["password"] == "from-the-vault"
+
+    async def test_where_the_credential_lands_is_the_connectors_decision(
+        self, started_database: Database, tenant_id: str, source: Path, registry
+    ) -> None:
+        # Not the reference's. A fragment already means "which field of the JSON
+        # document at this location", so routing by fragment would leave
+        # memory://creds#password ambiguous between the two meanings.
+        registry.get("sqlite").credential_field = "busy_timeout_seconds"
+        try:
+            resolver = SecretResolver([MemorySecretProvider({"creds": '{"password": "9"}'})])
+            async with started_database.unit_of_work() as uow:
+                connection_id = await _connection(uow, tenant_id, source)
+                declared = await uow.connections.current(connection_id)
+                assert declared is not None
+                declared.credential_ref = "memory://creds#password"
+                connector = await ConnectivityService(
+                    uow, registry=registry, secrets=resolver
+                ).connector_for(connection_id)
+                # The fragment chose the field *inside the document*; the
+                # connector chose where it went.
+                assert connector.config["busy_timeout_seconds"] == "9"
+        finally:
+            registry.get("sqlite").credential_field = "password"
+
+    async def test_a_connection_with_no_credential_still_works(
+        self, started_database: Database, tenant_id: str, source: Path, registry
+    ) -> None:
+        # A file on a mounted share; a database using OS authentication.
+        async with started_database.unit_of_work() as uow:
+            connection_id = await _connection(uow, tenant_id, source)
+            result = await ConnectivityService(uow, registry=registry).test(connection_id)
+            assert result["state"] == "healthy"
+
+    async def test_an_unresolvable_reference_fails_before_the_source_is_touched(
+        self, started_database: Database, tenant_id: str, source: Path, registry
+    ) -> None:
+        # Rather than sending an empty password to the source and getting back
+        # "authentication failed", which sends someone to check a credential
+        # that was never read.
+        resolver = SecretResolver([MemorySecretProvider({})])
+        async with started_database.unit_of_work() as uow:
+            connection_id = await _connection(uow, tenant_id, source)
+            declared = await uow.connections.current(connection_id)
+            assert declared is not None
+            declared.credential_ref = "memory://absent"
+            with pytest.raises(SecretResolutionError):
+                await ConnectivityService(uow, registry=registry, secrets=resolver).connector_for(
+                    connection_id
+                )

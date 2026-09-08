@@ -216,16 +216,16 @@ under thirty minutes, unattended, without writing anything — the zero-declarat
 | W3.1 | Connector SPI and registry | ✅ |
 | W3.2 | Capability matrix, declared and never probed | ✅ |
 | W3.3 | **Config schema derived from connector source, with an overlay audit test** | ✅ |
-| W3.4 | Credentials by vault reference, never displayed or stored | ◑ contract and enforcement done; the vault itself is a documented stub |
+| W3.4 | Credentials by vault reference, never displayed or stored | ✅ `env://` and `file://` providers, caching with TTL, audit trail; external vaults register a scheme |
 | W3.5 | Discovery browser ranked by size and recency, not alphabetically | ✅ |
 | W3.6 | Snapshot capture per source kind, with an honest `exact` flag | ✅ for the shipped connectors |
 | W3.7 | Sampling planner with stated statistical bounds | ✅ |
 | W3.8 | Profiler core and bounded-memory sketches | ✅ |
 | W3.9 | Segmented and incremental profiling | ⏳ |
 | W3.10 | Metric history store | ⏳ |
-| W3.11 | The eight GA connectors | ◑ 2 of 8: filesystem (CSV/Parquet/JSON), SQLite |
-| W3.12 | Feed subsystem: arrival, manifests, trailers, duplicate delivery | ⏳ |
-| W3.13 | Read policy, budgets and source load ceiling | ◑ paths, hours and sampling enforced; byte and row budgets not yet |
+| W3.11 | The eight GA connectors | ◑ 3 of 8: filesystem (CSV/Parquet/JSON), SQLite, PostgreSQL — on a dialect-driven SQL base the rest will share |
+| W3.12 | Feed subsystem: arrival, manifests, trailers, duplicate delivery | ✅ calendar-aware arrival judgement, trailer and manifest integrity |
+| W3.13 | Read policy, budgets and source load ceiling | ◑ paths, hours, sampling, row and byte budgets enforced; load ceiling not yet |
 | W3.14 | Binding suggestions for declared-but-unbound datasets | ✅ |
 | W3.15 | Cost preview before a scan | ⏳ |
 

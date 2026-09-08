@@ -27,6 +27,7 @@ from prama.connect import (
 from prama.core.errors import NotFoundError, ValidationError
 from prama.db.session import UnitOfWork
 from prama.profile import DatasetProfile, Profiler, suggest_sample_plan
+from prama.secrets import SecretResolver, default_resolver
 from prama.semantic.policy import ApprovalPolicy
 from prama.semantic.services.base import SemanticService
 
@@ -75,10 +76,12 @@ class ConnectivityService(SemanticService):
         policy: ApprovalPolicy | None = None,
         registry: ConnectorRegistry | None = None,
         profiler: Profiler | None = None,
+        secrets: SecretResolver | None = None,
     ) -> None:
         super().__init__(uow, policy=policy)
         self._registry = registry or default_registry()
         self._profiler = profiler or Profiler()
+        self._secrets = secrets or default_resolver()
 
     async def connector_for(self, connection_id: str) -> Connector:
         """Build a live connector from a stored declaration.
@@ -104,23 +107,43 @@ class ConnectivityService(SemanticService):
                 context={"source_type": declared.source_type},
             )
         config = dict(declared.config_json or {})
-        config.update(self._resolve_credential(declared.credential_ref))
+        config.update(
+            self._resolve_credential(
+                declared.credential_ref,
+                connection_id=connection_id,
+                connector_class=self._registry.get(declared.source_type),
+            )
+        )
         return self._registry.create(
             declared.source_type,
             config,
             policy=read_policy_from(declared.read_policy_json or {}),
         )
 
-    def _resolve_credential(self, reference: str | None) -> dict[str, Any]:
-        """Fetch a secret from the vault named by the reference.
+    def _resolve_credential(
+        self,
+        reference: str | None,
+        *,
+        connection_id: str,
+        connector_class: type[Connector],
+    ) -> dict[str, Any]:
+        """Resolve the credential a connection references.
 
-        Wave 2's stub: no vault is wired yet, so a reference resolves to nothing
-        and connectors that need one will fail their health check with a clear
-        message. That is the correct behaviour for a missing secret, and it is
-        better than a silent empty password producing a confusing driver error.
+        The value is injected into the connector's configuration here, at the
+        last possible moment, and the stored declaration is never touched — so
+        the configuration that gets exported to Git, diffed in a pull request
+        and displayed in the UI has never held a credential.
+
+        Where it lands is the connector's decision, not the reference's. A
+        reference's fragment already means "which field of the JSON document at
+        this location"; giving it a second meaning would leave
+        ``env://PG_CREDS#password`` ambiguous between the two, and the failure
+        that produces is unreadable.
         """
-        _ = reference
-        return {}
+        resolved = self._secrets.resolve_optional(reference, purpose=f"connection:{connection_id}")
+        if resolved is None:
+            return {}
+        return {connector_class.credential_field: resolved.reveal()}
 
     # -- operations --------------------------------------------------------
 
