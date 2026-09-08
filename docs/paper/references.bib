@@ -1,0 +1,197 @@
+% Prama — bibliography
+% © 2026 Ashutosh Sinha (ajsinha@gmail.com). All rights reserved.
+
+@misc{gartner2020mq,
+  title  = {Magic Quadrant for Data Quality Solutions},
+  author = {Chien, Melody and Jain, Ankush},
+  year   = {2020}, publisher = {Gartner},
+  note   = {Source of the widely-cited \$12.9M average annual cost of poor data quality;
+            based on 154 reference customers across 16 vendors},
+  url    = {https://www.gartner.com/en/data-analytics/topics/data-quality}}
+
+@misc{gartner2025adq,
+  title = {Magic Quadrant for Augmented Data Quality Solutions},
+  year  = {2025}, publisher = {Gartner}, month = mar,
+  url   = {https://www.gartner.com/en/documents/6246519}}
+
+@misc{ateam2024,
+  title = {{EMIR} and {MiFID} Transaction Reporting Challenges Continue to Trouble Firms and Regulators},
+  howpublished = {A-Team Insight},
+  note = {FCA fines: ~£95M MiFID transaction reporting, ~£34.5M EMIR; Goldman Sachs >£34M
+          for 220M+ errors; UBS >£27M for 135M+ errors},
+  url = {https://a-teaminsight.com/blog/emir-and-mifid-transaction-reporting-challenges-continue-to-trouble-firms-and-regulators/}}
+
+@misc{datakitchen2026,
+  title = {The 2026 Data Quality and Data Observability Commercial Software Landscape},
+  howpublished = {DataKitchen}, year = {2026},
+  url = {https://datakitchen.io/blog/the-2026-data-quality-and-data-observability-commercial-software-landscape/}}
+
+@misc{bcbs239,
+  title = {Principles for Effective Risk Data Aggregation and Risk Reporting ({BCBS} 239)},
+  author = {{Basel Committee on Banking Supervision}}, year = {2013}, publisher = {BIS}}
+
+@misc{odcs,
+  title = {Open Data Contract Standard (ODCS) v3.1.0},
+  author = {{Bitol Project, Linux Foundation}}, year = {2025}, month = dec,
+  url = {https://bitol-io.github.io/open-data-contract-standard/v3.1.0/}}
+
+@misc{contractenforce,
+  title = {Most Data Contract Tools Don't Enforce Contracts: Here's What Does},
+  year = {2026},
+  url = {https://zircote.com/blog/2026/04/most-data-contract-tools-dont-enforce-contracts/}}
+
+% ---------- Constraint discovery & profiling ----------
+@inproceedings{metanome,
+  title = {Data Profiling with Metanome},
+  author = {Papenbrock, Thorsten and Bergmann, Tanja and Finke, Moritz and Zwiener, Jakob and Naumann, Felix},
+  booktitle = {PVLDB}, year = {2015}}
+
+@article{fdeval,
+  title = {Functional Dependency Discovery: An Experimental Evaluation of Seven Algorithms},
+  author = {Papenbrock, Thorsten and others}, journal = {PVLDB}, year = {2015}}
+
+@article{dcdiscovery,
+  title = {Discovery of Approximate (and Exact) Denial Constraints},
+  author = {Livshits, Ester and Heidari, Alireza and Ilyas, Ihab F. and Kimelfeld, Benny},
+  journal = {PVLDB}, volume = {13}, number = {3}, year = {2019},
+  url = {https://dl.acm.org/doi/10.14778/3368289.3368293}}
+
+@misc{desbordante_cfd,
+  title = {Efficient Discovery of Conditional Dependencies with Desbordante},
+  year = {2026}, url = {https://arxiv.org/html/2607.04030}}
+
+@misc{desbordante_pfd,
+  title = {Extending Desbordante with Probabilistic Functional Dependency Discovery Support},
+  year = {2026}, url = {https://arxiv.org/html/2607.23636v1}}
+
+@misc{topkafd,
+  title = {Top-k Approximate Functional Dependency Discovery},
+  year = {2026}, url = {https://arxiv.org/pdf/2605.24925}}
+
+@article{conformance,
+  title = {Conformance Constraint Discovery: Measuring Trust in Data-Driven Systems},
+  author = {Fariha, Anna and Tiwari, Ashish and Radhakrishna, Arjun and Gulwani, Sumit and Meliou, Alexandra},
+  year = {2020}, url = {https://arxiv.org/pdf/2003.01289}}
+
+% ---------- Error detection & repair ----------
+@inproceedings{holoclean,
+  title = {{HoloClean}: Holistic Data Repairs with Probabilistic Inference},
+  author = {Rekatsinas, Theodoros and Chu, Xu and Ilyas, Ihab F. and R{\'e}, Christopher},
+  booktitle = {PVLDB}, year = {2017}}
+
+@inproceedings{rahabaran,
+  title = {Semi-Supervised Data Cleaning with Raha and Baran},
+  author = {Mahdavi, Mohammad and Abedjan, Ziawasch},
+  booktitle = {CIDR}, year = {2021},
+  url = {https://vldb.org/cidrdb/papers/2021/cidr2021_paper14.pdf}}
+
+@inproceedings{rahaaccel,
+  title = {Accelerating the Data Cleaning Systems Raha and Baran},
+  booktitle = {VLDB Workshops (QDB)}, year = {2024},
+  url = {https://www.vldb.org/workshops/2024/proceedings/QDB/QDB-1.pdf}}
+
+@misc{bclean, title = {{BClean}: A Bayesian Data Cleaning System}, year = {2023},
+  url = {https://arxiv.org/pdf/2311.06517}}
+
+@misc{mlncleaning, title = {A Hybrid Data Cleaning Framework using Markov Logic Networks},
+  year = {2019}, url = {https://arxiv.org/pdf/1903.05826}}
+
+@misc{zeroed, title = {{ZeroED}: Hybrid Zero-shot Error Detection through Large Language Model Reasoning},
+  year = {2025}, url = {https://arxiv.org/pdf/2504.05345}}
+
+@misc{mechdetect, title = {{MechDetect}: Detecting Data-Dependent Errors}, year = {2025},
+  url = {https://arxiv.org/pdf/2512.04138}}
+
+@article{dcml_slr,
+  title = {Data Cleaning and Machine Learning: A Systematic Literature Review},
+  journal = {Automated Software Engineering}, year = {2024},
+  url = {https://link.springer.com/article/10.1007/s10515-024-00453-w}}
+
+@misc{cleaningforml, title = {From Cleaning before {ML} to Cleaning for {ML}}, year = {2021}}
+
+% ---------- Anomaly detection, drift, conformal ----------
+@article{ucr,
+  title = {Benchmarking Anomaly Detection Methods: Insights From the {UCR} Time Series Anomaly Archive},
+  author = {Bald{\'a}n, Francisco J. and others}, journal = {Expert Systems}, year = {2025},
+  url = {https://onlinelibrary.wiley.com/doi/full/10.1111/exsy.13767}}
+
+@misc{mvbench, title = {Benchmarking Unsupervised Strategies for Anomaly Detection in Multivariate Time Series},
+  year = {2025}, url = {https://arxiv.org/abs/2506.20574}}
+
+@misc{d3r, title = {Drift-Aware Anomaly Detection via Dynamic Decomposition and Diffusion Reconstruction},
+  year = {2024}}
+
+@inproceedings{conformal2026,
+  title = {Adaptive Conformal Anomaly Detection with Time Series Foundation Models for Signal Monitoring},
+  booktitle = {ICLR}, year = {2026}, url = {https://arxiv.org/abs/2604.20122}}
+
+@misc{nonconform, title = {Conformal Anomaly Detection in Python ({nonconform})}, year = {2026},
+  url = {https://arxiv.org/pdf/2605.13642}}
+
+@misc{fdrnovelty, title = {Adaptive Novelty Detection with False Discovery Rate Guarantee},
+  year = {2022}, url = {https://arxiv.org/pdf/2208.06685}}
+
+@article{industrialcps,
+  title = {Conformal Machine Learning for Reliable Anomaly Detection in Industrial Cyber-Physical Systems},
+  journal = {Reliability Engineering \& System Safety}, year = {2026}}
+
+@article{bh1995, title = {Controlling the False Discovery Rate},
+  author = {Benjamini, Yoav and Hochberg, Yosef},
+  journal = {JRSS-B}, volume = {57}, number = {1}, year = {1995}}
+
+@article{by2001, title = {The Control of the False Discovery Rate in Multiple Testing under Dependency},
+  author = {Benjamini, Yoav and Yekutieli, Daniel}, journal = {Annals of Statistics}, year = {2001}}
+
+@book{vovk2005, title = {Algorithmic Learning in a Random World},
+  author = {Vovk, Vladimir and Gammerman, Alexander and Shafer, Glenn},
+  publisher = {Springer}, year = {2005}}
+
+% ---------- LLMs for data quality ----------
+@article{llmdqr,
+  title = {{LLM-DQR}: Large Language Model-Based Automated Generation of Data Quality Rules for Electronic Health Records},
+  journal = {Journal of Biomedical Informatics}, year = {2025},
+  url = {https://www.sciencedirect.com/science/article/abs/pii/S1532046425001807}}
+
+@misc{llmtabular, title = {Quality Assessment of Tabular Data using Large Language Models and Code Generation},
+  year = {2025}, url = {https://arxiv.org/abs/2509.10572}}
+
+@misc{tuwien, title = {Template-Guided Rule Generation and Evaluation for Data Quality using Large Language Models},
+  school = {TU Wien}, year = {2025},
+  url = {https://repositum.tuwien.at/handle/20.500.12708/221852}}
+
+% ---------- Entity resolution & weak supervision ----------
+@misc{splink, title = {Splink: Probabilistic Record Linkage at Scale},
+  author = {{UK Ministry of Justice Data Science}}, year = {2024}}
+@misc{zingg, title = {Zingg: Scalable Entity Resolution with Active Learning}, year = {2023}}
+@misc{dedupe, title = {dedupe: Python Library for Fuzzy Matching and Entity Resolution}, year = {2023}}
+@inproceedings{ditto, title = {Deep Entity Matching with Pre-Trained Language Models},
+  author = {Li, Yuliang and Li, Jinfeng and Suhara, Yoshihiko and Doan, AnHai and Tan, Wang-Chiew},
+  booktitle = {PVLDB}, year = {2020}}
+@misc{resolvi, title = {Resolvi: A Reference Architecture for Scalable and Interoperable Entity Resolution},
+  year = {2025}, url = {https://arxiv.org/html/2503.08087v2}}
+@inproceedings{snorkel, title = {Snorkel: Rapid Training Data Creation with Weak Supervision},
+  author = {Ratner, Alexander and Bach, Stephen H. and Ehrenberg, Henry and Fries, Jason and Wu, Sen and R{\'e}, Christopher},
+  booktitle = {PVLDB}, year = {2017}, url = {https://arxiv.org/pdf/1711.10160}}
+
+% ---------- Scoring, standards, systems ----------
+@misc{dqsops, title = {{DQSOps}: Data Quality Scoring Operations Framework for Data-Driven Applications},
+  year = {2023}, url = {https://arxiv.org/pdf/2303.15068}}
+@article{dqframeworks, title = {A Comparison of Data Quality Frameworks: A Review},
+  journal = {Big Data and Cognitive Computing}, volume = {9}, number = {4}, year = {2025},
+  url = {https://www.mdpi.com/2504-2289/9/4/93}}
+@misc{shacldq, title = {Is {SHACL} Suitable for Data Quality Assessment?}, year = {2025},
+  url = {https://arxiv.org/html/2507.22305v1}}
+@misc{shaclreview, title = {A Review of {SHACL}: From Data Validation to Schema Reasoning for {RDF} Graphs},
+  year = {2021}, url = {https://arxiv.org/pdf/2112.01441}}
+@misc{deequ, title = {Automating Large-Scale Data Quality Verification (Deequ)},
+  author = {Schelter, Sebastian and Lange, Dustin and Schmidt, Philipp and Celikel, Meltem and Biessmann, Felix and Grafberger, Andreas},
+  booktitle = {PVLDB}, year = {2018}}
+@misc{tfdv, title = {Data Validation for Machine Learning ({TFX})},
+  author = {Breck, Eric and Polyzotis, Neoklis and Roy, Sudip and Whang, Steven Euijong and Zinkevich, Martin},
+  booktitle = {SysML}, year = {2019}}
+@misc{openlineage, title = {OpenLineage: An Open Standard for Data Lineage}, year = {2024}}
+@misc{finoscdm, title = {{FINOS} Common Domain Model}, year = {2025}, url = {https://cdm.finos.org/}}
+@misc{iso20022, title = {{ISO} 20022 Universal Financial Industry Message Scheme},
+  author = {{SWIFT}}, year = {2025}, url = {https://www.swift.com/standards/iso-20022/iso-20022-standards}}
+@misc{jdiq, title = {{ACM} Journal of Data and Information Quality --- Call for Papers},
+  url = {https://dl.acm.org/journal/jdiq/call-for-papers}}
