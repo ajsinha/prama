@@ -36,6 +36,7 @@ provable quality conclusions — through a console, a Git repo, or a conversatio
 | 17 | [Risks & Open Questions](17-risks-and-open-questions.md) | What could kill this, and decisions still open |
 | 18 | [Technology Stack & Reuse from DishtaYantra](18-technology-stack.md) | Languages, frameworks, UI stack, deployment, and what to reuse |
 | 19 | [Implementation Roadmap — Ten Waves](19-implementation-roadmap.md) | The engineering plan: what gets built, in what order, and what done means |
+| 20 | [Competitive Analysis](20-competitive-analysis.md) | Head-to-head against Solidatus, Manta, Alation, Collibra, Monte Carlo and the rest — including where we are behind |
 | — | [Brand](brand.md) | Name, mark, slogan, palette, voice |
 | — | [Glossary](glossary.md) | Terms of art |
 | — | [Academic Paper](paper/) | Manuscript, outline, bibliography, experiment plan |
