@@ -23,7 +23,6 @@ from __future__ import annotations
 import dataclasses
 from typing import Any
 
-from prama.ir.lower import Lowerer
 from prama.pql import ast
 
 #: Predicates that already fail on a null, because an unknown counts as a
@@ -177,21 +176,23 @@ class Linter:
     # -- controls against each other --------------------------------------
 
     def _duplicates(self, controls: list[ast.Control]) -> list[LintFinding]:
-        """Exact duplicates, found by plan identity rather than by text.
+        """Exact duplicates, found by meaning rather than by text.
 
-        Content addressing makes this exact and free: two controls that compute
-        the same thing have the same plan id however differently they are
-        written, so a copied suite with reordered clauses is still caught.
+        The key is what the control *computes* — target, assertion, scope,
+        threshold and unknown policy — and deliberately not its severity or its
+        justification, which say who cares about it rather than what it does.
+        So a suite copied with its clauses reordered and its BECAUSE reworded
+        is still caught.
+
+        Built from the AST rather than from a lowered plan, which would be the
+        same equivalence reached by making the language depend on the IR — the
+        wrong direction, and a circular import besides.
         """
-        seen: dict[str, ast.Control] = {}
+        seen: dict[tuple[Any, ...], ast.Control] = {}
         findings: list[LintFinding] = []
-        lowerer = Lowerer()
         for control in controls:
-            try:
-                plan_id = lowerer.control(control).plan_id
-            except Exception:  # an assertion with no plan yet cannot be compared
-                continue
-            if plan_id in seen:
+            key = _identity(control)
+            if key in seen:
                 findings.append(
                     LintFinding(
                         rule="duplicate",
@@ -201,12 +202,12 @@ class Linter:
                             "finding and page the same person twice."
                         ),
                         control=control.render().splitlines()[0],
-                        related=seen[plan_id].render().splitlines()[0],
+                        related=seen[key].render().splitlines()[0],
                         position=control.position,
                     )
                 )
             else:
-                seen[plan_id] = control
+                seen[key] = control
         return findings
 
     def _subsumed(self, controls: list[ast.Control]) -> list[LintFinding]:
@@ -285,6 +286,18 @@ class Linter:
             severity="error",
             position=control.position,
         )
+
+
+def _identity(control: ast.Control) -> tuple[Any, ...]:
+    """What decides whether two controls do the same thing."""
+    return (
+        control.target,
+        control.assertion,
+        control.where,
+        control.segmentation,
+        control.threshold,
+        control.unknown_policy,
+    )
 
 
 def _literal_set(node: ast.Expression | None) -> frozenset[Any]:

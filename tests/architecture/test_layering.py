@@ -257,3 +257,34 @@ class TestDocumentation:
 @pytest.mark.parametrize("filename", ["LICENSE", "NOTICE", "CLAUDE.md"])
 def test_governing_documents_are_present(repo_root: Path, filename: str) -> None:
     assert (repo_root / filename).is_file()
+
+
+class TestLanguageLayering:
+    """The language must not depend on what compiles it."""
+
+    def test_pql_does_not_import_the_ir_or_a_backend(self) -> None:
+        # The direction is pql → ir → backend. Reversing it anywhere makes the
+        # language unusable without the execution stack, and produced a
+        # circular import the moment the linter reached for a lowered plan to
+        # compare two controls.
+        for path in (Path("src/prama/pql")).rglob("*.py"):
+            imported = imported_modules(path)
+            offending = {m for m in imported if m.startswith(("prama.ir", "prama.backend"))}
+            assert not offending, f"{path} imports {sorted(offending)}"
+
+    def test_the_ir_does_not_import_a_backend(self) -> None:
+        for path in (Path("src/prama/ir")).rglob("*.py"):
+            imported = imported_modules(path)
+            offending = {m for m in imported if m.startswith("prama.backend")}
+            assert not offending, f"{path} imports {sorted(offending)}"
+
+    def test_no_engine_name_is_branched_on_outside_the_dialects(self) -> None:
+        # The whole point of a dialect object is that nothing else asks which
+        # engine it is talking to.
+        allowed = {"src/prama/backend/dialect.py", "src/prama/backend/corpus.py"}
+        for path in Path("src/prama/backend").rglob("*.py"):
+            if str(path) in allowed:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for engine in ('"postgresql"', '"duckdb"', '"sqlite"'):
+                assert engine not in text, f"{path} branches on {engine}"
