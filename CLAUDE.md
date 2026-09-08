@@ -142,6 +142,10 @@ pip install -e ".[dev]"                  # editable install with the dev extras
 pytest -q                                # full suite
 pytest -q tests/architecture             # layering, file length, no-model-verdict guards
 prama config show                        # effective merged configuration, secrets redacted
+prama control check suite.pql            # parse, type-check and lint; non-zero on error
+prama control explain suite.pql          # each control as a sentence a data owner reads
+prama control compile suite.pql --fuse   # the SQL that will run, grouped into shared scans
+prama control import schema.yml --from dbt   # and what did not come across
 prama db init                            # apply schema/<dialect>.sql idempotently
 prama db verify                          # fail loudly if the live schema has drifted
 python scripts/check_file_length.py      # the 1500-line ceiling

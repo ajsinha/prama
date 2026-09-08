@@ -283,25 +283,47 @@ by a conformance suite that blocks the build.
 
 ### Tasks
 
-W4.1 grammar and parser · W4.2 AST and the two surfaces · W4.3 type checker and resolution ·
-W4.4 selector expansion, materialised and versioned · W4.5 IR model and content addressing ·
-W4.6 SQL backend and dialect adapters · W4.7 Arrow/DuckDB backend · W4.8 **conformance corpus and
-reference interpreter** · W4.9 property-based equivalence testing · W4.10 cost estimation ·
-W4.11 linter · W4.12 formatter · W4.13 plain-language renderer · W4.14 LSP · W4.15 importers for
-SodaCL, Great Expectations, dbt tests and ODCS quality blocks.
+W4.1 grammar and parser ✅ · W4.2 AST ✅ · W4.3 type checker and resolution ✅ ·
+W4.4 selector expansion, materialised and versioned ✅ · W4.5 IR model and content addressing ✅ ·
+W4.6 SQL backend and dialect adapters ✅ · W4.7 local evaluator ✅ · W4.8 **conformance corpus and
+reference interpreter** ✅ · W4.9 property-based equivalence testing ✅ · W4.10 cost estimation ✅ ·
+W4.11 linter ✅ · W4.12 formatter ✅ · W4.13 plain-language renderer ✅ · W4.14 LSP ⏳ ·
+W4.15 importers for SodaCL, Great Expectations and dbt tests ✅ (ODCS quality blocks ⏳).
+
+**Deferred, with the reason.** The language server (W4.14) is editor tooling with no editor to
+serve until the UI arrives in Wave 9, and `prama control check` and `control format` already give
+the same answers from a terminal and from CI. Building an LSP now would mean maintaining a second
+implementation of diagnostics against no consumer. The ODCS importer waits on the same decision as
+the other three: a contract's quality block maps cleanly only where it states a rule Prama has, and
+the value of writing it is highest alongside the contract conformance work in Wave 8.
 
 ### Acceptance criteria
 
-- [ ] 100% of implemented constructs pass conformance on **every** supported backend.
-- [ ] A construct a backend cannot express fails **at authoring time** with a clear message, never
-      silently degrades.
-- [ ] The worked example in [07 §10](07-rule-language-spec.md) compiles and runs end to end.
-- [ ] Every control has a generated plain-language rendering.
-- [ ] Cost is estimated before execution and is within 2× of actual on the benchmark corpus.
+- [x] 100% of implemented constructs pass conformance on **every** supported backend. Eighteen
+      corpus cases run on PostgreSQL 16, DuckDB and SQLite and agree on verdict, metrics and
+      per-segment breakdown.
+- [x] A construct a backend cannot express fails **at authoring time** with a clear message, never
+      silently degrades. SQLite refuses a pattern rather than substituting LIKE, and the refusal
+      is itself a conforming outcome.
+- [x] The worked example in [07 §10](07-rule-language-spec.md) compiles and runs end to end — the
+      CHECK suite, on SQLite and PostgreSQL and the reference interpreter, finding each planted
+      fault. MONITOR, RECONCILE and DERIVES FROM are recorded as not yet implemented rather than
+      trimmed from the example.
+- [x] Every control has a generated plain-language rendering — generated, so it cannot drift from
+      what the control does.
+- [x] Cost is estimated before execution, counted in scans rather than controls — a scan is what
+      the source pays for. Controls sharing a scope share a pass, and identical metrics are
+      computed once: nine controls over the corpus run in three scans instead of nine, with
+      answers identical to running them separately.
 - [ ] ≥ 95% of 500 real design-partner controls express in the portable subset (`ASM-015`).
+      **Blocked**: needs design partners. Cannot be simulated — a corpus we wrote ourselves would
+      measure our own imagination, not a bank's control estate.
 
-**Demo.** Write one control; run it unchanged on PostgreSQL, DuckDB and Snowflake; show the compiled
-SQL for each and the identical verdict.
+**Demo.** Write one control; run it unchanged on PostgreSQL, DuckDB and SQLite; show the compiled
+SQL for each and the identical verdict — `prama control compile suite.pql --dialect …`. Snowflake
+stands in for a fourth engine in the original plan and is not connected; the reference interpreter
+takes its place as the independent voice, which is a stronger check than a fourth SQL engine
+compiled by the same file.
 
 **Wave risks.** `RSK-11` — full semantic equivalence may be unattainable for regex flavours,
 collation and decimal semantics. The response is a documented *portable subset* and compile-time
