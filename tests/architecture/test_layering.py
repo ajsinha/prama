@@ -52,15 +52,45 @@ class TestDatabaseConfinement:
             f"Offenders: {offenders}. Use a repository and the unit of work."
         )
 
-    def test_only_prama_db_imports_a_database_driver(self) -> None:
-        drivers = {"sqlite3", "aiosqlite", "asyncpg", "psycopg", "psycopg2", "pymysql"}
+    def test_database_drivers_appear_only_where_they_belong(self) -> None:
+        """Two places may hold a driver, for two unrelated reasons.
+
+        ``prama.db`` talks to *Prama's own store*. ``prama.connect.sources``
+        talks to *a customer's source*, which is the data plane and genuinely
+        needs the driver. Anywhere else, a driver import means a layer has
+        started doing persistence itself.
+        """
+        drivers = {"sqlite3", "aiosqlite", "asyncpg", "psycopg", "psycopg2", "pymysql", "duckdb"}
+        allowed_roots = (("db",), ("connect", "sources"))
         offenders = []
         for path in python_files(SRC):
-            if "db" in path.relative_to(SRC).parts[:1]:
+            parts = path.relative_to(SRC).parts
+            if any(parts[: len(root)] == root for root in allowed_roots):
                 continue
             if drivers & {m.split(".")[0] for m in imported_modules(path)}:
                 offenders.append(relative(path))
-        assert not offenders, f"database drivers belong in src/prama/db: {offenders}"
+        assert not offenders, (
+            "database drivers belong in src/prama/db (Prama's own store) or "
+            f"src/prama/connect/sources (a customer's source): {offenders}"
+        )
+
+    def test_a_connector_never_touches_pramas_own_store(self) -> None:
+        """The constraint that makes the previous exemption safe.
+
+        A connector reads a customer's data. If it could also reach Prama's
+        store, the two would be one blast radius, and a bug in a third-party
+        connector could corrupt the evidence ledger.
+        """
+        offenders = []
+        for path in python_files(SRC / "connect"):
+            imports = imported_modules(path)
+            if any(m == "prama.db" or m.startswith("prama.db.") for m in imports):
+                offenders.append(relative(path))
+            if any(m.split(".")[0] == "sqlalchemy" for m in imports):
+                offenders.append(relative(path))
+        assert not offenders, (
+            f"a connector must not reach Prama's own store or its ORM: {offenders}"
+        )
 
     def test_core_does_not_depend_on_db(self) -> None:
         # prama.core is the foundation; a dependency on prama.db would make the
