@@ -230,8 +230,10 @@ class Correlation:
         return 1.0 - len(self.incidents) / self.findings
 
     def describe(self) -> str:
+        count = len(self.incidents)
         return (
-            f"{self.findings} findings became {len(self.incidents)} incidents "
+            f"{self.findings} findings became {count} "
+            f"incident{'' if count == 1 else 's'} "
             f"({self.reduction:.0%} fewer things to look at)"
         )
 
@@ -263,13 +265,66 @@ class Correlator:
         if not findings:
             return Correlation()
 
-        groups = self._by_ancestor(findings)
+        groups = self._merge_by_dataset(self._by_ancestor(findings))
         incidents: list[Incident] = []
         for ancestor, members in groups:
             incidents.append(self._build(members, ancestor))
 
         incidents.sort(key=lambda incident: (-len(incident.findings), incident.identity))
         return Correlation(incidents=tuple(incidents), findings=len(findings))
+
+    def _merge_by_dataset(
+        self, groups: list[tuple[Column | None, list[Finding]]]
+    ) -> list[tuple[Column | None, list[Finding]]]:
+        """Fold together groups whose upstreams reach a common dataset.
+
+        A sub-ledger that breaks affects its ``amount`` column and its
+        ``account`` column. Those are two roots of two subgraphs, so grouping
+        by column alone reports two incidents about one sub-ledger — this
+        module's own failure, one level up.
+
+        The test is the *upstream closure*, not the ancestor itself. A finding
+        that shares no ancestor with any other resolves to itself, so comparing
+        ancestors directly misses exactly the lone finding that most needs
+        folding in. Its sources still reach the sub-ledger, and that is the
+        question.
+
+        Merged only when the findings also fall inside the correlation window:
+        two columns of one warehouse table failing a fortnight apart are two
+        problems that happen to share a table.
+        """
+        if self._graph is None:
+            return groups
+        merged: list[tuple[Column | None, list[Finding], set[str]]] = []
+        for ancestor, members in groups:
+            if ancestor is None:
+                merged.append((ancestor, members, set()))
+                continue
+            reach = self._upstream_datasets(ancestor)
+            for index, (other, existing, other_reach) in enumerate(merged):
+                if other is None or not (reach & other_reach):
+                    continue
+                if not self._overlapping(existing, members):
+                    continue
+                shared = sorted(reach & other_reach)[0]
+                merged[index] = (
+                    Column(dataset=shared, name="*"),
+                    existing + members,
+                    reach | other_reach,
+                )
+                break
+            else:
+                merged.append((ancestor, members, reach))
+        return [(ancestor, members) for ancestor, members, _ in merged]
+
+    def _upstream_datasets(self, column: Column) -> set[str]:
+        """Datasets this column and everything feeding it belong to."""
+        assert self._graph is not None
+        return {column.dataset} | {source.dataset for source in self._graph.sources_of(column)}
+
+    def _overlapping(self, left: Sequence[Finding], right: Sequence[Finding]) -> bool:
+        stamps = [item.at for item in (*left, *right) if item.at]
+        return not stamps or (max(stamps) - min(stamps)) <= self._window
 
     # -- grouping ----------------------------------------------------------
 

@@ -274,8 +274,7 @@ class RootCause:
         touching = [
             change
             for change in self._changes
-            if change.at <= incident.opened_at
-            and {column.qualified, column.dataset} & set(change.touched)
+            if change.at <= incident.opened_at and _touches(change, column)
         ]
         return touching[-1] if touching else None
 
@@ -329,6 +328,25 @@ class RootCause:
             evidence=tuple(evidence),
             column=column,
         )
+
+
+def _touches(change: Change, column: Column) -> bool:
+    """Whether a change touched this column, or the dataset it belongs to.
+
+    The dataset test is not laxity. An incident whose cause spans several
+    columns is reported against the dataset — ``subledger.*`` — and a change
+    naming ``subledger.amount`` plainly touched it. Comparing only exact
+    qualified names would fail to connect the two, and the analysis would lose
+    the strongest evidence it had for the most clearly-diagnosed incidents.
+    """
+    for touched in change.touched:
+        if touched in (column.qualified, column.dataset):
+            return True
+        if column.name == "*" and touched.startswith(f"{column.dataset}."):
+            return True
+        if touched.rpartition(".")[0] == column.dataset:
+            return True
+    return False
 
 
 def learn_from(confirmed: Sequence[tuple[str, str]]) -> dict[str, int]:
