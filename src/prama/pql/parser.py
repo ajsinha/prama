@@ -74,6 +74,9 @@ class Parser:
         self.source = source
         self._tokens = tokenise(source)
         self._index = 0
+        #: True while parsing a selector's condition, where IS begins the
+        #: assertion rather than continuing the condition.
+        self._in_selector = False
 
     # -- entry points ------------------------------------------------------
 
@@ -124,10 +127,60 @@ class Parser:
 
     def _control(self) -> ast.Control:
         start = self._expect_keyword("CHECK").position
+        selector = self._selector()
+        if selector is not None:
+            # The assertion's subject is the attribute the selector will pick,
+            # which is not known until expansion.
+            placeholder = ast.SelectedAttribute(position=self._peek.position)
+            assertion = self._assertion("every attribute", placeholder)
+            control = ast.Control(assertion=assertion, selector=selector, position=start)
+            return self._modifiers(control)
         target, subject = self._target()
         assertion = self._assertion(target, subject)
         control = ast.Control(target=target, assertion=assertion, position=start)
         return self._modifiers(control)
+
+    def _selector(self) -> ast.Selector | None:
+        """``EVERY ATTRIBUTE WHERE …`` or ``CONCEPT Instrument.ISIN``.
+
+        Recognised before the target, because both begin where a dataset name
+        would go and neither is one.
+        """
+        start = self._peek.position
+        if self._peek.is_keyword("EVERY"):
+            self._advance()
+            self._expect_keyword("ATTRIBUTE")
+            where = self._selector_condition() if self._match_keyword("WHERE") else None
+            return ast.Selector(kind="attribute", where=where, position=start)
+        if self._peek.is_keyword("CONCEPT"):
+            self._advance()
+            concept = self._name("the concept, as in Instrument")
+            self._expect_punctuation(".")
+            prop = self._name("the concept property, as in ISIN")
+            return ast.Selector(
+                kind="concept", concept=concept, concept_property=prop, position=start
+            )
+        return None
+
+    def _selector_condition(self) -> ast.Expression:
+        """The metadata condition of a selector, stopping before the assertion.
+
+        ``EVERY ATTRIBUTE WHERE is_cde IS NOT NULL`` is ambiguous to a parser
+        and, read carefully, to a person: does IS NOT NULL qualify ``is_cde``
+        or state what must be true of the matched attributes? The rule is that
+        it always begins the assertion — so inside a selector condition ``IS``
+        ends the condition, and an attribute's missing metadata is written
+        ``domain = ''`` rather than ``domain IS NULL``.
+
+        Everything else stays available: ``tags IN ('pii')`` and
+        ``criticality IN ('tier1','tier2')`` read the way they should, because
+        IN cannot begin an assertion about a matched attribute on its own.
+        """
+        self._in_selector = True
+        try:
+            return self._expression()
+        finally:
+            self._in_selector = False
 
     def _target(self) -> tuple[str, ast.ColumnRef | None]:
         """The dataset a control is about, and the column if it names one.
@@ -148,7 +201,7 @@ class Parser:
 
     # -- assertions --------------------------------------------------------
 
-    def _assertion(self, target: str, subject: ast.ColumnRef | None) -> ast.Assertion:
+    def _assertion(self, target: str, subject: ast.Expression | None) -> ast.Assertion:
         token = self._peek
         if token.is_keyword("HAS"):
             return self._has_assertion(subject)
@@ -168,7 +221,7 @@ class Parser:
             ),
         )
 
-    def _has_assertion(self, subject: ast.ColumnRef | None) -> ast.Assertion:
+    def _has_assertion(self, subject: ast.Expression | None) -> ast.Assertion:
         start = self._expect_keyword("HAS").position
         if self._peek.is_keyword("UNIQUE"):
             self._advance()
@@ -207,7 +260,7 @@ class Parser:
             ),
         )
 
-    def _is_assertion(self, subject: ast.ColumnRef | None) -> ast.Assertion:
+    def _is_assertion(self, subject: ast.Expression | None) -> ast.Assertion:
         start = self._expect_keyword("IS").position
         negated = bool(self._match_keyword("NOT"))
         if self._peek.is_keyword("NULL"):
@@ -249,7 +302,7 @@ class Parser:
             ),
         )
 
-    def _freshness(self, start: Position, subject: ast.ColumnRef | None) -> ast.FreshnessAssertion:
+    def _freshness(self, start: Position, subject: ast.Expression | None) -> ast.FreshnessAssertion:
         self._expect_keyword("WITHIN")
         minutes = self._duration_minutes()
         due_time = ""
@@ -262,11 +315,11 @@ class Parser:
             tolerance_minutes=minutes,
             due_time=due_time,
             calendar=calendar,
-            column=subject,
+            column=subject if isinstance(subject, ast.ColumnRef) else None,
             position=start,
         )
 
-    def _predicate(self, subject: ast.ColumnRef) -> ast.Assertion:
+    def _predicate(self, subject: ast.Expression) -> ast.Assertion:
         start = self._peek.position
         negated = bool(self._match_keyword("NOT"))
         token = self._peek
@@ -316,7 +369,7 @@ class Parser:
         return lower, self._expression(COMPARISON_LEVEL + 1)
 
     def _in_predicate(
-        self, subject: ast.ColumnRef, negated: bool, start: Position
+        self, subject: ast.Expression, negated: bool, start: Position
     ) -> ast.PredicateAssertion:
         if self._match_keyword("CODELIST"):
             return ast.PredicateAssertion(
@@ -334,13 +387,19 @@ class Parser:
             position=start,
         )
 
-    def _references(self, subject: ast.ColumnRef) -> ast.ReferenceAssertion:
+    def _references(self, subject: ast.Expression) -> ast.ReferenceAssertion:
         start = self._expect_keyword("REFERENCES").position
+        column = self._require_column(
+            subject,
+            "a reference names one column on each side, so it cannot be written against a selector",
+            "Write it against the dataset: CHECK positions.account_id REFERENCES "
+            "accounts.account_id.",
+        )
         dataset = self._name("the dataset the value must exist in")
         self._expect_punctuation(".")
-        column = self._name("the column the value must exist in")
+        target = self._name("the column the value must exist in")
         return ast.ReferenceAssertion(
-            column=subject, target_dataset=dataset, target_column=column, position=start
+            column=column, target_dataset=dataset, target_column=target, position=start
         )
 
     def _satisfies(self) -> ast.Assertion:
@@ -517,6 +576,18 @@ class Parser:
             token=token,
         )
 
+    def _require_column(self, subject: ast.Expression, message: str, remedy: str) -> ast.ColumnRef:
+        """A named column, where a placeholder will not do.
+
+        Some assertions relate one named column to another. Under a selector
+        the left side is a different column for every match, so there is no
+        single relationship to declare — refusing is the honest answer rather
+        than expanding into something nobody wrote.
+        """
+        if not isinstance(subject, ast.ColumnRef):
+            raise self._error(message, remedy=remedy)
+        return subject
+
     def _fail_action(self) -> ast.FailAction:
         self._expect_keyword("ON")
         self._expect_keyword("FAIL")
@@ -595,7 +666,7 @@ class Parser:
         the language exists to avoid.
         """
         token = self._peek
-        if token.is_keyword("IS"):
+        if token.is_keyword("IS") and not self._in_selector:
             self._advance()
             negated = bool(self._match_keyword("NOT"))
             self._expect_keyword("NULL")
@@ -922,7 +993,7 @@ class Parser:
             )
         return self._advance()
 
-    def _require_subject(self, subject: ast.ColumnRef | None, token: Token) -> ast.ColumnRef:
+    def _require_subject(self, subject: ast.Expression | None, token: Token) -> ast.Expression:
         if subject is None:
             raise self._error(
                 "this check is about a column, but no column was named",

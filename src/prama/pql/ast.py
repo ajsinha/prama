@@ -198,6 +198,20 @@ class ColumnRef(Expression):
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
+class SelectedAttribute(Expression):
+    """Stands for whichever attribute a selector matched.
+
+    A control written against a selector has no column until it is expanded, and
+    expansion replaces this with the real one. A placeholder rather than an
+    empty column name, so a control that somehow reaches execution unexpanded
+    fails loudly instead of querying a column called "".
+    """
+
+    def render(self) -> str:
+        return "ATTRIBUTE"
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
 class ParameterRef(Expression):
     """A value supplied by the run rather than written in the control.
 
@@ -333,6 +347,15 @@ class Assertion(Node):
         """
         return f"{target} {self.render()}"
 
+    def render_selected(self) -> str:
+        """The assertion after a selector, which has already named the subject.
+
+        ``EVERY ATTRIBUTE WHERE is_cde IS NOT NULL`` — not ``… is_cde ATTRIBUTE
+        IS NOT NULL``. Rendering the placeholder here would emit text that does
+        not re-parse, which for a formatter is the same as being wrong.
+        """
+        return self.render()
+
 
 #: Comparison predicates, whose operator *is* the symbol.
 COMPARISONS: frozenset[str] = frozenset({"=", "<>", ">", ">=", "<", "<="})
@@ -371,6 +394,9 @@ class PredicateAssertion(Assertion):
         if isinstance(self.subject, ColumnRef) and self.subject.dataset in (target, ""):
             return f"{target}.{self.subject.name} {self._clause()}"
         return f"{target} {self.render()}"
+
+    def render_selected(self) -> str:
+        return self._clause()
 
     def describe(self) -> str:
         return f"every {_bare(self.subject)} {self._plain()}"
@@ -629,6 +655,37 @@ class EvidenceSpec(Node):
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
+class Selector(Node):
+    """Which assets a control applies to, named by meaning rather than by name.
+
+    The most consequential feature in the language, and the reason a bank's
+    control estate can be declared rather than typed: "every attribute that is
+    a CDE in Credit Risk" is a sentence somebody can approve, and it stays true
+    as the estate changes. A hundred hand-written controls do not.
+    """
+
+    #: ``attribute`` — matched on declared metadata; ``concept`` — matched on
+    #: the concept property an attribute is mapped to.
+    kind: str = "attribute"
+    where: Expression | None = None
+    concept: str = ""
+    concept_property: str = ""
+
+    def render(self) -> str:
+        if self.kind == "concept":
+            return f"CONCEPT {self.concept}.{self.concept_property}"
+        clause = "EVERY ATTRIBUTE"
+        return f"{clause} WHERE {self.where.render()}" if self.where else clause
+
+    def describe(self) -> str:
+        if self.kind == "concept":
+            return f"every attribute mapped to {self.concept}.{self.concept_property}"
+        if self.where is None:
+            return "every declared attribute"
+        return f"every attribute where {self.where.render()}"
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
 class Control(Node):
     """One CHECK, with everything that qualifies it."""
 
@@ -648,10 +705,32 @@ class Control(Node):
     on_fail: FailAction = FailAction.ALERT
     owner: str = ""
     schedule: str = ""
+    #: Set when the control was written against a selector rather than a named
+    #: dataset. Cleared by expansion — an expanded control is a concrete
+    #: control and must render as one, or its text will not re-parse.
+    selector: Selector | None = None
+    #: The selector that produced this control, once expanded. Provenance
+    #: rather than structure: an expanded control has to be able to say which
+    #: declaration it came from, which is the difference between a generated
+    #: estate somebody owns and one nobody recognises.
+    #:
+    #: Excluded from equality for the same reason as ``position``. It is not
+    #: part of what the control does, and including it would break
+    #: ``parse(render(x)) == x`` for every expanded control — the property that
+    #: makes an estate exportable and reviewable.
+    derived_from: str = dataclasses.field(default="", compare=False)
+
+    @property
+    def is_template(self) -> bool:
+        """Whether this control still needs expanding before it can run."""
+        return self.selector is not None
 
     def render(self) -> str:
         """Back to PQL, canonically. The formatter's output, and diff-stable."""
-        lines = [f"CHECK {self.assertion.render_head(self.target)}"]
+        if self.selector is not None:
+            lines = [f"CHECK {self.selector.render()} {self.assertion.render_selected()}"]
+        else:
+            lines = [f"CHECK {self.assertion.render_head(self.target)}"]
         if self.where is not None:
             lines.append(f"  WHERE {self.where.render()}")
         if self.segmentation is not None:
@@ -681,7 +760,10 @@ class Control(Node):
         actually does — which is the failure mode of every hand-written control
         description in every catalogue.
         """
-        sentence = [f"In {self.target}, {self.assertion.describe()}"]
+        if self.selector is not None:
+            sentence = [f"For {self.selector.describe()}, {self.assertion.describe()}"]
+        else:
+            sentence = [f"In {self.target}, {self.assertion.describe()}"]
         if self.where is not None:
             sentence.append(f", considering only rows where {self.where.render()}")
         if self.segmentation is not None:
@@ -745,6 +827,10 @@ def _bare(expression: Expression) -> str:
     """A column without its dataset, for a sentence that already named it."""
     if isinstance(expression, ColumnRef):
         return expression.name
+    if isinstance(expression, SelectedAttribute):
+        # The sentence has already said which attributes; naming the
+        # placeholder again would read as shouting.
+        return "one"
     return expression.render()
 
 
