@@ -18,6 +18,11 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 from prama.semantic.services.base import SemanticService, slugify
+from prama.semantic.services.connectivity import (
+    ConnectivityService,
+    ProfileRun,
+    read_policy_from,
+)
 from prama.semantic.services.datasets import DatasetService
 from prama.semantic.services.estate import EstateService
 from prama.semantic.services.graph import (
@@ -32,11 +37,14 @@ __all__ = [
     "BindingService",
     "ConceptService",
     "ConnectionService",
+    "ConnectivityService",
     "DatasetService",
     "EstateService",
     "JourneyService",
+    "ProfileRun",
     "RelationshipService",
     "SemanticService",
+    "read_policy_from",
     "relationship_kinds",
     "slugify",
 ]

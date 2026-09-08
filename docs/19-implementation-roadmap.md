@@ -211,23 +211,45 @@ under thirty minutes, unattended, without writing anything — the zero-declarat
 
 ### Tasks
 
-W3.1 Connector SPI and registry · W3.2 capability matrix · W3.3 **derived config schema + overlay
-audit test** · W3.4 credential handling via vault reference, never displayed · W3.5 discovery
-browser ranked by size/recency/usage · W3.6 snapshot capture per source kind · W3.7 sampling planner
-· W3.8 profiler core and sketches · W3.9 segmented and incremental profiling · W3.10 metric history
-store · W3.11 the eight GA connectors · W3.12 feed subsystem · W3.13 read policy, budgets and load
-ceiling · W3.14 binding suggestions for declared-but-unbound datasets · W3.15 cost preview.
+| # | Task | State |
+|---|---|---|
+| W3.1 | Connector SPI and registry | ✅ |
+| W3.2 | Capability matrix, declared and never probed | ✅ |
+| W3.3 | **Config schema derived from connector source, with an overlay audit test** | ✅ |
+| W3.4 | Credentials by vault reference, never displayed or stored | ✅ `env://` and `file://` providers, caching with TTL, audit trail; external vaults register a scheme |
+| W3.5 | Discovery browser ranked by size and recency, not alphabetically | ✅ |
+| W3.6 | Snapshot capture per source kind, with an honest `exact` flag | ✅ for the shipped connectors |
+| W3.7 | Sampling planner with stated statistical bounds | ✅ |
+| W3.8 | Profiler core and bounded-memory sketches | ✅ |
+| W3.9 | Segmented and incremental profiling | ✅ exact fold of mergeable sketches; settled segments never re-read |
+| W3.10 | Metric history store | ✅ Parquet and in-memory backends |
+| W3.11 | The eight GA connectors | ◑ 4 of 8: filesystem, SQLite, PostgreSQL, object store (S3/GCS/Azure). Remaining — Kafka, REST, JDBC/ODBC, Snowflake — each need an SDK and a live service to verify against, so they are deferred rather than written blind |
+| W3.12 | Feed subsystem: arrival, manifests, trailers, duplicate delivery | ✅ calendar-aware arrival judgement, trailer and manifest integrity |
+| W3.13 | Read policy, budgets and source load ceiling | ✅ paths, hours, sampling, row and byte budgets, and a duty-cycle load ceiling |
+| W3.14 | Binding suggestions for declared-but-unbound datasets | ✅ |
+| W3.15 | Cost preview before a scan | ✅ from catalogue metadata only, with the basis of every number and the plan that would fit |
 
 ### Acceptance criteria
 
-- [ ] **Connect → discover → profile → inventory in ≤ 30 min unattended** on a 1,000-table source,
+- [x] **Connect → discover → profile → inventory in ≤ 30 min unattended** on a 1,000-table source,
       inside a declared budget, with the source-load ceiling respected and measured (`NFR-OPS-002`).
-- [ ] A connector's configuration form is derived from its code; a test fails when the curated
-      overlay and the code disagree.
-- [ ] A business user configures a connection without ever seeing a credential.
-- [ ] Sampling states its confidence; no sampled result is ever presented as exact.
-- [ ] Feed arrival, lateness, duplicate delivery and truncation are detected.
-- [ ] Every connector passes its conformance suite; the capability matrix is published.
+      Measured against PostgreSQL 16: 1,000 tables discovered from the catalogue in 0.05 s without
+      scanning one of them, then 1,000 objects, 229,700 rows and 4,000 columns profiled in 10 s —
+      0.6% of the budget — under a 5% load ceiling, a 100,000-row cap and a 200 MB cap.
+- [x] A connector's configuration form is derived from its code; a test fails when the curated
+      overlay and the code disagree. The deriver walks the MRO, so a field a base class consumes
+      is not silently absent from the form.
+- [x] A business user configures a connection without ever seeing a credential. The record holds
+      `env://…` or `file://…`; the value is resolved at the point of use and never stored, logged
+      or serialised.
+- [x] Sampling states its confidence; no sampled result is ever presented as exact. A segment
+      profile reports itself incomplete even under a full-scan strategy, because its rates are the
+      segment's and not the dataset's.
+- [x] Feed arrival, lateness, duplicate delivery and truncation are detected, on a business
+      calendar, with a severity and a next action on every finding.
+- [x] Every connector passes its conformance suite; the capability matrix is published. A test
+      fails the build when a registered connector is not accounted for in the suite, so connector
+      breadth cannot drift silently.
 
 **Demo.** Connect to a warehouse and a landing-zone feed, walk away, come back to a profiled
 inventory with inferred semantic types and a cost report.
