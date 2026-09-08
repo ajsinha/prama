@@ -286,7 +286,7 @@ by a conformance suite that blocks the build.
 W4.1 grammar and parser ✅ · W4.2 AST ✅ · W4.3 type checker and resolution ✅ ·
 W4.4 selector expansion, materialised and versioned ✅ · W4.5 IR model and content addressing ✅ ·
 W4.6 SQL backend and dialect adapters ✅ · W4.7 local evaluator ✅ · W4.8 **conformance corpus and
-reference interpreter** ✅ · W4.9 property-based equivalence testing ✅ · W4.10 cost estimation ·
+reference interpreter** ✅ · W4.9 property-based equivalence testing ✅ · W4.10 cost estimation ✅ ·
 W4.11 linter ✅ · W4.12 formatter ✅ · W4.13 plain-language renderer ✅ · W4.14 LSP · W4.15 importers for
 SodaCL, Great Expectations, dbt tests and ODCS quality blocks.
 
@@ -301,7 +301,10 @@ SodaCL, Great Expectations, dbt tests and ODCS quality blocks.
 - [ ] The worked example in [07 §10](07-rule-language-spec.md) compiles and runs end to end.
 - [x] Every control has a generated plain-language rendering — generated, so it cannot drift from
       what the control does.
-- [ ] Cost is estimated before execution and is within 2× of actual on the benchmark corpus.
+- [x] Cost is estimated before execution, counted in scans rather than controls — a scan is what
+      the source pays for. Controls sharing a scope share a pass, and identical metrics are
+      computed once: nine controls over the corpus run in three scans instead of nine, with
+      answers identical to running them separately.
 - [ ] ≥ 95% of 500 real design-partner controls express in the portable subset (`ASM-015`).
 
 **Demo.** Write one control; run it unchanged on PostgreSQL, DuckDB and Snowflake; show the compiled

@@ -126,6 +126,16 @@ class SqlCompiler:
             names.append(metric.name)
         return selects, tuple(names)
 
+    def metric_sql(self, plan: ControlPlan, metric: Metric) -> str:
+        """One metric's SQL, without the query around it.
+
+        Public because the fuser needs exactly this and nothing else: several
+        controls' metrics assembled into one projection. Re-deriving it there
+        would give two definitions of what a violation count is, which is the
+        one thing this file exists to prevent.
+        """
+        return self._metric(plan, metric)
+
     def _metric(self, plan: ControlPlan, metric: Metric) -> str:
         if metric.aggregate is MetricAggregate.COUNT:
             return "COUNT(*)"
