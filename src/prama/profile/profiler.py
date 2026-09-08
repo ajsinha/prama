@@ -154,6 +154,27 @@ class Profiler:
         capture_snapshot: bool = True,
     ) -> DatasetProfile:
         """Read an object once and accumulate everything in a single pass."""
+        accumulators, provenance, schema = await self.accumulate(
+            connector, path, plan=plan, capture_snapshot=capture_snapshot
+        )
+        return self.assemble(path, accumulators, provenance, schema)
+
+    async def accumulate(
+        self,
+        connector: Connector,
+        path: tuple[str, ...],
+        *,
+        plan: SamplePlan | None = None,
+        capture_snapshot: bool = True,
+    ) -> tuple[dict[str, ColumnAccumulator], ProfileProvenance, ObjectSchema]:
+        """The reading pass, with the sketches still intact.
+
+        Separate from :meth:`profile` because a ``ColumnProfile`` cannot be
+        turned back into an accumulator — a HyperLogLog is not recoverable from
+        the distinct *estimate* it produced. Anything that folds segments
+        together has to hold the accumulators, so this is where segmented and
+        incremental profiling attach.
+        """
         started = self._clock.monotonic()
         plan = plan or SamplePlan()
         snapshot = await connector.snapshot(path) if capture_snapshot else None
@@ -194,6 +215,16 @@ class Profiler:
             duration_seconds=self._clock.monotonic() - started,
             truncated=truncated,
         )
+        return accumulators, provenance, schema
+
+    @staticmethod
+    def assemble(
+        path: tuple[str, ...],
+        accumulators: dict[str, ColumnAccumulator],
+        provenance: ProfileProvenance,
+        schema: ObjectSchema,
+    ) -> DatasetProfile:
+        """Turn accumulated state into a profile, in the schema's column order."""
         ordered = [
             accumulators[name].profile() for name in schema.column_names if name in accumulators
         ]

@@ -27,6 +27,7 @@ import re
 from datetime import datetime
 from typing import Any, ClassVar
 
+from prama.core.errors import ValidationError
 from prama.profile.sketches import CountMin, HyperLogLog, TDigest, TopK
 
 #: Quantiles worth keeping. The tails are the point: a monitor's baseline needs
@@ -260,9 +261,26 @@ class ColumnAccumulator:
         """Combine two partial accumulators over the same column.
 
         What lets a profile be computed by parallel workers over partitions and
-        then rolled up, without re-reading anything.
+        then rolled up, without re-reading anything — and, incrementally, what
+        lets yesterday's partition be folded into a year of accumulated state
+        for the cost of one day's reading rather than a year's.
+
+        Exact for the counted quantities; the estimated ones inherit each
+        sketch's own declared error and gain none from the merge itself.
         """
-        merged = ColumnAccumulator(self.name, self.type_name)
+        if other.name != self.name:
+            raise ValidationError(
+                f"cannot merge a profile of {other.name!r} into one of {self.name!r}",
+                remedy="Merge accumulators column by column, matching on name.",
+                context={"into": self.name, "from": other.name},
+            )
+        type_name = self.type_name
+        if other.type_name != type_name:
+            # Not fatal: a segment written before a type change holds real data
+            # and excluding it would understate the table. But the merged
+            # profile must not claim a single type the column no longer has.
+            type_name = "|".join(sorted({type_name, other.type_name}))
+        merged = ColumnAccumulator(self.name, type_name)
         merged._rows = self._rows + other._rows
         merged._nulls = self._nulls + other._nulls
         merged._blank = self._blank + other._blank

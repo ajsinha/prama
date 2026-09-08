@@ -220,6 +220,7 @@ class SqlConnector(Connector):
 
         self._check_permitted(path)
         plan = plan or SamplePlan()
+        self.require_predicate_support(plan)
         budget = _Budget(plan, self.policy)
         pacer = LoadPacer(self.policy.load_ceiling)
         statement = self.dialect.stream_sql(path, plan)

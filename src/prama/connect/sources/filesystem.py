@@ -221,7 +221,9 @@ class FilesystemConnector(Connector):
         self, path: tuple[str, ...], *, plan: SamplePlan | None = None
     ) -> AsyncIterator[pa.RecordBatch]:
         file = self._resolve(path)
-        query = self._select(file, plan or SamplePlan())
+        plan = plan or SamplePlan()
+        self.require_predicate_support(plan)
+        query = self._select(file, plan)
         # A table, explicitly. `arrow()` returns a reader in some DuckDB
         # versions and a table in others, and the difference would surface as an
         # AttributeError on somebody else's machine rather than on ours.
@@ -295,6 +297,11 @@ class FilesystemConnector(Connector):
 
     def _select(self, file: Path, plan: SamplePlan) -> str:
         source = self._reader(file)
+        # WHERE precedes USING SAMPLE in DuckDB, so the sample is drawn from
+        # the segment rather than the segment taken from the sample — which
+        # would return almost nothing and look like an empty partition.
+        if plan.predicate:
+            source = f"{source} WHERE {plan.predicate}"
         if plan.strategy is SamplingStrategy.FULL:
             return f"SELECT * FROM {source}"
         if plan.strategy is SamplingStrategy.HEAD:

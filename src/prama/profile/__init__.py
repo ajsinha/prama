@@ -9,6 +9,15 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+from prama.profile.incremental import (
+    DEFAULT_MUTABLE_DAYS,
+    IncrementalPlan,
+    IncrementalPlanner,
+    SegmentDecision,
+    SegmentLedger,
+    SegmentRecord,
+    SegmentState,
+)
 from prama.profile.profiler import (
     DatasetProfile,
     ProfileProvenance,
@@ -17,6 +26,17 @@ from prama.profile.profiler import (
     suggest_sample_plan,
 )
 from prama.profile.recording import points_from_profile
+from prama.profile.segmented import (
+    SegmentAccumulation,
+    SegmentedProfile,
+    SegmentedProfiler,
+)
+from prama.profile.segments import (
+    MAX_SEGMENTS,
+    Segment,
+    Segmentation,
+    SegmentGrain,
+)
 from prama.profile.sketches import CountMin, HyperLogLog, TDigest, TopK
 from prama.profile.statistics import (
     ColumnAccumulator,
@@ -27,14 +47,28 @@ from prama.profile.statistics import (
 )
 
 __all__ = [
+    "DEFAULT_MUTABLE_DAYS",
+    "MAX_SEGMENTS",
     "ColumnAccumulator",
     "ColumnProfile",
     "CountMin",
     "DatasetProfile",
     "HyperLogLog",
+    "IncrementalPlan",
+    "IncrementalPlanner",
     "NumericSummary",
     "ProfileProvenance",
     "Profiler",
+    "Segment",
+    "SegmentAccumulation",
+    "SegmentDecision",
+    "SegmentGrain",
+    "SegmentLedger",
+    "SegmentRecord",
+    "SegmentState",
+    "Segmentation",
+    "SegmentedProfile",
+    "SegmentedProfiler",
     "StringSummary",
     "TDigest",
     "TopK",

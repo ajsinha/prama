@@ -122,8 +122,10 @@ class SqlDialect(ABC):
     def stream_sql(self, path: tuple[str, ...], plan: SamplePlan) -> str:
         """The whole read as one statement, for drivers that stream results."""
         if plan.strategy in (SamplingStrategy.FULL, SamplingStrategy.HEAD):
-            return f"SELECT * FROM {self.qualify(path)}"
-        return self.sample_from(path, plan)
+            base = f"SELECT * FROM {self.qualify(path)}"
+        else:
+            base = self.sample_from(path, plan)
+        return f"{base} WHERE {plan.predicate}" if plan.predicate else base
 
     # -- session -----------------------------------------------------------
 

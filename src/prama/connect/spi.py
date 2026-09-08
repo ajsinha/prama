@@ -32,6 +32,7 @@ from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from prama.connect.capability import PushdownFeature
 from prama.core.errors import PramaError
 from prama.core.registry import Capability, Plugin, PluginManifest
 
@@ -246,19 +247,32 @@ class SamplePlan:
     seed: int = 0
     stratify_by: tuple[str, ...] = ()
     partitions: int | None = None
+    #: A source-native filter restricting the read to one slice — the mechanism
+    #: behind segmented profiling. A connector that cannot apply it MUST raise
+    #: rather than ignore it: silently reading the whole object and labelling
+    #: the result as one segment would attribute a table's data to a single day
+    #: and is worse than refusing. Declare PREDICATE_PUSHDOWN to accept one.
+    predicate: str = ""
 
     @property
     def is_complete(self) -> bool:
-        return self.strategy is SamplingStrategy.FULL
+        """Whether this read sees the whole object.
+
+        A predicate makes it not complete even under a full-scan strategy: the
+        rates it measures are the segment's, and stating them as the dataset's
+        would be a straightforward falsehood.
+        """
+        return self.strategy is SamplingStrategy.FULL and not self.predicate
 
     def describe(self) -> str:
-        if self.is_complete:
-            return "full scan"
+        scope = f" where {self.predicate}" if self.predicate else ""
+        if self.strategy is SamplingStrategy.FULL:
+            return f"full scan{scope}"
         if self.fraction is not None:
-            return f"{self.strategy.value} sample at {self.fraction * 100:g}%"
+            return f"{self.strategy.value} sample at {self.fraction * 100:g}%{scope}"
         if self.rows is not None:
-            return f"{self.strategy.value} sample of {self.rows:,} rows"
-        return self.strategy.value
+            return f"{self.strategy.value} sample of {self.rows:,} rows{scope}"
+        return f"{self.strategy.value}{scope}"
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -393,6 +407,26 @@ class Connector(Plugin, ABC):
 
     def supports(self, capability: str) -> bool:
         return any(c.name == capability for c in self.pushdown_capabilities())
+
+    def require_predicate_support(self, plan: SamplePlan) -> None:
+        """Refuse a filtered read this connector cannot actually filter.
+
+        The alternative is the quiet disaster: the predicate is dropped, the
+        whole object is read, and the result is recorded as the profile of one
+        segment. A table's data then appears as a single day's, every rate is
+        wrong, and nothing looks broken. Better to fail where the truth is.
+        """
+        if plan.predicate and not self.supports(PushdownFeature.PREDICATE_PUSHDOWN.value):
+            raise ConnectorError(
+                f"{type(self).__name__} cannot restrict a read to part of an object",
+                code="CONNECT.NO_PREDICATE",
+                remedy=(
+                    "Profile this object whole, or reach it through a connector that "
+                    "can filter. Reading everything and calling it one segment would "
+                    "attribute the whole object's data to that segment."
+                ),
+                context={"connector": type(self).__name__, "predicate": plan.predicate},
+            )
 
     @classmethod
     def describe_manifest(

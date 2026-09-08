@@ -125,17 +125,23 @@ class SqliteConnector(Connector):
         return await asyncio.to_thread(self._describe, path[0])
 
     async def snapshot(self, path: tuple[str, ...]) -> Snapshot:
-        """SQLite's data version: it changes whenever the database is modified.
+        """The file's state: size, modification time and page count.
 
-        A real, cheap, exact identifier — which is more than most sources offer,
-        and is why an extract in a file can carry evidence as good as a
-        warehouse's.
+        Not ``PRAGMA data_version``, which is the obvious candidate and is
+        wrong. It reports changes made by *other* connections during the life
+        of the current one, so a fresh connection always reads 1 no matter what
+        has happened to the file. Used as a change marker it never moves, and
+        anything built on it — incremental profiling above all — would trust a
+        stale profile forever while believing it had checked.
+
+        Size, nanosecond mtime and page count together do move, and a change
+        that preserved all three is not something that happens by accident.
         """
         self._check_permitted(path)
-        version, page_count = await asyncio.to_thread(self._data_version)
+        identity, page_count = await asyncio.to_thread(self._file_identity)
         return Snapshot(
-            kind=SnapshotKind.TRANSACTION_ID,
-            identifier=str(version),
+            kind=SnapshotKind.FILE_DIGEST,
+            identifier=identity,
             captured_at=utc_now(),
             detail={"page_count": page_count, "object": path[0]},
         )
@@ -145,6 +151,7 @@ class SqliteConnector(Connector):
     ) -> AsyncIterator[pa.RecordBatch]:
         self._check_permitted(path)
         plan = plan or SamplePlan()
+        self.require_predicate_support(plan)
         offset = 0
         while True:
             batch = await asyncio.to_thread(self._read_batch, path[0], plan, offset)
@@ -206,11 +213,11 @@ class SqliteConnector(Connector):
             count = connection.execute(f'SELECT count(*) FROM "{name}"').fetchone()[0]
         return ObjectSchema(path=(name,), columns=columns, estimated_rows=count)
 
-    def _data_version(self) -> tuple[int, int]:
+    def _file_identity(self) -> tuple[str, int]:
+        stat = self._path.stat()
         with self._connect() as connection:
-            version = connection.execute("PRAGMA data_version").fetchone()[0]
-            pages = connection.execute("PRAGMA page_count").fetchone()[0]
-        return int(version), int(pages)
+            pages = int(connection.execute("PRAGMA page_count").fetchone()[0])
+        return f"{stat.st_size}:{stat.st_mtime_ns}:{pages}", pages
 
     def _read_batch(self, name: str, plan: SamplePlan, offset: int) -> pa.RecordBatch | None:
         import pyarrow as pa
@@ -233,12 +240,13 @@ class SqliteConnector(Connector):
         )
 
     def _select(self, name: str, plan: SamplePlan, limit: int, offset: int) -> str:
+        where = f" WHERE {plan.predicate}" if plan.predicate else ""
         if plan.strategy in (SamplingStrategy.FULL, SamplingStrategy.HEAD):
-            return f'SELECT * FROM "{name}" LIMIT {limit} OFFSET {offset}'
+            return f'SELECT * FROM "{name}"{where} LIMIT {limit} OFFSET {offset}'
         # SQLite has no sampling clause. A seeded ordering is deterministic and
         # honest about being a sample rather than pretending to be a scan.
         return (
-            f'SELECT * FROM "{name}" ORDER BY (rowid * {plan.seed or 1} % 1000003) '
+            f'SELECT * FROM "{name}"{where} ORDER BY (rowid * {plan.seed or 1} % 1000003) '
             f"LIMIT {limit} OFFSET {offset}"
         )
 
