@@ -148,6 +148,7 @@ Start with **[docs/00 — Executive Summary](docs/00-executive-summary.md)**, th
 | 18 | [Technology Stack & Reuse from DishtaYantra](docs/18-technology-stack.md) | Languages, frameworks, world-class UI stack, deployment, and code reuse |
 | 19 | [Implementation Roadmap — Ten Waves](docs/19-implementation-roadmap.md) | The engineering plan: what gets built, in what order, and what done means |
 | 20 | [Competitive Analysis](docs/20-competitive-analysis.md) | Head-to-head against Solidatus, Manta, Alation, Collibra, Monte Carlo and the rest — including where we are behind |
+| 21 | [How We Win](docs/21-how-we-win.md) | The plan to beat them: three asymmetric unlocks, honest moat ratings, and the traps we set |
 | — | [Brand](docs/brand.md) | Name, mark, slogan, palette, voice |
 | — | [Glossary](docs/glossary.md) | Terms of art |
 | — | [Academic Paper](docs/paper/) | Manuscript, bibliography, experiment plan |
