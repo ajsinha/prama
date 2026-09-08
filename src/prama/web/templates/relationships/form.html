@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}Declare a relationship — Prama{% endblock %}
+{% block heading %}Declare a relationship{% endblock %}
+
+{% block content %}
+{% set s = submitted or {} %}
+{% if not datasets or datasets | length < 2 %}
+<div class="alert alert-warning">
+  A relationship needs two datasets and
+  {{ datasets | length }} {{ 'is' if datasets | length == 1 else 'are' }} declared.
+  <a href="{{ url_for('declaration_form') }}">Declare another one first.</a>
+</div>
+{% else %}
+
+<form method="post" action="{{ url_for('relationship_create') }}" class="row g-3"
+      style="max-width: 46rem">
+  <div class="col-md-6">
+    <label class="form-label" for="from_dataset_id">This dataset</label>
+    <select class="form-select" id="from_dataset_id" name="from_dataset_id" required>
+      <option value="">choose…</option>
+      {% for dataset in datasets %}
+      <option value="{{ dataset.id }}"
+              {% if s.get('from_dataset_id') == dataset.id %}selected{% endif %}>
+        {{ dataset.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="col-md-6">
+    <label class="form-label" for="to_dataset_id">…and this one</label>
+    <select class="form-select" id="to_dataset_id" name="to_dataset_id" required>
+      <option value="">choose…</option>
+      {% for dataset in datasets %}
+      <option value="{{ dataset.id }}"
+              {% if s.get('to_dataset_id') == dataset.id %}selected{% endif %}>
+        {{ dataset.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="col-12">
+    <fieldset>
+      <legend class="form-label">What is true of them?</legend>
+      {# Each option is the *question* the kind answers, and each says what it
+         switches on. That second part is the reason to choose carefully: this
+         is the difference between drawing a line on a diagram and turning on a
+         reconciliation. Both lists come from RelationshipKind, so a kind
+         gaining a generated control gains it here too. #}
+      <div class="list-group">
+        {% for kind in kinds %}
+        <label class="list-group-item d-flex gap-2 align-items-start">
+          <input class="form-check-input flex-shrink-0 mt-1" type="radio" name="kind"
+                 value="{{ kind.value }}"
+                 data-requires-match-keys="{{ 1 if kind.requires_match_keys else 0 }}"
+                 data-requires-tolerance="{{ 1 if kind.requires_tolerance else 0 }}"
+                 data-requires-compare="{{ 1 if kind.requires_compare else 0 }}"
+                 {% if s.get('kind') == kind.value %}checked{% endif %}
+                 {% if loop.first and not s.get('kind') %}checked{% endif %}>
+          <span>
+            <span class="fw-semibold">{{ kind.prompt }}</span>
+            <code class="small text-muted ms-1">{{ kind.value }}</code>
+            <div class="small text-muted">
+              Generates: {{ kind.generates | join(', ') }}
+            </div>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+  </div>
+
+  <div class="col-12" id="match-keys-group">
+    <label class="form-label" for="match_keys">Which columns line the two up?</label>
+    <input class="form-control" id="match_keys" name="match_keys"
+           value="{{ s.get('match_keys', '') }}"
+           placeholder="account_id = acct_id, trade_date"
+           aria-describedby="match-keys-help">
+    <div id="match-keys-help" class="form-text">
+      Comma-separated. Write <code>left = right</code> when the columns are named
+      differently, or just the name when they are the same.
+    </div>
+  </div>
+
+  <div class="col-12" id="compare-group">
+    <label class="form-label" for="compare">Which value should agree?</label>
+    <input class="form-control" id="compare" name="compare"
+           value="{{ s.get('compare', '') }}" placeholder="amount, quantity"
+           aria-describedby="compare-help">
+    <div id="compare-help" class="form-text">
+      Comma-separated. A reconciliation with nothing to compare matches rows and
+      tells you nothing about whether they agree.
+    </div>
+  </div>
+
+  <div class="col-12" id="tolerance-group">
+    <fieldset>
+      <legend class="form-label">How close is close enough?</legend>
+      {# Percent here, fraction in the model. Asking an operations analyst to
+         type 0.001 for a tenth of a percent is how a tolerance ends up a
+         thousand times wider than intended — and nothing about the resulting
+         run looks wrong. #}
+      <div class="row g-2">
+        <div class="col-4">
+          <input class="form-control" id="tolerance_absolute" name="tolerance_absolute"
+                 inputmode="decimal" placeholder="1.00"
+                 value="{{ s.get('tolerance_absolute', '') }}"
+                 aria-label="Absolute tolerance">
+        </div>
+        <div class="col-3">
+          <input class="form-control" id="tolerance_currency" name="tolerance_currency"
+                 maxlength="3" placeholder="EUR"
+                 value="{{ s.get('tolerance_currency', '') }}"
+                 aria-label="Tolerance currency">
+        </div>
+        <div class="col-5 input-group">
+          <input class="form-control" id="tolerance_relative_percent"
+                 name="tolerance_relative_percent" inputmode="decimal" placeholder="0.1"
+                 value="{{ s.get('tolerance_relative_percent', '') }}"
+                 aria-label="Relative tolerance, per cent">
+          <span class="input-group-text">%</span>
+        </div>
+      </div>
+      <div class="form-text">
+        Set either or both. When both are set a difference must breach both to count
+        — "a penny or a basis point, whichever is larger", which is the convention
+        operations already use, so the control matches the manual process it replaces.
+      </div>
+    </fieldset>
+  </div>
+
+  <div class="col-md-6">
+    <label class="form-label" for="cardinality">How many to how many?</label>
+    <select class="form-select" id="cardinality" name="cardinality">
+      {% for value, text in [
+          ('many_to_many', 'many to many'),
+          ('one_to_one', 'one to one'),
+          ('one_to_many', 'one to many'),
+          ('many_to_one', 'many to one')] %}
+      <option value="{{ value }}"
+              {% if s.get('cardinality', 'many_to_many') == value %}selected{% endif %}>
+        {{ text }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="col-12">
+    <label class="form-label" for="description">Anything a reader should know</label>
+    <input class="form-control" id="description" name="description"
+           value="{{ s.get('description', '') }}">
+  </div>
+
+  <div class="col-12">
+    <button class="btn btn-primary" type="submit">Declare it</button>
+    <a class="btn btn-link" href="{{ url_for('relationship_list') }}">Cancel</a>
+  </div>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  jQuery(function ($) {
+    function sync() {
+      var kind = $("input[name=kind]:checked");
+      var needsKeys = kind.data("requires-match-keys") === 1;
+      var needsTolerance = kind.data("requires-tolerance") === 1;
+      $("#match-keys-group").toggle(needsKeys);
+      $("#match_keys").prop("required", needsKeys);
+      $("#tolerance-group").toggle(needsTolerance);
+      var needsCompare = kind.data("requires-compare") === 1;
+      $("#compare-group").toggle(needsCompare);
+      $("#compare").prop("required", needsCompare);
+    }
+    $("input[name=kind]").on("change", sync);
+    sync();
+  });
+</script>
+{% endblock %}

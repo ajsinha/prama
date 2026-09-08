@@ -76,15 +76,75 @@
       var a = node.attributes;
       var href = detailTemplate.replace("__ID__", encodeURIComponent(node.key));
       var state = a.bound ? (a.complete ? "Declared" : "Incomplete") : "Not connected";
-      return "<tr><td><a href=\"" + href + "\">" + $("<div>").text(a.label).html() +
+      var label = $("<div>").text(a.label).html();
+      return "<tr><td><a href=\"" + href + "\">" + label +
         "</a></td><td>" + $("<div>").text(a.shape).html() +
-        "</td><td>Tier " + a.tier + "</td><td>" + state + "</td></tr>";
+        "</td><td>Tier " + a.tier + "</td><td>" + state +
+        "</td><td class=\"text-end\"><button type=\"button\" " +
+        "class=\"btn btn-sm btn-outline-secondary pick\" data-id=\"" +
+        $("<div>").text(node.key).html() + "\" data-label=\"" + label +
+        "\">Relate</button></td></tr>";
     });
     $("#map-rows").html(rows.join("") ||
-      "<tr><td colspan=\"4\" class=\"text-muted\">Nothing declared yet.</td></tr>");
+      "<tr><td colspan=\"5\" class=\"text-muted\">Nothing declared yet.</td></tr>");
   }
 
-  window.pramaEstateMap = function (graphUrl, detailTemplate) {
+  /* Pick-then-pick, not drag.
+     A drag gesture has no keyboard equivalent at all, so the same two picks
+     serve a mouse, a touch screen and a screen reader; the table's Relate
+     button does exactly what clicking a node does. */
+  function declareTray(relateUrl) {
+    var picked = [];
+
+    function render() {
+      $("#declare-source").text(picked[0] ? picked[0].label : "—");
+      $("#declare-target").text(picked[1] ? picked[1].label : "—");
+      var ready = picked.length === 2;
+      $("#declare-go").toggleClass("disabled", !ready)
+        .attr("aria-disabled", ready ? null : "true")
+        .attr("href", ready
+          ? relateUrl + "?source=" + encodeURIComponent(picked[0].id) +
+            "&target=" + encodeURIComponent(picked[1].id)
+          : relateUrl);
+    }
+
+    return {
+      active: function () { return $("#declare-mode").is(":checked"); },
+      pick: function (id, label) {
+        /* Relating a dataset to itself is not a relationship, and the form
+           would refuse it after the user had chosen a kind and typed the
+           match keys. Refused here, where it costs one click. */
+        if (picked.length === 1 && picked[0].id === id) {
+          window.pramaAnnounce("A dataset cannot be related to itself.");
+          return;
+        }
+        if (picked.length >= 2) { picked = []; }
+        picked.push({ id: id, label: label });
+        render();
+        window.pramaAnnounce(picked.length === 1
+          ? "First dataset: " + label + ". Now pick the second."
+          : "Second dataset: " + label + ". Ready to declare.");
+      },
+      clear: function () { picked = []; render(); window.pramaAnnounce("Selection cleared."); },
+      render: render
+    };
+  }
+
+  window.pramaEstateMap = function (endpoints) {
+    var graphUrl = endpoints.graph;
+    var detailTemplate = endpoints.detail;
+    var tray = declareTray(endpoints.relate);
+
+    $("#declare-mode").on("change", function () {
+      $("#declare-tray").prop("hidden", !this.checked);
+      if (!this.checked) { tray.clear(); }
+    });
+    $("#declare-clear").on("click", function () { tray.clear(); });
+    $(document).on("click", "#map-rows .pick", function () {
+      $("#declare-mode").prop("checked", true).trigger("change");
+      tray.pick($(this).data("id"), $(this).data("label"));
+    });
+
     $.getJSON(graphUrl)
       .done(function (payload) {
         fillTable(payload, detailTemplate);
@@ -120,6 +180,10 @@
         });
 
         renderer.on("clickNode", function (event) {
+          if (tray.active()) {
+            tray.pick(event.node, graph.getNodeAttribute(event.node, "label"));
+            return;
+          }
           window.location.href = detailTemplate.replace("__ID__", encodeURIComponent(event.node));
         });
 
@@ -163,7 +227,7 @@
           .text("The estate could not be loaded (" + (xhr.status || "no response") +
                 "). The list below is empty because nothing was received, not " +
                 "because nothing is declared.");
-        $("#map-rows").html("<tr><td colspan=\"4\" class=\"text-danger\">Not loaded.</td></tr>");
+        $("#map-rows").html("<tr><td colspan=\"5\" class=\"text-danger\">Not loaded.</td></tr>");
       });
   };
 })(jQuery);

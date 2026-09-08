@@ -65,6 +65,7 @@ class NavItem:
 NAVIGATION: tuple[NavItem, ...] = (
     NavItem("Estate", "estate_map", "/estate", "bi-diagram-3"),
     NavItem("Declarations", "declaration_list", "/declarations", "bi-journal-text"),
+    NavItem("Relationships", "relationship_list", "/relationships", "bi-share"),
     NavItem("Controls", "control_studio", "/controls", "bi-shield-check"),
     NavItem("Proposals", "proposal_queue", "/proposals", "bi-lightbulb"),
     NavItem("Incidents", "incident_list", "/incidents", "bi-exclamation-triangle"),

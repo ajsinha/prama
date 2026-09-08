@@ -411,3 +411,181 @@ class TestPackaging:
             if not any(fnmatch.fnmatch(relative, pattern) for pattern in patterns):
                 shipped.append(relative)
         assert shipped == [], f"not covered by package-data: {shipped[:10]}"
+
+
+class TestRelationships:
+    async def test_the_kind_options_carry_the_question_and_what_they_generate(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """Both derived from RelationshipKind.
+
+        The prompt is the sentence a business owner recognises; the generated
+        control list is the reason to choose carefully, since this is the
+        difference between drawing a line on a diagram and switching on a
+        reconciliation.
+        """
+        from prama.semantic.relationships import RelationshipKind
+
+        await _declare(started_database, tenant_id, name="Trades", slug="trades")
+        await _declare(started_database, tenant_id, name="Ledger", slug="ledger")
+        body = (await ui.get("/relationships/new")).text
+        for kind in RelationshipKind:
+            assert kind.prompt in body, kind.value
+            for generated in kind.generates:
+                assert generated in body, generated
+
+    async def test_the_form_refuses_when_there_is_only_one_dataset(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        await _declare(started_database, tenant_id, name="Trades", slug="trades")
+        body = (await ui.get("/relationships/new")).text
+        assert "needs two datasets" in body
+
+    async def test_declaring_a_relationship_lands_on_the_list(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        left = await _declare(started_database, tenant_id, name="Trades", slug="trades")
+        right = await _declare(started_database, tenant_id, name="Ledger", slug="ledger")
+        response = await ui.post(
+            "/relationships/new",
+            data={
+                "kind": "reconciles_with",
+                "from_dataset_id": left,
+                "to_dataset_id": right,
+                "match_keys": "trade_id = txn_id, trade_date",
+                "cardinality": "one_to_one",
+                "tolerance_absolute": "1.00",
+                "tolerance_currency": "eur",
+                "tolerance_relative_percent": "0.1",
+                "compare": "amount",
+            },
+        )
+        assert response.status_code == 303
+        listing = (await ui.get("/relationships")).text
+        assert "reconciles_with" in listing
+        assert "confirmed" in listing
+
+    async def test_a_proposal_offers_both_answers(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """A queue that offers only "confirm" is not asking a question."""
+        left = await _declare(started_database, tenant_id, name="Trades", slug="trades")
+        right = await _declare(started_database, tenant_id, name="Ledger", slug="ledger")
+        async with started_database.unit_of_work() as uow:
+            _, version = await uow.relationships.create(
+                tenant_id=tenant_id,
+                kind="references",
+                from_dataset_id=left,
+                to_dataset_id=right,
+                status="proposed",
+                confidence=0.82,
+            )
+            await uow.flush()
+            relationship_id = str(version.relationship_id)
+
+        body = (await ui.get("/relationships")).text
+        assert "Confirm" in body
+        assert "Reject" in body
+        assert f"/relationships/{relationship_id}/reject" in body
+
+    async def test_a_rejection_is_recorded_not_deleted(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """A rejection is a training signal. Re-proposing something a steward
+        has already turned down is the fastest way to lose their attention."""
+        left = await _declare(started_database, tenant_id, name="Trades", slug="trades")
+        right = await _declare(started_database, tenant_id, name="Ledger", slug="ledger")
+        async with started_database.unit_of_work() as uow:
+            _, version = await uow.relationships.create(
+                tenant_id=tenant_id,
+                kind="references",
+                from_dataset_id=left,
+                to_dataset_id=right,
+                status="proposed",
+            )
+            await uow.flush()
+            relationship_id = str(version.relationship_id)
+
+        await ui.post(f"/relationships/{relationship_id}/reject", data={"reason": "not true"})
+        async with started_database.unit_of_work() as uow:
+            current = await uow.relationships.require_current(relationship_id)
+            assert current.status == "rejected"
+
+    async def test_a_proposed_edge_is_not_drawn_as_a_declared_one(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """Drawing an inference identically to a statement of fact is the exact
+        confusion the confirm/reject workflow exists to prevent."""
+        left = await _declare(started_database, tenant_id, name="Trades", slug="trades")
+        right = await _declare(started_database, tenant_id, name="Ledger", slug="ledger")
+        async with started_database.unit_of_work() as uow:
+            await uow.relationships.create(
+                tenant_id=tenant_id,
+                kind="references",
+                from_dataset_id=left,
+                to_dataset_id=right,
+                status="proposed",
+            )
+            await uow.flush()
+        payload = (await ui.get("/estate/graph.json")).json()
+        assert payload["edges"][0]["attributes"]["style"] == "dashed"
+
+
+class TestTolerance:
+    def test_percent_on_the_form_becomes_a_fraction_in_the_model(self) -> None:
+        """The unit mismatch that makes a tolerance a thousand times too wide,
+        with nothing about the resulting run looking wrong."""
+        from prama.web.routes.relationship_routes import _parse_tolerance
+
+        tolerance = _parse_tolerance("", "", "0.1")
+        assert tolerance is not None
+        assert tolerance.relative == 0.001
+
+    def test_a_currency_is_normalised(self) -> None:
+        from prama.web.routes.relationship_routes import _parse_tolerance
+
+        tolerance = _parse_tolerance("1.00", "eur", "")
+        assert tolerance is not None
+        assert tolerance.currency == "EUR"
+
+    def test_nothing_typed_is_no_tolerance_not_a_zero_one(self) -> None:
+        """A zero tolerance breaks on the first rounding difference; the
+        declaration refuses a missing one with the right message, so this must
+        pass the absence through rather than invent a bound."""
+        from prama.web.routes.relationship_routes import _parse_tolerance
+
+        assert _parse_tolerance("", "", "") is None
+
+    async def test_a_kind_that_needs_a_tolerance_says_so_when_it_is_missing(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        left = await _declare(started_database, tenant_id, name="Trades", slug="trades")
+        right = await _declare(started_database, tenant_id, name="Ledger", slug="ledger")
+        response = await ui.post(
+            "/relationships/new",
+            data={
+                "kind": "reconciles_with",
+                "from_dataset_id": left,
+                "to_dataset_id": right,
+                "match_keys": "trade_id",
+            },
+        )
+        assert response.status_code == 422
+        assert "needs a tolerance" in response.text
+        assert "breaks on the first rounding difference" in response.text
+
+
+class TestMatchKeyParsing:
+    def test_both_forms_people_actually_write(self) -> None:
+        from prama.web.routes.relationship_routes import _parse_match_keys
+
+        keys = _parse_match_keys("account_id = acct_id, trade_date")
+        assert [(k.left, k.right) for k in keys] == [
+            ("account_id", "acct_id"),
+            ("trade_date", None),
+        ]
+
+    def test_blank_and_stray_commas_are_ignored(self) -> None:
+        from prama.web.routes.relationship_routes import _parse_match_keys
+
+        assert _parse_match_keys("  ,, a , ") == _parse_match_keys("a")

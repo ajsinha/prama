@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Relationships — Prama{% endblock %}
+{% block heading %}How the datasets relate{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+  <a class="btn btn-primary btn-sm" href="{{ url_for('relationship_form') }}">
+    <i class="bi bi-plus-lg" aria-hidden="true"></i> Declare a relationship
+  </a>
+  {% if proposed %}
+  <span class="verdict verdict-stale">
+    {{ proposed }} awaiting a decision — controls derived from these are held as proposals
+  </span>
+  {% endif %}
+</div>
+
+<div class="table-responsive">
+  <table class="table align-middle">
+    <thead>
+      <tr>
+        <th scope="col">From</th><th scope="col">What is true</th>
+        <th scope="col">To</th><th scope="col">State</th><th scope="col"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for edge in edges %}
+      <tr>
+        <td><a href="{{ url_for('dataset_detail', dataset_id=edge.from_dataset_id) }}">
+          {{ names.get(edge.from_dataset_id, edge.from_dataset_id) }}</a></td>
+        <td><span class="badge text-bg-secondary">{{ edge.kind }}</span></td>
+        <td><a href="{{ url_for('dataset_detail', dataset_id=edge.to_dataset_id) }}">
+          {{ names.get(edge.to_dataset_id, edge.to_dataset_id) }}</a></td>
+        <td>
+          {% if edge.status == 'confirmed' %}
+            <span class="verdict verdict-pass">confirmed</span>
+          {% elif edge.status == 'proposed' %}
+            <span class="verdict verdict-stale">proposed{% if edge.confidence %},
+              confidence {{ '%.2f' | format(edge.confidence) }}{% endif %}</span>
+          {% else %}
+            <span class="text-muted">{{ edge.status }}</span>
+          {% endif %}
+        </td>
+        <td class="text-end">
+          {% if edge.status == 'proposed' %}
+          {# Both actions, always. A queue that offers only "confirm" is not
+             asking a question, and the rejection is the more informative
+             answer: it is recorded rather than deleted so the same proposal
+             does not come back. #}
+          <form method="post" class="d-inline"
+                action="{{ url_for('relationship_confirm', relationship_id=edge.id) }}">
+            <button class="btn btn-sm btn-outline-success" type="submit">Confirm</button>
+          </form>
+          <form method="post" class="d-inline"
+                action="{{ url_for('relationship_reject', relationship_id=edge.id) }}">
+            <button class="btn btn-sm btn-outline-secondary" type="submit">Reject</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="text-muted py-4 text-center">
+        Nothing relates to anything yet. Relationships are where reconciliation,
+        referential integrity and lineage come from —
+        <a href="{{ url_for('relationship_form') }}">draw the first one</a>.
+      </td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
