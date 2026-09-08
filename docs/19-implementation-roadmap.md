@@ -372,7 +372,7 @@ W5.13 OpenTelemetry and OpenLineage ✅ · W5.14 soak and chaos tests ✅.
       rather than diverged — otherwise a nightly replay against fresh data reports every record as
       diverged and the ones that matter are lost among the ones that do not.
 - [x] Fusion demonstrates the `NFR-COS-001` claim: ≤ 50% of a naive per-rule full scan. Measured at
-      **40%** on 400 generated controls, and the saving grows with the suite — adding controls to a
+      **40%** on 400 generated controls and **33%** on 2,000 — the saving grows with the suite — adding controls to a
       dataset costs columns, not scans.
 - [x] Evidence median ≤ 2 KB; hash chain verifiable without Prama running. Measured at 848 bytes on
       the worked example. The verification algorithm is written out in words, and the test suite
