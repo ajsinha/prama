@@ -435,10 +435,12 @@ class PredicateAssertion(Assertion):
             "is_null": "is empty",
             "is_not_null": "has a value",
             "is_unique": "is different from every other",
-            "in": f"is {negation}one of {argument}",
+            "in": f"is not one of {argument}" if self.negated else f"is one of {argument}",
             "in_codelist": f"is a code in the {_unquoted(argument)} list",
             "between": f"is {negation}between {argument} and {upper}",
-            "matches": f"does {negation}look like {argument}",
+            "matches": (
+                f"does not look like {argument}" if self.negated else f"looks like {argument}"
+            ),
             "is_valid": f"is a well-formed {_unquoted(argument)}",
             "has_length_between": f"is between {argument} and {upper} characters long",
             "has_format": f"is written in the {_unquoted(argument)} format",
