@@ -1,14 +1,22 @@
-"""Repositories.
+"""Data Access Objects — the only database access layer.
 
-A repository is the only way anything outside ``prama.db`` reaches the database.
-Two rules make the layering real rather than aspirational:
+Every read and write against Prama's schema is concentrated here. Nothing
+outside ``prama.db`` issues SQL or touches an ORM session; higher layers call a
+DAO through the unit of work and receive domain objects. An architecture test
+enforces that by import scanning, so the rule is a property of the build rather
+than of anyone's memory.
 
-* **Tenant scoping is structural.** ``TenantScopedRepository`` takes the tenant
-  on every read and write; there is no method that can omit it. Multi-tenancy
-  enforced by discipline is multi-tenancy that leaks.
-* **Repositories return ORM objects to the caller inside the unit of work, and
-  nothing else escapes.** Services never hold a session, never see SQLAlchemy
-  types, and therefore never accidentally issue a query outside a transaction.
+Three rules make the layering real:
+
+* **Tenant scoping is structural.** ``TenantScopedDao`` takes the tenant on
+  every read and write; no method can omit it. Multi-tenancy enforced by
+  discipline is multi-tenancy that leaks.
+* **Domain logic lives with the data it belongs to.** Password hashing sits
+  beside the column that stores the hash, and key issuance beside the key
+  table, rather than drifting into a service where the two can diverge.
+* **No exception is swallowed.** Failures are translated into the Prama error
+  taxonomy by the unit of work — with a remedy the caller can act on — and
+  propagate. A DAO never returns a sentinel that means "something went wrong".
 
 Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 """
@@ -39,8 +47,8 @@ from prama.db.models import (
 M = TypeVar("M", bound=Base)
 
 
-class Repository(Generic[M]):
-    """Base for every repository: one model, one session, one dialect."""
+class Dao(Generic[M]):
+    """Base for every DAO: one model, one session, one dialect."""
 
     model: type[M]
 
@@ -84,8 +92,8 @@ class Repository(Generic[M]):
         return result.scalars().one_or_none()
 
 
-class TenantScopedRepository(Repository[M]):
-    """A repository whose every query is filtered by tenant.
+class TenantScopedDao(Dao[M]):
+    """A DAO whose every query is filtered by tenant.
 
     The tenant is a parameter of each method rather than constructor state so
     that a single unit of work can legitimately serve an admin operation across
@@ -127,7 +135,7 @@ class TenantScopedRepository(Repository[M]):
         )
 
 
-class TenantRepository(Repository[Tenant]):
+class TenantDao(Dao[Tenant]):
     model = Tenant
 
     async def by_slug(self, slug: str) -> Tenant | None:
@@ -152,7 +160,7 @@ class TenantRepository(Repository[Tenant]):
         )
 
 
-class PrincipalRepository(TenantScopedRepository[Principal]):
+class PrincipalDao(TenantScopedDao[Principal]):
     model = Principal
 
     async def by_username(self, tenant_id: str, username: str) -> Principal | None:
@@ -192,17 +200,21 @@ class PrincipalRepository(TenantScopedRepository[Principal]):
         )
 
     async def roles_of(self, principal_id: str) -> list[Role]:
-        stmt = (
-            select(Role)
-            .join(PrincipalRole, PrincipalRole.role_id == Role.id)
-            .where(PrincipalRole.principal_id == principal_id)
-            .order_by(Role.name)
-        )
-        result = await self._session.execute(stmt)
-        return list(result.scalars().all())
+        """Roles granted to a principal.
+
+        Goes through the relationship rather than a hand-written join: the
+        association is declared once, on the model, and selectin loading makes
+        it one extra query rather than one per row.
+        """
+        await self._session.flush()
+        principal = await self._session.get(Principal, principal_id)
+        if principal is None:
+            return []
+        await self._session.refresh(principal, ["roles"])
+        return sorted(principal.roles, key=lambda r: r.name)
 
 
-class RoleRepository(TenantScopedRepository[Role]):
+class RoleDao(TenantScopedDao[Role]):
     model = Role
 
     async def by_name(self, tenant_id: str, name: str) -> Role | None:
@@ -266,7 +278,7 @@ class RoleRepository(TenantScopedRepository[Role]):
         )
 
 
-class ApiKeyRepository(TenantScopedRepository[ApiKey]):
+class ApiKeyDao(TenantScopedDao[ApiKey]):
     model = ApiKey
 
     async def by_prefix(self, prefix: str) -> ApiKey | None:
@@ -304,7 +316,7 @@ class ApiKeyRepository(TenantScopedRepository[ApiKey]):
         )
 
 
-class AuditRepository(Repository[AuditEvent]):
+class AuditDao(Dao[AuditEvent]):
     """Append-only. This class deliberately exposes no update or delete."""
 
     model = AuditEvent
@@ -362,7 +374,7 @@ class AuditRepository(Repository[AuditEvent]):
         )
 
 
-class SettingRepository(Repository[Setting]):
+class SettingDao(Dao[Setting]):
     model = Setting
 
     async def get_value(

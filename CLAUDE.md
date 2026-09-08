@@ -54,9 +54,21 @@ conventions: `uq_`, `ix_`, `ck_`.
 
 ### 3. Database code lives in exactly one package.
 
-Only `src/prama/db/**` may import `sqlalchemy`. Everything else talks to repositories and the
-unit of work. `tests/architecture/test_layering.py` enforces this by import scanning, and it will
-fail the build, not warn.
+Only `src/prama/db/**` may import `sqlalchemy`. Everything else talks to **DAOs** through the unit
+of work. `tests/architecture/test_layering.py` enforces this by import scanning, and it will fail
+the build, not warn.
+
+ORM conventions, adopted from DishtaYantra because they are proven there:
+
+- **One `DeclarativeBase` per logical database.** `Base` owns the platform and semantic schema;
+  `EvidenceBase` owns the evidence ledger, which has its own store, retention and immutability.
+- **Relationships are declared**, with `back_populates` and `lazy="selectin"`, rather than
+  hand-written joins. `selectin` is one extra query per collection, not one per row.
+- **DAOs are the only access layer**, named for their domain (`PrincipalDao`, not
+  `GenericRepository`), with domain logic co-located: password hashing sits beside the column that
+  stores the hash.
+- **No exception is swallowed.** The unit of work translates failures into the Prama error taxonomy
+  and they propagate; a DAO never returns a sentinel meaning "something went wrong".
 
 The database is chosen in configuration (`database.dialect: sqlite | postgres`). No code branches
 on the dialect outside `prama/db/dialects.py`.

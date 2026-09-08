@@ -104,11 +104,21 @@ class TestNoMigrations:
         assert not (repo_root / "migrations").exists()
 
     def test_ddl_is_never_emitted_from_orm_metadata(self) -> None:
-        """``Base.metadata.create_all`` would make the ORM a second authority."""
+        """``Base.metadata.create_all`` would make the ORM a second authority.
+
+        Checked against the parsed AST, not the raw text, so that a docstring
+        may name the forbidden call in order to explain why it is forbidden.
+        """
         offenders = []
         for path in python_files(SRC):
-            if "create_all" in path.read_text():
-                offenders.append(relative(path))
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Attribute) and node.attr in (
+                    "create_all",
+                    "drop_all",
+                ):
+                    offenders.append(relative(path))
+                    break
         assert not offenders, (
             "schema/*.sql is the authority; metadata.create_all would silently "
             f"become a second one. Offenders: {offenders}"

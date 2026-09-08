@@ -21,7 +21,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from prama.db.models.base import Base, CreatedAt, Timestamped, UlidPrimaryKey
 from prama.db.types import BoolInt, JsonText, UtcDateTime
@@ -59,8 +59,18 @@ class Tenant(UlidPrimaryKey, Timestamped, Base):
     residency: Mapped[str | None] = mapped_column(String(64), nullable=True)
     settings_json: Mapped[dict[str, Any]] = mapped_column(JsonText, nullable=False, default=dict)
 
+    #: selectin loading throughout: one extra query per collection rather than
+    #: one per parent row, which is the difference between a list screen that
+    #: renders and one that melts under an N+1.
+    principals: Mapped[list[Principal]] = relationship(
+        back_populates="tenant", cascade="all, delete-orphan", lazy="selectin"
+    )
+    roles: Mapped[list[Role]] = relationship(
+        back_populates="tenant", cascade="all, delete-orphan", lazy="selectin"
+    )
+
     __table_args__ = (
-        UniqueConstraint("slug", name="ux_tenant_slug"),
+        UniqueConstraint("slug", name="uq_tenant_slug"),
         CheckConstraint("status IN ('active', 'suspended', 'retired')", name="ck_tenant_status"),
     )
 
@@ -83,8 +93,36 @@ class Principal(UlidPrimaryKey, Timestamped, Base):
     password_hash: Mapped[str | None] = mapped_column(String(512), nullable=True)
     last_login_at: Mapped[datetime | None] = mapped_column(UtcDateTime, nullable=True)
 
+    tenant: Mapped[Tenant] = relationship(back_populates="principals", lazy="joined")
+    roles: Mapped[list[Role]] = relationship(
+        secondary="principal_role", back_populates="principals", lazy="selectin", viewonly=True
+    )
+    api_keys: Mapped[list[ApiKey]] = relationship(
+        back_populates="principal", cascade="all, delete-orphan", lazy="selectin"
+    )
+
+    @property
+    def role_names(self) -> list[str]:
+        """Role names, sorted, for stable output in APIs and logs."""
+        return sorted(role.name for role in self.roles)
+
+    def has_permission(self, permission: str) -> bool:
+        """True if any granted role carries *permission*.
+
+        Wildcards are supported one level deep: a role holding ``control:*``
+        satisfies ``control:approve``. Deeper globbing is deliberately absent —
+        a permission model nobody can hold in their head is one nobody audits.
+        """
+        for role in self.roles:
+            for granted in role.permissions_json:
+                if granted in ("*", permission):
+                    return True
+                if granted.endswith(":*") and permission.startswith(granted[:-1]):
+                    return True
+        return False
+
     __table_args__ = (
-        UniqueConstraint("tenant_id", "username", name="ux_principal_tenant_username"),
+        UniqueConstraint("tenant_id", "username", name="uq_principal_tenant_username"),
         Index("ix_principal_tenant_status", "tenant_id", "status"),
         CheckConstraint("kind IN ('human', 'service')", name="ck_principal_kind"),
         CheckConstraint("status IN ('active', 'disabled', 'locked')", name="ck_principal_status"),
@@ -104,8 +142,13 @@ class Role(UlidPrimaryKey, Timestamped, Base):
     permissions_json: Mapped[list[str]] = mapped_column(JsonText, nullable=False, default=list)
     is_builtin: Mapped[bool] = mapped_column(BoolInt, nullable=False, default=False)
 
+    tenant: Mapped[Tenant] = relationship(back_populates="roles", lazy="joined")
+    principals: Mapped[list[Principal]] = relationship(
+        secondary="principal_role", back_populates="roles", lazy="selectin", viewonly=True
+    )
+
     __table_args__ = (
-        UniqueConstraint("tenant_id", "name", name="ux_role_tenant_name"),
+        UniqueConstraint("tenant_id", "name", name="uq_role_tenant_name"),
         CheckConstraint("is_builtin IN (0, 1)", name="ck_role_is_builtin"),
     )
 
@@ -147,8 +190,16 @@ class ApiKey(UlidPrimaryKey, CreatedAt, Base):
     revoked_at: Mapped[datetime | None] = mapped_column(UtcDateTime, nullable=True)
     created_by: Mapped[str | None] = mapped_column(String(26), nullable=True)
 
+    principal: Mapped[Principal] = relationship(back_populates="api_keys", lazy="joined")
+
+    def is_valid_at(self, moment: datetime) -> bool:
+        """Usable at *moment*: neither revoked nor expired."""
+        if self.revoked_at is not None:
+            return False
+        return not (self.expires_at is not None and self.expires_at <= moment)
+
     __table_args__ = (
-        UniqueConstraint("key_prefix", name="ux_api_key_prefix"),
+        UniqueConstraint("key_prefix", name="uq_api_key_prefix"),
         Index("ix_api_key_principal", "principal_id"),
     )
 
