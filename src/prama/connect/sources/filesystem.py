@@ -14,6 +14,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
@@ -42,6 +43,9 @@ if TYPE_CHECKING:  # pragma: no cover
     import pyarrow as pa
 
 #: Extensions DuckDB can read without help, mapped to its reader function.
+#: Rows per Arrow batch when streaming a file.
+BATCH_ROWS = 50_000
+
 READERS: dict[str, str] = {
     ".csv": "read_csv_auto",
     ".tsv": "read_csv_auto",
@@ -224,14 +228,27 @@ class FilesystemConnector(Connector):
         plan = plan or SamplePlan()
         self.require_predicate_support(plan)
         query = self._select(file, plan)
-        # A table, explicitly. `arrow()` returns a reader in some DuckDB
-        # versions and a table in others, and the difference would surface as an
-        # AttributeError on somebody else's machine rather than on ours.
-        relation = self._duck().sql(query)
-        to_table = getattr(relation, "to_arrow_table", None) or relation.fetch_arrow_table
-        table = to_table()
-        for batch in table.to_batches():
-            yield batch
+        # Streamed, not materialised. Reading a 40 GB Parquet file into memory
+        # to hand back its first batch is the difference between profiling a
+        # large extract and falling over on one.
+        #
+        # On a cursor rather than the shared connection: a DuckDB connection
+        # carries a single result stream, so two concurrent reads close each
+        # other's — and segmented profiling reads its segments concurrently.
+        #
+        # In a worker thread, because DuckDB is synchronous and blocking the
+        # event loop to read a file stalls every other control in the process,
+        # appearing as unexplained latency somewhere else entirely.
+        cursor = await asyncio.to_thread(lambda: self._duck().cursor())
+        try:
+            reader = await asyncio.to_thread(lambda: _arrow_reader(cursor.sql(query)))
+            while True:
+                batch = await asyncio.to_thread(_next_batch, reader)
+                if batch is None:
+                    return
+                yield batch
+        finally:
+            await asyncio.to_thread(cursor.close)
 
     def pushdown_capabilities(self) -> tuple[Any, ...]:
         return CAPABILITIES.to_capabilities()
@@ -315,3 +332,21 @@ class FilesystemConnector(Connector):
             f"SELECT * FROM {source} USING SAMPLE {int(plan.rows or 1000)} ROWS "
             f"(reservoir, {plan.seed})"
         )
+
+
+def _arrow_reader(relation: Any) -> Any:
+    """A streaming reader, whatever this DuckDB calls it.
+
+    ``fetch_arrow_reader`` was renamed to ``to_arrow_reader``; picking one and
+    hoping turns a version difference into an AttributeError on somebody else's
+    machine rather than on ours.
+    """
+    factory = getattr(relation, "to_arrow_reader", None) or relation.fetch_arrow_reader
+    return factory(BATCH_ROWS)
+
+
+def _next_batch(reader: Any) -> Any:
+    try:
+        return reader.read_next_batch()
+    except StopIteration:
+        return None

@@ -19,6 +19,8 @@ from prama.connect.config_schema import FieldPresentation, InputKind
 from prama.connect.registry import ConnectorRegistry, default_registry
 from prama.connect.sources.filesystem import CAPABILITIES as FILESYSTEM_CAPABILITIES
 from prama.connect.sources.filesystem import FilesystemConnector
+from prama.connect.sources.objectstore import CAPABILITIES as OBJECTSTORE_CAPABILITIES
+from prama.connect.sources.objectstore import ObjectStoreConnector
 from prama.connect.sources.sql.postgres import CAPABILITIES as POSTGRES_CAPABILITIES
 from prama.connect.sources.sql.postgres import PostgresConnector
 from prama.connect.sources.sqlite import CAPABILITIES as SQLITE_CAPABILITIES
@@ -163,10 +165,80 @@ POSTGRES_OVERLAY: dict[str, FieldPresentation] = {
     ),
 }
 
+OBJECTSTORE_OVERLAY: dict[str, FieldPresentation] = {
+    "uri": FieldPresentation(
+        label="Location",
+        help=(
+            "The bucket and prefix, e.g. s3://risk-lake/positions. Point it at the "
+            "prefix a dataset lives under, not at a single file: a partitioned table "
+            "is one dataset, not one per day."
+        ),
+        required=True,
+        order=10,
+    ),
+    "access_key_id": FieldPresentation(
+        label="Access key",
+        help="Leave empty to use the machine's own role, which is the safer arrangement.",
+        order=20,
+    ),
+    "secret_access_key": FieldPresentation(
+        label="Secret key",
+        help="Stored as a vault reference, never in the connection record.",
+        input_kind=InputKind.PASSWORD,
+        secret=True,
+        order=30,
+    ),
+    "session_token": FieldPresentation(
+        label="Session token",
+        help="For temporary credentials issued by an identity provider.",
+        input_kind=InputKind.PASSWORD,
+        secret=True,
+        group="advanced",
+        order=40,
+    ),
+    "region": FieldPresentation(label="Region", order=50),
+    "endpoint": FieldPresentation(
+        label="Endpoint",
+        help="For an S3-compatible store that is not AWS. Leave empty for AWS itself.",
+        group="advanced",
+        order=60,
+    ),
+    "use_ssl": FieldPresentation(
+        label="Use TLS",
+        input_kind=InputKind.BOOLEAN,
+        group="advanced",
+        order=70,
+    ),
+    "url_style": FieldPresentation(
+        label="URL style",
+        help="vhost for AWS; path for MinIO and most on-premise stores.",
+        choices=("vhost", "path"),
+        input_kind=InputKind.SELECT,
+        group="advanced",
+        order=80,
+    ),
+    "file_pattern": FieldPresentation(
+        label="File pattern",
+        help="Which objects to consider, e.g. *.parquet. Everything by default.",
+        order=90,
+    ),
+    "max_objects": FieldPresentation(
+        label="Object ceiling",
+        help=(
+            "Refuse rather than truncate above this many objects. A partial listing "
+            "would profile part of the data as though it were all of it."
+        ),
+        input_kind=InputKind.NUMBER,
+        group="advanced",
+        order=110,
+    ),
+}
+
 BUILTIN: tuple[tuple[type, CapabilityMatrix, dict[str, FieldPresentation]], ...] = (
     (FilesystemConnector, FILESYSTEM_CAPABILITIES, FILESYSTEM_OVERLAY),
     (SqliteConnector, SQLITE_CAPABILITIES, SQLITE_OVERLAY),
     (PostgresConnector, POSTGRES_CAPABILITIES, POSTGRES_OVERLAY),
+    (ObjectStoreConnector, OBJECTSTORE_CAPABILITIES, OBJECTSTORE_OVERLAY),
 )
 
 

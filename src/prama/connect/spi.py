@@ -84,11 +84,20 @@ class BudgetExceededError(ConnectorError):
 
 
 class HealthState(enum.Enum):
+    """Why a source cannot be read, in terms of who has to fix it.
+
+    The distinctions all exist for that reason. Unreachable sends somebody to
+    the network; unauthorised sends them to whoever grants access;
+    misconfigured sends them back to the connection form. Collapsing these into
+    "connection failed" costs a day of the wrong investigation each time.
+    """
+
     UNKNOWN = "unknown"
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNREACHABLE = "unreachable"
     UNAUTHORISED = "unauthorised"
+    MISCONFIGURED = "misconfigured"
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -113,6 +122,16 @@ class HealthReport:
     def needs_access_request(self) -> bool:
         """Whether the fix is an access request rather than a network change."""
         return self.state is HealthState.UNAUTHORISED or bool(self.missing_permissions)
+
+    @property
+    def needs_reconfiguration(self) -> bool:
+        """Whether the fix is in the connection's own settings.
+
+        Worth separating from unreachable: a mistyped bucket name and a
+        firewall produce the same driver error and send the reader to entirely
+        different people.
+        """
+        return self.state is HealthState.MISCONFIGURED
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -178,17 +197,23 @@ class SnapshotKind(enum.Enum):
     LSN = "lsn"
     FILE_DIGEST = "file_digest"
     OFFSET_RANGE = "offset_range"
+    #: Which objects a prefix held, but not what was inside them. Detects an
+    #: object added or removed; cannot detect one rewritten in place.
+    OBJECT_LISTING = "object_listing"
     WALL_CLOCK = "wall_clock"
 
     @property
     def is_exact(self) -> bool:
         """Whether replaying against this identifier is guaranteed reproducible.
 
-        ``WALL_CLOCK`` is not: it records when we looked, not what we saw. A
-        snapshot that cannot guarantee reproduction must say so, because an
-        evidence record that silently implies one is worse than none at all.
+        ``WALL_CLOCK`` is not: it records when we looked, not what we saw.
+        ``OBJECT_LISTING`` is not either: it records which objects existed, and
+        an object rewritten under the same name leaves it unchanged. A snapshot
+        that cannot guarantee reproduction must say so, because an evidence
+        record that silently implies one is worse than none at all — and
+        incremental profiling will re-read rather than trust it.
         """
-        return self is not SnapshotKind.WALL_CLOCK
+        return self not in (SnapshotKind.WALL_CLOCK, SnapshotKind.OBJECT_LISTING)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)

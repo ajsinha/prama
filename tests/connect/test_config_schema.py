@@ -144,7 +144,7 @@ class TestRegistry:
     def test_the_catalogue_is_everything_a_source_picker_needs(self) -> None:
         registry = register_builtin(ConnectorRegistry())
         catalogue = {entry["key"]: entry for entry in registry.catalogue()}
-        assert set(catalogue) == {"filesystem", "postgresql", "sqlite"}
+        assert set(catalogue) == {"filesystem", "objectstore", "postgresql", "sqlite"}
         assert catalogue["sqlite"]["kind"] == "relational"
         assert catalogue["sqlite"]["form"]["groups"]
         assert "pushdown.sql" in catalogue["sqlite"]["capabilities"]
