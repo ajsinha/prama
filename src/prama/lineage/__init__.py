@@ -14,6 +14,7 @@ from prama.lineage.graph import (
     Transform,
     merge,
 )
+from prama.lineage.sql import Extraction, Gap, SqlLineage
 
 __all__ = [
     "IMPACT_FLOOR",
@@ -21,8 +22,11 @@ __all__ = [
     "BlastRadius",
     "Column",
     "Edge",
+    "Extraction",
+    "Gap",
     "LineageGraph",
     "Reached",
+    "SqlLineage",
     "Transform",
     "merge",
 ]
