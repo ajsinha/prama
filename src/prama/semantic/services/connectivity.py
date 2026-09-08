@@ -24,6 +24,7 @@ from prama.connect import (
     SamplingStrategy,
     default_registry,
 )
+from prama.connect.cost import CostEstimator, Throughput, ThroughputRegistry
 from prama.core.errors import NotFoundError, ValidationError
 from prama.db.session import UnitOfWork
 from prama.profile import DatasetProfile, Profiler, suggest_sample_plan
@@ -77,11 +78,15 @@ class ConnectivityService(SemanticService):
         registry: ConnectorRegistry | None = None,
         profiler: Profiler | None = None,
         secrets: SecretResolver | None = None,
+        throughput: ThroughputRegistry | None = None,
     ) -> None:
         super().__init__(uow, policy=policy)
         self._registry = registry or default_registry()
         self._profiler = profiler or Profiler()
         self._secrets = secrets or default_resolver()
+        #: What reads through each connection have actually cost, so the first
+        #: cost preview says "unknown" and the second says something true.
+        self._throughput = throughput or ThroughputRegistry()
 
     async def connector_for(self, connection_id: str) -> Connector:
         """Build a live connector from a stored declaration.
@@ -192,6 +197,49 @@ class ConnectivityService(SemanticService):
                 )
             return (await connector.discover(path))[:limit]
 
+    async def preview_cost(
+        self,
+        connection_id: str,
+        path: tuple[str, ...],
+        *,
+        plan: SamplePlan | None = None,
+    ) -> dict[str, Any]:
+        """What a scan would cost, without running it.
+
+        The question anyone responsible for a production warehouse asks before
+        letting an unfamiliar tool near it. Answered from catalogue metadata
+        alone, so asking is free — a preview that needed a scan to produce
+        would not be a preview.
+        """
+        connector = await self.connector_for(connection_id)
+        async with connector:
+            found = await connector.discover(path)
+            discovered = next((o for o in found if o.path == path), None)
+            schema = await connector.describe(path)
+        estimator = CostEstimator(connector.policy)
+        estimate = estimator.estimate(
+            path=path,
+            discovered=discovered,
+            schema=schema,
+            plan=plan,
+            throughput=self._throughput.of(connection_id),
+        )
+        result = estimate.to_dict()
+        alternative = estimator.plan_that_fits(estimate)
+        if alternative is not None:
+            # A refusal is a dead end. A refusal plus the plan that would work
+            # is an answer.
+            result["suggested_plan"] = {
+                "strategy": alternative.strategy.value,
+                "rows": alternative.rows,
+                "fraction": alternative.fraction,
+                "why": (
+                    "this sample stays inside the connection's budget and still "
+                    "supports the profile"
+                ),
+            }
+        return result
+
     async def profile(
         self,
         connection_id: str,
@@ -208,7 +256,27 @@ class ConnectivityService(SemanticService):
                 estimate = discovered[0].estimated_rows if discovered else None
                 plan = suggest_sample_plan(estimate)
             profile = await self._profiler.profile(connector, path, plan=plan)
+            self._observe_throughput(connection_id, connector)
         return ProfileRun(profile=profile, connection_id=connection_id, dataset_id=dataset_id)
+
+    def _observe_throughput(self, connection_id: str, connector: Connector) -> None:
+        """Learn from a read that just happened.
+
+        Which is what turns the first cost preview's honest "duration unknown"
+        into a real number on the second, without anybody configuring a
+        throughput constant that would be wrong everywhere but one site.
+        """
+        measured = getattr(connector, "last_read", None)
+        if not measured:
+            return
+        self._throughput.record(
+            connection_id,
+            Throughput.from_read(
+                rows=int(measured.get("rows", 0)),
+                byte_count=int(measured.get("bytes", 0)),
+                seconds=float(measured.get("seconds", 0.0)),
+            ),
+        )
 
     async def profile_source(self, connection_id: str, *, limit: int = 25) -> list[ProfileRun]:
         """Profile everything discoverable, largest first.

@@ -23,6 +23,7 @@ from abc import abstractmethod
 from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Any
 
+from prama.connect.pacing import LoadPacer
 from prama.connect.sources.sql.dialect import SqlDialect
 from prama.connect.spi import (
     ColumnSchema,
@@ -75,6 +76,10 @@ class SqlConnector(Connector):
             self.config.get("statement_timeout_ms", DEFAULT_STATEMENT_TIMEOUT_MS)
         )
         self._schemas = tuple(self.config.get("schemas") or ())
+        #: What the last read cost and how it was paced. Recorded with the
+        #: read's evidence, and fed back so the next cost preview is measured
+        #: rather than unknown.
+        self.last_read: dict[str, Any] = {}
 
     # -- driver primitives -------------------------------------------------
 
@@ -216,15 +221,17 @@ class SqlConnector(Connector):
         self._check_permitted(path)
         plan = plan or SamplePlan()
         budget = _Budget(plan, self.policy)
+        pacer = LoadPacer(self.policy.load_ceiling)
         statement = self.dialect.stream_sql(path, plan)
         rows_seen = 0
-        async for chunk in self._stream(statement, budget.batch_rows):
+        bytes_seen = 0
+        async for chunk in pacer.pace(self._stream(statement, budget.batch_rows)):
             if not chunk:
                 continue
             allowed = budget.allow(len(chunk))
             if allowed <= 0:
                 budget.report(path, rows_seen)
-                return
+                break
             if allowed < len(chunk):
                 chunk = chunk[:allowed]
             names = self._column_names()
@@ -234,10 +241,30 @@ class SqlConnector(Connector):
             )
             budget.consume(batch.nbytes)
             rows_seen += batch.num_rows
+            bytes_seen += batch.nbytes
             yield batch
             if budget.exhausted:
                 budget.report(path, rows_seen)
-                return
+                break
+        self._record_read(path, rows_seen, bytes_seen, pacer)
+
+    def _record_read(
+        self, path: tuple[str, ...], rows: int, byte_count: int, pacer: LoadPacer
+    ) -> None:
+        """Keep what this read actually cost.
+
+        The working time, not the wall clock: the waiting a load ceiling
+        imposes is not the source's speed, and folding it into a throughput
+        measurement would make every subsequent estimate progressively slower
+        for no reason.
+        """
+        self.last_read = {
+            "object": ".".join(path),
+            "rows": rows,
+            "bytes": byte_count,
+            "seconds": round(pacer.report.working_seconds, 3),
+            "pacing": pacer.report.to_dict(),
+        }
 
     def pushdown_capabilities(self) -> tuple[Capability, ...]:
         return self.dialect.capabilities.to_capabilities()
