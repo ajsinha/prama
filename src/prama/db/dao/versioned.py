@@ -130,6 +130,10 @@ class VersionedDao(Dao[E], Generic[E, V]):
                 },
             )
         current.valid_to = effective
+        # Close the old version *before* the successor is inserted. The schema's
+        # partial unique index permits exactly one current row per entity, and
+        # the flush order is otherwise the ORM's business rather than ours.
+        await self._session.flush()
         successor = self._clone(current, version=current.version + 1, changes=changes)
         successor.valid_from = effective
         successor.valid_to = None
@@ -164,6 +168,7 @@ class VersionedDao(Dao[E], Generic[E, V]):
             )
         now = utc_now()
         current.superseded_at = now
+        await self._session.flush()  # see amend(): one current row at a time
         corrected = self._clone(current, version=current.version + 1, changes=changes)
         corrected.valid_from = current.valid_from
         corrected.valid_to = current.valid_to
