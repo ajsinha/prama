@@ -461,3 +461,39 @@ class TestDataStaysHome:
         assert outcome.record is not None
         assert outcome.record.sample_count == 1
         assert outcome.record.samples_digest == ""  # nothing crossed
+
+
+class TestGapsAreOneHoleNotMany:
+    """Eviction happens per record; a long overflow is still one hole."""
+
+    def test_contiguous_drops_merge(self) -> None:
+        # Forty separate gaps of one finding each is a report nobody can read.
+        registry = AgentRegistry()
+        _, agent = an_agent(registry, spool=Spool(capacity=10))
+        _, assignment = an_assignment()
+        for _ in range(50):
+            agent.run(assignment)
+        assert len(agent.spool.gaps) == 1
+        assert agent.spool.gaps[0].count == 40
+
+    def test_a_gap_reads_as_a_range(self) -> None:
+        registry = AgentRegistry()
+        _, agent = an_agent(registry, spool=Spool(capacity=5))
+        _, assignment = an_assignment()
+        for _ in range(20):
+            agent.run(assignment)
+        rendered = agent.spool.gaps[0].render()
+        assert "15 finding(s)" in rendered
+        assert "sequences 0 to 14" in rendered
+
+    def test_a_delivered_gap_is_forgotten_and_a_later_one_is_new(self) -> None:
+        registry = AgentRegistry()
+        _, agent = an_agent(registry, spool=Spool(capacity=5))
+        _, assignment = an_assignment()
+        for _ in range(10):
+            agent.run(assignment)
+        assert agent.spool.take_gaps()
+        assert agent.spool.gaps == ()
+        for _ in range(10):
+            agent.run(assignment)
+        assert len(agent.spool.gaps) == 1

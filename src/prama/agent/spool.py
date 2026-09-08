@@ -144,17 +144,30 @@ class Spool:
         self._pending = self._pending[overflow:]
         # The oldest go. Dropping the newest would be easier and would mean a
         # long outage hides the recent failures rather than the old ones.
+        reason = (
+            f"the spool reached its capacity of {self._capacity:,} while the control "
+            f"plane was unreachable"
+        )
+        # Eviction happens one record at a time, so a long overflow would
+        # otherwise produce one gap per record — a report of forty holes of one
+        # finding each, when what happened was one hole of forty. Contiguous
+        # drops are the same hole and are merged into it.
+        if self._gaps and self._gaps[-1].last_sequence + 1 == dropped[0].sequence:
+            previous = self._gaps[-1]
+            self._gaps[-1] = dataclasses.replace(
+                previous, last_sequence=dropped[-1].sequence, dropped_at=self._clock.now()
+            )
+            return
         gap = Gap(
             first_sequence=dropped[0].sequence,
             last_sequence=dropped[-1].sequence,
             dropped_at=self._clock.now(),
-            reason=(
-                f"the spool reached its capacity of {self._capacity:,} while the control "
-                f"plane was unreachable"
-            ),
+            reason=reason,
         )
         self._gaps.append(gap)
-        _log.warning("spool overflow: %s", gap.render())
+        # Logged once, when the hole opens. Logging every dropped record would
+        # bury the fact that the spool is overflowing under the evidence of it.
+        _log.warning("spool overflow began: %s", gap.render())
 
     # -- delivery ----------------------------------------------------------
 
