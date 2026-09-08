@@ -166,7 +166,7 @@ def _nothing_observed(width: int, height: int, palette: Palette, what: str) -> s
         width,
         height,
         f'<text x="{_number(width / 2)}" y="{_number(height / 2 + 4)}" '
-        f'text-anchor="middle" font-size="11" fill="{palette.unverified()}" '
+        f'text-anchor="middle" font-size="11" fill="{palette.unverified_text()}" '
         'font-style="italic">not examined</text>',
         title=message,
         description=(
@@ -288,7 +288,7 @@ def bars(
             # and it was nothing".
             parts.append(
                 f'<text x="{label_width + 6}" y="{_number(y + BAR_HEIGHT - 5)}" '
-                f'font-size="11" font-style="italic" fill="{palette.unverified()}">'
+                f'font-size="11" font-style="italic" fill="{palette.unverified_text()}">'
                 "not examined</text>"
             )
 
@@ -329,7 +329,7 @@ def score_ring(
             f'fill="none" stroke="{palette.unverified()}" stroke-width="6" '
             'stroke-dasharray="3 5"/>'
             f'<text x="{_number(centre)}" y="{_number(centre + 4)}" text-anchor="middle" '
-            f'font-size="11" fill="{palette.unverified()}">—</text>',
+            f'font-size="11" fill="{palette.unverified_text()}">—</text>',
             title=f"{label}: not examined",
             description=(
                 f"No measurement of {label}. The dashed ring means nothing has been "

@@ -44,6 +44,61 @@ INK_HEX = "#14182E"
 MUTED_HEX = "#6B7391"
 GRID_HEX = "#DFE3EF"
 
+#: The card backgrounds the palette has to work on. Not the page background:
+#: text and chart marks sit on cards, and checking against the page would pass
+#: a colour that fails where it is actually used.
+LIGHT_SURFACE = "#FFFFFF"
+DARK_SURFACE = "#141A33"
+
+#: The brand spectrum lifted for a dark ground. Each keeps its identity — a
+#: shifted teal is still accuracy — because re-hueing here would break the one
+#: promise the palette makes.
+DIMENSION_DARK_HEX: dict[str, str] = {
+    "accuracy": "#2AD4C5",
+    "completeness": "#4FD693",
+    "consistency": "#A8DB5F",
+    "timeliness": "#F2C65C",
+    "uniqueness": "#F29A5C",
+    "validity": "#EA726E",
+    "integrity": "#7D8FE0",
+    "conformity": "#9AA3BD",
+}
+
+UNVERIFIED_GREY_DARK = "#9AA3BD"
+
+
+def _readable(source: dict[str, str], background: str) -> dict[str, str]:
+    """Text-safe variants of a fill palette, derived rather than hand-picked.
+
+    The brand spectrum is a **fill** palette: Accuracy Teal on white is 2.63:1,
+    which is fine behind a bar and illegible as a word. Rather than change the
+    brand or ship unreadable text, the readable shade is computed from the
+    brand hue — hue preserved, lightness moved away from the background — so
+    teal still means accuracy and nobody has to hand-pick eight more hex codes
+    that will drift from the eight above.
+    """
+    from prama.report.contrast import BODY_TEXT, accessible_on
+
+    return {
+        name: accessible_on(value, background, threshold=BODY_TEXT)
+        for name, value in source.items()
+    }
+
+
+#: What a dimension's *name* is printed in. Computed at import: one authority,
+#: no second list. ``tests/web/test_accessibility.py`` asserts the stylesheet
+#: agrees with these, so the CSS cannot drift from the arithmetic.
+DIMENSION_TEXT_HEX: dict[str, str] = _readable(DIMENSION_HEX, LIGHT_SURFACE)
+DIMENSION_TEXT_DARK_HEX: dict[str, str] = _readable(DIMENSION_DARK_HEX, DARK_SURFACE)
+
+#: "Not examined" as a *word*. Unverified Grey is 3.06:1 on a white card —
+#: enough for a dashed ring, not enough for the sentence beside it. This is the
+#: one place where under-contrast would be actively dishonest: the whole point
+#: of the reserved colour is that unexamined data is *visible*, and rendering
+#: the word too faint to read would be hiding it in the approved colour.
+UNVERIFIED_TEXT_HEX: str = _readable({"g": UNVERIFIED_GREY}, LIGHT_SURFACE)["g"]
+UNVERIFIED_TEXT_DARK_HEX: str = _readable({"g": UNVERIFIED_GREY_DARK}, DARK_SURFACE)["g"]
+
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Palette:
@@ -55,13 +110,33 @@ class Palette:
     themed: bool = True
 
     def dimension(self, name: str) -> str:
+        """The fill colour: bar bodies, ring strokes, chart marks."""
         hex_value = DIMENSION_HEX.get(name.lower(), MUTED_HEX)
         if not self.themed or name.lower() not in DIMENSION_HEX:
             return hex_value
         return f"var(--dim-{name.lower()}, {hex_value})"
 
+    def dimension_text(self, name: str) -> str:
+        """The colour a dimension's *name* is printed in.
+
+        A separate accessor because they are separate jobs and the same hue
+        cannot do both: a fill needs 3:1 against its surroundings, a word needs
+        4.5:1, and the brand spectrum clears the first and not the second.
+        """
+        hex_value = DIMENSION_TEXT_HEX.get(name.lower(), MUTED_HEX)
+        if not self.themed or name.lower() not in DIMENSION_TEXT_HEX:
+            return hex_value
+        return f"var(--dim-{name.lower()}-text, {hex_value})"
+
     def unverified(self) -> str:
+        """The mark: a dashed ring, the track of an absent bar."""
         return f"var(--unverified-grey, {UNVERIFIED_GREY})" if self.themed else UNVERIFIED_GREY
+
+    def unverified_text(self) -> str:
+        """The words "not examined" themselves, which have to be readable."""
+        if not self.themed:
+            return UNVERIFIED_TEXT_HEX
+        return f"var(--unverified-grey-text, {UNVERIFIED_TEXT_HEX})"
 
     def ink(self) -> str:
         return f"var(--text-primary, {INK_HEX})" if self.themed else INK_HEX
