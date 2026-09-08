@@ -13,14 +13,20 @@ from prama.incident.correlate import (
     Incident,
     Signal,
 )
+from prama.incident.rca import Analysis, Evidence, Hypothesis, RootCause, learn_from
 
 __all__ = [
     "CHANGE_LOOKBACK",
     "DEFAULT_WINDOW",
+    "Analysis",
     "Change",
     "Correlation",
     "Correlator",
+    "Evidence",
     "Finding",
+    "Hypothesis",
     "Incident",
+    "RootCause",
     "Signal",
+    "learn_from",
 ]
