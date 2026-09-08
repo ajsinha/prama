@@ -16,6 +16,7 @@ from prama.profile.profiler import (
     detectable_rate,
     suggest_sample_plan,
 )
+from prama.profile.recording import points_from_profile
 from prama.profile.sketches import CountMin, HyperLogLog, TDigest, TopK
 from prama.profile.statistics import (
     ColumnAccumulator,
@@ -39,5 +40,6 @@ __all__ = [
     "TopK",
     "character_classes",
     "detectable_rate",
+    "points_from_profile",
     "suggest_sample_plan",
 ]
