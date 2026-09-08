@@ -51,6 +51,7 @@ class Cause(enum.Enum):
     ENGINE_CHANGED = "engine_changed"
     PARAMETERS_CHANGED = "parameters_changed"
     SNAPSHOT_NOT_EXACT = "snapshot_not_exact"
+    COVERAGE_CHANGED = "coverage_changed"
     UNEXPLAINED = "unexplained"
 
     @property
@@ -90,6 +91,11 @@ class Cause(enum.Enum):
             Cause.ENGINE_CHANGED: (
                 "the same control ran on a different engine and disagreed — a "
                 "portability failure, and the conformance suite should have caught it"
+            ),
+            Cause.COVERAGE_CHANGED: (
+                "the two runs examined different amounts of the dataset — one was "
+                "incremental and one was not — so their answers are about different "
+                "sets of rows"
             ),
             Cause.SNAPSHOT_NOT_EXACT: (
                 "the source could not identify its own state exactly, so this run was "
@@ -201,6 +207,11 @@ def compare(original: EvidenceRecord, replayed: EvidenceRecord) -> Divergence:
         cause = Cause.CONTROL_CHANGED
     elif "parameters" in changed:
         cause = Cause.PARAMETERS_CHANGED
+    elif "coverage" in changed:
+        # Before the data check: two runs that read different amounts of the
+        # table were never comparable, and blaming the data would send somebody
+        # looking for a restatement that did not happen.
+        cause = Cause.COVERAGE_CHANGED
     elif "snapshot" in changed:
         cause = Cause.DATA_CHANGED
     elif not original.snapshot.exact:
@@ -240,7 +251,7 @@ def _input_differences(
     would bury the differences that matter under two that never do.
     """
     found: list[tuple[str, Any, Any]] = []
-    for field in ("plan_id", "control_version", "engine"):
+    for field in ("plan_id", "control_version", "engine", "coverage"):
         before, after = getattr(original, field), getattr(replayed, field)
         if before != after:
             found.append((field, before, after))

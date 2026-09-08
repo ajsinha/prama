@@ -20,19 +20,31 @@ from prama.execute.claim import (
     claim_unit,
     release_claim,
 )
+from prama.execute.watermark import (
+    Coverage,
+    IncrementalScope,
+    LatenessPolicy,
+    Watermark,
+    WatermarkPlanner,
+)
 from prama.execute.worker import FleetReport, Worker, WorkOutcome, run_fleet
 
 __all__ = [
     "Action",
     "Claim",
     "Consequence",
+    "Coverage",
     "Disposition",
     "Enforcer",
     "FencedWriter",
     "FleetReport",
+    "IncrementalScope",
+    "LatenessPolicy",
     "Override",
     "Quarantine",
     "StaleWriteError",
+    "Watermark",
+    "WatermarkPlanner",
     "WorkOutcome",
     "WorkQueue",
     "WorkUnit",

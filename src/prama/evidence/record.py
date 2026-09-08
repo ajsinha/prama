@@ -121,6 +121,13 @@ class EvidenceRecord:
     #: different control.
     parameters: dict[str, str] = dataclasses.field(default_factory=dict)
     engine: str = ""
+    #: How much of the dataset this run examined: ``full``, ``incremental`` or
+    #: ``forward_only``. Carried because the verdict means different things at
+    #: different widths — "passed" after a full scan says the dataset is sound,
+    #: and after an incremental run says only that the rows examined were. A
+    #: record that omitted this would let the narrower claim be read as the
+    #: wider one.
+    coverage: str = "full"
     verdict: str = "error"
     metrics: dict[str, float] = dataclasses.field(default_factory=dict)
     #: Where the failing rows went, if they were kept. A hash, not the rows.
@@ -167,6 +174,7 @@ class EvidenceRecord:
             "snapshot": self.snapshot.to_dict(),
             "parameters": dict(sorted(self.parameters.items())),
             "engine": self.engine,
+            "coverage": self.coverage,
             "verdict": self.verdict,
             "metrics": {k: _number(v) for k, v in sorted(self.metrics.items())},
             "samples_digest": self.samples_digest,
@@ -195,6 +203,13 @@ class EvidenceRecord:
     @property
     def is_erased(self) -> bool:
         return self.tombstone is not None
+
+    @property
+    def claim(self) -> str:
+        """The verdict, said at the width it was actually established."""
+        if self.coverage == "full":
+            return self.verdict
+        return f"{self.verdict} over the rows examined"
 
     @property
     def record_hash(self) -> str:
@@ -276,6 +291,7 @@ class EvidenceRecord:
             ),
             parameters={str(k): str(v) for k, v in (payload.get("parameters") or {}).items()},
             engine=str(payload.get("engine", "")),
+            coverage=str(payload.get("coverage", "full")),
             verdict=str(payload.get("verdict", "error")),
             metrics={str(k): float(v) for k, v in (payload.get("metrics") or {}).items()},
             samples_digest=str(payload.get("samples_digest", "")),

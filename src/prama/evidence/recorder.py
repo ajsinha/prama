@@ -125,6 +125,7 @@ class Recorder:
         triggered_by: str = "schedule",
         control_id: str = "",
         control_version: int = 1,
+        coverage: str = "full",
     ) -> EvidenceRecord:
         finished = self._clock.now()
         started = started_at or finished
@@ -139,6 +140,7 @@ class Recorder:
                 snapshot=_snapshot_ref(snapshot),
                 parameters=dict(sorted((parameters or {}).items())),
                 engine=result.engine or self._engine,
+                coverage=coverage,
                 verdict=result.verdict.value,
                 metrics=dict(result.metrics),
                 samples_digest=sample.digest if sample else "",
