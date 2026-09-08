@@ -191,7 +191,7 @@ class SegmentedProfiler:
 
         snapshot = await connector.snapshot(path)
         decided = self._planner.plan(name, segments, snapshot=snapshot)
-        result = into or SegmentedProfile(path)
+        result = SegmentedProfile(path) if into is None else into
 
         semaphore = asyncio.Semaphore(self._concurrency)
 

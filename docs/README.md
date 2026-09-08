@@ -38,6 +38,7 @@ provable quality conclusions — through a console, a Git repo, or a conversatio
 | 19 | [Implementation Roadmap — Ten Waves](19-implementation-roadmap.md) | The engineering plan: what gets built, in what order, and what done means |
 | 20 | [Competitive Analysis](20-competitive-analysis.md) | Head-to-head against Solidatus, Manta, Alation, Collibra, Monte Carlo and the rest — including where we are behind |
 | 21 | [How We Win](21-how-we-win.md) | The plan to beat them: three asymmetric unlocks, honest moat ratings, and the traps we set |
+| 22 | [Distributed Execution: Prama Agents](22-distributed-execution.md) | Agents beside the data: outbound-only, residency-bounded, surviving an outage |
 | — | [Brand](brand.md) | Name, mark, slogan, palette, voice |
 | — | [Glossary](glossary.md) | Terms of art |
 | — | [Academic Paper](paper/) | Manuscript, outline, bibliography, experiment plan |
