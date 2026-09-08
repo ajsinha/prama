@@ -356,7 +356,7 @@ W5.1 scheduler and trigger kinds ✅ · W5.2 adaptive cadence policy ✅ · W5.3
 enforcement and shedding ✅ · W5.5 worker model and lease-based claim ✅ · W5.6 agent mode, outbound-only ✅ (see [22](22-distributed-execution.md)) ·
 W5.7 incremental execution and watermarks ✅ · W5.8 **evidence record, hash chain, signing** ✅ ·
 W5.9 WORM export and retention tiers ✅ · W5.10 **deterministic replay and divergence report** ✅ ·
-W5.11 gate, quarantine and tag actions ✅ · W5.12 streaming seam and the DEC-17 benchmark ·
+W5.11 gate, quarantine and tag actions ✅ · W5.12 streaming seam ✅, DEC-17 benchmark ◑ (evaluation measured; transport open) ·
 W5.13 OpenTelemetry and OpenLineage ✅ · W5.14 soak and chaos tests ✅.
 
 ### Acceptance criteria
@@ -382,7 +382,11 @@ W5.13 OpenTelemetry and OpenLineage ✅ · W5.14 soak and chaos tests ✅.
 - [x] Execution continues for ≥ 24 h during a control-plane outage, buffering and replaying. A
       thousand findings spooled and delivered intact, including across an agent restart and with
       40% of receipts deliberately lost.
-- [ ] `DEC-17` decided on measured throughput, not preference.
+- [ ] `DEC-17` decided on measured throughput, not preference. **Half answered.** Prama's own
+      evaluation is measured at 4.82 µs/message and 208,000 msg/s per core on a five-control mix —
+      a thousandfold inside the latency budget — so assertion cost is not the constraint and the
+      decision does not turn on it. DishtaYantra's transport throughput still needs a multi-node
+      harness. See [18 §5](18-technology-stack.md).
 
 **Demo.** Run a suite; open an evidence record; verify its hash chain offline; replay a run from
 last month and get the same verdict; restate the source data and watch the divergence report name it.

@@ -221,6 +221,28 @@ node at ≤ 5 ms added p99) on a realistic assertion mix. If it lands materially
 inverts to "DishtaYantra for the on-prem/air-gap tier, Flink for the high-volume tier" — which is
 still better than Flink-only, because it removes the JVM from the deployments where it hurts most.
 
+**Measured, 2026-09.** The benchmark decomposes, and half of it is now answered.
+`NFR-SCA-005`'s "≤ 5 ms *added*" is Prama's own evaluation cost, and that is measured rather than
+estimated: a realistic five-control mix (null, sign, codelist, range, compound expression) evaluated
+against the IR costs **4.82 µs per message single-threaded** — a thousandfold inside the latency
+budget — at **208,000 msg/s on one core**, so the 250,000 target needs 1.2 cores of evaluation and
+parallelises across partitions trivially.
+
+The finding that matters: **assertion evaluation is not the constraint, so DEC-17 does not turn on
+it.** The decision rests on the transport — its partitioning, its backpressure, its operational
+footprint — and should be made on those grounds. In particular the argument for DishtaYantra was
+never that it evaluates faster; it is that it removes a JVM from air-gapped and on-premise
+deployments, and that argument is unaffected by throughput.
+
+Still to measure: DishtaYantra's own transport throughput under the same mix, which needs a
+multi-node harness rather than a process. Recorded as open in [17](17-risks-and-open-questions.md).
+
+One optimisation came out of the measurement. The first implementation allocated a verdict object
+per message per assertion, and that bookkeeping cost 4.7 µs of the original 7.07 µs — the object
+describing the work outweighing the work. Removing it on the windowed path took the mix from
+141,000 to 208,000 msg/s. The per-message enforcement path still returns a verdict, because there
+the caller needs the answer and the allocation is the point.
+
 This should be a Phase-0 spike, and it is added to [17](17-risks-and-open-questions.md) as
 **DEC-17** below.
 
