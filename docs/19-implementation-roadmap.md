@@ -288,7 +288,7 @@ W4.4 selector expansion, materialised and versioned ✅ · W4.5 IR model and con
 W4.6 SQL backend and dialect adapters ✅ · W4.7 local evaluator ✅ · W4.8 **conformance corpus and
 reference interpreter** ✅ · W4.9 property-based equivalence testing ✅ · W4.10 cost estimation ✅ ·
 W4.11 linter ✅ · W4.12 formatter ✅ · W4.13 plain-language renderer ✅ · W4.14 LSP · W4.15 importers for
-SodaCL, Great Expectations, dbt tests and ODCS quality blocks.
+SodaCL, Great Expectations and dbt tests ✅ (ODCS quality blocks ⏳).
 
 ### Acceptance criteria
 
