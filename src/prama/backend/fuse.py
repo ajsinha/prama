@@ -222,7 +222,7 @@ class Fuser:
                     context={"plan": plan.plan_id, "missing": sorted(missing)},
                 )
             for metric in plan.metrics:
-                expression = self._compiler.metric_sql(plan, metric)
+                expression = self._compiler.metric_sql(plan, metric, source=source)
                 alias = emitted.get(expression)
                 if alias is None:
                     alias = ALIAS.format(index=index, metric=metric.name)

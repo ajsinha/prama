@@ -279,12 +279,20 @@ class TestLanguageLayering:
             assert not offending, f"{path} imports {sorted(offending)}"
 
     def test_no_engine_name_is_branched_on_outside_the_dialects(self) -> None:
-        # The whole point of a dialect object is that nothing else asks which
-        # engine it is talking to.
-        allowed = {"src/prama/backend/dialect.py", "src/prama/backend/corpus.py"}
+        """Nothing asks which engine it is talking to; it asks the dialect.
+
+        The rule is about *comparisons*, not about the string appearing at all.
+        A default argument of "postgresql" names a choice; ``if dialect ==
+        "sqlite"`` makes a decision, and that decision belongs in one file or
+        it will be made differently in several.
+        """
+        comparisons = re.compile(
+            r"""(==|!=|\bis\b|\bin\b)\s*\(?\s*["'](postgresql|duckdb|sqlite)["']"""
+        )
         for path in Path("src/prama/backend").rglob("*.py"):
-            if str(path) in allowed:
+            if path.name == "dialect.py":
                 continue
-            text = path.read_text(encoding="utf-8")
-            for engine in ('"postgresql"', '"duckdb"', '"sqlite"'):
-                assert engine not in text, f"{path} branches on {engine}"
+            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                if line.lstrip().startswith("#"):
+                    continue
+                assert not comparisons.search(line), f"{path}:{number} branches on an engine"

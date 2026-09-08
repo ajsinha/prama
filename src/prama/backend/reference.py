@@ -45,6 +45,22 @@ Row = Mapping[str, Any]
 UNKNOWN: Any = None
 
 
+class MissingRelatedDataset(LookupError):
+    """A referential control was run without the dataset it refers to.
+
+    Raised rather than answered, because every possible answer would be a
+    guess: assuming the value is present reports green on an estate nobody
+    checked, and assuming it is absent reports every row as an orphan.
+    """
+
+    def __init__(self, dataset: str) -> None:
+        super().__init__(
+            f"this control refers to {dataset!r}, which was not supplied. "
+            f"Pass it as a related dataset, or run the control on an engine "
+            f"that can reach both."
+        )
+
+
 @dataclasses.dataclass(frozen=True, slots=True)
 class Bindings:
     """Values the run supplies, which the control refers to by name."""
@@ -58,9 +74,19 @@ class Bindings:
 class ReferenceEvaluator:
     """Evaluates a plan over rows. No SQL, no engine, no shared compiler."""
 
-    def __init__(self, bindings: Bindings | None = None) -> None:
+    def __init__(
+        self,
+        bindings: Bindings | None = None,
+        *,
+        related: dict[str, list[Row]] | None = None,
+    ) -> None:
         self._bindings = bindings or Bindings()
         self._patterns: dict[str, re.Pattern[str]] = {}
+        #: Other datasets a control reaches into, by name. A referential
+        #: control is about two datasets, and an interpreter given only one of
+        #: them can either say so or invent an answer.
+        self._related = related or {}
+        self._value_sets: dict[tuple[str, str], set[Any]] = {}
 
     # -- entry point -------------------------------------------------------
 
@@ -215,6 +241,8 @@ class ReferenceEvaluator:
                 _compare(">=", values[0], values[1]), _compare("<=", values[0], values[2])
             )
             return _not(inside) if operator.startswith("NOT") else inside
+        if operator == "EXISTS":
+            return self._exists(values[0], str(node.args[1].value), str(node.args[2].value))
         if operator in ("MATCHES", "NOT MATCHES"):
             matched = self._matches(values[0], node.args[1].value)
             return _not(matched) if operator.startswith("NOT") else matched
@@ -223,6 +251,24 @@ class ReferenceEvaluator:
         if operator in ("+", "-", "*", "/", "%"):
             return _arithmetic(operator, values)
         return _compare(operator, values[0], values[1] if len(values) > 1 else UNKNOWN)
+
+    def _exists(self, value: Any, dataset: str, column: str) -> Any:
+        """Whether a value appears in another dataset's column.
+
+        A null never matches, which makes an orphaned null a violation under
+        the default policy — the same answer SQL's EXISTS gives, and the same
+        one the compiler produces.
+        """
+        if value is UNKNOWN:
+            return False
+        if dataset not in self._related:
+            raise MissingRelatedDataset(dataset)
+        key = (dataset, column)
+        if key not in self._value_sets:
+            self._value_sets[key] = {
+                row.get(column) for row in self._related[dataset] if row.get(column) is not UNKNOWN
+            }
+        return value in self._value_sets[key]
 
     def _matches(self, value: Any, pattern: Any) -> Any:
         if value is UNKNOWN or pattern is UNKNOWN:

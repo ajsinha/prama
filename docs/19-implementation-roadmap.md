@@ -298,7 +298,10 @@ SodaCL, Great Expectations, dbt tests and ODCS quality blocks.
 - [x] A construct a backend cannot express fails **at authoring time** with a clear message, never
       silently degrades. SQLite refuses a pattern rather than substituting LIKE, and the refusal
       is itself a conforming outcome.
-- [ ] The worked example in [07 §10](07-rule-language-spec.md) compiles and runs end to end.
+- [x] The worked example in [07 §10](07-rule-language-spec.md) compiles and runs end to end — the
+      CHECK suite, on SQLite and PostgreSQL and the reference interpreter, finding each planted
+      fault. MONITOR, RECONCILE and DERIVES FROM are recorded as not yet implemented rather than
+      trimmed from the example.
 - [x] Every control has a generated plain-language rendering — generated, so it cannot drift from
       what the control does.
 - [x] Cost is estimated before execution, counted in scans rather than controls — a scan is what
@@ -306,6 +309,8 @@ SodaCL, Great Expectations, dbt tests and ODCS quality blocks.
       computed once: nine controls over the corpus run in three scans instead of nine, with
       answers identical to running them separately.
 - [ ] ≥ 95% of 500 real design-partner controls express in the portable subset (`ASM-015`).
+      **Blocked**: needs design partners. Cannot be simulated — a corpus we wrote ourselves would
+      measure our own imagination, not a bank's control estate.
 
 **Demo.** Write one control; run it unchanged on PostgreSQL, DuckDB and Snowflake; show the compiled
 SQL for each and the identical verdict.

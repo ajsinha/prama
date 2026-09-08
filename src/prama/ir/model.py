@@ -135,6 +135,11 @@ class Expr(IrNode):
         needed: set[str] = set()
         if self.kind == "op" and self.name in ("MATCHES", "NOT MATCHES"):
             needed.add("pushdown.regex")
+        if self.kind == "op" and self.name == "EXISTS":
+            # Reaching a second dataset in one query. An engine that cannot
+            # join across the two has to be told before the control is
+            # approved, not when it runs.
+            needed.add("pushdown.cross_object_join")
         if self.kind == "call" and self.name.upper() in ("APPROX_COUNT_DISTINCT",):
             needed.add("pushdown.approx_distinct")
         for arg in self.args:

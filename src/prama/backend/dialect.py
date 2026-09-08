@@ -25,6 +25,7 @@ FILTER = "pushdown.filter"
 AGGREGATION = "pushdown.aggregation"
 APPROX_DISTINCT = "pushdown.approx_distinct"
 SAMPLING = "pushdown.sampling"
+CROSS_OBJECT_JOIN = "pushdown.cross_object_join"
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -49,11 +50,16 @@ class SqlDialect:
     name: str = "sql"
     #: What this engine can do. A control needing more is refused, never
     #: approximated.
-    capabilities: frozenset[str] = frozenset({FILTER, AGGREGATION})
+    capabilities: frozenset[str] = frozenset({FILTER, AGGREGATION, CROSS_OBJECT_JOIN})
     #: How this engine spells regular expressions, for the record. ``none``
     #: means it has none, which is a fact about the engine and not a problem to
     #: be worked around.
     regex_flavour: str = "none"
+    #: What this engine calls a double-precision float. Asked rather than
+    #: branched on: a fixture writing ``"REAL" if dialect == "sqlite"`` would be
+    #: the one place in the codebase deciding behaviour from an engine name,
+    #: which is exactly what the dialect object exists to prevent.
+    double_type: str = "DOUBLE PRECISION"
     #: Whether the engine supports ``FILTER (WHERE …)`` on an aggregate. The
     #: alternative — SUM(CASE WHEN …) — is portable and slightly slower, and is
     #: what engines without it get.
@@ -138,6 +144,16 @@ class SqlDialect:
         """Null-safe equality, for matching keys where a null is a real value."""
         return f"{left} IS NOT DISTINCT FROM {right}"
 
+    def exists_in(self, value: str, table: str, column: str) -> str:
+        """Whether a value appears in another dataset's column.
+
+        A correlated EXISTS rather than ``IN (SELECT …)``: the two differ when
+        the target column contains a null, where ``NOT IN`` becomes unknown for
+        every row and the control silently stops finding orphans. That is the
+        classic SQL trap, and it is worth spending a subquery to avoid.
+        """
+        return f"EXISTS (SELECT 1 FROM {table} WHERE {column} = {value})"
+
     def limit(self, query: str, count: int) -> str:
         return f"{query} LIMIT {count}"
 
@@ -150,7 +166,9 @@ class SqlDialect:
 
 class PostgresDialect(SqlDialect):
     name = "postgresql"
-    capabilities = frozenset({FILTER, AGGREGATION, REGEX, APPROX_DISTINCT, SAMPLING})
+    capabilities = frozenset(
+        {FILTER, AGGREGATION, REGEX, APPROX_DISTINCT, SAMPLING, CROSS_OBJECT_JOIN}
+    )
     regex_flavour = "posix"
     has_aggregate_filter = True
 
@@ -160,7 +178,9 @@ class PostgresDialect(SqlDialect):
 
 class DuckDbDialect(SqlDialect):
     name = "duckdb"
-    capabilities = frozenset({FILTER, AGGREGATION, REGEX, APPROX_DISTINCT, SAMPLING})
+    capabilities = frozenset(
+        {FILTER, AGGREGATION, REGEX, APPROX_DISTINCT, SAMPLING, CROSS_OBJECT_JOIN}
+    )
     regex_flavour = "re2"
     has_aggregate_filter = True
 
@@ -185,8 +205,9 @@ class SqliteDialect(SqlDialect):
     """
 
     name = "sqlite"
-    capabilities = frozenset({FILTER, AGGREGATION})
+    capabilities = frozenset({FILTER, AGGREGATION, CROSS_OBJECT_JOIN})
     regex_flavour = "none"
+    double_type = "REAL"
     has_aggregate_filter = False
 
     def boolean(self, value: bool) -> str:

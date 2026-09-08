@@ -64,12 +64,19 @@ class SqlCompiler:
 
     def __init__(self, target: SqlDialect | str) -> None:
         self.dialect = dialect(target) if isinstance(target, str) else target
+        #: The table the current compilation reads from. Needed so a correlated
+        #: subquery can qualify the outer column: unqualified, the name binds
+        #: to the *inner* table, the condition becomes a column compared with
+        #: itself, and a referential control finds no orphans ever while
+        #: reporting green.
+        self._source = ""
 
     # -- entry point -------------------------------------------------------
 
     def compile(self, plan: ControlPlan, *, table: str = "") -> CompiledControl:
         self._check_capabilities(plan)
         source = self.dialect.qualify(table or plan.scope.binding or plan.scope.dataset)
+        self._source = source
         where = self._where(plan)
         selects, names = self._metric_selects(plan)
         query = f"SELECT {', '.join(selects)}\nFROM {source}"
@@ -126,14 +133,19 @@ class SqlCompiler:
             names.append(metric.name)
         return selects, tuple(names)
 
-    def metric_sql(self, plan: ControlPlan, metric: Metric) -> str:
+    def metric_sql(self, plan: ControlPlan, metric: Metric, *, source: str = "") -> str:
         """One metric's SQL, without the query around it.
 
         Public because the fuser needs exactly this and nothing else: several
         controls' metrics assembled into one projection. Re-deriving it there
         would give two definitions of what a violation count is, which is the
         one thing this file exists to prevent.
+
+        ``source`` is the table the metrics are computed over, which a
+        correlated subquery needs in order to qualify its outer column.
         """
+        if source:
+            self._source = source
         return self._metric(plan, metric)
 
     def _metric(self, plan: ControlPlan, metric: Metric) -> str:
@@ -252,6 +264,8 @@ class SqlCompiler:
             return f"({arguments[0]} {operator} {arguments[1]})"
         if operator in ("BETWEEN", "NOT BETWEEN"):
             return f"({arguments[0]} {operator} {arguments[1]} AND {arguments[2]})"
+        if operator == "EXISTS":
+            return self._exists(node, arguments[0])
         if operator in ("MATCHES", "NOT MATCHES"):
             return self._regex(node, arguments, negated=operator.startswith("NOT"))
         if operator == "IN CODELIST":
@@ -274,6 +288,22 @@ class SqlCompiler:
             ),
             context={"operator": operator, "dialect": self.dialect.name},
         )
+
+    def _exists(self, node: Expr, value: str) -> str:
+        """A referential check, as a correlated subquery.
+
+        The target is qualified through the same binding rules as the scope, so
+        a control declared against business names compiles against whatever the
+        physical schema turns out to be.
+        """
+        table = self.dialect.qualify(str(node.args[1].value))
+        column = f"{table}.{self.dialect.quote(str(node.args[2].value))}"
+        # The outer column, qualified. Unqualified it resolves to the innermost
+        # scope — the target table — and the condition becomes that table's
+        # column compared with itself, which is true for every non-null row.
+        # The control then reports no orphans, for ever, on any engine.
+        outer = f"{self._source}.{value}" if self._source and value.startswith('"') else value
+        return f"({self.dialect.exists_in(outer, table, column)})"
 
     def _regex(self, node: Expr, arguments: list[str], *, negated: bool) -> str:
         pattern = node.args[1].value

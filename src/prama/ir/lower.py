@@ -45,9 +45,20 @@ VIOLATING = "violating_rows"
 class Lowerer:
     """Turns checked PQL into an executable plan."""
 
-    def __init__(self, *, binding: str = "", as_of: str = "") -> None:
+    def __init__(
+        self,
+        *,
+        binding: str = "",
+        as_of: str = "",
+        codelists: dict[str, tuple[str, ...]] | None = None,
+    ) -> None:
         self._binding = binding
         self._as_of = as_of
+        #: Codelists resolved into the plan, so the compiled control is closed
+        #: over its permitted values. Resolving at run time instead would mean
+        #: a codelist edited on Tuesday silently changes what Monday's evidence
+        #: was asserting — and the plan hash would not move to say so.
+        self._codelists = codelists or {}
 
     def control(self, control: ast.Control, *, source: str = "") -> ControlPlan:
         predicate, kind, detail = self._assertion(control.assertion)
@@ -111,8 +122,17 @@ class Lowerer:
                 {"minimum": assertion.minimum, "maximum": assertion.maximum},
             )
         if isinstance(assertion, ast.ReferenceAssertion):
+            # EXISTS against the target, not a null check. Lowering a
+            # referential control to IS NOT NULL would leave it passing on
+            # every orphan — a control that looks present, reports green, and
+            # checks something else entirely.
             return (
-                Expr.operation("IS NOT NULL", Expr.column(assertion.column.name)),
+                Expr.operation(
+                    "EXISTS",
+                    Expr.column(assertion.column.name),
+                    Expr.literal(assertion.target_dataset),
+                    Expr.literal(assertion.target_column),
+                ),
                 "reference",
                 {
                     "column": assertion.column.name,
@@ -160,9 +180,7 @@ class Lowerer:
             "is_not_null": lambda: Expr.operation("IS NOT NULL", subject),
             "is_unique": lambda: Expr.operation("IS NOT NULL", subject),
             "in": lambda: Expr.operation("IN", subject, argument or Expr.values()),
-            "in_codelist": lambda: Expr.operation(
-                "IN CODELIST", subject, argument or Expr.literal("")
-            ),
+            "in_codelist": lambda: self._codelist(subject, argument),
             "between": lambda: Expr.operation(
                 "BETWEEN", subject, argument or Expr.literal(0), upper or Expr.literal(0)
             ),
@@ -188,6 +206,27 @@ class Lowerer:
         if operator == "is_unique":
             return built
         return Expr.operation("NOT", built) if assertion.negated else built
+
+    def _codelist(self, subject: Expr, argument: Expr | None) -> Expr:
+        """A codelist, resolved into the values it stood for.
+
+        Left unresolved it would have to be looked up at execution, which puts
+        a control's meaning outside the artefact that names it: the plan hash
+        would be identical before and after somebody edited the list, and two
+        runs with different verdicts would claim to be the same control.
+        """
+        name = str(argument.value) if argument is not None else ""
+        values = self._codelists.get(name)
+        if values is None:
+            raise ValidationError(
+                f"the codelist {name!r} is not registered",
+                remedy=(
+                    "Register it before compiling, or write the values out. A control "
+                    "cannot be run against a list nobody has defined."
+                ),
+                context={"codelist": name},
+            )
+        return Expr.operation("IN", subject, Expr.values(*(Expr.literal(v) for v in values)))
 
     # -- expressions -------------------------------------------------------
 
@@ -240,7 +279,29 @@ class Lowerer:
         if kind == "row_count":
             # The row count *is* the metric; there is no per-row violation.
             return (scanned,)
-        if kind in ("unique_key", "functional_dependency"):
+        if kind == "functional_dependency":
+            # NOT the unique-key test. A functional dependency says each
+            # determinant has one dependent, not that the determinant occurs
+            # once — an account appears on a thousand rows and still belongs to
+            # one entity. Testing distinct-against-scanned would fail every
+            # legitimate dataset, which is a control that cannot be satisfied
+            # dressed as one that is failing.
+            determinant = [Expr.column(c) for c in detail.get("determinant", [])]
+            pair = determinant + [Expr.column(c) for c in detail.get("dependent", [])]
+            return (
+                scanned,
+                Metric(
+                    name="distinct_determinants",
+                    aggregate=MetricAggregate.COUNT_DISTINCT,
+                    expression=Expr.values(*determinant),
+                ),
+                Metric(
+                    name="distinct_pairs",
+                    aggregate=MetricAggregate.COUNT_DISTINCT,
+                    expression=Expr.values(*pair),
+                ),
+            )
+        if kind == "unique_key":
             # No violating_rows metric: uniqueness is a property of the set, so
             # the count of offending rows is derived after the engine answers.
             # Emitting a literal zero for it would put a meaningless number on

@@ -126,6 +126,19 @@ CASES: tuple[Case, ...] = (
         catches="the same machinery when it passes",
     ),
     Case(
+        name="functional_dependency",
+        pql="CHECK corpus SATISFIES account_id DETERMINES entity",
+        catches=(
+            "a dependency that holds — and that the test is not the unique-key "
+            "test, which would fail here because every account appears twice"
+        ),
+    ),
+    Case(
+        name="functional_dependency_broken",
+        pql="CHECK corpus SATISFIES ccy DETERMINES entity",
+        catches="a determinant carrying two dependents, counted in determinants not rows",
+    ),
+    Case(
         name="segmented",
         pql="CHECK corpus.isin IS NOT NULL FOR EACH entity",
         catches="per-segment verdicts, and that one bad segment fails the whole",
@@ -166,11 +179,11 @@ CASES: tuple[Case, ...] = (
 
 def create_table(table: str = "corpus", *, dialect: str = "postgresql") -> str:
     """DDL for the corpus table, in a form all three engines accept."""
-    integer = "INTEGER"
-    double = "DOUBLE PRECISION" if dialect != "sqlite" else "REAL"
+    from prama.backend.dialect import dialect as resolve
+
+    double = resolve(dialect).double_type
     columns = ", ".join(
-        f'"{name}" {integer if kind == "INTEGER" else double if "DOUBLE" in kind else kind}'
-        for name, kind in COLUMNS
+        f'"{name}" {double if "DOUBLE" in kind else kind}' for name, kind in COLUMNS
     )
     return f'CREATE TABLE "{table}" ({columns})'
 

@@ -104,7 +104,18 @@ def _derive(plan: ControlPlan, metrics: dict[str, float]) -> dict[str, float]:
     counts and the count of offending rows follows. Deriving it here rather
     than asking each engine for it keeps one definition instead of three.
     """
-    if plan.assertion_kind in ("unique_key", "functional_dependency"):
+    if plan.assertion_kind == "functional_dependency":
+        determinants = metrics.get("distinct_determinants")
+        pairs = metrics.get("distinct_pairs")
+        if determinants is not None and pairs is not None:
+            # Every combination beyond one per determinant is a determinant
+            # carrying a second value — the thing the dependency says cannot
+            # happen. Counted in determinants rather than rows, because "four
+            # rows disagree" and "one account has two entities" are different
+            # findings and only the second names the problem.
+            metrics["violating_rows"] = max(0.0, float(pairs) - float(determinants))
+        return metrics
+    if plan.assertion_kind == "unique_key":
         scanned = metrics.get("scanned_rows")
         distinct = metrics.get("distinct_keys")
         if scanned is None or distinct is None:
@@ -165,7 +176,9 @@ def judge_segments(
 def _verdict(plan: ControlPlan, metrics: dict[str, float]) -> Verdict:
     if plan.assertion_kind == "row_count":
         return _row_count_verdict(plan, metrics)
-    if plan.assertion_kind in ("unique_key", "functional_dependency"):
+    if plan.assertion_kind == "functional_dependency":
+        return _dependency_verdict(metrics)
+    if plan.assertion_kind == "unique_key":
         return _distinctness_verdict(metrics)
     return plan.threshold.evaluate(metrics)
 
@@ -182,6 +195,19 @@ def _row_count_verdict(plan: ControlPlan, metrics: dict[str, float]) -> Verdict:
     if maximum is not None and rows > maximum:
         return Verdict.FAIL
     return Verdict.PASS
+
+
+def _dependency_verdict(metrics: dict[str, float]) -> Verdict:
+    """``a → b`` holds when each distinct a carries exactly one distinct b."""
+    if "distinct_determinants" not in metrics or "distinct_pairs" not in metrics:
+        return Verdict.INDETERMINATE
+    if metrics.get("scanned_rows", 0.0) == 0:
+        return Verdict.INDETERMINATE
+    return (
+        Verdict.PASS
+        if metrics["distinct_pairs"] == metrics["distinct_determinants"]
+        else Verdict.FAIL
+    )
 
 
 def _distinctness_verdict(metrics: dict[str, float]) -> Verdict:
