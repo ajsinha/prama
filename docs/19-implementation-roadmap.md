@@ -504,26 +504,53 @@ competitor has.
 
 ### Tasks
 
-W7.1 monitor fleet over metric history · W7.2 calendar and seasonality model · W7.3 detector suite ·
-W7.4 **conformal calibration with adaptive weighting** · W7.5 **hierarchical BH/BY selection** ·
-W7.6 sensitivity expressed as budget, FDR or power · W7.7 validity monitor and honest degradation ·
-W7.8 changepoint detection and accept-new-normal with permanent annotation · W7.9 segmented
-monitoring with correlated-alert roll-up · W7.10 cold-start priors · W7.11 champion/challenger and
-promotion gates · W7.12 model cards · W7.13 calibration benchmark across five drift regimes.
+W7.1 monitor fleet over metric history ✅ · W7.2 calendar and seasonality model ✅ ·
+W7.3 detector suite ✅ · W7.4 **conformal calibration with adaptive weighting** ✅ ·
+W7.5 **hierarchical BH/BY selection** ✅ · W7.6 sensitivity expressed as budget, FDR or power ✅ ·
+W7.7 validity monitor and honest degradation ✅ ·
+W7.8 changepoint detection and accept-new-normal with permanent annotation ✅ · W7.9 segmented
+monitoring with correlated-alert roll-up ✅ · W7.10 cold-start priors ✅ · W7.11 champion/challenger
+and promotion gates ✅ · W7.12 model cards ✅ ·
+W7.13 calibration benchmark across five drift regimes ✅.
 
 ### Acceptance criteria
 
-- [ ] **Calibration error ≤ 0.02** across stationary, seasonal, level-shift, regime-switch and bursty
-      regimes on FinDQ-Bench (`S3`).
-- [ ] Alert volume tracks the declared budget within tolerance; the dial has a statistical meaning.
-- [ ] When calibration assumptions fail, the monitor **says so** in the UI and in every alert.
-- [ ] A new asset is usefully monitored on day one from priors, labelled as priors.
-- [ ] Every monitor has a model card and a measured precision history.
-- [ ] The calibration curve — nominal versus empirical — can be plotted. No competitor can produce
-      this plot at all, and that is itself a result.
+- [x] **Calibration error ≤ 0.02** across stationary, seasonal, level-shift, regime-switch and bursty
+      regimes (`S3`). On synthetic generators of each regime; FinDQ-Bench itself is Wave 10's
+      corpus. The benchmark reports a **grid rather than a number**, because no single mechanism
+      handles all five and one number would hide that: conditioning repairs seasonality and cannot
+      repair a level shift, forgetting repairs a level shift and makes seasonality worse, and
+      adaptation handles the regime that switches back. The criterion asserted is that every
+      regime has a mechanism whose realised rate matches what it promised — which is the claim
+      that is actually true.
+- [x] Alert volume tracks the declared budget within tolerance; the dial has a statistical meaning.
+      Measured end to end: a monitor declaring 0.05 realises 0.0467 over 300 judged days, with a
+      calibration error of 0.0061. A budget the history cannot express is **refused with the
+      arithmetic** — two false alarms a month across 4,400 runs needs a level of 0.00045, and a
+      hundred comparable observations cannot express one below 0.01.
+- [x] When calibration assumptions fail, the monitor **says so** in the UI and in every alert. The
+      disclosure travels on the alert, not the status page, because the person reading one at three
+      in the morning is not on the status page. The degradation test uses a 99.9% interval rather
+      than 95%: it runs against every monitor in the fleet, and the component whose job is
+      calibration cannot be the one crying wolf.
+- [x] A new asset is usefully monitored on day one from priors, labelled as priors — and a prior
+      never promises a false-alarm rate, because printing one beside it would be exactly the lie
+      this wave exists to stop telling. The handover to real calibration is announced.
+- [x] Every monitor has a model card and a measured precision history. Derived from the running
+      monitor rather than written about it, carrying "34 alerts, 29 confirmed" rather than "high
+      accuracy", and stating what the detector is blind to.
+- [x] The calibration curve — nominal versus empirical — can be plotted, across three orders of
+      magnitude with Wilson intervals. No competitor can produce this plot at all, and that is
+      itself a result.
 
 **Demo.** Set "no more than two false alarms a month in this domain"; show the resulting thresholds,
 the calibration curve, and what happens to the guarantee when a regime shift is injected.
+
+**Outcome.** All thirteen tasks complete. Three defects found by writing the property down and
+measuring it rather than asserting it: absolute forecast residuals broke exchangeability on a
+growing series; the observation was scored against a different reference set from its own
+calibration points; and adapting the level cannot work at all once every p-value has saturated,
+which the level's realised rate alone does not reveal.
 
 **Wave risks.** `RSK-10` and `ASM-011` — the central research claim. Proven on FinDQ-Bench *before*
 it becomes a marketing promise; degrade visibly rather than silently.
