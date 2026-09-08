@@ -36,8 +36,8 @@ import enum
 from collections.abc import Callable
 from typing import Any
 
+from prama.core.provenance import Origin, Provenance, content_hash, identity
 from prama.derive.generator import DerivedControl, Generation, Unsatisfiable
-from prama.derive.provenance import Origin, Provenance, content_hash, identity
 from prama.pql import ast
 from prama.semantic.relationships import (
     Cardinality,

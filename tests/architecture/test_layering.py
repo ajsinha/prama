@@ -349,3 +349,57 @@ class TestLanguageLayering:
                 if line.lstrip().startswith("#"):
                     continue
                 assert not comparisons.search(line), f"{path}:{number} branches on an engine"
+
+
+class TestSingleMutationChannel:
+    """`FR-IND-007`: nothing enters the estate except through a proposal.
+
+    The rule is about authority rather than about imports, but it has an import
+    shape, and the import shape is what can be enforced before there is any
+    activation code to get wrong. A module that *infers* rules — Γ, the miners,
+    the inducers, the importers — has no business touching the database or the
+    executor. It produces candidates; somebody decides; the decision is what
+    reaches the estate.
+
+    Set now, while the answer is trivially yes, for the same reason as the
+    no-model-verdicts tripwire: this rule is cheapest to hold when it has never
+    once been broken.
+    """
+
+    #: Packages whose entire job is to propose.
+    INFERRING = ("derive", "mine", "classify", "induce", "importers")
+
+    #: What proposing must not reach. ``db`` is where the estate lives and
+    #: ``execute`` is what makes a control run; a generator that can call
+    #: either can install a control without anybody agreeing to it.
+    FORBIDDEN_TARGETS = ("prama.db", "prama.execute", "prama.schedule")
+
+    def test_no_inferring_package_can_reach_the_estate_or_the_executor(self) -> None:
+        offenders: list[str] = []
+        for package in self.INFERRING:
+            root = SRC / package
+            if not root.exists():
+                continue
+            for path in python_files(root):
+                for module in imported_modules(path):
+                    if any(module.startswith(target) for target in self.FORBIDDEN_TARGETS):
+                        offenders.append(f"{relative(path)} imports {module}")
+        assert not offenders, (
+            "A module that infers rules must not be able to install or run them "
+            f"(FR-IND-007): {offenders}"
+        )
+
+    def test_the_proposal_queue_does_not_depend_on_any_generator(self) -> None:
+        """The seam runs one way. If the queue imported the generators, adding
+        a new source of rules would mean editing the queue, and the thin
+        adapter that keeps the two sides ignorant of each other would have no
+        reason to exist.
+        """
+        offenders: list[str] = []
+        for path in python_files(SRC / "propose"):
+            if path.name == "adapt.py":
+                continue  # the seam itself, and the only place that knows both
+            for module in imported_modules(path):
+                if any(module.startswith(f"prama.{p}") for p in self.INFERRING):
+                    offenders.append(f"{relative(path)} imports {module}")
+        assert not offenders, f"the queue should not know about generators: {offenders}"

@@ -8,9 +8,9 @@ from __future__ import annotations
 import pytest
 
 from prama.classify.codelists import REGISTRY as CODELISTS
+from prama.core.provenance import Origin
 from prama.derive.declaration import AttributeDeclaration, DatasetDeclaration
 from prama.derive.generator import ControlGenerator, evidence_for, severity_for
-from prama.derive.provenance import Origin
 from prama.ir.lower import Lowerer
 from prama.pql import ast
 from prama.pql.parser import parse_control

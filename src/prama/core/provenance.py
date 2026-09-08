@@ -20,6 +20,14 @@ on it. A steward reviewing "you declared this and the data independently
 confirms it" approves in a second; the same control with the mining silently
 discarded takes a minute and a query.
 
+It lives in ``prama.core`` rather than beside Γ because it is not a generator's
+concept. Mining, induction, document extraction and the review queue all need
+to say where a rule came from and how much that is worth, and the queue in
+particular must be able to rank a proposal without importing the thing that
+produced it — otherwise every new source of rules means editing the queue.
+``tests/architecture/test_layering.py`` is what noticed; it was under
+``prama.derive`` first.
+
 Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 """
 

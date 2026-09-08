@@ -3,6 +3,14 @@
 Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 """
 
+from prama.core.provenance import (
+    Citation,
+    Corroboration,
+    Origin,
+    Provenance,
+    content_hash,
+    identity,
+)
 from prama.derive.declaration import AttributeDeclaration, DatasetDeclaration
 from prama.derive.generator import (
     ControlGenerator,
@@ -13,14 +21,6 @@ from prama.derive.generator import (
     evidence_for,
     fail_action_for,
     severity_for,
-)
-from prama.derive.provenance import (
-    Citation,
-    Corroboration,
-    Origin,
-    Provenance,
-    content_hash,
-    identity,
 )
 from prama.derive.relationships import (
     ComparisonKind,

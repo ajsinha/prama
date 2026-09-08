@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from prama.derive.provenance import (
+from prama.core.provenance import (
     Citation,
     Origin,
     Provenance,

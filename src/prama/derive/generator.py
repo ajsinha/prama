@@ -43,8 +43,8 @@ from prama.classify.codelists import REGISTRY as CODELISTS
 from prama.classify.codelists import CodeListRegistry
 from prama.classify.validators import REGISTRY as VALIDATORS
 from prama.classify.validators import ValidatorRegistry
+from prama.core.provenance import Origin, Provenance, content_hash, identity
 from prama.derive.declaration import AttributeDeclaration, DatasetDeclaration
-from prama.derive.provenance import Origin, Provenance, content_hash, identity
 from prama.pql import ast
 from prama.pql.types import Catalogue
 from prama.semantic.values import (
@@ -64,7 +64,7 @@ from prama.semantic.values import (
 class DerivedControl:
     """A control that a declaration produced, and the reason it did."""
 
-    #: Stable across regeneration. See :func:`prama.derive.provenance.identity`.
+    #: Stable across regeneration. See :func:`prama.core.provenance.identity`.
     identity: str
     control: ast.Control
     provenance: Provenance
