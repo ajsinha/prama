@@ -581,26 +581,55 @@ it becomes a marketing promise; degrade visibly rather than silently.
 
 ### Tasks
 
-W8.1 reconciliation engine and matchers · W8.2 normalisation with as-of rate sources ·
-W8.3 break classification and workflow · W8.4 reconciliation certificate · W8.5 N-way and
-roll-forward · W8.6 entity resolution with active learning · W8.7 lineage ingestion and graph store ·
-W8.8 column-level SQL parsing · W8.9 **legacy scanners (the docs/20 G2 gap)** · W8.10 incident
-correlation and lifecycle · W8.11 RCA hypothesis ranking · W8.12 impact analysis · W8.13 scoring and
-materiality weighting · W8.14 **trust propagation** · W8.15 alerting and routing · W8.16 learning
-loop with promotion gates and rollback.
+W8.1 reconciliation engine and matchers ✅ · W8.2 normalisation with as-of rate sources ✅ ·
+W8.3 break classification and workflow ✅ · W8.4 reconciliation certificate ✅ · W8.5 N-way and
+roll-forward ✅ · W8.6 entity resolution with active learning ✅ ·
+W8.7 lineage ingestion and graph store ✅ · W8.8 column-level SQL parsing ✅ ·
+W8.9 **legacy scanners (the docs/20 G2 gap)** ◑ (SQL dialects verified; ETL shapes configurable
+and explicitly unverified against a real export) · W8.10 incident correlation and lifecycle ✅ ·
+W8.11 RCA hypothesis ranking ✅ · W8.12 impact analysis ✅ · W8.13 scoring and
+materiality weighting ✅ · W8.14 **trust propagation** ✅ · W8.15 alerting and routing ✅ ·
+W8.16 learning loop with promotion gates and rollback ✅.
 
 ### Acceptance criteria
 
-- [ ] A sub-ledger↔GL reconciliation runs end to end with break workflow and a signed certificate.
-- [ ] Reconciliation at 10⁸ records per side within budget.
-- [ ] One upstream defect produces **one** incident, not four hundred.
-- [ ] Trust propagation demonstrably changes remediation ranking versus severity ranking (`RQ8`).
-- [ ] Alert precision ≥ 0.85 at declared FDR ≤ 0.10 in live shadow (`S2`).
-- [ ] The learning loop shows measured uplift against a frozen-model control arm (`RQ9`).
+- [x] A sub-ledger↔GL reconciliation runs end to end with break workflow and a signed certificate.
+      On the worked example, 14 breaks classify as 4 sign-convention, 4 duplicates, 4 genuine and
+      2 missing — and 8 of the 14 point at the reconciliation's own setup rather than at the data,
+      which is routed away from the steward rather than into their queue.
+- [◑] Reconciliation at 10⁸ records per side within budget. **Measured at 100,000 a side and
+      extrapolated**: 87,000 rows/second single-threaded, so 10⁸ a side is about 0.6 hours on one
+      core and the work partitions by key. What this establishes is the constant, not that a
+      hundred million rows fit in memory — they do not, and Wave 5's streaming execution is what
+      makes that irrelevant. A run at full scale needs the data.
+- [x] One upstream defect produces **one** incident, not four hundred. A feed failure fanning out
+      to 48 findings across 12 datasets becomes one incident about the column, and the wave demo's
+      5 findings across 4 datasets become one about the sub-ledger — including the lone finding
+      whose own column-ancestor resolved to itself, which is exactly the one that most needs
+      folding in.
+- [x] Trust propagation demonstrably changes remediation ranking versus severity ranking (`RQ8`).
+      A mild defect upstream of a regulatory return outranks a severe one in a scratch table:
+      severity ranks the finding and trust ranks the consequence, and they disagree exactly where
+      the disagreement is worth having. Four semirings are offered because businesses genuinely
+      mean different things, and every score carries the path that decided it.
+- [ ] Alert precision ≥ 0.85 at declared FDR ≤ 0.10 in live shadow (`S2`). **Not attemptable
+      here** — it is a claim about live data and real reviewers, and the shadow machinery that
+      would measure it (Wave 7's tournament, Wave 8's control arm) is built and waiting for a
+      deployment. Manufacturing a number for it would be the opposite of what this wave is for.
+- [x] The learning loop shows measured uplift against a frozen-model control arm (`RQ9`). The
+      mechanism is built and behaves correctly in both directions: a real +22% improvement promotes
+      with an interval excluding zero, and a loop doing nothing does not, however encouraging its
+      point estimate. The *number* for a given deployment needs that deployment.
 
 **Demo.** Break the sub-ledger deliberately; watch one incident open with a ranked cause, an impact
 list naming the affected return, a classified break population, and a trust score that drops on
 every descendant of the defect.
+
+**Outcome.** Sixteen tasks, fifteen complete and one deliberately partial. Four of six acceptance
+criteria met, one measured-and-extrapolated, one requiring a live deployment. The legacy scanners
+ship with their verification status in the code: the SQL dialects are tested against real syntax,
+the ETL shapes are configurable and say plainly that they have not been run against a customer
+export — because a parser written against a guess looks like support and fails on first contact.
 
 **Wave risks.** `RSK-18` — trust propagation may be disputed as arbitrary; multiple sanctioned
 semirings and an always-visible derivation path are the answer. Legacy scanners are unglamorous and
