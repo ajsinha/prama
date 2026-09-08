@@ -204,23 +204,76 @@ class TestModelVerdicts:
     """
 
     FORBIDDEN = re.compile(r"\b(verdict|pass_fail|is_violation|assert_outcome)\b", re.IGNORECASE)
+    #: Bare ``prompt`` was here and had to go. It is a *business* word in this
+    #: codebase — ``RelationshipKind.prompt`` is the plain-language question a
+    #: user picks a relationship from — so it matched modules with no model
+    #: anywhere near them. A guard that cries wolf gets an exclusion list, and
+    #: an exclusion list is how a real violation eventually gets waved through.
+    #: The narrower forms below are the ones that actually mean a model call.
     MODEL_HINT = re.compile(
-        r"\b(llm|openai|anthropic|bedrock|vertex|completion|chat_model|prompt)\b", re.IGNORECASE
+        r"\b(llm|openai|anthropic|bedrock|vertex|completion|chat_model"
+        r"|system_prompt|user_prompt|prompt_template|build_prompt|render_prompt)\b",
+        re.IGNORECASE,
     )
+
+    @staticmethod
+    def executable(source: str) -> str:
+        """The code, with comments and docstrings removed.
+
+        Both are prose about the rule rather than an instance of breaking it —
+        this very class documents what a verdict is, and a scan that counts
+        that as evidence teaches people to stop writing the explanation.
+        """
+        stripped = ast.parse(source)
+        for node in ast.walk(stripped):
+            if isinstance(node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
+                docstring = ast.get_docstring(node, clean=False)
+                if docstring:
+                    node.body = node.body[1:]
+        return ast.unparse(stripped)
 
     def test_no_module_both_calls_a_model_and_produces_a_verdict(self) -> None:
         offenders = []
         for path in python_files(SRC):
-            source = path.read_text()
-            code = "\n".join(
-                line for line in source.splitlines() if not line.lstrip().startswith("#")
-            )
+            code = self.executable(path.read_text())
             if self.MODEL_HINT.search(code) and self.FORBIDDEN.search(code):
                 offenders.append(relative(path))
         assert not offenders, (
             "A module that talks to a model must not also produce a verdict "
             f"(CON-007, NFR-AI-002): {offenders}"
         )
+
+    def test_the_guard_still_fires_on_a_module_that_would_break_the_rule(self) -> None:
+        """The counterfactual. A control that cannot fail is worth nothing, and
+        that goes double for an architecture guard which passes by default and
+        would go on passing if its patterns stopped matching anything.
+        """
+        offender = self.executable(
+            "\n".join(
+                [
+                    '"""A docstring mentioning a verdict, which must not count."""',
+                    "def decide(row):",
+                    "    answer = llm_client.completion(prompt_template.format(row=row))",
+                    '    return {"verdict": "pass" if answer else "fail"}',
+                ]
+            )
+        )
+        assert self.MODEL_HINT.search(offender)
+        assert self.FORBIDDEN.search(offender)
+
+    def test_the_guard_ignores_prose_about_the_rule(self) -> None:
+        """The false positive that forced the narrowing: a module using the
+        business word ``prompt`` and describing verdicts in a docstring."""
+        innocent = self.executable(
+            "\n".join(
+                [
+                    '"""This module produces no verdict of any kind."""',
+                    "def label(kind):",
+                    "    return kind.prompt",
+                ]
+            )
+        )
+        assert not (self.MODEL_HINT.search(innocent) and self.FORBIDDEN.search(innocent))
 
 
 class TestFileLength:

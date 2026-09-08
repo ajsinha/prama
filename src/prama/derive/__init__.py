@@ -22,22 +22,36 @@ from prama.derive.provenance import (
     content_hash,
     identity,
 )
+from prama.derive.relationships import (
+    ComparisonKind,
+    ComparisonSpec,
+    Edge,
+    RelationshipGeneration,
+    RelationshipGenerator,
+    generation_for,
+)
 
 __all__ = [
     "AttributeDeclaration",
     "Citation",
+    "ComparisonKind",
+    "ComparisonSpec",
     "ControlGenerator",
     "Corroboration",
     "DatasetDeclaration",
     "Deferred",
     "DerivedControl",
+    "Edge",
     "Generation",
     "Origin",
     "Provenance",
+    "RelationshipGeneration",
+    "RelationshipGenerator",
     "Unsatisfiable",
     "content_hash",
     "evidence_for",
     "fail_action_for",
+    "generation_for",
     "identity",
     "severity_for",
 ]
