@@ -648,23 +648,24 @@ semantic layer stops being a theory.
 
 | Module | Contents | Requirements |
 |---|---|---|
-| `prama-web/design` | Design system on Radix + Tailwind, six-dimension palette, WCAG 2.2 AA from the first component, light/dark, density modes | `NFR-USA-003`, `008` |
-| `prama-web/estate` | **Estate map**: WebGL graph, overlays, drag-to-declare relationships | `FR-MET-100`…`102`, `NFR-SCA-011` |
-| `prama-web/declare` | Dataset in ≤ 5 min, relationship by drawing, attribute interpretation, propose-and-confirm everywhere | `NFR-OPS-003` |
-| `prama-web/studio` | No-code builder, CodeMirror PQL editor with LSP, live preview, backtest, cost | `FR-UIX-002`…`004` |
-| `prama-web/proposals` | Review queue with evidence, backtest, expected alert volume; batch approve | `FR-IND-007` |
-| `prama-web/incidents` | Keyboard-first one-screen triage, batch disposition | `FR-UIX-006` |
-| `prama-web/recon` | Side-by-side break workbench, grouping, certificate sign-off | `FR-REC-008` |
-| `prama-web/scorecards` | Drill-down to evidence; attestation with e-signature and seal | `FR-SCR-007`, `008` |
+| `prama.web/design` | Design tokens on Bootstrap 5 + CSS custom properties, six-dimension palette, WCAG 2.2 AA, light/dark, density modes | `NFR-USA-003`, `008` |
+| `prama.web/estate` | **Estate map**: Sigma.js WebGL graph, overlays, Cytoscape drag-to-declare canvas | `FR-MET-100`…`102`, `NFR-SCA-011` |
+| `prama.web/declare` | Dataset in ≤ 5 min, relationship by drawing, attribute interpretation, propose-and-confirm everywhere | `NFR-OPS-003` |
+| `prama.web/studio` | No-code builder, CodeMirror 6 PQL editor with LSP, live preview over SSE, backtest, cost | `FR-UIX-002`…`004` |
+| `prama.web/proposals` | Review queue with evidence, backtest, expected alert volume; batch approve | `FR-IND-007` |
+| `prama.web/incidents` | Keyboard-first one-screen triage, batch disposition | `FR-UIX-006` |
+| `prama.web/recon` | Side-by-side break workbench, grouping, certificate sign-off | `FR-REC-008` |
+| `prama.web/scorecards` | Drill-down to evidence; attestation with e-signature and seal | `FR-SCR-007`, `008` |
 | `prama.assistant` | Conversational agent: contextual panel, workspace, Slack/Teams | `FR-CHT-001`…`017` |
 | `prama.mcp` | MCP server, read and propose tools only by default | `FR-EXT-008` |
 | `prama.report.render` | Jinja-rendered PDF and print artefacts | `FR-SCR-009` |
 
 ### Tasks
 
-W9.1 design system and tokens · W9.2 estate map with WebGL rendering · W9.3 drag-to-declare canvas ·
+W9.1 design tokens and the Jinja app shell · W9.2 estate map with Sigma.js WebGL rendering ·
+W9.3 drag-to-declare canvas ·
 W9.4 declaration flows with inferred-then-confirmed defaults · W9.5 no-code rule builder ·
-W9.6 PQL editor and LSP integration · W9.7 live preview and backtest · W9.8 proposal review queue ·
+W9.6 CodeMirror PQL editor and LSP integration · W9.7 live preview and backtest over SSE · W9.8 proposal review queue ·
 W9.9 incident triage workspace · W9.10 reconciliation workbench · W9.11 scorecards and drill-down ·
 W9.12 attestation and e-signature · W9.13 **assistant with the full safety contract** · W9.14 MCP
 server · W9.15 print/PDF rendering · W9.16 accessibility audit · W9.17 usability study.
@@ -682,8 +683,11 @@ server · W9.15 print/PDF rendering · W9.16 accessibility audit · W9.17 usabil
 **Demo.** A business owner who has never seen the product declares a dataset, draws a relationship,
 approves the generated controls, and asks the assistant why last night's feed was late.
 
-**Wave risks.** The largest single engineering line item (docs/18 §4). Scope discipline matters more
-here than anywhere: every screen not on the list above is a screen not built.
+**Wave risks.** Reversing DEC-18 (docs/18 §4) removes the largest single engineering line item and
+adds two smaller ones: keyboard-first batch triage and rich selection state are hand-written rather
+than inherited from a component library, and the accessibility guarantee is held by `axe-core` in CI
+rather than by a component contract. Scope discipline still matters more here than anywhere: every
+screen not on the list above is a screen not built.
 
 ---
 
