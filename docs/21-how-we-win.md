@@ -16,6 +16,60 @@ gaps. This one answers the only question that matters: *what do we do about them
 
 ---
 
+## 0. First principles, not competitors
+
+Before any of the tactics below, the governing rule:
+
+> **Prama is built from a thesis about the problem, not from a list of what competitors have.**
+
+The competitive material in [20](20-competitive-analysis.md) and in this document exists for two
+narrow purposes: so that we do not accidentally rebuild something that already exists, and so that
+we can answer a buyer who asks about a named alternative. It is **input to decisions, never the
+framework for them.** A roadmap assembled from competitor feature grids produces a me-too product
+with no opinion, arriving late to every idea it contains.
+
+Three consequences, and they bind:
+
+1. **No feature enters the roadmap because a competitor has it.** It enters because our thesis —
+   that a number is trustworthy only when it is declared in business terms, executed at source,
+   calibrated statistically and provable afterwards — requires it. Gap G2 (lineage scanners) is in
+   the plan because trust propagation needs lineage, not because Manta has fifty scanners.
+2. **We concede categories without embarrassment.** We are not building a catalog or an MDM hub.
+   Saying so first, unprompted, is a strength: it is what makes the rest of our claims believable.
+3. **Where our thesis leads somewhere nobody has been, we go there** and accept that it will not
+   appear on anyone's comparison grid for a year or two. Every item in §0.1 was in that position
+   when we chose it.
+
+### 0.1 What is original to Prama
+
+Not "better than X" — genuinely ours, arrived at from the problem rather than from the market. As
+far as our survey of the commercial landscape and the research literature could establish, no
+shipping product does these:
+
+| # | Original to Prama | Why it exists |
+|---|---|---|
+| 1 | **Business declarations compile into executable controls.** Thirteen typed relationship kinds, a grain, a rhythm and an attribute interpretation each generate real, running, evidenced controls. | Because the knowledge that makes monitoring effective lives with business owners, and no tool has ever let them express it in a form that executes. |
+| 2 | **Risk-controlled alerting.** Conformal p-values with hierarchical FDR control over the domain → dataset → attribute → check lattice, under a false-alarm budget the operator declares in operational terms. | Because alert fatigue, not detection power, is what kills monitoring programmes — and an uninterpretable "sensitivity" dial cannot be reasoned about. |
+| 3 | **An engine-neutral quality IR** with certified cross-engine semantic equivalence. | Because a bank migrates platforms every few years and should not rewrite its control estate — and its auditor should not have to re-approve it. |
+| 4 | **Lineage-aware trust propagation** as a semiring over the column-level lineage DAG with transformation-aware attenuation. | Because a gold table built from a failing bronze table is not trustworthy, and scoring assets in isolation is not merely uninformative but misleading. |
+| 5 | **Deterministic replay with a divergence report.** A control either reproduces its verdict exactly or names why it cannot — restated data, expired snapshot, engine upgrade, moved code list. | Because "we ran a control" is not evidence; "here is the control, the data it saw, and the same answer again" is. |
+| 6 | **`indeterminate` as a first-class verdict**, and unknown-as-violation by default. | Because silence about unknowns is the largest single source of false confidence in production quality suites. |
+| 7 | **Metadata drift as an incident**, routed to the business owner of the declaration. | Because only a platform that holds a declared model can check the model against reality; a physical-first tool has nothing to compare. |
+| 8 | **Staleness as a rendered state.** Every finding carries its own freshness, and a stale conclusion is never displayed as current. | Because every other tool shows you a number without telling you when it last looked. |
+| 9 | **Sensitivity expressed as a budget**, not a dial: *"no more than two false alarms a month in this domain."* | Because that is the sentence the accountable person actually wants to say. |
+| 10 | **Neural authorship, symbolic execution** as an enforced architectural invariant, tested in CI. | Because a verdict a regulator cannot replay is not a verdict, and because it is also the only affordable design at 10¹² rows. |
+
+Half of these came from taking the research literature seriously — conformal prediction,
+constraint discovery, weak supervision — which is essentially unexploited commercially. The other
+half came from taking the *business owner* seriously as the user. Neither route runs through a
+competitor's feature list.
+
+**The test to apply to any future roadmap item:** *which of the ten does this serve, or which
+eleventh does it add?* If the honest answer is "a competitor has it", the item needs a better
+reason before it is funded.
+
+---
+
 ## 1. The strategic error to avoid
 
 The instinctive response to a gap list is to close it. That instinct would lose us the company.
@@ -261,10 +315,13 @@ Leading indicators, checked quarterly. Vanity metrics deliberately excluded.
 
 ## 10. The one-sentence strategy
 
-> **Do not close the gap. Change the yardstick.**
+> **Build from our own thesis, and change the yardstick.**
 > Make *"can you prove it, and will you be measured?"* the question every buyer asks — because we
 > are the only ones with an answer, and because every incumbent has more to lose from that question
 > than we do.
+
+The competitive tactics in this document are how we get heard. The ten originals in §0.1 are why
+we deserve to be. Neither works without the other, and if the two ever conflict, §0 wins.
 
 ---
 
