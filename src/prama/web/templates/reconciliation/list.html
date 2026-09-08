@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Reconciliation — Prama{% endblock %}
+{% block heading %}Reconciliation{% endblock %}
+{% block content %}
+{% include "_observation.html" %}
+{% if reconciliations %}
+<div class="table-responsive mt-3">
+  <table class="table align-middle">
+    <thead><tr>
+      <th scope="col">Reconciliation</th><th scope="col">Match rate</th>
+      <th scope="col">Breaks</th><th scope="col">Last run</th>
+    </tr></thead>
+    <tbody>
+      {% for run in reconciliations %}
+      <tr>
+        <td class="fw-semibold">{{ run.name }}</td>
+        <td>{{ '%.2f%%' | format(run.match_rate * 100) }}</td>
+        <td>{{ run.breaks }}</td>
+        <td>{{ run.ran_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

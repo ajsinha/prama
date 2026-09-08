@@ -1,0 +1,16 @@
+{# The "nothing has run" panel.
+   Shared, so the three run-backed screens cannot drift into saying it three
+   different ways — or, worse, one of them forgetting to say it. #}
+{% if observation.state == 'no_runs' %}
+<div class="card border-secondary">
+  <div class="card-body">
+    <h2 class="h6 verdict verdict-stale mb-2">Nothing has been examined</h2>
+    <p class="mb-1">{{ observation.reason }}</p>
+    <p class="small text-muted mb-0">
+      {{ observation.declared_datasets }} dataset(s) are declared. An empty list on this
+      page is the absence of observation, not the absence of problems — and the two
+      must never be shown the same way.
+    </p>
+  </div>
+</div>
+{% endif %}

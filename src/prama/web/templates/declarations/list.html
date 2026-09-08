@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Declarations — Prama{% endblock %}
+{% block heading %}What the business has said about its data{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+  <a class="btn btn-primary btn-sm" href="{{ url_for('declaration_form') }}">
+    <i class="bi bi-plus-lg" aria-hidden="true"></i> Declare a dataset
+  </a>
+  <div class="btn-group btn-group-sm" role="group" aria-label="Filter">
+    <a class="btn btn-outline-secondary {% if not incomplete and not tier %}active{% endif %}"
+       href="{{ url_for('declaration_list') }}">All</a>
+    <a class="btn btn-outline-secondary {% if incomplete %}active{% endif %}"
+       href="{{ url_for('declaration_list', incomplete='true') }}">
+      Incomplete <span class="badge text-bg-warning">{{ total_incomplete }}</span>
+    </a>
+    <a class="btn btn-outline-secondary {% if tier == 1 %}active{% endif %}"
+       href="{{ url_for('declaration_list', tier=1) }}">Tier 1</a>
+  </div>
+</div>
+
+{# Sorted by criticality, not by name. A list sorted alphabetically puts a
+   reference table above a broken regulatory return, which is defensible in a
+   file browser and indefensible here. #}
+<div class="table-responsive">
+  <table class="table align-middle">
+    <thead>
+      <tr>
+        <th scope="col">Dataset</th>
+        <th scope="col">Tier</th>
+        <th scope="col">Shape</th>
+        <th scope="col">What cannot be controlled</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for dataset in datasets %}
+      <tr>
+        <td>
+          <a href="{{ url_for('dataset_detail', dataset_id=dataset.id) }}" class="fw-semibold">
+            {{ dataset.name }}</a>
+          {% if dataset.description %}
+          <div class="small text-muted">{{ dataset.description | truncate(110) }}</div>
+          {% endif %}
+        </td>
+        <td><span class="badge {{ dataset.tier_class }}">{{ dataset.tier_label }}</span></td>
+        <td><i class="bi {{ dataset.shape_icon }}" aria-hidden="true"></i> {{ dataset.shape }}</td>
+        <td>
+          {% if dataset.is_complete %}
+            <span class="verdict verdict-pass">
+              <i class="bi bi-check-circle" aria-hidden="true"></i> Nothing — full control set
+            </span>
+          {% else %}
+            <ul class="mb-0 ps-3 small">
+              {% for gap in dataset.gaps %}<li>{{ gap }}</li>{% endfor %}
+            </ul>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="text-muted py-4 text-center">
+        Nothing declared yet. Prama has nothing to say about an estate nobody has described —
+        <a href="{{ url_for('declaration_form') }}">start with one dataset</a>.
+      </td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

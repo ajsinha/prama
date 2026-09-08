@@ -1,0 +1,49 @@
+{% if syntax_error %}
+<div class="alert alert-danger mb-0">{{ syntax_error.message }}</div>
+{% else %}
+{% for plan in plans %}
+<div class="card mb-3">
+  <div class="card-body">
+    <h2 class="h6 mb-1"><code>{{ plan.name }}</code>
+      <span class="badge text-bg-light">{{ target }}</span></h2>
+    {% if plan.error %}
+      {# Named, never omitted. "This dialect cannot express this control" is a
+         real and useful answer; a control silently missing from the list is a lie. #}
+      <div class="alert alert-warning mb-0">{{ plan.error }}</div>
+    {% else %}
+      <div class="small text-muted mb-2"><code>{{ plan.plan_id }}</code></div>
+      <p class="small">{{ plan.description }}</p>
+
+      {% if not plan.is_complete %}
+      {# The disclosure that matters most on this screen. When SQL applies a
+         screen rather than the exact test, the violation count is a LOWER
+         BOUND, and a pass reported from it is a false assurance. #}
+      <div class="uncalibrated mb-2">
+        <strong>This query does not decide the control on its own.</strong>
+        It applies a screen — a necessary condition — and the rows that pass must
+        still be checked exactly before a pass may be reported:
+        <ul class="mb-0 ps-3">
+          {% for residual in plan.residual_validators %}
+          <li><code>{{ residual.validator }}</code> on <code>{{ residual.column }}</code></li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+      <pre class="rounded small"><code class="language-sql">{{ plan.metric_query }}</code></pre>
+      {% if plan.parameters %}
+      <div class="small text-muted">Binds: {{ plan.parameters | join(', ') }}</div>
+      {% endif %}
+      {% if plan.sample_query %}
+      <details class="mt-2">
+        <summary class="small">The query that collects evidence rows</summary>
+        <pre class="rounded small mt-2"><code class="language-sql">{{ plan.sample_query }}</code></pre>
+      </details>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+{% else %}
+<p class="text-muted">Nothing to compile.</p>
+{% endfor %}
+{% endif %}

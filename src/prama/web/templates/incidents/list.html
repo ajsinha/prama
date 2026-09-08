@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Incidents — Prama{% endblock %}
+{% block heading %}Incidents{% endblock %}
+{% block content %}
+{% include "_observation.html" %}
+{% if incidents %}
+<div class="table-responsive mt-3">
+  <table class="table align-middle">
+    <thead><tr>
+      <th scope="col">Incident</th><th scope="col">Dataset</th>
+      <th scope="col">Severity</th><th scope="col">Root cause</th>
+    </tr></thead>
+    <tbody>
+      {% for incident in incidents %}
+      <tr>
+        <td class="fw-semibold">{{ incident.title }}</td>
+        <td>{{ incident.dataset }}</td>
+        <td><span class="verdict verdict-fail">{{ incident.severity }}</span></td>
+        <td class="small">{{ incident.root_cause }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

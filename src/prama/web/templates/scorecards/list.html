@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Scorecards — Prama{% endblock %}
+{% block heading %}Scorecards{% endblock %}
+{% block content %}
+{% include "_observation.html" %}
+{% if scores %}
+<div class="row g-3 mt-1">
+  {% for score in scores %}
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-body">
+        <h2 class="h6">{{ score.subject }}</h2>
+        <div class="fs-2 fw-semibold">{{ '%.1f%%' | format(score.value * 100) }}</div>
+        {# Derived, and shown decomposed. A score whose components are hidden is
+           a number nobody will act on, because nobody can argue with it. #}
+        <ul class="small mb-0 ps-3">
+          {% for part in score.components %}
+          <li><span class="dim dim-{{ part.dimension }}">{{ part.dimension }}</span>
+              {{ '%.1f%%' | format(part.value * 100) }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

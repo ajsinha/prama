@@ -25,6 +25,15 @@ security:
   # clone can never run on a value that is in a public repository.
   session_secret: ""
   api_key_hash_rounds: 210000
+  cookies_https_only: true          # false only for local http development
+
+tenancy:
+  # Name the single tenant here and the console needs no sign-in to read.
+  # Empty means multi-tenant: an unauthenticated request is refused, not guessed.
+  default_tenant: ""
+
+web:
+  enabled: true                     # serve the console alongside the API
 
 database:
   # The only switch that chooses a database. No code branches on this value

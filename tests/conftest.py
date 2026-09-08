@@ -41,7 +41,14 @@ def sqlite_config(tmp_path: Path) -> Configuration:
                     "sqlite": {"path": str(tmp_path / "prama-test.db")},
                     "schema_dir": str(REPO_ROOT / "schema"),
                     "verify_on_start": True,
-                }
+                },
+                # The console mounts in tests too. A UI that is only ever
+                # exercised by hand is a UI whose templates break on a rename
+                # and nobody finds out until a demo.
+                "security": {
+                    "session_secret": "test-only-not-a-secret",
+                    "cookies_https_only": False,
+                },
             },
             name="test",
         )

@@ -1,0 +1,247 @@
+/* Prama design tokens.
+ *
+ * The palette is docs/brand.md §4, and the six spectrum hues are not
+ * decoration: they are the product's dimension colour language. The same hue
+ * means the same dimension on every scorecard, chart and report, which is why
+ * they are named for dimensions here rather than for colours — a token called
+ * --dim-validity cannot drift onto a chart about something else, and a token
+ * called --red can.
+ *
+ * Unverified Grey is reserved, absolutely, for "stale or not yet examined".
+ * Most products render that state as healthy or hide it; making it visible is
+ * a product decision (docs/03 §6.3), and giving it a colour nothing else may
+ * use is how the decision survives contact with a designer in a hurry.
+ *
+ * Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
+ */
+
+:root, [data-theme="light"] {
+    /* -- brand ---------------------------------------------------------- */
+    --prama-indigo: #0E1A46;
+    --refract-blue: #2B3FA8;
+    --unverified-grey: #8A93AD;
+    --slate: #5A6480;
+
+    /* -- the six dimensions --------------------------------------------- */
+    --dim-accuracy: #00B3A4;
+    --dim-completeness: #2FB673;
+    --dim-consistency: #8CBF3F;
+    --dim-timeliness: #E8B33A;
+    --dim-uniqueness: #E8823A;
+    --dim-validity: #D9534F;
+
+    /* Status reuses the spectrum ends, so a verdict and a dimension never
+       disagree about what teal means. */
+    --status-pass: var(--dim-accuracy);
+    --status-warn: var(--dim-timeliness);
+    --status-fail: var(--dim-validity);
+    --status-stale: var(--unverified-grey);
+
+    /* -- surfaces ------------------------------------------------------- */
+    --bg-body: #f6f7fb;
+    --bg-card: #ffffff;
+    --bg-raised: #eef0f7;
+    --bg-code: #11162e;
+    --bg-header: linear-gradient(135deg, #0e1a46 0%, #1b2a63 50%, #0e1a46 100%);
+
+    --text-primary: #14182e;
+    --text-secondary: #4f5878;
+    --text-muted: #6b7391;
+    --text-on-primary: #eef0f8;
+    --text-link: var(--refract-blue);
+
+    --border-color: #dfe3ef;
+    --border-light: #eef0f7;
+    --card-shadow: 0 4px 16px -6px rgba(14, 26, 70, .18),
+                   0 2px 4px -1px rgba(14, 26, 70, .08);
+
+    /* -- density -------------------------------------------------------- */
+    --row-pad-y: .55rem;
+    --row-pad-x: .75rem;
+    --card-pad: 1.25rem;
+    --font-size-base: 0.95rem;
+}
+
+[data-theme="dark"] {
+    --bg-body: #0b0f21;
+    --bg-card: #141a33;
+    --bg-raised: #1c2342;
+    --bg-code: #080b18;
+    --bg-header: linear-gradient(135deg, #080d20 0%, #141c3f 50%, #080d20 100%);
+
+    --text-primary: #e8ebf5;
+    --text-secondary: #b3bad2;
+    --text-muted: #8891ad;
+    --text-on-primary: #eef0f8;
+    --text-link: #7d8fe0;
+
+    --border-color: #262e50;
+    --border-light: #1c2342;
+    --card-shadow: 0 4px 16px -6px rgba(0, 0, 0, .5);
+
+    /* The dimension hues are lifted for contrast on a dark ground and keep
+       their identity: a shifted teal is still accuracy. Re-hueing them here
+       would break the one promise the palette makes. */
+    --dim-accuracy: #2ad4c5;
+    --dim-completeness: #4fd693;
+    --dim-consistency: #a8db5f;
+    --dim-timeliness: #f2c65c;
+    --dim-uniqueness: #f29a5c;
+    --dim-validity: #ea726e;
+    --unverified-grey: #9aa3bd;
+}
+
+/* Compact density, for the evidence and break tables where a screenful of
+   rows is the point. Offered as a mode rather than a default because the
+   declaration screens are read slowly and the tables are scanned. */
+[data-density="compact"] {
+    --row-pad-y: .3rem;
+    --row-pad-x: .5rem;
+    --card-pad: .85rem;
+    --font-size-base: 0.875rem;
+}
+
+/* -- base -------------------------------------------------------------- */
+
+body {
+    background: var(--bg-body);
+    color: var(--text-primary);
+    font-size: var(--font-size-base);
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+a { color: var(--text-link); }
+
+.card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--card-shadow);
+}
+.card-body { padding: var(--card-pad); }
+
+.navbar-prama {
+    background: var(--bg-header);
+    color: var(--text-on-primary);
+}
+.navbar-prama .nav-link,
+.navbar-prama .navbar-brand { color: var(--text-on-primary); }
+.navbar-prama .nav-link:hover { color: #ffffff; }
+.navbar-prama .nav-link.active {
+    color: #ffffff;
+    box-shadow: inset 0 -2px 0 var(--dim-timeliness);
+}
+
+.table > :not(caption) > * > * {
+    padding: var(--row-pad-y) var(--row-pad-x);
+    background: transparent;
+    color: var(--text-primary);
+    border-bottom-color: var(--border-light);
+}
+.table thead th {
+    background: var(--bg-raised);
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: .72rem;
+    letter-spacing: .04em;
+}
+
+/* -- dimension and status ---------------------------------------------- */
+
+/* Every dimension chip carries its name as text. The palette is
+   deuteranopia-safe, and it is still never the only signal: a reader who
+   cannot see the hue reads the word, and a reader who can gets both. */
+.dim {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    font-size: .75rem;
+    font-weight: 600;
+    padding: .12rem .5rem;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+}
+.dim::before {
+    content: "";
+    width: .5rem;
+    height: .5rem;
+    border-radius: 50%;
+    background: currentColor;
+}
+.dim-accuracy     { color: var(--dim-accuracy); }
+.dim-completeness { color: var(--dim-completeness); }
+.dim-consistency  { color: var(--dim-consistency); }
+.dim-timeliness   { color: var(--dim-timeliness); }
+.dim-uniqueness   { color: var(--dim-uniqueness); }
+.dim-validity     { color: var(--dim-validity); }
+.dim-integrity    { color: var(--refract-blue); }
+.dim-conformity   { color: var(--slate); }
+
+.verdict { font-weight: 600; }
+.verdict-pass  { color: var(--status-pass); }
+.verdict-warn  { color: var(--status-warn); }
+.verdict-fail  { color: var(--status-fail); }
+
+/* The reserved state. Struck through and greyed, because "we have not looked"
+   should never be mistakable for "we looked and it was fine" at a glance. */
+.verdict-stale {
+    color: var(--status-stale);
+    font-style: italic;
+}
+.verdict-stale::after {
+    content: " · not examined";
+    font-weight: 400;
+    font-size: .8em;
+}
+
+/* -- uncalibrated disclosure ------------------------------------------- */
+
+/* Wave 7's degradation, given a visual weight that matches what it means: the
+   monitor still works and its number no longer means what it says. */
+.uncalibrated {
+    border-left: 3px solid var(--status-warn);
+    background: color-mix(in srgb, var(--status-warn) 8%, transparent);
+    padding: .5rem .75rem;
+    font-size: .85rem;
+}
+
+/* -- focus, because keyboard-first is a requirement not a nicety -------- */
+
+:focus-visible {
+    outline: 3px solid var(--refract-blue);
+    outline-offset: 2px;
+}
+.skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    background: var(--bg-card);
+    padding: .5rem 1rem;
+    z-index: 1080;
+}
+.skip-link:focus { left: 0; }
+
+/* -- code -------------------------------------------------------------- */
+
+.pql, code, pre { font-family: "Spline Sans Mono", ui-monospace, "SFMono-Regular", Menlo, monospace; }
+.CodeMirror {
+    height: auto;
+    min-height: 8rem;
+    border: 1px solid var(--border-color);
+    border-radius: .375rem;
+    font-size: .9rem;
+}
+
+/* -- the estate map ---------------------------------------------------- */
+
+#estate-map, #declare-canvas {
+    width: 100%;
+    height: 32rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: .5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
