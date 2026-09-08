@@ -69,16 +69,28 @@ class Verification:
     breaches: tuple[Breach, ...] = ()
     head: str = GENESIS
     merkle_root: str = ""
+    #: Records whose content has been erased. Counted and reported, because an
+    #: auditor must be told that three records were erased rather than have it
+    #: be invisible — and because what verification proves about them is
+    #: weaker: their place in the chain, not their contents, which no longer
+    #: exist to be re-derived.
+    erased: int = 0
 
     @property
     def is_intact(self) -> bool:
         return not self.breaches
 
     def render(self) -> str:
+        erased = (
+            f" {self.erased} record(s) have been erased under a right-to-erasure "
+            f"request; their place in the chain is verified, their contents are gone."
+            if self.erased
+            else ""
+        )
         if self.is_intact:
             return (
                 f"{self.records} record(s) verified. Chain head {self.head[:16]}…, "
-                f"Merkle root {self.merkle_root[:16]}…"
+                f"Merkle root {self.merkle_root[:16]}…{erased}"
             )
         lines = [f"{self.records} record(s) checked; {len(self.breaches)} problem(s):"]
         lines.extend(f"  {b.render()}" for b in self.breaches)
@@ -90,6 +102,7 @@ class Verification:
             "intact": self.is_intact,
             "head": self.head,
             "merkle_root": self.merkle_root,
+            "erased": self.erased,
             "breaches": [
                 {"kind": b.kind, "sequence": b.sequence, "detail": b.detail} for b in self.breaches
             ],
@@ -172,6 +185,7 @@ def verify(payloads: Iterable[dict[str, Any]]) -> Verification:
     previous_hash = GENESIS
     expected_sequence: int | None = None
     count = 0
+    erased = 0
     hashes: list[str] = []
 
     for payload in payloads:
@@ -198,6 +212,11 @@ def verify(payloads: Iterable[dict[str, Any]]) -> Verification:
             expected_sequence = sequence
         expected_sequence += 1
 
+        if record.is_erased:
+            # Its content cannot be re-derived — that is what erasure means —
+            # so what is checked is that it still links. The tombstone carries
+            # the hash the content had, which is what keeps the chain whole.
+            erased += 1
         stored_content = str(payload.get("content_hash", ""))
         if record.content_hash != stored_content:
             breaches.append(
@@ -228,6 +247,7 @@ def verify(payloads: Iterable[dict[str, Any]]) -> Verification:
         breaches=tuple(breaches),
         head=previous_hash,
         merkle_root=merkle_root(hashes),
+        erased=erased,
     )
 
 

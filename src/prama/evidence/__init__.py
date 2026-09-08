@@ -17,23 +17,37 @@ from prama.evidence.record import (
     GENESIS,
     EvidenceRecord,
     SnapshotRef,
+    Tombstone,
 )
 from prama.evidence.recorder import Recorder, SampleSet, SampleStore
 from prama.evidence.replay import Cause, Divergence, ReplayReport, compare
+from prama.evidence.retention import (
+    Archivist,
+    Bundle,
+    Manifest,
+    RetentionPolicy,
+    Tier,
+)
 
 __all__ = [
     "EVIDENCE_VERSION",
     "GENESIS",
+    "Archivist",
     "Breach",
+    "Bundle",
     "Cause",
     "Divergence",
     "EvidenceRecord",
     "Ledger",
+    "Manifest",
     "Recorder",
     "ReplayReport",
+    "RetentionPolicy",
     "SampleSet",
     "SampleStore",
     "SnapshotRef",
+    "Tier",
+    "Tombstone",
     "Verification",
     "compare",
     "merkle_root",

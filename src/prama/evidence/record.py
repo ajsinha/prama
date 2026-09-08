@@ -55,6 +55,52 @@ class SnapshotRef:
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
+class Tombstone:
+    """What is left when a record's content has been erased.
+
+    A right to erasure and an immutable hash chain are in genuine conflict, and
+    the resolutions people reach for are both wrong. Deleting the record breaks
+    every hash after it and destroys the audit trail to satisfy one request.
+    Refusing the request is not lawful.
+
+    So the record stays in place, its content is replaced, and the *original
+    content hash is preserved*. The chain still links, so everything before and
+    after remains verifiable. The record announces that its content is gone, who
+    erased it and under what authority. What is lost is exactly what was asked
+    to be lost, and nothing else — and the fact of the loss is itself part of
+    the record.
+    """
+
+    #: The content hash the record had before erasure. The chain depends on it.
+    original_content_hash: str
+    erased_at: str
+    erased_by: str
+    #: The request this satisfies. Not the subject's identity — recording that
+    #: in the ledger to prove they were erased from it would be absurd.
+    authority: str = ""
+    reason: str = "right to erasure"
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "original_content_hash": self.original_content_hash,
+            "erased_at": self.erased_at,
+            "erased_by": self.erased_by,
+            "authority": self.authority,
+            "reason": self.reason,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> Tombstone:
+        return cls(
+            original_content_hash=str(payload.get("original_content_hash", "")),
+            erased_at=str(payload.get("erased_at", "")),
+            erased_by=str(payload.get("erased_by", "")),
+            authority=str(payload.get("authority", "")),
+            reason=str(payload.get("reason", "right to erasure")),
+        )
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
 class EvidenceRecord:
     """One control, one scope, one moment. Append-only and hash-linked."""
 
@@ -86,6 +132,11 @@ class EvidenceRecord:
     #: Who or what caused this run.
     triggered_by: str = "schedule"
     tenant_id: str = ""
+    #: Set when this record's content has been erased under a right-to-erasure
+    #: request. The content hash it carried is preserved, so the chain still
+    #: verifies and the erasure is visible rather than being a hole nobody can
+    #: account for. See :mod:`prama.evidence.retention`.
+    tombstone: Tombstone | None = None
     #: Why, when the verdict is an error. Bounded, because a driver's stack
     #: trace would be several kilobytes and the record has a two-kilobyte
     #: budget — but present, because "error" with no reason is a verdict
@@ -130,7 +181,20 @@ class EvidenceRecord:
 
     @property
     def content_hash(self) -> str:
+        """The hash the chain uses.
+
+        For a tombstoned record this is the hash the content *had*, not a hash
+        of the tombstone. That is what keeps the chain verifiable across an
+        erasure: everything before and after still links, and the erasure is
+        visible as a tombstone rather than as a break.
+        """
+        if self.tombstone is not None:
+            return self.tombstone.original_content_hash
         return hashlib.sha256(canonical(self.content())).hexdigest()
+
+    @property
+    def is_erased(self) -> bool:
+        return self.tombstone is not None
 
     @property
     def record_hash(self) -> str:
@@ -144,12 +208,45 @@ class EvidenceRecord:
         return hashlib.sha256((self.previous_hash + self.content_hash).encode("ascii")).hexdigest()
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             **self.content(),
             "previous_hash": self.previous_hash,
             "content_hash": self.content_hash,
             "record_hash": self.record_hash,
         }
+        if self.tombstone is not None:
+            payload["tombstone"] = self.tombstone.to_dict()
+        return payload
+
+    def erase(self, *, by: str, authority: str = "", at: str = "") -> EvidenceRecord:
+        """Replace this record's content, keeping the chain intact.
+
+        Everything that could identify anybody goes; what remains is the shape
+        of the fact — that a control ran, and when — because a chain of records
+        that says nothing at all about what it contains is not an audit trail
+        either.
+        """
+        if self.tombstone is not None:
+            return self
+        return dataclasses.replace(
+            self,
+            plan_id="",
+            control_id="",
+            dataset="",
+            binding="",
+            parameters={},
+            metrics={},
+            samples_digest="",
+            sample_count=0,
+            detail="",
+            snapshot=SnapshotRef(),
+            tombstone=Tombstone(
+                original_content_hash=self.content_hash,
+                erased_at=at,
+                erased_by=by,
+                authority=authority,
+            ),
+        )
 
     def to_json(self) -> str:
         from prama.core.pjson import dumps
@@ -189,6 +286,9 @@ class EvidenceRecord:
             triggered_by=str(payload.get("triggered_by", "schedule")),
             tenant_id=str(payload.get("tenant_id", "")),
             detail=str(payload.get("detail", "")),
+            tombstone=(
+                Tombstone.from_dict(payload["tombstone"]) if payload.get("tombstone") else None
+            ),
             previous_hash=str(payload.get("previous_hash", GENESIS)),
             evidence_version=str(payload.get("evidence_version", EVIDENCE_VERSION)),
         )
