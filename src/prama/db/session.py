@@ -28,8 +28,17 @@ from prama.db.engine import EngineFactory
 if TYPE_CHECKING:
     from prama.db.dao import (
         ApiKeyDao,
+        AttributeDao,
         AuditDao,
+        BindingDao,
+        ConceptDao,
+        ConceptPropertyDao,
+        ConnectionDao,
+        DatasetDao,
+        DomainDao,
+        JourneyDao,
         PrincipalDao,
+        RelationshipDao,
         RoleDao,
         SettingDao,
         TenantDao,
@@ -114,6 +123,65 @@ class UnitOfWork:
         from prama.db.dao import SettingDao
 
         return self._dao("settings", SettingDao)  # type: ignore[no-any-return]
+
+    # -- semantic layer ----------------------------------------------------
+    #
+    # One property per declared object. Each is lazy, so a unit of work that
+    # touches one table does not construct fifteen DAOs.
+
+    @property
+    def domains(self) -> DomainDao:
+        from prama.db.dao import DomainDao
+
+        return self._dao("domains", DomainDao)  # type: ignore[no-any-return]
+
+    @property
+    def datasets(self) -> DatasetDao:
+        from prama.db.dao import DatasetDao
+
+        return self._dao("datasets", DatasetDao)  # type: ignore[no-any-return]
+
+    @property
+    def attributes(self) -> AttributeDao:
+        from prama.db.dao import AttributeDao
+
+        return self._dao("attributes", AttributeDao)  # type: ignore[no-any-return]
+
+    @property
+    def concepts(self) -> ConceptDao:
+        from prama.db.dao import ConceptDao
+
+        return self._dao("concepts", ConceptDao)  # type: ignore[no-any-return]
+
+    @property
+    def concept_properties(self) -> ConceptPropertyDao:
+        from prama.db.dao import ConceptPropertyDao
+
+        return self._dao("concept_properties", ConceptPropertyDao)  # type: ignore[no-any-return]
+
+    @property
+    def relationships(self) -> RelationshipDao:
+        from prama.db.dao import RelationshipDao
+
+        return self._dao("relationships", RelationshipDao)  # type: ignore[no-any-return]
+
+    @property
+    def journeys(self) -> JourneyDao:
+        from prama.db.dao import JourneyDao
+
+        return self._dao("journeys", JourneyDao)  # type: ignore[no-any-return]
+
+    @property
+    def connections(self) -> ConnectionDao:
+        from prama.db.dao import ConnectionDao
+
+        return self._dao("connections", ConnectionDao)  # type: ignore[no-any-return]
+
+    @property
+    def bindings(self) -> BindingDao:
+        from prama.db.dao import BindingDao
+
+        return self._dao("bindings", BindingDao)  # type: ignore[no-any-return]
 
     # -- transaction boundary ---------------------------------------------
 

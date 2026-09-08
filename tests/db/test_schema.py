@@ -22,7 +22,7 @@ from prama.db.schema.verifier import DriftKind
 #: Physical types with identical semantics in PostgreSQL and SQLite. Anything
 #: else means the two files describe subtly different databases — see the
 #: PORTABLE TYPE SET header in schema/*.sql for the reasoning on each exclusion.
-PORTABLE_TYPES = {"VARCHAR", "STRING", "TEXT", "INTEGER", "REAL"}
+PORTABLE_TYPES = {"VARCHAR", "STRING", "TEXT", "INTEGER", "REAL", "FLOAT"}
 
 #: VARCHAR *with* a width is portable; a bare VARCHAR is not, because SQLite
 #: would accept it and PostgreSQL would treat it as unbounded.
