@@ -662,13 +662,35 @@ semantic layer stops being a theory.
 
 ### Tasks
 
-W9.1 design tokens and the Jinja app shell · W9.2 estate map with Sigma.js WebGL rendering ·
+W9.1 ✅ design tokens and the Jinja app shell · W9.2 ✅ estate map with Sigma.js WebGL rendering ·
 W9.3 drag-to-declare canvas ·
-W9.4 declaration flows with inferred-then-confirmed defaults · W9.5 no-code rule builder ·
-W9.6 CodeMirror PQL editor and LSP integration · W9.7 live preview and backtest over SSE · W9.8 proposal review queue ·
+W9.4 ◐ declaration flows with inferred-then-confirmed defaults · W9.5 no-code rule builder ·
+W9.6 ◐ CodeMirror PQL editor and LSP integration · W9.7 live preview and backtest over SSE ·
+W9.8 ◐ proposal review queue ·
 W9.9 incident triage workspace · W9.10 reconciliation workbench · W9.11 scorecards and drill-down ·
-W9.12 attestation and e-signature · W9.13 **assistant with the full safety contract** · W9.14 MCP
+W9.12 attestation and e-signature · W9.13 ✅ **assistant with the full safety contract** · W9.14 MCP
 server · W9.15 print/PDF rendering · W9.16 accessibility audit · W9.17 usability study.
+
+### Where the console stands
+
+Built on the reversed stack: Jinja on FastAPI, Bootstrap 5, jQuery, everything vendored, mounted
+onto the same application as the API so the two cannot disagree about the database, the
+configuration or the error taxonomy.
+
+| Done | Not done |
+|---|---|
+| Design tokens: the six-dimension palette, light/dark, comfortable/compact density, Unverified Grey reserved | The chart primitives — server-rendered SVG in Python, which doubles as the PDF renderer |
+| App shell: nav that marks where you are, skip link, live region, flash | Sign-in; the caller comes from `tenancy.default_tenant` until Wave 10 |
+| Estate map on Sigma/WebGL over graphology, with the same nodes in a keyboard-reachable table | Cytoscape drag-to-declare (W9.3) |
+| Dataset page naming the *control* each gap costs, not the null column | Attribute editing and relationship drawing |
+| Declaration list and form, organised around questions, approval requirement derived from `ApprovalPolicy` | Inferred-then-confirmed defaults from profiling (W9.4) |
+| Control studio: CodeMirror 5, check/explain/compile, residual disclosure on the SQL | LSP, live preview and backtest over SSE (W9.6, W9.7) |
+| Proposal queue showing `Unsatisfiable` first | Accept/reject actions — there is nowhere to persist an accepted control yet |
+| Incidents, reconciliation and scorecards distinguishing "found nothing" from "nothing ran" | Their actual tables, which need a persistent evidence ledger |
+
+The three run-backed screens are the honest limit of this wave: the evidence ledger is in-memory,
+so there are no runs to read. What they do instead is refuse to render an empty list as a clean
+one — the single most dangerous screen a data quality product can ship.
 
 ### Acceptance criteria
 
