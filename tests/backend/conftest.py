@@ -16,7 +16,8 @@ from typing import Any
 
 import pytest
 
-from prama.backend.corpus import ROWS, create_table, insert_rows
+from prama.backend.conformance import REFERENCE, ConformanceRun
+from prama.backend.corpus import COLUMNS, ROWS, create_table, insert_rows
 
 DSN = os.environ.get("PRAMA_TEST_POSTGRES_DSN", "")
 
@@ -81,10 +82,33 @@ def postgres_runner() -> Iterator[Any]:
     loop.close()
 
 
+#: The corpus as rows, for the implementation that does not speak SQL.
+CORPUS_ROWS = [dict(zip([name for name, _ in COLUMNS], row, strict=True)) for row in ROWS]
+
+
 @pytest.fixture
 def engines(duckdb_runner: Any, sqlite_runner: Any, request: pytest.FixtureRequest) -> dict:
-    """Every engine available here, PostgreSQL included when it is reachable."""
-    available: dict[str, Any] = {"duckdb": duckdb_runner, "sqlite": sqlite_runner}
+    """Every implementation available here.
+
+    The reference interpreter is always among them, and is the one that makes
+    this worth running: three SQL backends agreeing proves agreement about the
+    compiler they share, not about the meaning.
+    """
+    available: dict[str, Any] = {
+        "duckdb": duckdb_runner,
+        "sqlite": sqlite_runner,
+        REFERENCE: _no_sql,
+    }
     if DSN:
         available["postgresql"] = request.getfixturevalue("postgres_runner")
     return available
+
+
+@pytest.fixture
+def conformance() -> ConformanceRun:
+    return ConformanceRun(rows=CORPUS_ROWS)
+
+
+def _no_sql(sql: str) -> list[dict[str, Any]]:
+    """The reference interpreter is never asked for SQL, and never gives any."""
+    raise AssertionError(f"the reference interpreter was asked to run SQL: {sql[:60]}")

@@ -109,10 +109,27 @@ class SqlDialect:
             return f"COUNT(*) FILTER (WHERE {condition})"
         return f"COALESCE(SUM(CASE WHEN {condition} THEN 1 ELSE 0 END), 0)"
 
-    def count_distinct(self, expressions: list[str]) -> str:
-        if len(expressions) == 1:
-            return f"COUNT(DISTINCT {expressions[0]})"
-        return f"COUNT(DISTINCT ({', '.join(expressions)}))"
+    def count_distinct(self, expressions: list[str], *, where: str = "") -> str:
+        """Distinct values, optionally over a subset of rows.
+
+        The subset matters more than it looks. SQL is inconsistent about nulls
+        here: ``COUNT(DISTINCT x)`` ignores a null, but ``COUNT(DISTINCT (x,
+        y))`` counts a row whose x is null as a distinct pair. Deriving a
+        duplicate count from either without saying which rows were included
+        gives a number that means one thing for a single-column key and
+        another for a composite one.
+        """
+        inner = expressions[0] if len(expressions) == 1 else f"({', '.join(expressions)})"
+        return self._distinct_over(inner, where)
+
+    def _distinct_over(self, inner: str, where: str) -> str:
+        if not where:
+            return f"COUNT(DISTINCT {inner})"
+        if self.has_aggregate_filter:
+            return f"COUNT(DISTINCT {inner}) FILTER (WHERE {where})"
+        # No FILTER: a CASE yielding NULL for excluded rows, which
+        # COUNT(DISTINCT) then ignores — the same subset by a longer road.
+        return f"COUNT(DISTINCT CASE WHEN {where} THEN {inner} END)"
 
     def length(self, expression: str) -> str:
         return f"LENGTH({expression})"
@@ -150,13 +167,13 @@ class DuckDbDialect(SqlDialect):
     def regex_match(self, expression: str, pattern: str) -> str:
         return f"regexp_matches({expression}, {self.literal(pattern)})"
 
-    def count_distinct(self, expressions: list[str]) -> str:
+    def count_distinct(self, expressions: list[str], *, where: str = "") -> str:
         # DuckDB counts a multi-column DISTINCT over a struct rather than a
         # parenthesised row.
         if len(expressions) == 1:
-            return f"COUNT(DISTINCT {expressions[0]})"
+            return self._distinct_over(expressions[0], where)
         fields = ", ".join(f"'c{i}': {e}" for i, e in enumerate(expressions))
-        return f"COUNT(DISTINCT {{{fields}}})"
+        return self._distinct_over(f"{{{fields}}}", where)
 
 
 class SqliteDialect(SqlDialect):
@@ -179,16 +196,16 @@ class SqliteDialect(SqlDialect):
     def is_not_distinct_from(self, left: str, right: str) -> str:
         return f"{left} IS {right}"
 
-    def count_distinct(self, expressions: list[str]) -> str:
+    def count_distinct(self, expressions: list[str], *, where: str = "") -> str:
         if len(expressions) == 1:
-            return f"COUNT(DISTINCT {expressions[0]})"
+            return self._distinct_over(expressions[0], where)
         # No row constructor. Concatenation with a separator that cannot occur
         # in the data would be a guess; a null-safe join with a sentinel is
         # explicit about what it assumes.
         joined = " || CHAR(31) || ".join(
             f"COALESCE(CAST({e} AS TEXT), CHAR(30))" for e in expressions
         )
-        return f"COUNT(DISTINCT ({joined}))"
+        return self._distinct_over(f"({joined})", where)
 
 
 DIALECTS: dict[str, SqlDialect] = {

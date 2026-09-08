@@ -199,6 +199,14 @@ class Lowerer:
         if isinstance(node, ast.ParameterRef):
             return Expr.parameter(node.name)
         if isinstance(node, ast.UnaryOp):
+            folded = _fold_sign(node)
+            if folded is not None:
+                # -10 becomes the literal -10 rather than a negation applied to
+                # 10. Both for correctness — a unary operator that reaches a
+                # backend expecting two operands is a sign silently dropped —
+                # and for identity: "-10" and "- 10" must hash the same, or two
+                # spellings of one control become two controls.
+                return folded
             return Expr.operation(node.operator, self._expression(node.operand))
         if isinstance(node, ast.BinaryOp):
             if node.operator.endswith("BETWEEN") and isinstance(node.right, ast.ListExpression):
@@ -234,16 +242,28 @@ class Lowerer:
             return (scanned,)
         if kind in ("unique_key", "functional_dependency"):
             # No violating_rows metric: uniqueness is a property of the set, so
-            # the count of offending rows is scanned minus distinct and is
-            # derived after the engine answers. Emitting a literal zero for it
-            # would put a meaningless number on the record.
+            # the count of offending rows is derived after the engine answers.
+            # Emitting a literal zero for it would put a meaningless number on
+            # the record.
+            #
+            # Nulls need their own count. Every engine's COUNT(DISTINCT)
+            # ignores them, so scanned minus distinct silently charges each
+            # null row as a duplicate — which it is not. A null key is its own
+            # kind of failure: it identifies nothing, so it cannot be one row
+            # per anything.
             keys = detail.get("key_columns", detail.get("determinant", []))
+            key_is_null = _any_null(keys)
             return (
                 scanned,
                 Metric(
                     name="distinct_keys",
                     aggregate=MetricAggregate.COUNT_DISTINCT,
                     expression=Expr.values(*(Expr.column(c) for c in keys)),
+                ),
+                Metric(
+                    name="null_key_rows",
+                    aggregate=MetricAggregate.COUNT_IF,
+                    expression=key_is_null,
                 ),
             )
         if predicate is None:
@@ -254,6 +274,7 @@ class Lowerer:
                 name=VIOLATING,
                 aggregate=MetricAggregate.COUNT_IF,
                 expression=Expr.operation("NOT", predicate),
+                applies_unknown_policy=True,
             ),
         )
 
@@ -290,3 +311,24 @@ def _hash(text: str) -> str:
 
 def lower(control: ast.Control, **kwargs: Any) -> ControlPlan:
     return Lowerer(**kwargs).control(control)
+
+
+def _fold_sign(node: ast.UnaryOp) -> Expr | None:
+    """A signed numeric literal, as the single literal it is."""
+    if node.operator not in ("-", "+") or not isinstance(node.operand, ast.Literal):
+        return None
+    if not isinstance(node.operand.value, int | float) or isinstance(node.operand.value, bool):
+        return None
+    value = node.operand.value if node.operator == "+" else -node.operand.value
+    return Expr.literal(value, "number")
+
+
+def _any_null(columns: list[str]) -> Expr:
+    """True when any part of a key is missing."""
+    tests = [Expr.operation("IS NULL", Expr.column(c)) for c in columns]
+    if len(tests) == 1:
+        return tests[0]
+    combined = tests[0]
+    for test in tests[1:]:
+        combined = Expr.operation("OR", combined, test)
+    return combined

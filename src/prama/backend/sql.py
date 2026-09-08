@@ -130,7 +130,14 @@ class SqlCompiler:
         if metric.aggregate is MetricAggregate.COUNT:
             return "COUNT(*)"
         if metric.aggregate is MetricAggregate.COUNT_IF:
-            return self.dialect.count_if(self._violation_condition(plan))
+            if metric.applies_unknown_policy:
+                return self.dialect.count_if(self._violation_condition(plan))
+            # An ordinary counted condition: an unknown is not a match, which
+            # is SQL's own rule and the right one here — a row whose key we
+            # cannot evaluate is not thereby a null key.
+            condition = self.expression(metric.expression)
+            false = self.dialect.boolean(False)
+            return self.dialect.count_if(f"COALESCE({condition}, {false})")
         if metric.aggregate is MetricAggregate.COUNT_DISTINCT:
             expression = metric.expression
             parts = (
@@ -140,7 +147,12 @@ class SqlCompiler:
                 if expression is not None
                 else ["*"]
             )
-            return self.dialect.count_distinct(parts)
+            # Only rows whose key is entirely present are counted. A key with
+            # a missing part identifies nothing, so it is not a distinct
+            # anything — it is counted as a null key instead, and the two
+            # together account for every row.
+            present = " AND ".join(f"{p} IS NOT NULL" for p in parts) if parts != ["*"] else ""
+            return self.dialect.count_distinct(parts, where=present)
         if metric.aggregate is MetricAggregate.SUM and metric.expression is None:
             # A set-level violation count the strategy fills in; for a unique
             # key it is derived from the counts rather than summed per row.
@@ -207,7 +219,18 @@ class SqlCompiler:
     def _operation(self, node: Expr) -> str:
         operator = node.name
         arguments = [self.expression(a) for a in node.args]
+        if operator in ("-", "+") and len(arguments) == 1:
+            # A sign, not a subtraction. Joining a single operand with an infix
+            # separator yields the operand alone, which silently drops the sign
+            # — and every engine agrees on the wrong answer, so nothing notices.
+            return f"({operator}{arguments[0]})"
         if operator in INFIX:
+            if len(arguments) < 2:
+                raise PqlUnsupportedError(
+                    f"{operator} needs two operands and was given {len(arguments)}",
+                    remedy="This is a defect in the compiler rather than in the control.",
+                    context={"operator": operator, "operands": len(arguments)},
+                )
             return "(" + f" {operator} ".join(arguments) + ")"
         if operator == "NOT":
             return f"NOT ({arguments[0]})"

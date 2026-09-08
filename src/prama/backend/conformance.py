@@ -33,6 +33,11 @@ from prama.pql.parser import parse_control
 #: A function that runs one SQL statement and returns rows as dictionaries.
 Runner = Callable[[str], list[dict[str, Any]]]
 
+#: The name reserved for the reference interpreter. It is not a SQL engine and
+#: is never compiled for; it evaluates the plan directly, which is what makes
+#: it an independent check rather than a fourth opinion from the same compiler.
+REFERENCE = "reference"
+
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class EngineOutcome:
@@ -67,9 +72,12 @@ class Disagreement:
 class ConformanceRun:
     """Runs the corpus across engines and reports where they part company."""
 
-    def __init__(self, table: str = "corpus") -> None:
+    def __init__(self, table: str = "corpus", *, rows: list[dict[str, Any]] | None = None) -> None:
         self._table = table
         self._plans: dict[str, ControlPlan] = {}
+        #: The corpus as data, so the reference interpreter can be run beside
+        #: the engines rather than instead of them.
+        self._rows = rows
 
     def plan_for(self, case: Case) -> ControlPlan:
         if case.name not in self._plans:
@@ -78,6 +86,8 @@ class ConformanceRun:
 
     def run_case(self, case: Case, engine: str, runner: Runner) -> EngineOutcome:
         plan = self.plan_for(case)
+        if engine == REFERENCE:
+            return self._run_reference(plan, case)
         try:
             compiled = SqlCompiler(engine).compile(plan, table=self._table)
         except PqlUnsupportedError as exc:
@@ -100,6 +110,33 @@ class ConformanceRun:
             status="ran",
             result=self._judge(plan, rows, engine),
         )
+
+    def _run_reference(self, plan: ControlPlan, case: Case) -> EngineOutcome:
+        """Evaluate the plan directly, sharing nothing with the compiler.
+
+        Three SQL backends agreeing proves agreement about the compiler they
+        share. This is the independent voice: if it differs from all three, the
+        interpreter is wrong; if all three differ from it, the compiler is.
+        """
+        from prama.backend.reference import ReferenceEvaluator
+
+        if self._rows is None:
+            return EngineOutcome(
+                engine=REFERENCE,
+                case=case.name,
+                status="failed",
+                detail="the reference interpreter needs the corpus rows",
+            )
+        try:
+            result = ReferenceEvaluator().run(plan, self._rows)
+        except Exception as exc:
+            return EngineOutcome(
+                engine=REFERENCE,
+                case=case.name,
+                status="failed",
+                detail=f"{type(exc).__name__}: {exc}",
+            )
+        return EngineOutcome(engine=REFERENCE, case=case.name, status="ran", result=result)
 
     def _judge(self, plan: ControlPlan, rows: list[dict[str, Any]], engine: str) -> ControlResult:
         names = [m.name for m in plan.metrics]

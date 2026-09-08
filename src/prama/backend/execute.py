@@ -107,8 +107,18 @@ def _derive(plan: ControlPlan, metrics: dict[str, float]) -> dict[str, float]:
     if plan.assertion_kind in ("unique_key", "functional_dependency"):
         scanned = metrics.get("scanned_rows")
         distinct = metrics.get("distinct_keys")
-        if scanned is not None and distinct is not None:
-            metrics["violating_rows"] = max(0.0, float(scanned) - float(distinct))
+        if scanned is None or distinct is None:
+            return metrics
+        # Nulls are counted separately because every engine's COUNT(DISTINCT)
+        # ignores them. Subtracting distinct from scanned without allowing for
+        # that charges every null-keyed row as a duplicate, which it is not —
+        # it is a different failure. A null key identifies nothing, so it
+        # cannot be one row per anything; it counts once, as itself.
+        null_keys = float(metrics.get("null_key_rows", 0.0))
+        identified = max(0.0, float(scanned) - null_keys)
+        duplicates = max(0.0, identified - float(distinct))
+        metrics["duplicate_rows"] = duplicates
+        metrics["violating_rows"] = duplicates + null_keys
     return metrics
 
 
@@ -187,7 +197,7 @@ def _distinctness_verdict(metrics: dict[str, float]) -> Verdict:
         # Nothing to be unique. Not a pass: an empty scope has demonstrated
         # nothing, and reporting green is how a broken feed goes unnoticed.
         return Verdict.INDETERMINATE
-    return Verdict.PASS if metrics["distinct_keys"] == metrics["scanned_rows"] else Verdict.FAIL
+    return Verdict.PASS if metrics.get("violating_rows", 0.0) == 0 else Verdict.FAIL
 
 
 def _round(value: float) -> float:

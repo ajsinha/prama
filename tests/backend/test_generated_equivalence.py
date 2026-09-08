@@ -46,7 +46,9 @@ class TestEveryGeneratedControlIsValid:
             plan = Lowerer().control(parse_control(control.pql))
             assert plan.plan_id.startswith("ir:sha256:"), control
 
-    def test_they_are_reproducible_from_their_seed(self, generated: list) -> None:
+    def test_they_are_reproducible_from_their_seed(
+        self, generated: list, conformance: ConformanceRun
+    ) -> None:
         # A conformance failure has to be reproducible. A suite that says
         # "some generated control disagreed" and cannot say which is worse
         # than no suite.
@@ -56,9 +58,9 @@ class TestEveryGeneratedControlIsValid:
 
 class TestTheEnginesAgreeOnAllOfThem:
     def test_no_generated_control_produces_a_disagreement(
-        self, generated: list, engines: dict
+        self, generated: list, engines: dict, conformance: ConformanceRun
     ) -> None:
-        run = ConformanceRun()
+        run = conformance
         failures = []
         for control in generated:
             disagreements = run.compare(
@@ -69,11 +71,11 @@ class TestTheEnginesAgreeOnAllOfThem:
         assert not failures, "\n\n".join(failures[:5])
 
     def test_the_generated_set_exercises_all_three_outcomes(
-        self, generated: list, duckdb_runner: object
+        self, generated: list, duckdb_runner: object, conformance: ConformanceRun
     ) -> None:
         # A generator whose controls all failed would compare three engines all
         # returning the same constant, and would prove nothing.
-        run = ConformanceRun()
+        run = conformance
         seen: collections.Counter[str] = collections.Counter()
         for control in generated:
             outcome = run.run_case(

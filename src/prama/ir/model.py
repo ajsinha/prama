@@ -226,12 +226,22 @@ class Metric(IrNode):
     name: str = ""
     aggregate: MetricAggregate = MetricAggregate.COUNT
     expression: Expr | None = None
+    #: Whether an unknown counts toward this metric. True for the violation
+    #: count, where the control's unknown policy decides; false for every other
+    #: counted condition, where an unknown simply is not a match.
+    #:
+    #: Stated rather than inferred from the metric's name. A backend that
+    #: guessed "the one called violating_rows is special" would apply the
+    #: policy to the wrong metric the first time another counted condition was
+    #: added — which is exactly what happened with the null-key count.
+    applies_unknown_policy: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "agg": self.aggregate.value,
             "expr": self.expression.to_dict() if self.expression else None,
+            "unknown_policy": self.applies_unknown_policy,
         }
 
     @property
