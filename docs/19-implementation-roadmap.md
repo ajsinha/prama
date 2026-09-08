@@ -287,8 +287,15 @@ W4.1 grammar and parser ✅ · W4.2 AST ✅ · W4.3 type checker and resolution 
 W4.4 selector expansion, materialised and versioned ✅ · W4.5 IR model and content addressing ✅ ·
 W4.6 SQL backend and dialect adapters ✅ · W4.7 local evaluator ✅ · W4.8 **conformance corpus and
 reference interpreter** ✅ · W4.9 property-based equivalence testing ✅ · W4.10 cost estimation ✅ ·
-W4.11 linter ✅ · W4.12 formatter ✅ · W4.13 plain-language renderer ✅ · W4.14 LSP · W4.15 importers for
-SodaCL, Great Expectations and dbt tests ✅ (ODCS quality blocks ⏳).
+W4.11 linter ✅ · W4.12 formatter ✅ · W4.13 plain-language renderer ✅ · W4.14 LSP ⏳ ·
+W4.15 importers for SodaCL, Great Expectations and dbt tests ✅ (ODCS quality blocks ⏳).
+
+**Deferred, with the reason.** The language server (W4.14) is editor tooling with no editor to
+serve until the UI arrives in Wave 9, and `prama control check` and `control format` already give
+the same answers from a terminal and from CI. Building an LSP now would mean maintaining a second
+implementation of diagnostics against no consumer. The ODCS importer waits on the same decision as
+the other three: a contract's quality block maps cleanly only where it states a rule Prama has, and
+the value of writing it is highest alongside the contract conformance work in Wave 8.
 
 ### Acceptance criteria
 
@@ -312,8 +319,11 @@ SodaCL, Great Expectations and dbt tests ✅ (ODCS quality blocks ⏳).
       **Blocked**: needs design partners. Cannot be simulated — a corpus we wrote ourselves would
       measure our own imagination, not a bank's control estate.
 
-**Demo.** Write one control; run it unchanged on PostgreSQL, DuckDB and Snowflake; show the compiled
-SQL for each and the identical verdict.
+**Demo.** Write one control; run it unchanged on PostgreSQL, DuckDB and SQLite; show the compiled
+SQL for each and the identical verdict — `prama control compile suite.pql --dialect …`. Snowflake
+stands in for a fourth engine in the original plan and is not connected; the reference interpreter
+takes its place as the independent voice, which is a stronger check than a fourth SQL engine
+compiled by the same file.
 
 **Wave risks.** `RSK-11` — full semantic equivalence may be unattainable for regex flavours,
 collation and decimal semantics. The response is a documented *portable subset* and compile-time
