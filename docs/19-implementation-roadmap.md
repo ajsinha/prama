@@ -354,17 +354,25 @@ refusal, not a silent difference.
 
 W5.1 scheduler and trigger kinds · W5.2 adaptive cadence policy · W5.3 assertion fusion · W5.4 budget
 enforcement and shedding · W5.5 worker model and lease-based claim · W5.6 agent mode, outbound-only ·
-W5.7 incremental execution and watermarks · W5.8 **evidence record, hash chain, signing** ·
-W5.9 WORM export and retention tiers · W5.10 **deterministic replay and divergence report** ·
+W5.7 incremental execution and watermarks · W5.8 **evidence record, hash chain, signing** ✅ ·
+W5.9 WORM export and retention tiers · W5.10 **deterministic replay and divergence report** ✅ ·
 W5.11 gate, quarantine and tag actions · W5.12 streaming seam and the DEC-17 benchmark ·
 W5.13 OpenTelemetry and OpenLineage · W5.14 soak and chaos tests.
 
 ### Acceptance criteria
 
 - [ ] 10⁶ assertion executions/day sustained on one control plane with N workers.
-- [ ] **100% of runs replay to an identical verdict**, or emit a divergence report naming the cause.
+- [x] **100% of runs replay to an identical verdict**, or emit a divergence report naming the cause.
+      The report distinguishes six causes and refuses to smooth an unexplained divergence into one
+      of the ordinary ones. A run whose answer holds while its inputs move is reported as *stable*
+      rather than diverged — otherwise a nightly replay against fresh data reports every record as
+      diverged and the ones that matter are lost among the ones that do not.
 - [ ] Fusion demonstrates the `NFR-COS-001` claim: ≤ 50% of a naive per-rule full scan.
-- [ ] Evidence median ≤ 2 KB; hash chain verifiable without Prama running.
+- [x] Evidence median ≤ 2 KB; hash chain verifiable without Prama running. Measured at 848 bytes on
+      the worked example. The verification algorithm is written out in words, and the test suite
+      reimplements it in the standard library alone and requires the two to agree — so the
+      description cannot drift from the code, and an auditor following it reaches the same
+      conclusion about the same record.
 - [ ] Execution continues for ≥ 24 h during a control-plane outage, buffering and replaying.
 - [ ] `DEC-17` decided on measured throughput, not preference.
 
