@@ -151,17 +151,17 @@ datasets — through an API — and every change is versioned, attributable and 
 | W2.2 | Bitemporal schema: identity + version tables, partial unique index for "one current version" | ✅ |
 | W2.3 | `Versioned` mixin and `TemporalQuery` (current / believed-now / as-of / history) | ✅ |
 | W2.4 | ORM models for domain, dataset, attribute | ✅ |
-| W2.5 | Semantic DAOs: create, amend, correct, supersede, read at any point in both time axes | ⏳ |
-| W2.6 | Concept and ConceptProperty; attribute→property mapping | ⏳ |
-| W2.7 | **Business Relationship**: 13 typed kinds, business-attribute join keys, tolerance, offset | ⏳ |
-| W2.8 | Journey: ordered chain of datasets and relationships, including black-box steps | ⏳ |
-| W2.9 | Binding and Connection identity, with unbound datasets first-class | ⏳ |
-| W2.10 | Declaration services with maker–checker approval for Tier-1 objects | ⏳ |
-| W2.11 | Semantic-conflict detection: one property, incompatible definitions or units | ⏳ |
-| W2.12 | Estate maturity score and next-best-action ranking | ⏳ |
-| W2.13 | GitOps serialiser, deserialiser and drift detection | ⏳ |
-| W2.14 | REST API over the whole semantic layer, with contract tests | ⏳ |
-| W2.15 | Audit on every mutation, joined to the platform audit trail | ⏳ |
+| W2.5 | Semantic DAOs: create, amend, correct, retire, read at any point on both axes | ✅ |
+| W2.6 | Concept and ConceptProperty; attribute→property mapping | ✅ |
+| W2.7 | **Business Relationship**: 13 typed kinds, business-attribute join keys, tolerance, offset | ✅ |
+| W2.8 | Journey: ordered chain of datasets and relationships, including black-box steps | ✅ |
+| W2.9 | Binding and Connection identity, with unbound datasets first-class | ✅ |
+| W2.10 | Declaration services with maker–checker approval for Tier-1 objects | ✅ |
+| W2.11 | Semantic-conflict detection: one property, incompatible definitions or units | ✅ |
+| W2.12 | Estate maturity score and next-best-action ranking | ✅ |
+| W2.13 | GitOps serialiser, deserialiser and drift detection | ✅ |
+| W2.14 | REST API over the semantic layer, with contract tests | ◑ datasets, attributes, relationships, estate and meta done; concepts, journeys, connections and bindings remain DAO-only |
+| W2.15 | Audit on every mutation, joined to the platform audit trail | ◑ dataset and relationship services audit; the rest follow with their routes |
 
 ### Acceptance criteria
 
