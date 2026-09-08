@@ -1,0 +1,87 @@
+# Prama — tracked configuration.
+# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
+#
+# THIS FILE IS TRACKED IN GIT. A secret written here is a public secret.
+# Real secrets belong in config/application.local.yaml, which is git-ignored and
+# is loaded automatically straight after this file. Alternatively use
+# ${ENV_VAR:default} substitution, or a PRAMA_-prefixed environment variable.
+#
+# Precedence, weakest to strongest:
+#   built-in defaults  ->  this file  ->  application.local.yaml  ->  PRAMA_* env  ->  --set
+#
+# Inspect the effective, merged, redacted result with:  prama config show
+
+app:
+  name: Prama
+  environment: development          # development | test | staging | production
+  instance_id: ${HOSTNAME:local}
+
+logging:
+  level: INFO                       # DEBUG | INFO | WARNING | ERROR
+  format: text                      # text (terminal) | json (log shipper)
+
+security:
+  # Deliberately empty. Prama refuses to serve without it, so that a fresh
+  # clone can never run on a value that is in a public repository.
+  session_secret: ""
+  api_key_hash_rounds: 210000
+
+database:
+  # The only switch that chooses a database. No code branches on this value
+  # outside prama/db/dialects.py, and there are no migrations: schema/sqlite.sql
+  # and schema/postgres.sql are the authority for their respective engines.
+  dialect: sqlite                   # sqlite | postgres
+
+  sqlite:
+    path: data/prama.db             # ":memory:" is honoured, for tests
+    journal_mode: WAL               # WAL lets readers proceed during a write
+    synchronous: NORMAL
+    busy_timeout: 5s
+    foreign_keys: true
+
+  postgres:
+    host: ${PGHOST:localhost}
+    port: ${PGPORT:5432}
+    database: ${PGDATABASE:prama}
+    user: ${PGUSER:prama}
+    password: ""                    # -> application.local.yaml, or PGPASSWORD
+    sslmode: prefer
+    application_name: prama
+    schema: public
+    statement_timeout: 60s
+
+  pool:
+    size: 10
+    max_overflow: 20
+    timeout: 30s
+    recycle: 30m
+    pre_ping: true                  # costs one round trip; prevents stale-connection storms
+
+  schema_dir: schema
+  verify_on_start: true             # fail loudly on schema drift rather than migrate
+  echo: false
+
+concurrency:
+  queue:
+    # Queues are bounded by BYTES, not item count: ten million small records and
+    # ten large ones are not the same memory risk, and an item-bounded "bounded"
+    # queue behaves like a leak.
+    max_bytes: 256mb
+    max_items: 100000
+    offer_timeout: 5s
+  supervisor:
+    shutdown_grace: 30s
+  lease:
+    provider: database              # database | memory
+    ttl: 30s
+    renew_interval: 10s
+    clock_skew_allowance: 2s
+
+plugins:
+  entry_point_groups:
+    - prama.connectors
+    - prama.backends
+    - prama.monitors
+    - prama.notifiers
+    - prama.scorers
+  disabled: []

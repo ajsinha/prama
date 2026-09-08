@@ -1,0 +1,23 @@
+
+# --- Prama ---
+config/*.local.yaml
+config/*.local.yml
+config/*.local.properties
+config/*.local.json
+*.egg-info/
+build/
+dist/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+*.db
+*.sqlite
+*.sqlite3
+data/
+logs/

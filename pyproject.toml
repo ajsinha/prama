@@ -1,0 +1,76 @@
+# Prama — project definition.
+# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "prama"
+description = "Prama — a business-owned, evidence-first data quality control plane."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary — see LICENSE" }
+authors = [{ name = "Ashutosh Sinha", email = "ajsinha@gmail.com" }]
+dynamic = ["version"]
+dependencies = [
+    "PyYAML>=6.0",
+    "SQLAlchemy>=2.0.30",
+    "aiosqlite>=0.20",
+]
+
+[project.optional-dependencies]
+postgres = ["asyncpg>=0.29", "psycopg[binary]>=3.1"]
+fast = ["orjson>=3.10"]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "types-PyYAML",
+]
+
+[project.scripts]
+prama = "prama.cli.main:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "prama.version.VERSION" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+filterwarnings = ["error::DeprecationWarning:prama.*"]
+markers = ["postgres: requires a reachable PostgreSQL instance"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "SIM", "RET", "ARG", "PTH", "RUF"]
+ignore = ["N818"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ARG001", "ARG002", "RUF059", "SLF001"]
+# TypeDecorator hooks take a `dialect` argument the base class imposes; the
+# portable types genuinely do not branch on it, which is the whole point.
+"src/prama/db/types.py" = ["ARG002"]
+
+[tool.mypy]
+python_version = "3.11"
+packages = ["prama"]
+mypy_path = "src"
+strict = true
+warn_unreachable = true
+disallow_any_generics = false
+
+[[tool.mypy.overrides]]
+module = ["yaml", "orjson"]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["src/prama"]
