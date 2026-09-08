@@ -663,8 +663,8 @@ semantic layer stops being a theory.
 ### Tasks
 
 W9.1 ✅ design tokens and the Jinja app shell · W9.2 ✅ estate map with Sigma.js WebGL rendering ·
-W9.3 drag-to-declare canvas ·
-W9.4 ◐ declaration flows with inferred-then-confirmed defaults · W9.5 no-code rule builder ·
+W9.3 ✅ drag-to-declare canvas ·
+W9.4 ◐ declaration flows with inferred-then-confirmed defaults · W9.5 ✅ no-code rule builder ·
 W9.6 ◐ CodeMirror PQL editor and LSP integration · W9.7 live preview and backtest over SSE ·
 W9.8 ◐ proposal review queue ·
 W9.9 incident triage workspace · W9.10 reconciliation workbench · W9.11 scorecards and drill-down ·
@@ -685,12 +685,22 @@ configuration or the error taxonomy.
 | Dataset page naming the *control* each gap costs, not the null column | Attribute editing and relationship drawing |
 | Declaration list and form, organised around questions, approval requirement derived from `ApprovalPolicy` | Inferred-then-confirmed defaults from profiling (W9.4) |
 | Control studio: CodeMirror 5, check/explain/compile, residual disclosure on the SQL | LSP, live preview and backtest over SSE (W9.6, W9.7) |
+| The no-code builder: eight rules in business terms, always showing the PQL it wrote, refusing to emit anything that will not re-read | More rule shapes — functional dependency, cross-dataset comparison |
+| Relationships end to end: declare, confirm, reject; pick-then-pick on the map | Attribute-level relationship editing |
+| Charts as server-rendered SVG (`prama.report`), one renderer for screen and print | Wiring them into scorecards, which have no measurements to draw |
+| Contrast measured, not eyeballed; text-safe dimension tokens derived from the brand hues | `axe-core` in a browser (W9.16) — computed contrast, focus order, ARIA validity |
 | Proposal queue showing `Unsatisfiable` first | Accept/reject actions — there is nowhere to persist an accepted control yet |
 | Incidents, reconciliation and scorecards distinguishing "found nothing" from "nothing ran" | Their actual tables, which need a persistent evidence ledger |
 
 The three run-backed screens are the honest limit of this wave: the evidence ledger is in-memory,
 so there are no runs to read. What they do instead is refuse to render an empty list as a clean
 one — the single most dangerous screen a data quality product can ship.
+
+**A defect the console surfaced, recorded here because it is not a UI defect.**
+`Threshold.render()` drops the comparator for a rate — `BELOW 0.5%` — so a threshold built with
+`<` renders identically to one built with `<=` and re-reads as `<=`. No parsed control can reach
+it, because the parser only ever produces `<=`; anything constructing a rate threshold
+programmatically can. Found by the rule builder's `parse(render(c)) == c` guard.
 
 ### Acceptance criteria
 
