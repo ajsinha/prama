@@ -357,7 +357,7 @@ enforcement and shedding ✅ · W5.5 worker model and lease-based claim ✅ · W
 W5.7 incremental execution and watermarks ✅ · W5.8 **evidence record, hash chain, signing** ✅ ·
 W5.9 WORM export and retention tiers ✅ · W5.10 **deterministic replay and divergence report** ✅ ·
 W5.11 gate, quarantine and tag actions ✅ · W5.12 streaming seam and the DEC-17 benchmark ·
-W5.13 OpenTelemetry and OpenLineage · W5.14 soak and chaos tests.
+W5.13 OpenTelemetry and OpenLineage ✅ · W5.14 soak and chaos tests.
 
 ### Acceptance criteria
 
