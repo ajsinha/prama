@@ -9,7 +9,15 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
-from prama.db.models.base import Base, CreatedAt, TenantScoped, Timestamped, UlidPrimaryKey
+from prama.db.models.base import (
+    Base,
+    CreatedAt,
+    EvidenceBase,
+    ModelMixin,
+    TenantScoped,
+    Timestamped,
+    UlidPrimaryKey,
+)
 from prama.db.models.platform import (
     ApiKey,
     AuditEvent,
@@ -21,17 +29,33 @@ from prama.db.models.platform import (
     Setting,
     Tenant,
 )
+from prama.db.models.semantic import (
+    SemAttribute,
+    SemAttributeVersion,
+    SemDataset,
+    SemDatasetVersion,
+    SemDomain,
+    SemDomainVersion,
+)
 
 __all__ = [
     "ApiKey",
     "AuditEvent",
     "Base",
     "CreatedAt",
+    "EvidenceBase",
     "LeaseRow",
+    "ModelMixin",
     "Principal",
     "PrincipalRole",
     "Role",
     "SchemaState",
+    "SemAttribute",
+    "SemAttributeVersion",
+    "SemDataset",
+    "SemDatasetVersion",
+    "SemDomain",
+    "SemDomainVersion",
     "Setting",
     "Tenant",
     "TenantScoped",

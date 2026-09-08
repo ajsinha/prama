@@ -10,8 +10,9 @@
 -- into both files in the same commit; tests/db/test_schema.py fails if the two
 -- ever differ by anything other than this header.
 --
--- Wave 1 covers platform tables only. The semantic layer (dataset, attribute,
--- concept, relationship, journey, binding, connection) arrives in Wave 2.
+-- Wave 1 covers platform tables; Wave 2 adds the semantic layer (domain,
+-- dataset, attribute). Concepts, relationships, journeys, bindings and
+-- connections follow in the remainder of Wave 2.
 --
 -- ---------------------------------------------------------------------------
 -- PORTABLE TYPE SET
@@ -227,3 +228,178 @@ CREATE TABLE IF NOT EXISTS setting (
     updated_by  VARCHAR(26),
     PRIMARY KEY (tenant_id, scope, key)
 );
+
+-- ===========================================================================
+-- SEMANTIC LAYER (Wave 2)
+--
+-- Every declaration is BITEMPORAL, held as an identity row plus a chain of
+-- version rows:
+--
+--   valid_from / valid_to      business time: when the declaration was true
+--   recorded_at / superseded_at  system time: when we believed it
+--
+-- Nothing is ever updated in place. Correcting a mistake supersedes a version;
+-- changing a fact closes one validity period and opens another. The two axes
+-- are separable because the questions differ: "what was the grain on 31 March?"
+-- and "what did we believe the grain was, on 31 March?" have different answers
+-- after a correction, and an evidence record from March must resolve against
+-- the second.
+--
+-- The current declaration is  valid_to IS NULL AND superseded_at IS NULL.
+-- A partial unique index enforces exactly one current version per entity; the
+-- syntax is identical on both engines.
+--
+-- Foreign keys point at the IDENTITY table, never at a version, so a reference
+-- does not have to be rewritten every time a declaration changes.
+-- ===========================================================================
+
+-- ---------------------------------------------------------------------------
+-- sem_domain: a business grouping with an accountable owner.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS sem_domain (
+    id          VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id   VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    created_at  VARCHAR(32)   NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_sem_domain_tenant ON sem_domain (tenant_id);
+
+CREATE TABLE IF NOT EXISTS sem_domain_version (
+    id                VARCHAR(26)   NOT NULL PRIMARY KEY,
+    domain_id         VARCHAR(26)   NOT NULL REFERENCES sem_domain (id) ON DELETE CASCADE,
+    version           INTEGER       NOT NULL,
+    valid_from        VARCHAR(32)   NOT NULL,
+    valid_to          VARCHAR(32),
+    recorded_at       VARCHAR(32)   NOT NULL,
+    superseded_at     VARCHAR(32),
+    authored_by       VARCHAR(26),
+    approved_by       VARCHAR(26),
+    approved_at       VARCHAR(32),
+    change_reason     TEXT          NOT NULL DEFAULT '',
+    name              VARCHAR(255)  NOT NULL,
+    description       TEXT          NOT NULL DEFAULT '',
+    owner_id          VARCHAR(26),
+    parent_domain_id  VARCHAR(26)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sem_domain_current
+    ON sem_domain_version (domain_id) WHERE superseded_at IS NULL AND valid_to IS NULL;
+CREATE INDEX IF NOT EXISTS ix_sem_domain_version_entity
+    ON sem_domain_version (domain_id, recorded_at);
+
+-- ---------------------------------------------------------------------------
+-- sem_dataset: whatever the business calls "a set of data" — a table, a set of
+-- tables, a database, a feed, a set of feeds, a stream, an API, a return, a
+-- query, or nothing yet. A dataset may be declared before it is bound to any
+-- physical object; an unbound dataset still participates in relationships and
+-- is reported as a connectivity gap (FR-MET-003).
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS sem_dataset (
+    id          VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id   VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    created_at  VARCHAR(32)   NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_sem_dataset_tenant ON sem_dataset (tenant_id);
+
+CREATE TABLE IF NOT EXISTS sem_dataset_version (
+    id                    VARCHAR(26)   NOT NULL PRIMARY KEY,
+    dataset_id            VARCHAR(26)   NOT NULL REFERENCES sem_dataset (id) ON DELETE CASCADE,
+    version               INTEGER       NOT NULL,
+    valid_from            VARCHAR(32)   NOT NULL,
+    valid_to              VARCHAR(32),
+    recorded_at           VARCHAR(32)   NOT NULL,
+    superseded_at         VARCHAR(32),
+    authored_by           VARCHAR(26),
+    approved_by           VARCHAR(26),
+    approved_at           VARCHAR(32),
+    change_reason         TEXT          NOT NULL DEFAULT '',
+    name                  VARCHAR(255)  NOT NULL,
+    slug                  VARCHAR(128)  NOT NULL,
+    description           TEXT          NOT NULL DEFAULT '',
+    purpose               TEXT          NOT NULL DEFAULT '',
+    domain_id             VARCHAR(26),
+    shape                 VARCHAR(32)   NOT NULL DEFAULT 'unbound',
+    owner_id              VARCHAR(26),
+    steward_id            VARCHAR(26),
+    custodian_id          VARCHAR(26),
+    criticality           INTEGER       NOT NULL DEFAULT 4,
+    grain_json            TEXT,
+    business_key_json     TEXT,
+    temporality           VARCHAR(32)   NOT NULL DEFAULT 'snapshot',
+    rhythm_json           TEXT,
+    authoritativeness     VARCHAR(32)   NOT NULL DEFAULT 'unknown',
+    source_of_truth_id    VARCHAR(26),
+    retention_days        INTEGER,
+    jurisdiction          VARCHAR(64),
+    sensitivity           VARCHAR(32)   NOT NULL DEFAULT 'internal',
+    lifecycle_state       VARCHAR(32)   NOT NULL DEFAULT 'proposed',
+    tags_json             TEXT          NOT NULL DEFAULT '[]',
+    CONSTRAINT ck_sem_dataset_criticality CHECK (criticality BETWEEN 1 AND 4),
+    CONSTRAINT ck_sem_dataset_shape CHECK (shape IN (
+        'unbound', 'table', 'table_set', 'schema', 'feed', 'feed_set',
+        'stream', 'api', 'report', 'query')),
+    CONSTRAINT ck_sem_dataset_lifecycle CHECK (lifecycle_state IN (
+        'proposed', 'active', 'deprecated', 'retired'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sem_dataset_current
+    ON sem_dataset_version (dataset_id) WHERE superseded_at IS NULL AND valid_to IS NULL;
+CREATE INDEX IF NOT EXISTS ix_sem_dataset_version_entity
+    ON sem_dataset_version (dataset_id, recorded_at);
+CREATE INDEX IF NOT EXISTS ix_sem_dataset_version_domain
+    ON sem_dataset_version (domain_id, criticality);
+CREATE INDEX IF NOT EXISTS ix_sem_dataset_version_slug
+    ON sem_dataset_version (slug);
+
+-- ---------------------------------------------------------------------------
+-- sem_attribute: a business field of a dataset, with its interpretation.
+-- Distinct from a physical column: the binding to one lives separately, so an
+-- attribute survives a schema change that renames the column beneath it.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS sem_attribute (
+    id          VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id   VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    dataset_id  VARCHAR(26)   NOT NULL REFERENCES sem_dataset (id) ON DELETE CASCADE,
+    created_at  VARCHAR(32)   NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_sem_attribute_dataset ON sem_attribute (dataset_id);
+
+CREATE TABLE IF NOT EXISTS sem_attribute_version (
+    id                     VARCHAR(26)   NOT NULL PRIMARY KEY,
+    attribute_id           VARCHAR(26)   NOT NULL REFERENCES sem_attribute (id) ON DELETE CASCADE,
+    version                INTEGER       NOT NULL,
+    valid_from             VARCHAR(32)   NOT NULL,
+    valid_to               VARCHAR(32),
+    recorded_at            VARCHAR(32)   NOT NULL,
+    superseded_at          VARCHAR(32),
+    authored_by            VARCHAR(26),
+    approved_by            VARCHAR(26),
+    approved_at            VARCHAR(32),
+    change_reason          TEXT          NOT NULL DEFAULT '',
+    name                   VARCHAR(128)  NOT NULL,
+    ordinal                INTEGER       NOT NULL DEFAULT 0,
+    definition             TEXT          NOT NULL DEFAULT '',
+    interpretation         TEXT          NOT NULL DEFAULT '',
+    semantic_type          VARCHAR(64),
+    unit                   VARCHAR(32),
+    currency_attribute     VARCHAR(128),
+    numeric_scale          INTEGER,
+    numeric_precision      INTEGER,
+    value_domain_json      TEXT,
+    optionality            VARCHAR(32)   NOT NULL DEFAULT 'optional',
+    optionality_condition  TEXT,
+    is_cde                 INTEGER       NOT NULL DEFAULT 0,
+    obligations_json       TEXT          NOT NULL DEFAULT '[]',
+    sensitivity            VARCHAR(32)   NOT NULL DEFAULT 'internal',
+    masking_policy         VARCHAR(64),
+    expected_behaviour     VARCHAR(32),
+    concept_property_id    VARCHAR(26),
+    glossary_term          VARCHAR(255),
+    owner_id               VARCHAR(26),
+    CONSTRAINT ck_sem_attribute_is_cde CHECK (is_cde IN (0, 1)),
+    CONSTRAINT ck_sem_attribute_optionality CHECK (optionality IN (
+        'mandatory', 'conditional', 'optional'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sem_attribute_current
+    ON sem_attribute_version (attribute_id) WHERE superseded_at IS NULL AND valid_to IS NULL;
+CREATE INDEX IF NOT EXISTS ix_sem_attribute_version_entity
+    ON sem_attribute_version (attribute_id, recorded_at);
+CREATE INDEX IF NOT EXISTS ix_sem_attribute_version_cde
+    ON sem_attribute_version (is_cde, semantic_type);
