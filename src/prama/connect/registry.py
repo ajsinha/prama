@@ -71,6 +71,9 @@ class ConnectorRegistry:
     def keys(self) -> list[str]:
         return sorted(self._registry.keys())
 
+    def __contains__(self, key: str) -> bool:
+        return key in self._registry
+
     def get(self, key: str) -> type[Connector]:
         return self._registry.get(key)
 

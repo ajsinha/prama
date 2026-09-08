@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 
 from prama.cli.base import EXIT_DRIFT, EXIT_OK, Command, CommandContext, CommandGroup
+from prama.cli.connect import ConnectCommand, ConnectorsCommand
 from prama.cli.estate import EstateCommand
 from prama.core.errors import PramaError
 from prama.db import Database
@@ -218,6 +219,8 @@ def all_commands() -> list[Command]:
     return [
         VersionCommand(),
         ConfigCommand(),
+        ConnectCommand(),
+        ConnectorsCommand(),
         DbCommand(),
         EstateCommand(),
         ServeCommand(),
