@@ -297,3 +297,156 @@ class CapabilitiesOut(PramaModel):
     dialects: list[str]
     relationship_kinds: list[str]
     features: dict[str, bool]
+
+
+# ---------------------------------------------------------------------------
+# Concepts, journeys, connections, bindings
+# ---------------------------------------------------------------------------
+
+
+class ConceptIn(PramaModel):
+    name: str = Field(min_length=1, max_length=128)
+    description: str = ""
+    domain_id: str | None = None
+    pack_ref: str | None = Field(
+        default=None, description="Set when the concept came from a domain pack."
+    )
+
+
+class ConceptPropertyIn(PramaModel):
+    name: str = Field(min_length=1, max_length=128)
+    definition: str = ""
+    semantic_type: str | None = None
+    unit: str | None = None
+    value_domain: dict[str, Any] | None = None
+    is_identifier: bool = Field(
+        default=False, description="Whether this property identifies the concept."
+    )
+
+
+class AttributeMappingIn(PramaModel):
+    property_id: str = Field(description="The canonical property this attribute claims to be.")
+
+
+class ConceptOut(PramaModel):
+    id: str
+    name: str
+    description: str = ""
+    domain_id: str | None = None
+    pack_ref: str | None = None
+    meta: VersionMeta
+
+
+class ConceptPropertyOut(PramaModel):
+    id: str
+    concept_id: str
+    name: str
+    definition: str = ""
+    semantic_type: str | None = None
+    unit: str | None = None
+    value_domain: dict[str, Any] | None = None
+    is_identifier: bool
+    mapped_attribute_count: int = Field(
+        default=0, description="How many attributes across the estate claim to be this."
+    )
+    meta: VersionMeta
+
+
+class JourneyStepIn(PramaModel):
+    kind: str = Field(default="dataset", description="dataset | black_box | manual")
+    dataset_id: str | None = None
+    description: str = ""
+    expected_latency_seconds: float | None = None
+
+
+class JourneyIn(PramaModel):
+    name: str = Field(min_length=1, max_length=255)
+    description: str = ""
+    domain_id: str | None = None
+    owner_id: str | None = None
+    criticality: int = Field(default=4, ge=1, le=4)
+    sla: dict[str, Any] | None = None
+    steps: list[JourneyStepIn] = Field(default_factory=list)
+    approved_by: str | None = None
+
+
+class JourneyStepsIn(PramaModel):
+    reason: str = Field(min_length=1)
+    steps: list[JourneyStepIn]
+
+
+class JourneyOut(PramaModel):
+    id: str
+    slug: str
+    name: str
+    description: str = ""
+    domain_id: str | None = None
+    owner_id: str | None = None
+    criticality: int
+    sla: dict[str, Any] | None = None
+    steps: list[dict[str, Any]] = Field(default_factory=list)
+    step_count: int
+    meta: VersionMeta
+
+
+class ConnectionIn(PramaModel):
+    name: str = Field(min_length=1, max_length=255)
+    source_type: str = Field(min_length=1, max_length=64)
+    description: str = ""
+    config: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Typed per source family. May not contain a secret.",
+    )
+    credential_ref: str | None = Field(
+        default=None,
+        description=(
+            "A vault reference, never a secret. A business user configures a connection "
+            "they cannot read the credential for."
+        ),
+    )
+    read_policy: dict[str, Any] = Field(default_factory=dict)
+    budget: dict[str, Any] = Field(default_factory=dict)
+    owner_id: str | None = None
+
+
+class ConnectionOut(PramaModel):
+    id: str
+    slug: str
+    name: str
+    source_type: str
+    description: str = ""
+    config: dict[str, Any] = Field(default_factory=dict)
+    credential_ref: str | None = None
+    read_policy: dict[str, Any] = Field(default_factory=dict)
+    budget: dict[str, Any] = Field(default_factory=dict)
+    owner_id: str | None = None
+    health_state: str
+    health_detail: str | None = None
+    is_usable: bool
+    meta: VersionMeta
+
+
+class BindingIn(PramaModel):
+    connection_id: str
+    physical_ref: dict[str, Any] = Field(
+        description="Where the object actually lives: schema, object, path, topic…"
+    )
+    shape: str = Field(default="table", description="What the dataset turned out to be.")
+    attribute_id: str | None = Field(default=None, description="Omit to bind the dataset itself.")
+    transform: str | None = None
+    confidence: float | None = None
+
+
+class BindingOut(PramaModel):
+    id: str
+    target_kind: str
+    dataset_id: str
+    attribute_id: str | None = None
+    connection_id: str
+    physical_ref: dict[str, Any] = Field(default_factory=dict)
+    transform: str | None = None
+    status: str
+    confidence: float | None = None
+    drift_state: str
+    has_drifted: bool
+    meta: VersionMeta

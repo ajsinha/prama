@@ -16,7 +16,7 @@ from fastapi import FastAPI, Request, Response
 
 from prama.api.deps import new_correlation_id
 from prama.api.errors import prama_error_handler, unexpected_error_handler
-from prama.api.routes import estate, meta, semantic
+from prama.api.routes import estate, graph, meta, semantic
 from prama.core.config import Configuration, load_configuration
 from prama.core.errors import PramaError
 from prama.core.log import LoggingConfigurator, get_logger
@@ -98,5 +98,6 @@ def create_app(config: Configuration | None = None, *, database: Database | None
 
     app.include_router(meta.router, prefix=API_PREFIX)
     app.include_router(semantic.router, prefix=API_PREFIX)
+    app.include_router(graph.router, prefix=API_PREFIX)
     app.include_router(estate.router, prefix=API_PREFIX)
     return app

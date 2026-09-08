@@ -132,7 +132,7 @@ class EstateSerialiser:
             "apiVersion": f"prama/v{GITOPS_VERSION}",
             "kind": "Dataset",
             "metadata": {"slug": version.slug, "name": version.name},
-            "spec": _compact(
+            "spec": _compact_mapping(
                 {
                     "description": version.description,
                     "purpose": version.purpose,
@@ -157,7 +157,7 @@ class EstateSerialiser:
         return document
 
     def attribute_document(self, version: Any) -> dict[str, Any]:
-        return _compact(
+        return _compact_mapping(
             {
                 "name": version.name,
                 "definition": version.definition,
@@ -182,16 +182,21 @@ class EstateSerialiser:
         self, version: Any, *, slug_of: dict[str, str] | None = None
     ) -> dict[str, Any]:
         slugs = slug_of or {}
+        left = slugs.get(version.from_dataset_id, version.from_dataset_id)
+        right = slugs.get(version.to_dataset_id, version.to_dataset_id)
         return {
             "apiVersion": f"prama/v{GITOPS_VERSION}",
             "kind": "Relationship",
-            "metadata": {"name": version.name or version.kind},
-            "spec": _compact(
+            # A short, stable name a reviewer can scan; the full sentence the
+            # declaration renders to belongs in the description, where wrapping
+            # it is harmless.
+            "metadata": {"name": f"{left}_{version.kind}_{right}"[:120]},
+            "spec": _compact_mapping(
                 {
                     "kind": version.kind,
-                    "from": slugs.get(version.from_dataset_id, version.from_dataset_id),
-                    "to": slugs.get(version.to_dataset_id, version.to_dataset_id),
-                    "description": version.description,
+                    "from": left,
+                    "to": right,
+                    "description": version.description or version.name,
                     "match_keys": list(version.match_keys_json or []),
                     "compare": list(version.compare_json or []),
                     "cardinality": version.cardinality,
@@ -220,7 +225,7 @@ class EstateSerialiser:
             "apiVersion": f"prama/v{GITOPS_VERSION}",
             "kind": "Journey",
             "metadata": {"slug": version.slug, "name": version.name},
-            "spec": _compact(
+            "spec": _compact_mapping(
                 {
                     "description": version.description,
                     "owner": version.owner_id,
@@ -237,7 +242,7 @@ class EstateSerialiser:
             "apiVersion": f"prama/v{GITOPS_VERSION}",
             "kind": "Connection",
             "metadata": {"slug": version.slug, "name": version.name},
-            "spec": _compact(
+            "spec": _compact_mapping(
                 {
                     "source_type": version.source_type,
                     "description": version.description,
@@ -380,13 +385,28 @@ class DriftDetector:
         return "\n".join([f"{len(drifts)} difference(s):", *(f"  - {d.render()}" for d in drifts)])
 
 
-def _compact(mapping: dict[str, Any]) -> dict[str, Any]:
-    """Drop empty values so a file shows what was declared, not what was not.
+def _compact_mapping(mapping: dict[str, Any]) -> dict[str, Any]:
+    """``_compact`` at the top level, typed as the mapping it always returns."""
+    compacted = _compact(mapping)
+    assert isinstance(compacted, dict)
+    return compacted
+
+
+def _compact(value: Any) -> Any:
+    """Drop empty values, at every depth, so a file shows what was declared.
 
     A document full of ``null`` is a document nobody reads, and it makes every
-    diff noisier than the change it contains.
+    diff noisier than the change it contains. Recursion matters: the noise lives
+    in the nested value objects — a tolerance carrying ``relative: null`` and a
+    match key carrying ``right: null`` are exactly what a reviewer has to read
+    past to find the change.
     """
-    return {k: v for k, v in mapping.items() if v not in (None, "", [], {})}
+    if isinstance(value, dict):
+        cleaned = {k: _compact(v) for k, v in value.items()}
+        return {k: v for k, v in cleaned.items() if v not in (None, "", [], {})}
+    if isinstance(value, list):
+        return [_compact(v) for v in value]
+    return value
 
 
 def _normalise(value: Any) -> Any:

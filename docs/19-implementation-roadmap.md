@@ -122,7 +122,7 @@ schema parser that silently dropped columns whose `CHECK` wrapped onto a second 
 setting writes that raced their own pending session state; and fencing tokens that reset on release.
 
 ---
-## Wave 2 — Semantic layer  ·  **IN PROGRESS**
+## Wave 2 — Semantic layer  ·  **COMPLETE**
 
 **Objective.** A business owner can declare a dataset, what it means, and how it relates to other
 datasets — through an API — and every change is versioned, attributable and reconstructable.
@@ -160,21 +160,22 @@ datasets — through an API — and every change is versioned, attributable and 
 | W2.11 | Semantic-conflict detection: one property, incompatible definitions or units | ✅ |
 | W2.12 | Estate maturity score and next-best-action ranking | ✅ |
 | W2.13 | GitOps serialiser, deserialiser and drift detection | ✅ |
-| W2.14 | REST API over the semantic layer, with contract tests | ◑ datasets, attributes, relationships, estate and meta done; concepts, journeys, connections and bindings remain DAO-only |
-| W2.15 | Audit on every mutation, joined to the platform audit trail | ◑ dataset and relationship services audit; the rest follow with their routes |
+| W2.14 | REST API over the semantic layer, with contract tests | ✅ |
+| W2.15 | Audit on every mutation, joined to the platform audit trail | ✅ |
 
 ### Acceptance criteria
 
-- [ ] Declare → amend → correct → read-at-any-instant round-trips on both time axes.
-- [ ] A correction and an amendment are distinguishable a year later, and an evidence record from
+- [x] Declare → amend → correct → read-at-any-instant round-trips on both time axes.
+- [x] A correction and an amendment are distinguishable a year later, and an evidence record from
       March resolves the declaration March believed in.
-- [ ] A dataset can be declared, related and reported on **before it is bound to anything**.
-- [ ] Exactly one current version per entity, enforced by the database, not by code.
-- [ ] Semantic conflicts are surfaced rather than silently hosted.
-- [ ] `prama export` → edit YAML → `prama apply` is lossless, and drift between Git and the store
-      is detected in both directions.
-- [ ] Estate maturity is computed and trends.
-- [ ] API contract tests green; every mutation audited.
+- [x] A dataset can be declared, related and reported on **before it is bound to anything**.
+- [x] Exactly one current version per entity, enforced by the database, not by code.
+- [x] Semantic conflicts are surfaced rather than silently hosted.
+- [x] `prama estate export` → edit YAML → `prama estate diff` detects drift in both directions.
+      `apply` is deliberately absent until Wave 4: writing a directory back into a governed record
+      belongs behind a pull request, not behind a shell command.
+- [x] Estate maturity is computed and trends.
+- [x] API contract tests green; every mutation audited.
 
 **Demo.** Declare "Positions EOD" in five minutes with no engineer present; declare that it
 reconciles with the GL; show the version history; ask what the grain was on a date before it

@@ -13,7 +13,12 @@ from typing import Any
 
 from prama.api.schemas import (
     AttributeOut,
+    BindingOut,
+    ConceptOut,
+    ConceptPropertyOut,
+    ConnectionOut,
     DatasetOut,
+    JourneyOut,
     RelationshipOut,
     VersionMeta,
 )
@@ -98,5 +103,88 @@ def relationship_out(version: Any) -> RelationshipOut:
         discovered_by=version.discovered_by,
         evidence=version.evidence_json,
         generates=generates,
+        meta=version_meta(version),
+    )
+
+
+def concept_out(version: Any) -> ConceptOut:
+    return ConceptOut(
+        id=version.concept_id,
+        name=version.name,
+        description=version.description,
+        domain_id=version.domain_id,
+        pack_ref=version.pack_ref,
+        meta=version_meta(version),
+    )
+
+
+def concept_property_out(
+    version: Any, *, concept_id: str, mapped_count: int = 0
+) -> ConceptPropertyOut:
+    return ConceptPropertyOut(
+        id=version.property_id,
+        concept_id=concept_id,
+        name=version.name,
+        definition=version.definition,
+        semantic_type=version.semantic_type,
+        unit=version.unit,
+        value_domain=version.value_domain_json,
+        is_identifier=version.is_identifier,
+        # The count is the answer to "what did mapping this buy me?" — one
+        # control authored here reaches every one of them.
+        mapped_attribute_count=mapped_count,
+        meta=version_meta(version),
+    )
+
+
+def journey_out(version: Any) -> JourneyOut:
+    return JourneyOut(
+        id=version.journey_id,
+        slug=version.slug,
+        name=version.name,
+        description=version.description,
+        domain_id=version.domain_id,
+        owner_id=version.owner_id,
+        criticality=version.criticality,
+        sla=version.sla_json,
+        steps=list(version.steps_json or []),
+        step_count=version.step_count,
+        meta=version_meta(version),
+    )
+
+
+def connection_out(version: Any) -> ConnectionOut:
+    return ConnectionOut(
+        id=version.connection_id,
+        slug=version.slug,
+        name=version.name,
+        source_type=version.source_type,
+        description=version.description,
+        config=version.config_json,
+        # Safe to return: it names a vault entry rather than holding a secret.
+        credential_ref=version.credential_ref,
+        read_policy=version.read_policy_json,
+        budget=version.budget_json,
+        owner_id=version.owner_id,
+        health_state=version.health_state,
+        health_detail=version.health_detail,
+        is_usable=version.is_usable,
+        meta=version_meta(version),
+    )
+
+
+def binding_out(version: Any) -> BindingOut:
+    return BindingOut(
+        id=version.binding_id,
+        target_kind=version.target_kind,
+        dataset_id=version.dataset_id,
+        attribute_id=version.attribute_id,
+        connection_id=version.connection_id,
+        physical_ref=version.physical_ref_json,
+        transform=version.transform,
+        status=version.status,
+        confidence=version.confidence,
+        drift_state=version.drift_state,
+        has_drifted=version.has_drifted,
         meta=version_meta(version),
     )
