@@ -10,6 +10,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any
 
 from prama.connect.capability import CapabilityMatrix
@@ -73,6 +74,13 @@ class ConnectorRegistry:
 
     def __contains__(self, key: str) -> bool:
         return key in self._registry
+
+    def __iter__(self) -> Iterator[str]:
+        """Every registered key. Makes ``for key in registry`` read naturally."""
+        return iter(self.keys())
+
+    def __len__(self) -> int:
+        return len(self.keys())
 
     def get(self, key: str) -> type[Connector]:
         return self._registry.get(key)

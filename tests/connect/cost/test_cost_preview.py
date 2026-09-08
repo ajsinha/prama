@@ -233,6 +233,45 @@ class TestLearningFromExperience:
         assert Throughput.from_read(rows=5, byte_count=100, seconds=0.001) is None
         assert Throughput.from_read(rows=0, byte_count=0, seconds=10.0) is None
 
+    def test_short_reads_accumulate_rather_than_being_thrown_away(self) -> None:
+        # An estate of a thousand small tables consists entirely of reads too
+        # short to time. Discarding each one leaves the preview permanently
+        # answering "unknown" for exactly the estates it profiles most often —
+        # observed on a real thousand-table source, where all thousand samples
+        # were discarded and the estimator learned nothing.
+        registry = ThroughputRegistry()
+        for _ in range(100):
+            registry.observe("c1", rows=1_000, byte_count=64_000, seconds=0.001)
+        observed = registry.of("c1")
+        assert observed is not None
+        assert observed.rows_per_second == pytest.approx(1_000_000)
+
+    def test_nothing_is_believed_before_there_is_enough_of_it(self) -> None:
+        registry = ThroughputRegistry()
+        for _ in range(3):
+            registry.observe("c1", rows=10, byte_count=100, seconds=0.001)
+        assert registry.of("c1") is None
+
+    def test_an_empty_read_teaches_nothing(self) -> None:
+        registry = ThroughputRegistry()
+        registry.observe("c1", rows=0, byte_count=0, seconds=5.0)
+        assert registry.of("c1") is None
+
+    def test_accumulated_time_is_not_double_counted(self) -> None:
+        # Once a sample is formed the pending bucket must reset, or the next
+        # sample inherits time already spent and reports the source as slower
+        # than it is, for ever.
+        registry = ThroughputRegistry()
+        for _ in range(50):
+            registry.observe("c1", rows=1_000, byte_count=1_000, seconds=0.01)
+        observed = registry.of("c1")
+        assert observed is not None
+        # Ten samples of five observations each, every one at the same rate.
+        # A bucket that failed to reset would carry spent time into the next
+        # sample and report the source as slower than it is, for ever.
+        assert observed.samples == 10
+        assert observed.rows_per_second == pytest.approx(100_000)
+
     def test_samples_are_weighted_so_one_slow_morning_does_not_dominate(self) -> None:
         registry = ThroughputRegistry()
         for _ in range(9):

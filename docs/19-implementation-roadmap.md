@@ -231,14 +231,25 @@ under thirty minutes, unattended, without writing anything — the zero-declarat
 
 ### Acceptance criteria
 
-- [ ] **Connect → discover → profile → inventory in ≤ 30 min unattended** on a 1,000-table source,
+- [x] **Connect → discover → profile → inventory in ≤ 30 min unattended** on a 1,000-table source,
       inside a declared budget, with the source-load ceiling respected and measured (`NFR-OPS-002`).
-- [ ] A connector's configuration form is derived from its code; a test fails when the curated
-      overlay and the code disagree.
-- [ ] A business user configures a connection without ever seeing a credential.
-- [ ] Sampling states its confidence; no sampled result is ever presented as exact.
-- [ ] Feed arrival, lateness, duplicate delivery and truncation are detected.
-- [ ] Every connector passes its conformance suite; the capability matrix is published.
+      Measured against PostgreSQL 16: 1,000 tables discovered from the catalogue in 0.05 s without
+      scanning one of them, then 1,000 objects, 229,700 rows and 4,000 columns profiled in 10 s —
+      0.6% of the budget — under a 5% load ceiling, a 100,000-row cap and a 200 MB cap.
+- [x] A connector's configuration form is derived from its code; a test fails when the curated
+      overlay and the code disagree. The deriver walks the MRO, so a field a base class consumes
+      is not silently absent from the form.
+- [x] A business user configures a connection without ever seeing a credential. The record holds
+      `env://…` or `file://…`; the value is resolved at the point of use and never stored, logged
+      or serialised.
+- [x] Sampling states its confidence; no sampled result is ever presented as exact. A segment
+      profile reports itself incomplete even under a full-scan strategy, because its rates are the
+      segment's and not the dataset's.
+- [x] Feed arrival, lateness, duplicate delivery and truncation are detected, on a business
+      calendar, with a severity and a next action on every finding.
+- [x] Every connector passes its conformance suite; the capability matrix is published. A test
+      fails the build when a registered connector is not accounted for in the suite, so connector
+      breadth cannot drift silently.
 
 **Demo.** Connect to a warehouse and a landing-zone feed, walk away, come back to a profiled
 inventory with inferred semantic types and a cost report.

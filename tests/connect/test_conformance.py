@@ -72,14 +72,34 @@ async def _make(registry: ConnectorRegistry, key: str, config: dict[str, Any], *
     return registry.create(key, config, **kw)
 
 
-@pytest.fixture(params=["filesystem", "sqlite"])
+#: Every connector, and how this suite gets hold of a readable one.
+#:
+#: ``None`` means the connector needs a live service — a database, a bucket —
+#: and is exercised by its own integration tests instead. It still has to
+#: appear here: the point of the table is that a connector cannot be added
+#: without somebody deciding how it will be proved, and
+#: ``test_every_registered_connector_is_accounted_for`` fails the build if one
+#: is.
+COVERAGE: dict[str, str | None] = {
+    "filesystem": "csv_root",
+    "sqlite": "sqlite_source",
+    # tests/connect/sql/test_postgres_live.py — needs PRAMA_TEST_POSTGRES_DSN
+    "postgresql": None,
+    # tests/connect/objectstore/ — needs PRAMA_TEST_S3_ENDPOINT
+    "objectstore": None,
+}
+
+LOCAL = [key for key, fixture in COVERAGE.items() if fixture is not None]
+
+
+@pytest.fixture(params=LOCAL)
 async def connector(
     request: pytest.FixtureRequest,
     registry: ConnectorRegistry,
     csv_root: Path,
     sqlite_source: Path,
 ) -> AsyncIterator[tuple[Connector, tuple[str, ...]]]:
-    """Each built-in connector, plus the path of an object it can read."""
+    """Each locally runnable connector, plus the path of an object it reads."""
     if request.param == "filesystem":
         connector = await _make(registry, "filesystem", {"root_path": str(csv_root)})
         path = ("positions_20260331.csv",)
@@ -88,6 +108,36 @@ async def connector(
         path = ("positions",)
     async with connector:
         yield connector, path
+
+
+class TestCoverage:
+    def test_every_registered_connector_is_accounted_for(self, registry: ConnectorRegistry) -> None:
+        """A connector cannot ship without somebody deciding how it is proved.
+
+        Connector breadth is a treadmill, and the way a treadmill goes wrong is
+        quietly: a source is added, it works on the author's machine, and
+        nothing ever checks it again. This test is the thing that notices.
+        """
+        missing = sorted(set(registry.keys()) - set(COVERAGE))
+        assert not missing, (
+            f"connector(s) {missing} are registered but not in COVERAGE. Add them to "
+            f"this suite, or record the integration test that proves them."
+        )
+
+    def test_every_connector_declares_what_it_can_push_down(
+        self, registry: ConnectorRegistry
+    ) -> None:
+        # The capability matrix is the published contract. A connector that
+        # declares nothing would have every control fall back to local
+        # evaluation, silently and expensively.
+        for key in registry:
+            assert registry.capabilities(key).to_capabilities(), key
+
+    def test_every_connector_states_the_credential_field_it_fills(
+        self, registry: ConnectorRegistry
+    ) -> None:
+        for key in registry:
+            assert registry.get(key).credential_field
 
 
 class TestContract:

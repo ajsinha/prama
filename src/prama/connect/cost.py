@@ -42,6 +42,11 @@ from prama.core.clock import utc_now
 #: rather than hidden, and the resulting estimate is marked as derived.
 ASSUMED_BYTES_PER_ROW = 128
 
+#: Below this, a single read is mostly measurement noise rather than the
+#: source's speed. Reads shorter than this accumulate rather than being thrown
+#: away, so an estate of small tables still teaches the estimator something.
+MINIMUM_TIMED_SECONDS = 0.05
+
 
 class EstimateBasis(enum.Enum):
     """Where a number came from. Rendered, never dropped."""
@@ -76,9 +81,14 @@ class Throughput:
 
     @classmethod
     def from_read(cls, *, rows: int, byte_count: int, seconds: float) -> Throughput | None:
-        # A read too short to time says nothing useful, and letting it into the
-        # average would make the next estimate worse rather than better.
-        if seconds < 0.05 or rows <= 0:
+        """One read as a throughput sample, or ``None`` if it was too short.
+
+        A read finishing in three milliseconds is mostly measurement noise, and
+        letting it into the average makes the next estimate worse rather than
+        better. Use :meth:`ThroughputRegistry.observe` to accumulate such reads
+        instead of discarding them.
+        """
+        if seconds < MINIMUM_TIMED_SECONDS or rows <= 0:
             return None
         return cls(
             bytes_per_second=byte_count / seconds,
@@ -346,6 +356,42 @@ class ThroughputRegistry:
 
     def __init__(self) -> None:
         self._observed: dict[str, Throughput] = {}
+        self._pending: dict[str, tuple[int, int, float]] = {}
+
+    def observe(self, connection_id: str, *, rows: int, byte_count: int, seconds: float) -> None:
+        """Record one read, however small.
+
+        Individually, a read finishing in three milliseconds says nothing about
+        how fast a source is — the measurement is mostly noise. But an estate of
+        a thousand small tables consists entirely of such reads, and discarding
+        each one leaves the cost preview permanently answering "unknown" for
+        precisely the estates it profiles most often. Observed on a real
+        thousand-table source: every one of the thousand reads was discarded
+        and the estimator learned nothing at all.
+
+        So short reads accumulate instead. Once enough of them add up to a
+        length worth trusting they become one sample, and nothing is either
+        thrown away or believed prematurely.
+        """
+        if rows <= 0:
+            return
+        rows_so_far, bytes_so_far, seconds_so_far = self._pending.get(connection_id, (0, 0, 0.0))
+        rows_so_far += rows
+        bytes_so_far += byte_count
+        seconds_so_far += seconds
+        if seconds_so_far < MINIMUM_TIMED_SECONDS:
+            self._pending[connection_id] = (rows_so_far, bytes_so_far, seconds_so_far)
+            return
+        self._pending.pop(connection_id, None)
+        self.record(
+            connection_id,
+            Throughput(
+                bytes_per_second=bytes_so_far / seconds_so_far,
+                rows_per_second=rows_so_far / seconds_so_far,
+                samples=1,
+                measured_at=utc_now(),
+            ),
+        )
 
     def record(self, connection_id: str, sample: Throughput | None) -> None:
         if sample is None:

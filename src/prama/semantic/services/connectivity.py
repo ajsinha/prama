@@ -24,7 +24,7 @@ from prama.connect import (
     SamplingStrategy,
     default_registry,
 )
-from prama.connect.cost import CostEstimator, Throughput, ThroughputRegistry
+from prama.connect.cost import CostEstimator, ThroughputRegistry
 from prama.core.errors import NotFoundError, ValidationError
 from prama.db.session import UnitOfWork
 from prama.profile import DatasetProfile, Profiler, suggest_sample_plan
@@ -269,13 +269,11 @@ class ConnectivityService(SemanticService):
         measured = getattr(connector, "last_read", None)
         if not measured:
             return
-        self._throughput.record(
+        self._throughput.observe(
             connection_id,
-            Throughput.from_read(
-                rows=int(measured.get("rows", 0)),
-                byte_count=int(measured.get("bytes", 0)),
-                seconds=float(measured.get("seconds", 0.0)),
-            ),
+            rows=int(measured.get("rows", 0)),
+            byte_count=int(measured.get("bytes", 0)),
+            seconds=float(measured.get("seconds", 0.0)),
         )
 
     async def profile_source(self, connection_id: str, *, limit: int = 25) -> list[ProfileRun]:
