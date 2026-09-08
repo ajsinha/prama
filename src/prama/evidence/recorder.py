@@ -103,8 +103,11 @@ class Recorder:
         engine: str = "",
         tenant_id: str = "",
     ) -> None:
-        self.ledger = ledger or Ledger()
-        self.samples = samples or SampleStore()
+        # `if None`, not `or`: both define __len__, so an empty one passed in
+        # is falsy and `or` would silently replace it with a different object.
+        # The caller would then hold a ledger that never fills.
+        self.ledger = Ledger() if ledger is None else ledger
+        self.samples = SampleStore() if samples is None else samples
         self._clock = clock or SystemClock()
         self._engine = engine
         self._tenant = tenant_id

@@ -37,6 +37,10 @@ EVIDENCE_VERSION = "1.0"
 #: first record from a record whose parent is missing.
 GENESIS = "0" * 64
 
+#: How much of an error's explanation the record keeps. Enough to name the
+#: cause, not enough for a stack trace to crowd out the evidence.
+DETAIL_LIMIT = 300
+
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class SnapshotRef:
@@ -82,6 +86,11 @@ class EvidenceRecord:
     #: Who or what caused this run.
     triggered_by: str = "schedule"
     tenant_id: str = ""
+    #: Why, when the verdict is an error. Bounded, because a driver's stack
+    #: trace would be several kilobytes and the record has a two-kilobyte
+    #: budget — but present, because "error" with no reason is a verdict
+    #: nobody can act on.
+    detail: str = ""
     #: The previous record's ``record_hash``. GENESIS for the first.
     previous_hash: str = GENESIS
     evidence_version: str = EVIDENCE_VERSION
@@ -116,6 +125,7 @@ class EvidenceRecord:
             "duration_ms": self.duration_ms,
             "triggered_by": self.triggered_by,
             "tenant_id": self.tenant_id,
+            "detail": self.detail[:DETAIL_LIMIT],
         }
 
     @property
@@ -178,6 +188,7 @@ class EvidenceRecord:
             duration_ms=int(payload.get("duration_ms", 0)),
             triggered_by=str(payload.get("triggered_by", "schedule")),
             tenant_id=str(payload.get("tenant_id", "")),
+            detail=str(payload.get("detail", "")),
             previous_hash=str(payload.get("previous_hash", GENESIS)),
             evidence_version=str(payload.get("evidence_version", EVIDENCE_VERSION)),
         )
