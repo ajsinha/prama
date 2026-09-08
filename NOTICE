@@ -1,0 +1,71 @@
+PRAMA — LEGAL NOTICE
+Copyright © 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
+
+Prama — "Declare it. Prove it. Trust it."
+prama (Sanskrit प्रमा): valid knowledge. pramāṇa (प्रमाण): the instrument by which valid
+knowledge is obtained.
+
+------------------------------------------------------------------------------
+1. OWNERSHIP AND CONFIDENTIALITY
+------------------------------------------------------------------------------
+This repository is proprietary and confidential. It is owned by Ashutosh Sinha and licensed
+solely under the terms of the LICENSE file at the root of this repository. It contains
+unpublished commercial strategy, product design, and research. Do not distribute.
+
+------------------------------------------------------------------------------
+2. TRADEMARKS
+------------------------------------------------------------------------------
+The following are trademarks and trade dress of Ashutosh Sinha:
+  - the name "PRAMA" as used for data quality management software;
+  - the Prama logo, the "Pramāṇa Prism" mark, and the Prama attestation seal
+    (docs/assets/prama-*.svg);
+  - the slogans "Declare it. Prove it. Trust it.", "Trust, proven.", and
+    "The instrument of valid knowledge";
+  - the segment lines "Every number, defensible." and "Write the control once. Prove it everywhere."
+
+------------------------------------------------------------------------------
+3. THIRD-PARTY TRADEMARKS AND REFERENCES
+------------------------------------------------------------------------------
+This repository analyses the competitive and research landscape and therefore names third-party
+products, companies, standards, and publications, including but not limited to: Informatica,
+CLAIRE, Ataccama, Collibra, OwlDQ, IBM, Qlik, Talend, SAP, Oracle, SAS, Precisely, Experian,
+Melissa, Irion, Monte Carlo, Anomalo, Bigeye, Acceldata, Soda, Sifflet, Metaplane, Validio,
+Lightup, Datafold, Telmai, Qualytics, DQLabs, Synq, Pantomath, Kensu, DataKitchen, ICEDQ,
+RightData, FirstEigen, Gresham, Duco, Reltio, Profisee, Semarchy, Snowflake, Databricks,
+Microsoft, Amazon Web Services, Google, Confluent, Great Expectations, Apache Software Foundation
+projects (Spark, Flink, Kafka, Iceberg, Hudi, Arrow, Atlas, Griffin, Pulsar, AGE), DuckDB,
+OpenMetadata, DataHub, Atlan, Alation, dbt Labs, Splink, Zingg, Snorkel, Metanome, Desbordante,
+SWIFT, ISO, FINOS, ISDA, GLEIF, ANNA DSB, Bloomberg, and Gartner.
+
+All such names and marks are the property of their respective owners. Their use here is nominative
+and for the purposes of research, comparison, analysis, and interoperability. No endorsement,
+sponsorship, or affiliation is claimed or implied.
+
+Gartner content referenced in this repository is cited from publicly available sources; Gartner
+does not endorse any vendor, product, or service. Statistics attributed to third parties are
+reproduced as published and linked to their sources; they are used as evidence in analysis and are
+not warranted by the Owner.
+
+------------------------------------------------------------------------------
+4. RESEARCH CITATIONS
+------------------------------------------------------------------------------
+Academic works are cited under normal scholarly convention. Full bibliographic references are in
+docs/paper/references.bib. Citation does not imply the authors' endorsement of this work.
+
+------------------------------------------------------------------------------
+5. DATA STATEMENT
+------------------------------------------------------------------------------
+No customer data, personal data, or confidential third-party data is contained in this repository.
+The benchmarks described (DQ-Bench, FinDQ-Bench) are specified to be built from openly licensed and
+synthetic data only.
+
+------------------------------------------------------------------------------
+6. FORWARD-LOOKING STATEMENTS
+------------------------------------------------------------------------------
+This repository contains design intentions, roadmaps, targets, and unvalidated performance goals.
+Numbers marked as targets, gates, or ⟨TBD⟩ are objectives, not measured results, and must not be
+represented as product claims until independently verified under the protocol in
+docs/15-evaluation-benchmark-methodology.md.
+
+------------------------------------------------------------------------------
+Contact: Ashutosh Sinha <ajsinha@gmail.com>
