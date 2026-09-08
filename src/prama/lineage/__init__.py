@@ -14,19 +14,39 @@ from prama.lineage.graph import (
     Transform,
     merge,
 )
+from prama.lineage.scan import (
+    DATASTAGE,
+    POWERCENTER,
+    SSIS,
+    MappingShape,
+    ProceduralSqlScanner,
+    Scanner,
+    ScanResult,
+    XmlMappingScanner,
+    default_scanners,
+)
 from prama.lineage.sql import Extraction, Gap, SqlLineage
 
 __all__ = [
+    "DATASTAGE",
     "IMPACT_FLOOR",
     "MAXIMUM_DEPTH",
+    "POWERCENTER",
+    "SSIS",
     "BlastRadius",
     "Column",
     "Edge",
     "Extraction",
     "Gap",
     "LineageGraph",
+    "MappingShape",
+    "ProceduralSqlScanner",
     "Reached",
+    "ScanResult",
+    "Scanner",
     "SqlLineage",
     "Transform",
+    "XmlMappingScanner",
+    "default_scanners",
     "merge",
 ]
