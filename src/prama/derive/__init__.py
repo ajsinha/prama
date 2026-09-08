@@ -11,6 +11,12 @@ from prama.core.provenance import (
     content_hash,
     identity,
 )
+from prama.derive.coverage import (
+    ATTRIBUTE_DIMENSIONS,
+    Coverage,
+    CoverageAnalyser,
+    Gap,
+)
 from prama.derive.declaration import AttributeDeclaration, DatasetDeclaration
 from prama.derive.generator import (
     ControlGenerator,
@@ -32,16 +38,20 @@ from prama.derive.relationships import (
 )
 
 __all__ = [
+    "ATTRIBUTE_DIMENSIONS",
     "AttributeDeclaration",
     "Citation",
     "ComparisonKind",
     "ComparisonSpec",
     "ControlGenerator",
     "Corroboration",
+    "Coverage",
+    "CoverageAnalyser",
     "DatasetDeclaration",
     "Deferred",
     "DerivedControl",
     "Edge",
+    "Gap",
     "Generation",
     "Origin",
     "Provenance",
