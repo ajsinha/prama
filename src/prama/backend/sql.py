@@ -47,6 +47,22 @@ class CompiledControl:
     metric_names: tuple[str, ...] = ()
     #: Parameters the run must bind before this can execute.
     parameters: tuple[str, ...] = ()
+    #: ``(validator, column)`` pairs this query does **not** fully test. The
+    #: query applies a screen — a necessary condition — and the rows that pass
+    #: still have to be checked exactly before a pass may be reported.
+    residual_validators: tuple[tuple[str, str], ...] = ()
+
+    @property
+    def is_complete(self) -> bool:
+        """Whether this query's answer is the control's answer.
+
+        False means the violation count is a **lower bound**. Reporting a pass
+        from an incomplete query is the failure the two-stage design exists to
+        prevent, and carrying the fact on the compiled artefact — rather than
+        expecting every call site to remember — is what makes it hard to do by
+        accident.
+        """
+        return not self.residual_validators
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -56,6 +72,8 @@ class CompiledControl:
             "sample_query": self.sample_query,
             "metric_names": list(self.metric_names),
             "parameters": list(self.parameters),
+            "residual_validators": [list(r) for r in self.residual_validators],
+            "is_complete": self.is_complete,
         }
 
 
@@ -97,6 +115,7 @@ class SqlCompiler:
             sample_query=self._samples(plan, source, where),
             metric_names=names,
             parameters=tuple(sorted(plan.parameters())),
+            residual_validators=plan.residual_validators,
         )
 
     def _check_capabilities(self, plan: ControlPlan) -> None:

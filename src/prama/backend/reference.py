@@ -34,6 +34,7 @@ from collections.abc import Iterable, Mapping
 from typing import Any
 
 from prama.backend.execute import ControlResult, judge, judge_segments
+from prama.classify.validators import REGISTRY as VALIDATORS
 from prama.ir.model import ControlPlan, Expr, Metric, MetricAggregate
 
 #: A row, as the interpreter sees it.
@@ -152,7 +153,23 @@ class ReferenceEvaluator:
         outcome = self.evaluate(plan.predicate, row)
         if outcome is UNKNOWN:
             return plan.unknown_is_violation
-        return not outcome
+        if not outcome:
+            return True
+        # The screen said the row *might* be valid. For a two-stage control
+        # that is not a pass, and treating it as one is how a column of
+        # fabricated identifiers runs green for a year: every value has the
+        # right shape, and the shape was never the standard. The interpreter
+        # can do the arithmetic no engine here does faithfully, so it does.
+        return self._fails_residual(plan, row)
+
+    def _fails_residual(self, plan: ControlPlan, row: Row) -> bool:
+        for name, column in plan.residual_validators:
+            value = row.get(column)
+            if value is None:
+                continue
+            if not VALIDATORS.get(name).judge(str(value)).valid:
+                return True
+        return False
 
     def _distinct(self, expression: Expr | None, rows: list[dict[str, Any]]) -> int:
         """Distinct values, excluding those with any unknown part.

@@ -311,6 +311,8 @@ class TimeOffset:
         if self.is_zero:
             return "same period"
         unit = self.unit.value.replace("_", " ")
+        if abs(self.amount) == 1:
+            unit = unit.removesuffix("s")
         side = "the second" if self.lagging_side == "to" else "the first"
         cal = f" ({self.calendar})" if self.calendar else ""
         return f"{side} lags by {self.amount} {unit}{cal}"

@@ -47,6 +47,14 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Without this, two test files sharing a basename in different directories
+# collide on import and the whole run aborts during collection — not with a
+# failure, with an *error*, which is easy to miss if the output is piped. It
+# happened twice (tests/db/test_semantic.py, tests/evidence/test_end_to_end.py)
+# before the cause was fixed rather than the instance. importlib mode gives
+# each file its own module identity, so a name can repeat where repeating it
+# is the clearest name.
+addopts = "--import-mode=importlib"
 asyncio_mode = "auto"
 filterwarnings = ["error::DeprecationWarning:prama.*"]
 markers = ["postgres: requires a reachable PostgreSQL instance"]

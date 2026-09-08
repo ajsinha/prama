@@ -204,23 +204,76 @@ class TestModelVerdicts:
     """
 
     FORBIDDEN = re.compile(r"\b(verdict|pass_fail|is_violation|assert_outcome)\b", re.IGNORECASE)
+    #: Bare ``prompt`` was here and had to go. It is a *business* word in this
+    #: codebase — ``RelationshipKind.prompt`` is the plain-language question a
+    #: user picks a relationship from — so it matched modules with no model
+    #: anywhere near them. A guard that cries wolf gets an exclusion list, and
+    #: an exclusion list is how a real violation eventually gets waved through.
+    #: The narrower forms below are the ones that actually mean a model call.
     MODEL_HINT = re.compile(
-        r"\b(llm|openai|anthropic|bedrock|vertex|completion|chat_model|prompt)\b", re.IGNORECASE
+        r"\b(llm|openai|anthropic|bedrock|vertex|completion|chat_model"
+        r"|system_prompt|user_prompt|prompt_template|build_prompt|render_prompt)\b",
+        re.IGNORECASE,
     )
+
+    @staticmethod
+    def executable(source: str) -> str:
+        """The code, with comments and docstrings removed.
+
+        Both are prose about the rule rather than an instance of breaking it —
+        this very class documents what a verdict is, and a scan that counts
+        that as evidence teaches people to stop writing the explanation.
+        """
+        stripped = ast.parse(source)
+        for node in ast.walk(stripped):
+            if isinstance(node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
+                docstring = ast.get_docstring(node, clean=False)
+                if docstring:
+                    node.body = node.body[1:]
+        return ast.unparse(stripped)
 
     def test_no_module_both_calls_a_model_and_produces_a_verdict(self) -> None:
         offenders = []
         for path in python_files(SRC):
-            source = path.read_text()
-            code = "\n".join(
-                line for line in source.splitlines() if not line.lstrip().startswith("#")
-            )
+            code = self.executable(path.read_text())
             if self.MODEL_HINT.search(code) and self.FORBIDDEN.search(code):
                 offenders.append(relative(path))
         assert not offenders, (
             "A module that talks to a model must not also produce a verdict "
             f"(CON-007, NFR-AI-002): {offenders}"
         )
+
+    def test_the_guard_still_fires_on_a_module_that_would_break_the_rule(self) -> None:
+        """The counterfactual. A control that cannot fail is worth nothing, and
+        that goes double for an architecture guard which passes by default and
+        would go on passing if its patterns stopped matching anything.
+        """
+        offender = self.executable(
+            "\n".join(
+                [
+                    '"""A docstring mentioning a verdict, which must not count."""',
+                    "def decide(row):",
+                    "    answer = llm_client.completion(prompt_template.format(row=row))",
+                    '    return {"verdict": "pass" if answer else "fail"}',
+                ]
+            )
+        )
+        assert self.MODEL_HINT.search(offender)
+        assert self.FORBIDDEN.search(offender)
+
+    def test_the_guard_ignores_prose_about_the_rule(self) -> None:
+        """The false positive that forced the narrowing: a module using the
+        business word ``prompt`` and describing verdicts in a docstring."""
+        innocent = self.executable(
+            "\n".join(
+                [
+                    '"""This module produces no verdict of any kind."""',
+                    "def label(kind):",
+                    "    return kind.prompt",
+                ]
+            )
+        )
+        assert not (self.MODEL_HINT.search(innocent) and self.FORBIDDEN.search(innocent))
 
 
 class TestFileLength:
@@ -296,3 +349,57 @@ class TestLanguageLayering:
                 if line.lstrip().startswith("#"):
                     continue
                 assert not comparisons.search(line), f"{path}:{number} branches on an engine"
+
+
+class TestSingleMutationChannel:
+    """`FR-IND-007`: nothing enters the estate except through a proposal.
+
+    The rule is about authority rather than about imports, but it has an import
+    shape, and the import shape is what can be enforced before there is any
+    activation code to get wrong. A module that *infers* rules — Γ, the miners,
+    the inducers, the importers — has no business touching the database or the
+    executor. It produces candidates; somebody decides; the decision is what
+    reaches the estate.
+
+    Set now, while the answer is trivially yes, for the same reason as the
+    no-model-verdicts tripwire: this rule is cheapest to hold when it has never
+    once been broken.
+    """
+
+    #: Packages whose entire job is to propose.
+    INFERRING = ("derive", "mine", "classify", "induce", "importers")
+
+    #: What proposing must not reach. ``db`` is where the estate lives and
+    #: ``execute`` is what makes a control run; a generator that can call
+    #: either can install a control without anybody agreeing to it.
+    FORBIDDEN_TARGETS = ("prama.db", "prama.execute", "prama.schedule")
+
+    def test_no_inferring_package_can_reach_the_estate_or_the_executor(self) -> None:
+        offenders: list[str] = []
+        for package in self.INFERRING:
+            root = SRC / package
+            if not root.exists():
+                continue
+            for path in python_files(root):
+                for module in imported_modules(path):
+                    if any(module.startswith(target) for target in self.FORBIDDEN_TARGETS):
+                        offenders.append(f"{relative(path)} imports {module}")
+        assert not offenders, (
+            "A module that infers rules must not be able to install or run them "
+            f"(FR-IND-007): {offenders}"
+        )
+
+    def test_the_proposal_queue_does_not_depend_on_any_generator(self) -> None:
+        """The seam runs one way. If the queue imported the generators, adding
+        a new source of rules would mean editing the queue, and the thin
+        adapter that keeps the two sides ignorant of each other would have no
+        reason to exist.
+        """
+        offenders: list[str] = []
+        for path in python_files(SRC / "propose"):
+            if path.name == "adapt.py":
+                continue  # the seam itself, and the only place that knows both
+            for module in imported_modules(path):
+                if any(module.startswith(f"prama.{p}") for p in self.INFERRING):
+                    offenders.append(f"{relative(path)} imports {module}")
+        assert not offenders, f"the queue should not know about generators: {offenders}"
