@@ -3,6 +3,23 @@
 Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 """
 
+from prama.induce.documents import (
+    Document,
+    DocumentInducer,
+    Extracted,
+    ExtractionReport,
+    Passage,
+    stale_citations,
+)
+from prama.induce.examples import (
+    ExampleInducer,
+    Generalisation,
+    Label,
+    Question,
+    Scored,
+    generalisation_identity,
+    generalisation_provenance,
+)
 from prama.induce.llm import (
     DEFAULT_ATTEMPTS,
     SYSTEM,
@@ -27,14 +44,27 @@ __all__ = [
     "MAXIMUM_VIOLATION_RATE",
     "SANDBOX_ROWS",
     "SYSTEM",
+    "Document",
+    "DocumentInducer",
+    "ExampleInducer",
+    "Extracted",
+    "ExtractionReport",
     "Gate",
+    "Generalisation",
     "Induced",
     "Inducer",
     "InductionReport",
+    "Label",
+    "Passage",
+    "Question",
     "Rejection",
     "Retrieved",
     "SandboxResult",
+    "Scored",
     "Validated",
     "Validator",
+    "generalisation_identity",
+    "generalisation_provenance",
     "retrieve",
+    "stale_citations",
 ]
