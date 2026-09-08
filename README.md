@@ -145,6 +145,7 @@ Start with **[docs/00 — Executive Summary](docs/00-executive-summary.md)**, th
 | 15 | [Evaluation & Benchmark Methodology](docs/15-evaluation-benchmark-methodology.md) | How we *prove* "best in world" — and how it could fail |
 | 16 | [Roadmap & Delivery Plan](docs/16-roadmap-and-delivery-plan.md) | Phases, teams, build/buy, open-source strategy |
 | 17 | [Risks & Open Questions](docs/17-risks-and-open-questions.md) | Risk register and open decisions |
+| 18 | [Technology Stack & Reuse from DishtaYantra](docs/18-technology-stack.md) | Languages, frameworks, world-class UI stack, deployment, and code reuse |
 | — | [Brand](docs/brand.md) | Name, mark, slogan, palette, voice |
 | — | [Glossary](docs/glossary.md) | Terms of art |
 | — | [Academic Paper](docs/paper/) | Manuscript, bibliography, experiment plan |

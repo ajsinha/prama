@@ -34,6 +34,7 @@ provable quality conclusions — through a console, a Git repo, or a conversatio
 | 15 | [Evaluation & Benchmark Methodology](15-evaluation-benchmark-methodology.md) | How we *prove* "best in world" |
 | 16 | [Roadmap & Delivery Plan](16-roadmap-and-delivery-plan.md) | Phases, teams, build-vs-buy, milestones |
 | 17 | [Risks & Open Questions](17-risks-and-open-questions.md) | What could kill this, and decisions still open |
+| 18 | [Technology Stack & Reuse from DishtaYantra](18-technology-stack.md) | Languages, frameworks, UI stack, deployment, and what to reuse |
 | — | [Brand](brand.md) | Name, mark, slogan, palette, voice |
 | — | [Glossary](glossary.md) | Terms of art |
 | — | [Academic Paper](paper/) | Manuscript, outline, bibliography, experiment plan |
