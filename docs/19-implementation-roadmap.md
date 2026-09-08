@@ -299,7 +299,8 @@ SodaCL, Great Expectations, dbt tests and ODCS quality blocks.
       silently degrades. SQLite refuses a pattern rather than substituting LIKE, and the refusal
       is itself a conforming outcome.
 - [ ] The worked example in [07 §10](07-rule-language-spec.md) compiles and runs end to end.
-- [ ] Every control has a generated plain-language rendering.
+- [x] Every control has a generated plain-language rendering — generated, so it cannot drift from
+      what the control does.
 - [ ] Cost is estimated before execution and is within 2× of actual on the benchmark corpus.
 - [ ] ≥ 95% of 500 real design-partner controls express in the portable subset (`ASM-015`).
 

@@ -27,15 +27,26 @@ from prama.pql.errors import (
 )
 from prama.pql.parser import parse, parse_control
 from prama.pql.tokens import Token, TokenKind, tokenise
+from prama.pql.types import (
+    Catalogue,
+    Column,
+    DatasetSchema,
+    Finding,
+    TypeChecker,
+)
 
 __all__ = [
     "Assertion",
+    "Catalogue",
+    "Column",
     "Control",
+    "DatasetSchema",
     "Dimension",
     "EvidenceLevel",
     "EvidenceSpec",
     "Expression",
     "FailAction",
+    "Finding",
     "Position",
     "PqlError",
     "PqlSyntaxError",
@@ -48,6 +59,7 @@ __all__ = [
     "Threshold",
     "Token",
     "TokenKind",
+    "TypeChecker",
     "UnknownPolicy",
     "parse",
     "parse_control",
