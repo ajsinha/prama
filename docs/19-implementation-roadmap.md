@@ -353,10 +353,10 @@ refusal, not a silent difference.
 ### Tasks
 
 W5.1 scheduler and trigger kinds ✅ · W5.2 adaptive cadence policy ✅ · W5.3 assertion fusion ✅ (landed in Wave 4) · W5.4 budget
-enforcement and shedding ✅ · W5.5 worker model and lease-based claim · W5.6 agent mode, outbound-only ✅ (see [22](22-distributed-execution.md)) ·
+enforcement and shedding ✅ · W5.5 worker model and lease-based claim ✅ · W5.6 agent mode, outbound-only ✅ (see [22](22-distributed-execution.md)) ·
 W5.7 incremental execution and watermarks · W5.8 **evidence record, hash chain, signing** ✅ ·
 W5.9 WORM export and retention tiers · W5.10 **deterministic replay and divergence report** ✅ ·
-W5.11 gate, quarantine and tag actions · W5.12 streaming seam and the DEC-17 benchmark ·
+W5.11 gate, quarantine and tag actions ✅ · W5.12 streaming seam and the DEC-17 benchmark ·
 W5.13 OpenTelemetry and OpenLineage · W5.14 soak and chaos tests.
 
 ### Acceptance criteria
