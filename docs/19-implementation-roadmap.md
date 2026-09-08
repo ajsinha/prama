@@ -292,9 +292,12 @@ SodaCL, Great Expectations, dbt tests and ODCS quality blocks.
 
 ### Acceptance criteria
 
-- [ ] 100% of implemented constructs pass conformance on **every** supported backend.
-- [ ] A construct a backend cannot express fails **at authoring time** with a clear message, never
-      silently degrades.
+- [x] 100% of implemented constructs pass conformance on **every** supported backend. Eighteen
+      corpus cases run on PostgreSQL 16, DuckDB and SQLite and agree on verdict, metrics and
+      per-segment breakdown.
+- [x] A construct a backend cannot express fails **at authoring time** with a clear message, never
+      silently degrades. SQLite refuses a pattern rather than substituting LIKE, and the refusal
+      is itself a conforming outcome.
 - [ ] The worked example in [07 §10](07-rule-language-spec.md) compiles and runs end to end.
 - [ ] Every control has a generated plain-language rendering.
 - [ ] Cost is estimated before execution and is within 2× of actual on the benchmark corpus.
