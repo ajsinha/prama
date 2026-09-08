@@ -266,12 +266,12 @@ class Estate:
     blast radius of a compromised prompt is the contents of this object.
     """
 
-    datasets: Callable[[], Sequence[str]] = tuple
-    describe_dataset: Callable[[str], Mapping[str, Any]] = dict
-    controls: Callable[[str], Sequence[Mapping[str, Any]]] = tuple
-    incidents: Callable[[], Sequence[Mapping[str, Any]]] = tuple
-    lineage: Callable[[str], Sequence[Mapping[str, Any]]] = tuple
-    evidence: Callable[[str], Mapping[str, Any]] = dict
+    datasets: Callable[[], Sequence[str]] = lambda: ()
+    describe_dataset: Callable[[str], Mapping[str, Any]] = lambda _: {}
+    controls: Callable[[str], Sequence[Mapping[str, Any]]] = lambda _: ()
+    incidents: Callable[[], Sequence[Mapping[str, Any]]] = lambda: ()
+    lineage: Callable[[str], Sequence[Mapping[str, Any]]] = lambda _: ()
+    evidence: Callable[[str], Mapping[str, Any]] = lambda _: {}
 
 
 class ListDatasets(Tool):
