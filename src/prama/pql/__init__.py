@@ -25,6 +25,7 @@ from prama.pql.errors import (
     PqlTypeError,
     PqlUnsupportedError,
 )
+from prama.pql.lint import Linter, LintFinding, lint
 from prama.pql.parser import parse, parse_control
 from prama.pql.tokens import Token, TokenKind, tokenise
 from prama.pql.types import (
@@ -47,6 +48,8 @@ __all__ = [
     "Expression",
     "FailAction",
     "Finding",
+    "LintFinding",
+    "Linter",
     "Position",
     "PqlError",
     "PqlSyntaxError",
@@ -61,6 +64,7 @@ __all__ = [
     "TokenKind",
     "TypeChecker",
     "UnknownPolicy",
+    "lint",
     "parse",
     "parse_control",
     "tokenise",

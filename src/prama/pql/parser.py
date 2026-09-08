@@ -729,6 +729,17 @@ class Parser:
 
     def _list_expression(self) -> ast.ListExpression:
         start = self._expect_punctuation("(").position
+        if self._peek.is_punctuation(")"):
+            # Caught here rather than by the linter: an empty set fails every
+            # row, so it is a mistake rather than a style, and the caret can
+            # point at the brackets.
+            raise self._error(
+                "an empty set of values",
+                remedy=(
+                    "List the permitted values, as in IN ('GBP', 'USD'). To require a "
+                    "column to be empty, write IS NULL."
+                ),
+            )
         items = [self._expression()]
         while self._peek.is_punctuation(","):
             self._advance()
