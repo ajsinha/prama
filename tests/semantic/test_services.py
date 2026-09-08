@@ -18,7 +18,7 @@ from prama.semantic.relationships import (
     RelationshipKind,
     Tolerance,
 )
-from prama.semantic.service import (
+from prama.semantic.services import (
     DatasetService,
     EstateService,
     RelationshipService,

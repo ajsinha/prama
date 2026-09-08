@@ -21,7 +21,7 @@ from prama.semantic.relationships import (
     RelationshipKind,
     Tolerance,
 )
-from prama.semantic.service import DatasetService, RelationshipService
+from prama.semantic.services import DatasetService, RelationshipService
 from prama.semantic.values import Frequency, Grain, Rhythm
 
 

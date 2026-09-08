@@ -13,7 +13,7 @@ from fastapi import APIRouter, Query
 
 from prama.api.deps import Caller, Uow
 from prama.api.schemas import ConflictOut, MaturityOut
-from prama.semantic.service import EstateService
+from prama.semantic.services import EstateService
 
 router = APIRouter(prefix="/estate", tags=["estate"])
 

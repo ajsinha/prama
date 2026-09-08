@@ -37,7 +37,7 @@ from prama.semantic.relationships import (
     TimeOffset,
     Tolerance,
 )
-from prama.semantic.service import DatasetService, RelationshipService, relationship_kinds
+from prama.semantic.services import DatasetService, RelationshipService, relationship_kinds
 from prama.semantic.values import Grain, Rhythm
 
 router = APIRouter(tags=["semantic"])
