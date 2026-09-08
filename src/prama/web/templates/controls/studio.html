@@ -28,6 +28,9 @@
           <button class="btn btn-outline-secondary btn-sm" id="compile">
             <i class="bi bi-code-slash" aria-hidden="true"></i> Show the SQL
           </button>
+          <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('rule_builder') }}">
+            <i class="bi bi-ui-checks" aria-hidden="true"></i> Build one from questions
+          </a>
           <label class="form-label mb-0 ms-auto small" for="target">for</label>
           <select class="form-select form-select-sm w-auto" id="target" name="target">
             {% for dialect in dialects %}<option value="{{ dialect }}">{{ dialect }}</option>{% endfor %}

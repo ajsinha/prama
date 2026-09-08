@@ -589,3 +589,63 @@ class TestMatchKeyParsing:
         from prama.web.routes.relationship_routes import _parse_match_keys
 
         assert _parse_match_keys("  ,, a , ") == _parse_match_keys("a")
+
+
+class TestRuleBuilder:
+    async def test_the_form_asks_in_business_terms(self, ui: httpx.AsyncClient) -> None:
+        body = (await ui.get("/controls/build")).text
+        assert "Every row must have a value in this column" in body
+        assert "No two rows may share these columns" in body
+        # Not one of these appears anywhere on the form.
+        for jargon in ("PredicateAssertion", "is_not_null", "unknown_policy"):
+            assert jargon not in body, jargon
+
+    async def test_building_shows_the_pql_it_wrote(self, ui: httpx.AsyncClient) -> None:
+        """Always, never behind a toggle. A builder that hides its output
+        produces controls nobody reviews."""
+        response = await ui.post(
+            "/controls/build",
+            data={
+                "dataset": "positions_eod",
+                "rule": "not_null",
+                "column": "notional_amount",
+                "because": "CDE for FRTB",
+                "severity": "critical",
+            },
+        )
+        assert response.status_code == 200
+        assert "CHECK positions_eod.notional_amount IS NOT NULL" in response.text
+        assert "SEVERITY critical" in response.text
+        assert "CDE for FRTB" in response.text
+
+    async def test_it_also_shows_what_the_control_means(self, ui: httpx.AsyncClient) -> None:
+        """From the lowered plan, the same structure the SQL comes from — so
+        the sentence and the query cannot describe different controls."""
+        response = await ui.post(
+            "/controls/build",
+            data={
+                "dataset": "positions_eod",
+                "rule": "unique_key",
+                "columns": "account_id, instrument_id",
+                "because": "declared grain",
+            },
+        )
+        assert "at most one row for each combination" in response.text
+
+    async def test_a_refusal_carries_its_remedy(self, ui: httpx.AsyncClient) -> None:
+        response = await ui.post(
+            "/controls/build",
+            data={"dataset": "positions_eod", "rule": "not_null", "column": "a"},
+        )
+        assert response.status_code == 200
+        assert "needs a reason" in response.text
+        assert "what the alert quotes" in response.text
+
+    async def test_the_unknown_default_is_explained_not_just_set(
+        self, ui: httpx.AsyncClient
+    ) -> None:
+        """Unticking it restores SQL's behaviour, under which a rule over an
+        entirely empty column passes for years. That has to be said next to the
+        checkbox, not buried in documentation."""
+        body = (await ui.get("/controls/build")).text
+        assert "entirely empty will pass" in body

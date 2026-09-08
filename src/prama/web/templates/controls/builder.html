@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% block title %}Build a rule — Prama{% endblock %}
+{% block heading %}Build a rule{% endblock %}
+
+{% block content %}
+<p class="text-muted">
+  Answer the questions and Prama writes the control. It shows you exactly what it
+  wrote — always, not behind a toggle — because a rule nobody can read is a rule
+  nobody will trust at three in the morning.
+</p>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <form id="builder" method="post" action="{{ url_for('rule_build') }}" class="row g-3">
+      <div class="col-12">
+        <label class="form-label" for="dataset">Which dataset?</label>
+        <select class="form-select" id="dataset" name="dataset" required>
+          <option value="">choose…</option>
+          {% for slug in datasets %}<option value="{{ slug }}">{{ slug }}</option>{% endfor %}
+        </select>
+      </div>
+
+      <div class="col-12">
+        <fieldset>
+          <legend class="form-label">What must be true?</legend>
+          <div class="list-group">
+            {% for question in questions %}
+            <label class="list-group-item d-flex gap-2 align-items-start">
+              <input class="form-check-input flex-shrink-0 mt-1" type="radio" name="rule"
+                     value="{{ question.key }}" data-needs="{{ question.needs | join(' ') }}"
+                     {% if loop.first %}checked{% endif %}>
+              <span>
+                <span class="fw-semibold">{{ question.label }}</span>
+                <span class="dim dim-{{ question.dimension.value }} ms-1">
+                  {{ question.dimension.value }}</span>
+                <div class="small text-muted">{{ question.rationale }}</div>
+              </span>
+            </label>
+            {% endfor %}
+          </div>
+        </fieldset>
+      </div>
+
+      {# Only the inputs this rule needs are shown. A form displaying every field
+         for every rule is how a no-code builder becomes harder than the language
+         it replaces. #}
+      <div class="col-12 field" data-field="column">
+        <label class="form-label" for="column">Which column?</label>
+        <input class="form-control" id="column" name="column" list="column-list">
+        <datalist id="column-list"></datalist>
+      </div>
+
+      <div class="col-12 field" data-field="columns">
+        <label class="form-label" for="columns">Which columns together identify one row?</label>
+        <input class="form-control" id="columns" name="columns"
+               placeholder="account_id, instrument_id, as_of_date">
+      </div>
+
+      <div class="col-12 field" data-field="values">
+        <label class="form-label" for="values">Which values are permitted?</label>
+        <input class="form-control" id="values" name="values" placeholder="NEW, SETTLED, CANCELLED">
+      </div>
+
+      <div class="col-12 field" data-field="pattern">
+        <label class="form-label" for="pattern">What shape must it have?</label>
+        <input class="form-control" id="pattern" name="pattern"
+               placeholder="^[A-Z]{2}[0-9A-Z]{9}[0-9]$" aria-describedby="pattern-help">
+        <div id="pattern-help" class="form-text">A regular expression.</div>
+      </div>
+
+      <div class="col-12 field" data-field="bounds">
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="form-label" for="lower">At least</label>
+            <input class="form-control" id="lower" name="lower" inputmode="decimal">
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="upper">At most</label>
+            <input class="form-control" id="upper" name="upper" inputmode="decimal">
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 field" data-field="counts">
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="form-label" for="minimum">Fewest rows in a normal delivery</label>
+            <input class="form-control" id="minimum" name="minimum" inputmode="numeric">
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="maximum">Most rows</label>
+            <input class="form-control" id="maximum" name="maximum" inputmode="numeric">
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 field" data-field="reference">
+        <div class="row g-2">
+          <div class="col-7">
+            <label class="form-label" for="reference_dataset">Which dataset holds the real values?</label>
+            <select class="form-select" id="reference_dataset" name="reference_dataset">
+              <option value="">choose…</option>
+              {% for slug in datasets %}<option value="{{ slug }}">{{ slug }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-5">
+            <label class="form-label" for="reference_column">In which column?</label>
+            <input class="form-control" id="reference_column" name="reference_column">
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 field" data-field="freshness">
+        <div class="row g-2">
+          <div class="col-4">
+            <label class="form-label" for="due_time">Due by</label>
+            <input class="form-control" id="due_time" name="due_time" placeholder="06:30">
+          </div>
+          <div class="col-4">
+            <label class="form-label" for="tolerance_minutes">Grace, minutes</label>
+            <input class="form-control" id="tolerance_minutes" name="tolerance_minutes"
+                   inputmode="numeric" value="0">
+          </div>
+          <div class="col-4">
+            <label class="form-label" for="calendar">Business calendar</label>
+            <input class="form-control" id="calendar" name="calendar" placeholder="TARGET2">
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label" for="severity">How bad is a failure?</label>
+        <select class="form-select" id="severity" name="severity">
+          {% for value in ['critical', 'major', 'minor', 'warning', 'info'] %}
+          <option value="{{ value }}" {% if value == 'major' %}selected{% endif %}>{{ value }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label" for="tolerated_percent">Tolerated failures, per cent</label>
+        <input class="form-control" id="tolerated_percent" name="tolerated_percent"
+               inputmode="decimal" placeholder="0" aria-describedby="tolerated-help">
+        <div id="tolerated-help" class="form-text">
+          Blank means none are tolerated, which is the right answer far more often
+          than it is chosen.
+        </div>
+      </div>
+
+      <div class="col-12">
+        <label class="form-label" for="because">Why does this rule exist?</label>
+        <input class="form-control" id="because" name="because" required
+               placeholder="CDE for FRTB" aria-describedby="because-help">
+        <div id="because-help" class="form-text">
+          Required. It is what the alert quotes when the control fires, and the
+          difference between an alert somebody can act on and one they cannot.
+        </div>
+      </div>
+
+      <div class="col-12">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="unknown_is_violation"
+                 name="unknown_is_violation" value="1" checked>
+          <label class="form-check-label" for="unknown_is_violation">
+            A row whose value cannot be determined counts as a failure
+          </label>
+          {# SQL's default is the opposite, and it is the most reliable source of
+             false confidence in production data quality suites: a rule over a
+             column that is entirely null passes, silently, for years. Unticking
+             this restores the SQL behaviour and records the choice in the
+             control, where somebody can see it. #}
+          <div class="form-text">
+            Leave this ticked unless the business genuinely means otherwise. Unticked,
+            a rule over a column that is entirely empty will pass — quietly, for years.
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12">
+        <button class="btn btn-primary" type="submit">Write the control</button>
+        <a class="btn btn-link" href="{{ url_for('control_studio') }}">Open the studio instead</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="col-lg-5">
+    <div id="built" aria-live="polite">
+      <p class="text-muted">The control appears here, as PQL, as soon as you build it.</p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  jQuery(function ($) {
+    var COLUMNS = {{ columns | tojson }};
+
+    function sync() {
+      var needs = ($("input[name=rule]:checked").data("needs") || "").split(" ");
+      $(".field").each(function () {
+        var wanted = needs.indexOf($(this).data("field")) >= 0;
+        $(this).toggle(wanted);
+        $(this).find("input, select").prop("disabled", !wanted);
+      });
+    }
+    $("input[name=rule]").on("change", sync);
+
+    $("#dataset").on("change", function () {
+      var names = COLUMNS[$(this).val()] || [];
+      $("#column-list").empty().append(names.map(function (name) {
+        return $("<option>").attr("value", name);
+      }));
+    }).trigger("change");
+
+    sync();
+
+    $("#builder").on("submit", function (event) {
+      event.preventDefault();
+      var panel = $("#built").attr("aria-busy", "true");
+      $.post($(this).attr("action"), $(this).serialize())
+        .done(function (html) {
+          panel.html(html);
+          if (window.Prism) { window.Prism.highlightAllUnder(panel[0]); }
+          window.pramaAnnounce($(html).text().slice(0, 200));
+        })
+        .fail(function (xhr) {
+          panel.html('<div class="alert alert-danger mb-0">The rule could not be built (' +
+            (xhr.status || "no response") + ").</div>");
+        })
+        .always(function () { panel.removeAttr("aria-busy"); });
+    });
+  });
+</script>
+{% endblock %}

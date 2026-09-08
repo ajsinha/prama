@@ -30,6 +30,7 @@ from prama.pql import parse
 from prama.pql.errors import PqlError
 from prama.pql.lint import Linter
 from prama.pql.types import Catalogue, Column, DatasetSchema, TypeChecker
+from prama.web import builder
 from prama.web.deps import Caller, Uow
 from prama.web.rendering import render
 from prama.web.routes.base import UiRoutes
@@ -46,6 +47,8 @@ class ControlRoutes(UiRoutes):
 
     def register(self) -> None:
         self.page("/controls", self.control_studio, name="control_studio")
+        self.page("/controls/build", self.rule_builder, name="rule_builder")
+        self.page("/controls/build", self.rule_build, name="rule_build", methods=["POST"])
         self.page("/controls/check", self.control_check, name="control_check", methods=["POST"])
         self.page(
             "/controls/compile", self.control_compile, name="control_compile", methods=["POST"]
@@ -80,6 +83,72 @@ class ControlRoutes(UiRoutes):
             starter=STARTER,
             dataset_slugs=sorted(v.slug for v in datasets),
             dialects=sorted(DIALECTS),
+        )
+
+    async def rule_builder(self, request: Request, caller: Caller, uow: Uow) -> Any:
+        """The form a person who will never write PQL uses."""
+        versions = await uow.datasets.list_current(caller.tenant_id, limit=5000)
+        return render(
+            request,
+            "controls/builder.html",
+            questions=builder.QUESTIONS,
+            datasets=sorted(v.slug for v in versions),
+            columns={
+                v.slug: [a.name for a in await uow.attributes.for_dataset(v.dataset_id)]
+                for v in versions
+            },
+            submitted={},
+        )
+
+    async def rule_build(self, request: Request) -> Any:
+        # No caller and no unit of work: the builder composes an AST and
+        # renders it, and touches nothing tenant-scoped. Taking them anyway
+        # would open a transaction per keystroke-driven rebuild for nothing.
+        """Assemble, verify the round trip, and show the PQL.
+
+        Always shows it. A builder that hides its output produces controls
+        nobody reviews, and a control nobody reviews is one nobody trusts when
+        it fires.
+        """
+        form = dict(await request.form())
+        answers = {key: str(value) for key, value in form.items()}
+        try:
+            control = builder.build(
+                dataset=answers.get("dataset", ""),
+                rule=answers.get("rule", ""),
+                severity=answers.get("severity", "major"),
+                because=answers.get("because", ""),
+                column=answers.get("column", ""),
+                columns=answers.get("columns", ""),
+                values=answers.get("values", ""),
+                pattern=answers.get("pattern", ""),
+                lower=answers.get("lower", ""),
+                upper=answers.get("upper", ""),
+                minimum=answers.get("minimum", ""),
+                maximum=answers.get("maximum", ""),
+                reference_dataset=answers.get("reference_dataset", ""),
+                reference_column=answers.get("reference_column", ""),
+                tolerance_minutes=answers.get("tolerance_minutes", "0"),
+                due_time=answers.get("due_time", ""),
+                calendar=answers.get("calendar", ""),
+                tolerated_percent=answers.get("tolerated_percent", ""),
+                unknown_is_violation=answers.get("unknown_is_violation", "1") == "1",
+            )
+            pql = builder.render_and_verify(control)
+        except PramaError as exc:
+            return render(
+                request,
+                "controls/_built.html",
+                error={"message": str(exc), "remedy": getattr(exc, "remedy", "")},
+                pql="",
+                sentence="",
+            )
+        return render(
+            request,
+            "controls/_built.html",
+            error=None,
+            pql=pql,
+            sentence=lower(control).description,
         )
 
     async def control_check(
