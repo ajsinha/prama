@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Prama — pre-commit hook.
+# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
+set -euo pipefail
+
+staged() { git diff --cached --name-only --diff-filter=ACM; }
+
+# 1. Source-file length ceiling (1500 code lines, comments excluded).
+files=$(staged | grep -E '\.(py|rs|sql|sh)$' || true)
+if [ -n "$files" ]; then
+  # shellcheck disable=SC2086
+  python3 scripts/check_file_length.py $files
+fi
+
+# 2. Secrets never enter a tracked config file. application.local.* is ignored
+#    and is where a real secret belongs.
+tracked_cfg=$(staged | grep -E '^config/.*\.(yaml|yml|properties|json)$' | grep -v '\.local\.' || true)
+if [ -n "$tracked_cfg" ]; then
+  if grep -nEi '(secret|password|passwd|token|api[_-]?key|private[_-]?key)[[:space:]]*[:=][[:space:]]*[^[:space:]"'"'"']+' $tracked_cfg \
+     | grep -vEi '(:[[:space:]]*(""|''|~|null)[[:space:]]*$)|\$\{' ; then
+    echo "pre-commit: refused — a non-empty secret appears in a TRACKED config file." >&2
+    echo "  Put it in config/application.local.yaml (git-ignored), or use \${VAR:default}." >&2
+    exit 1
+  fi
+fi
+
+# 3. Lint + format, if the toolchain is present.
+if command -v ruff >/dev/null 2>&1; then
+  py=$(staged | grep -E '\.py$' || true)
+  if [ -n "$py" ]; then
+    # shellcheck disable=SC2086
+    ruff check $py && ruff format --check $py
+  fi
+fi
+exit 0
