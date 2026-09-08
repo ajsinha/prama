@@ -360,6 +360,33 @@ class ControlPlan(IrNode):
     detail: dict[str, Any] = dataclasses.field(default_factory=dict)
     provenance: Provenance = dataclasses.field(default_factory=Provenance)
 
+    # -- completeness ------------------------------------------------------
+
+    @property
+    def residual_validators(self) -> tuple[tuple[str, str], ...]:
+        """Semantic types whose exact test an engine cannot perform.
+
+        Returned as ``(validator, column)`` pairs, because a residual has to be
+        *applied* and applying it needs to know what to read. The predicate for
+        these is a **screen**: a necessary condition every valid value
+        satisfies, and which invalid values also satisfy. A row failing the
+        screen is certainly a violation; a row passing it has only not been
+        ruled out.
+        """
+        return tuple(
+            (r["validator"], r["column"]) for r in self.detail.get("residual_validators", ())
+        )
+
+    @property
+    def is_two_stage(self) -> bool:
+        """Whether an engine's answer alone is sufficient to report a pass.
+
+        False means it is not. Reporting one anyway is how a control over a
+        column of fabricated identifiers runs green for a year: every value has
+        the right shape, and the shape was never the standard.
+        """
+        return bool(self.residual_validators)
+
     # -- identity ----------------------------------------------------------
 
     def meaning(self) -> dict[str, Any]:

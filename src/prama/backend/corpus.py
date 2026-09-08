@@ -27,26 +27,31 @@ COLUMNS: tuple[tuple[str, str], ...] = (
     ("ccy", "VARCHAR(3)"),
     ("notional", "DOUBLE PRECISION"),
     ("status", "VARCHAR(10)"),
+    ("lei", "VARCHAR(20)"),
 )
 
 #: The corpus rows. Each is annotated in ROW_NOTES with what it is there to
 #: catch, so a future edit cannot quietly remove the case that mattered.
 ROWS: tuple[tuple[object, ...], ...] = (
-    (1, "A1", "I1", "EMEA", "GB0002634946", "GBP", 100.0, "ACTIVE"),
-    (2, "A1", "I2", "EMEA", "US0378331005", "USD", 250.0, "ACTIVE"),
-    (3, "A2", "I1", "APAC", "DE0007164600", "EUR", 0.0, "ACTIVE"),
-    (4, "A2", "I2", "APAC", None, "JPY", 500.0, "ACTIVE"),
-    (5, "A3", "I1", "EMEA", "NOTANISIN", "GBP", -10.0, "ACTIVE"),
-    (6, "A3", "I1", "EMEA", "GB0002634946", "XXX", None, "CANCELLED"),
-    (7, "A4", "I3", "AMER", "US0378331005", "USD", 1000.0, "ACTIVE"),
-    (8, "A4", "I4", "AMER", "GB0002634946", "GBP", 100.0, "CANCELLED"),
+    (1, "A1", "I1", "EMEA", "GB0002634946", "GBP", 100.0, "ACTIVE", "5493001KJTIIGC8Y1R12"),
+    (2, "A1", "I2", "EMEA", "US0378331005", "USD", 250.0, "ACTIVE", "213800LBQA1Y9L22JB70"),
+    (3, "A2", "I1", "APAC", "DE0007164600", "EUR", 0.0, "ACTIVE", "HWUPKR0MPOU8FGXBT394"),
+    (4, "A2", "I2", "APAC", None, "JPY", 500.0, "ACTIVE", None),
+    (5, "A3", "I1", "EMEA", "NOTANISIN", "GBP", -10.0, "ACTIVE", "not-an-lei"),
+    (6, "A3", "I1", "EMEA", "GB0002634946", "XXX", None, "CANCELLED", "AAAAAAAAAAAAAAAAAA00"),
+    (7, "A4", "I3", "AMER", "US0378331005", "USD", 1000.0, "ACTIVE", "7LTWFZYICNSX8D621K86"),
+    (8, "A4", "I4", "AMER", "GB0002634946", "GBP", 100.0, "CANCELLED", "ZXTILKJKG63JELOEG630"),
 )
 
 ROW_NOTES: dict[int, str] = {
     4: "a null ISIN: the unknown that SQL would let pass silently",
     5: "an ISIN that is the right length and the wrong shape",
-    6: "a null notional and an unlisted currency, on a cancelled row",
+    6: "a null notional and an unlisted currency, on a cancelled row — and an LEI "
+    "with a perfect shape whose check characters do not verify, which is the row no "
+    "SQL engine can catch and the reason IS VALID is two-stage",
     8: "duplicates row 6's key only after the CANCELLED filter is applied",
+    3: "a legacy LEI without the ISO 17442 reserved zeros — valid, and a screen "
+    "requiring them would reject it",
 }
 
 #: (account_id, instrument_id) repeats on rows 5 and 6, so a unique key over
@@ -104,6 +109,18 @@ CASES: tuple[Case, ...] = (
         name="between_boundaries",
         pql="CHECK corpus.notional BETWEEN 0 AND 1000",
         catches="inclusive bounds, exactly on 0 and exactly on 1000",
+    ),
+    Case(
+        name="semantic_type_two_stage",
+        pql="CHECK corpus.lei IS VALID 'lei'",
+        catches=(
+            "the row every engine gets wrong on its own: AAAAAAAAAAAAAAAAAA00 has an "
+            "LEI's exact shape and check characters that do not verify. SQL applies the "
+            "screen and finds two violations; the exact check finds three. The engines "
+            "are not required to agree here — they are required to differ in one "
+            "direction only, because a screen that rejected a valid value would report "
+            "a violation on good reference data"
+        ),
     ),
     Case(
         name="row_count",

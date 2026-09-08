@@ -95,6 +95,12 @@ class SemanticValidator(abc.ABC):
     #: A regular expression every valid value satisfies. For PATTERN validators
     #: this is the whole check; otherwise it is a necessary condition only.
     screen_pattern: ClassVar[str] = ""
+    #: What the algorithm establishes that the shape does not. Lives here
+    #: rather than in the generator because it is knowledge about the type: a
+    #: generated sentence saying "the check digit is part of the standard"
+    #: under an ISO 8601 date control is wrong, and it is wrong precisely
+    #: because whoever wrote it did not have the type in front of them.
+    beyond_shape: ClassVar[str] = "a value of the right shape can still fail it"
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
@@ -229,6 +235,10 @@ class IsinValidator(SemanticValidator):
     name = "isin"
     label = "ISIN"
     authority = "ISO 6166"
+    beyond_shape = (
+        "the check digit is part of the standard, so a value with an ISIN's shape "
+        "and the wrong final digit is not an ISIN"
+    )
     screen_pattern = r"^[A-Z]{2}[A-Z0-9]{9}[0-9]$"
 
     def check(self, value: str) -> Judgement:
@@ -254,6 +264,7 @@ class SedolValidator(SemanticValidator):
     #: Vowels are excluded by the scheme, which is a genuine part of the check
     #: rather than a nicety: it is what stops a SEDOL being confused with a
     #: truncated ticker.
+    beyond_shape = "the weighted check digit is part of the standard"
     screen_pattern = r"^[0-9BCDFGHJKLMNPQRSTVWXYZ]{6}[0-9]$"
 
     _WEIGHTS: ClassVar[tuple[int, ...]] = (1, 3, 1, 7, 3, 9)
@@ -276,6 +287,7 @@ class CusipValidator(SemanticValidator):
     name = "cusip"
     label = "CUSIP"
     authority = "ANSI X9.6"
+    beyond_shape = "the check digit is part of the standard"
     screen_pattern = r"^[A-Z0-9*@#]{8}[0-9]$"
 
     def check(self, value: str) -> Judgement:
@@ -310,6 +322,7 @@ class FigiValidator(SemanticValidator):
     #: The scheme forbids vowels in the first two characters and reserves the
     #: third as 'G'. Both are in the screen because both are cheap and both
     #: reject the overwhelming majority of wrong-column values.
+    beyond_shape = "the check digit is part of the standard"
     screen_pattern = r"^[BCDFGHJKLMNPQRSTVWXYZ]{2}G[A-Z0-9]{8}[0-9]$"
 
     def check(self, value: str) -> Judgement:
@@ -346,6 +359,7 @@ class LeiValidator(SemanticValidator):
     #: both verify. A screen that rejected them would report a violation on
     #: perfectly good reference data, which is the one thing a necessary
     #: condition must never do.
+    beyond_shape = "the two trailing check characters are part of ISO 17442"
     screen_pattern = r"^[A-Z0-9]{18}[0-9]{2}$"
 
     def check(self, value: str) -> Judgement:
@@ -363,6 +377,10 @@ class IbanValidator(SemanticValidator):
     name = "iban"
     label = "IBAN"
     authority = "ISO 13616"
+    beyond_shape = (
+        "the check digits and the country-specific length are both part of ISO 13616, "
+        "and a truncated account number verifies by luck once in ninety-seven times"
+    )
     screen_pattern = r"^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$"
 
     #: Length is country-specific and is part of the standard, not a hint. A
@@ -493,6 +511,7 @@ class AbaRoutingValidator(SemanticValidator):
     name = "aba_routing"
     label = "ABA routing number"
     authority = "ABA"
+    beyond_shape = "the weighted checksum is part of the standard"
     screen_pattern = r"^[0-9]{9}$"
 
     _WEIGHTS: ClassVar[tuple[int, ...]] = (3, 7, 1, 3, 7, 1, 3, 7, 1)
@@ -533,6 +552,7 @@ class GtinValidator(SemanticValidator):
     name = "gtin"
     label = "GTIN"
     authority = "GS1"
+    beyond_shape = "the check digit is part of the standard"
     screen_pattern = r"^([0-9]{8}|[0-9]{12}|[0-9]{13}|[0-9]{14})$"
 
     def check(self, value: str) -> Judgement:
@@ -554,6 +574,7 @@ class NpiValidator(SemanticValidator):
     name = "npi"
     label = "NPI"
     authority = "CMS"
+    beyond_shape = "the Luhn check digit is part of the standard"
     screen_pattern = r"^[0-9]{10}$"
 
     def check(self, value: str) -> Judgement:
@@ -573,6 +594,7 @@ class CreditCardValidator(SemanticValidator):
     name = "card_number"
     label = "payment card number"
     authority = "ISO/IEC 7812"
+    beyond_shape = "the Luhn check digit is part of the standard"
     screen_pattern = r"^[0-9]{12,19}$"
 
     def check(self, value: str) -> Judgement:
@@ -620,6 +642,9 @@ class Iso8601DateValidator(SemanticValidator):
     name = "iso_date"
     label = "ISO 8601 date"
     authority = "ISO 8601"
+    beyond_shape = (
+        "a date can have the right shape and not exist — 2026-02-30 is the case this catches"
+    )
     screen_pattern = r"^\d{4}-\d{2}-\d{2}$"
 
     _LENGTHS: ClassVar[tuple[int, ...]] = (31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
@@ -646,6 +671,10 @@ class Ipv4Validator(SemanticValidator):
     name = "ipv4"
     label = "IPv4 address"
     authority = "RFC 791"
+    beyond_shape = (
+        "an octet above 255, or one with a leading zero that routes differently in "
+        "different resolvers, has the right shape and is not an address"
+    )
     screen_pattern = r"^\d{1,3}(\.\d{1,3}){3}$"
 
     def check(self, value: str) -> Judgement:

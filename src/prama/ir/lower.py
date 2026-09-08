@@ -21,6 +21,8 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
+from prama.classify.validators import REGISTRY as VALIDATORS
+from prama.classify.validators import ValidatorRegistry
 from prama.core.errors import ValidationError
 from prama.ir.model import (
     Comparator,
@@ -51,9 +53,16 @@ class Lowerer:
         binding: str = "",
         as_of: str = "",
         codelists: dict[str, tuple[str, ...]] | None = None,
+        validators: ValidatorRegistry | None = None,
     ) -> None:
         self._binding = binding
         self._as_of = as_of
+        self._validators = VALIDATORS if validators is None else validators
+        #: Semantic types whose exact test does not fit in a predicate,
+        #: collected while lowering one control. Reset per call — the lowerer
+        #: is not reentrant and does not need to be, since ``control`` is the
+        #: only entry point.
+        self._residuals: list[dict[str, str]] = []
         #: Codelists resolved into the plan, so the compiled control is closed
         #: over its permitted values. Resolving at run time instead would mean
         #: a codelist edited on Tuesday silently changes what Monday's evidence
@@ -61,11 +70,22 @@ class Lowerer:
         self._codelists = codelists or {}
 
     def control(self, control: ast.Control, *, source: str = "") -> ControlPlan:
+        self._residuals = []
         predicate, kind, detail = self._assertion(control.assertion)
+        filter_expression = self._expression(control.where) if control.where is not None else None
+        if self._residuals:
+            # Part of ``detail``, which is part of the plan's meaning, so a
+            # two-stage control hashes differently from a screen-only one. Two
+            # plans that check different things must never share an id.
+            unique = {(r["validator"], r["column"]): r for r in self._residuals}
+            detail = {
+                **detail,
+                "residual_validators": [unique[k] for k in sorted(unique)],
+            }
         scope = Scope(
             dataset=control.target,
             binding=self._binding,
-            filter=self._expression(control.where) if control.where is not None else None,
+            filter=filter_expression,
             segment_by=tuple(c.name for c in control.segmentation.columns)
             if control.segmentation
             else (),
@@ -187,7 +207,7 @@ class Lowerer:
             "matches": lambda: Expr.operation(
                 "MATCHES", subject, argument or Expr.literal("", "pattern")
             ),
-            "is_valid": lambda: Expr.operation("IS VALID", subject, argument or Expr.literal("")),
+            "is_valid": lambda: self._valid(subject, argument),
             "has_length_between": lambda: Expr.operation(
                 "BETWEEN",
                 Expr.call("LENGTH", subject, type_name="number"),
@@ -206,6 +226,59 @@ class Lowerer:
         if operator == "is_unique":
             return built
         return Expr.operation("NOT", built) if assertion.negated else built
+
+    def _valid(self, subject: Expr, argument: Expr | None) -> Expr:
+        """A semantic type, resolved into what an engine can actually test.
+
+        Same discipline as :meth:`_codelist`: the reference is resolved here so
+        the plan means one fixed thing, rather than at execution where the
+        answer could change under a plan that claims to be the same control.
+
+        The difference is that a semantic type does not always *fit* in a
+        predicate. A UUID does — its regular expression is the whole standard.
+        An ISIN does not: the check digit is Luhn over a letter-expanded string,
+        which no engine here computes faithfully. For those, what goes into the
+        plan is the **screen** — a necessary condition every valid value
+        satisfies — and the exact test is recorded as a *residual* the executor
+        must apply before it may report a pass.
+
+        Lowering the screen and calling it the whole control is the tempting
+        alternative and the one this design exists to refuse: ``GB0000000000``
+        satisfies every ISIN regular expression ever written, so the control
+        would run green over a column of fabricated identifiers.
+        """
+        name = str(argument.value) if argument is not None else ""
+        validator = self._validators.find(name)
+        if validator is None:
+            raise ValidationError(
+                f"there is no semantic type called {name!r}",
+                remedy=(
+                    "Register a validator for it, or use a known type. An unresolved "
+                    "type would compile to a check that passes everything, which is "
+                    "worse than no control because it looks like coverage."
+                ),
+                context={"semantic_type": name},
+            )
+        screen = Expr.operation(
+            "MATCHES", subject, Expr.literal(validator.screen_pattern, "pattern")
+        )
+        if not validator.screen_is_complete:
+            if subject.kind != "col":
+                # A residual nobody can locate is a residual nobody will apply,
+                # and the failure mode of dropping it silently is a green
+                # control over invalid data. Refusing is the only safe answer.
+                raise ValidationError(
+                    f"IS VALID {name!r} can only be applied to a column",
+                    remedy=(
+                        f"A {validator.label} is checked in two stages — a shape the "
+                        "engine can test, then an exact check on the rows that pass — "
+                        "and the second stage needs a column to read. Apply it to the "
+                        "column directly rather than to an expression over it."
+                    ),
+                    context={"semantic_type": name},
+                )
+            self._residuals.append({"validator": name, "column": subject.name})
+        return screen
 
     def _codelist(self, subject: Expr, argument: Expr | None) -> Expr:
         """A codelist, resolved into the values it stood for.

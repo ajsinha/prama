@@ -176,10 +176,60 @@ class ConformanceRun:
                 )
                 continue
             answers = {engine: outcome.comparable for engine, outcome in ran.items()}
+            plan = self.plan_for(case)
+            if plan.is_two_stage:
+                disagreements.extend(self._compare_two_stage(case, ran))
+                continue
             distinct = {_freeze(a) for a in answers.values()}
             if len(distinct) > 1:
                 disagreements.append(Disagreement(case=case.name, outcomes=answers))
         return disagreements
+
+    @staticmethod
+    def _compare_two_stage(case: Case, ran: dict[str, EngineOutcome]) -> list[Disagreement]:
+        """Agreement for a control an engine can only half-answer.
+
+        Requiring identical counts here would be wrong, and quietly excusing the
+        case would be worse. A two-stage control's SQL predicate is a *screen*:
+        a necessary condition every valid value satisfies. So the engines are
+        required to differ in exactly one direction —
+
+        * an engine may find **fewer** violations than the exact check, because
+          a value with the right shape and a wrong check digit passes the
+          screen. That is the whole reason the second stage exists;
+        * an engine may never find **more**, because that would mean the screen
+          rejected a value the standard accepts, and the control would be
+          reporting a violation on good reference data.
+
+        The second direction is the one worth a conformance gate. It is how a
+        screen tightened by somebody who read a standard too confidently gets
+        caught here rather than in a stewardship queue.
+        """
+        reference = ran.get("reference")
+        if reference is None or reference.result is None:
+            return []
+        exact = reference.result.violating_rows
+        overshooting = {
+            engine: outcome.comparable
+            for engine, outcome in ran.items()
+            if engine != "reference"
+            and outcome.result is not None
+            and outcome.result.violating_rows > exact
+        }
+        if not overshooting:
+            return []
+        return [
+            Disagreement(
+                case=case.name,
+                outcomes={
+                    **overshooting,
+                    "reference": (
+                        f"{exact:g} violations exactly; an engine finding more means its "
+                        f"screen rejects a value the standard accepts"
+                    ),
+                },
+            )
+        ]
 
     def summarise(self, runners: dict[str, Runner]) -> dict[str, Any]:
         """A report worth putting in front of somebody, pass or fail."""
