@@ -26,13 +26,22 @@ from prama.core.log import get_logger
 from prama.db.engine import EngineFactory
 
 if TYPE_CHECKING:
-    from prama.db.repositories import (
-        ApiKeyRepository,
-        AuditRepository,
-        PrincipalRepository,
-        RoleRepository,
-        SettingRepository,
-        TenantRepository,
+    from prama.db.dao import (
+        ApiKeyDao,
+        AttributeDao,
+        AuditDao,
+        BindingDao,
+        ConceptDao,
+        ConceptPropertyDao,
+        ConnectionDao,
+        DatasetDao,
+        DomainDao,
+        JourneyDao,
+        PrincipalDao,
+        RelationshipDao,
+        RoleDao,
+        SettingDao,
+        TenantDao,
     )
 
 _log = get_logger(__name__)
@@ -59,60 +68,120 @@ class SessionManager:
 
 
 class UnitOfWork:
-    """One transaction, and the repositories that act inside it.
+    """One transaction, and the DAOs that act inside it.
 
-    Repositories are created lazily and cached, so a unit of work that touches
-    one table does not construct six objects.
+    DAOs are created lazily and cached, so a unit of work that touches one
+    table does not construct six objects. Services receive a unit of work and
+    never a session, which is what keeps SQLAlchemy confined to this package.
     """
 
     def __init__(self, session: AsyncSession, factory: EngineFactory) -> None:
         self._session = session
         self._factory = factory
-        self._repositories: dict[str, Any] = {}
+        self._daos: dict[str, Any] = {}
         self._closed = False
 
-    # -- repositories ------------------------------------------------------
+    # -- data access objects ----------------------------------------------
 
-    def _repository(self, name: str, cls: type[Any]) -> Any:
-        if name not in self._repositories:
-            self._repositories[name] = cls(self._session, self._factory.dialect)
-        return self._repositories[name]
-
-    @property
-    def tenants(self) -> TenantRepository:
-        from prama.db.repositories import TenantRepository
-
-        return self._repository("tenants", TenantRepository)  # type: ignore[no-any-return]
+    def _dao(self, name: str, cls: type[Any]) -> Any:
+        if name not in self._daos:
+            self._daos[name] = cls(self._session, self._factory.dialect)
+        return self._daos[name]
 
     @property
-    def principals(self) -> PrincipalRepository:
-        from prama.db.repositories import PrincipalRepository
+    def tenants(self) -> TenantDao:
+        from prama.db.dao import TenantDao
 
-        return self._repository("principals", PrincipalRepository)  # type: ignore[no-any-return]
-
-    @property
-    def roles(self) -> RoleRepository:
-        from prama.db.repositories import RoleRepository
-
-        return self._repository("roles", RoleRepository)  # type: ignore[no-any-return]
+        return self._dao("tenants", TenantDao)  # type: ignore[no-any-return]
 
     @property
-    def api_keys(self) -> ApiKeyRepository:
-        from prama.db.repositories import ApiKeyRepository
+    def principals(self) -> PrincipalDao:
+        from prama.db.dao import PrincipalDao
 
-        return self._repository("api_keys", ApiKeyRepository)  # type: ignore[no-any-return]
-
-    @property
-    def audit(self) -> AuditRepository:
-        from prama.db.repositories import AuditRepository
-
-        return self._repository("audit", AuditRepository)  # type: ignore[no-any-return]
+        return self._dao("principals", PrincipalDao)  # type: ignore[no-any-return]
 
     @property
-    def settings(self) -> SettingRepository:
-        from prama.db.repositories import SettingRepository
+    def roles(self) -> RoleDao:
+        from prama.db.dao import RoleDao
 
-        return self._repository("settings", SettingRepository)  # type: ignore[no-any-return]
+        return self._dao("roles", RoleDao)  # type: ignore[no-any-return]
+
+    @property
+    def api_keys(self) -> ApiKeyDao:
+        from prama.db.dao import ApiKeyDao
+
+        return self._dao("api_keys", ApiKeyDao)  # type: ignore[no-any-return]
+
+    @property
+    def audit(self) -> AuditDao:
+        from prama.db.dao import AuditDao
+
+        return self._dao("audit", AuditDao)  # type: ignore[no-any-return]
+
+    @property
+    def settings(self) -> SettingDao:
+        from prama.db.dao import SettingDao
+
+        return self._dao("settings", SettingDao)  # type: ignore[no-any-return]
+
+    # -- semantic layer ----------------------------------------------------
+    #
+    # One property per declared object. Each is lazy, so a unit of work that
+    # touches one table does not construct fifteen DAOs.
+
+    @property
+    def domains(self) -> DomainDao:
+        from prama.db.dao import DomainDao
+
+        return self._dao("domains", DomainDao)  # type: ignore[no-any-return]
+
+    @property
+    def datasets(self) -> DatasetDao:
+        from prama.db.dao import DatasetDao
+
+        return self._dao("datasets", DatasetDao)  # type: ignore[no-any-return]
+
+    @property
+    def attributes(self) -> AttributeDao:
+        from prama.db.dao import AttributeDao
+
+        return self._dao("attributes", AttributeDao)  # type: ignore[no-any-return]
+
+    @property
+    def concepts(self) -> ConceptDao:
+        from prama.db.dao import ConceptDao
+
+        return self._dao("concepts", ConceptDao)  # type: ignore[no-any-return]
+
+    @property
+    def concept_properties(self) -> ConceptPropertyDao:
+        from prama.db.dao import ConceptPropertyDao
+
+        return self._dao("concept_properties", ConceptPropertyDao)  # type: ignore[no-any-return]
+
+    @property
+    def relationships(self) -> RelationshipDao:
+        from prama.db.dao import RelationshipDao
+
+        return self._dao("relationships", RelationshipDao)  # type: ignore[no-any-return]
+
+    @property
+    def journeys(self) -> JourneyDao:
+        from prama.db.dao import JourneyDao
+
+        return self._dao("journeys", JourneyDao)  # type: ignore[no-any-return]
+
+    @property
+    def connections(self) -> ConnectionDao:
+        from prama.db.dao import ConnectionDao
+
+        return self._dao("connections", ConnectionDao)  # type: ignore[no-any-return]
+
+    @property
+    def bindings(self) -> BindingDao:
+        from prama.db.dao import BindingDao
+
+        return self._dao("bindings", BindingDao)  # type: ignore[no-any-return]
 
     # -- transaction boundary ---------------------------------------------
 

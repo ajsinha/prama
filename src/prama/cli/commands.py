@@ -12,6 +12,8 @@ from __future__ import annotations
 import argparse
 
 from prama.cli.base import EXIT_DRIFT, EXIT_OK, Command, CommandContext, CommandGroup
+from prama.cli.estate import EstateCommand
+from prama.core.errors import PramaError
 from prama.db import Database
 from prama.version import IR_VERSION, PRODUCT_NAME, PRODUCT_TAGLINE, SCHEMA_VERSION, VERSION
 
@@ -178,5 +180,45 @@ class DbCommand(CommandGroup):
         return [DbInitCommand(), DbVerifyCommand(), DbInfoCommand()]
 
 
+class ServeCommand(Command):
+    name = "serve"
+    help = "run the HTTP API"
+
+    def configure(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("--host", default="127.0.0.1", help="bind address")
+        parser.add_argument("--port", type=int, default=8080)
+        parser.add_argument("--reload", action="store_true", help="reload on code change")
+
+    def run(self, ctx: CommandContext) -> int:
+        try:
+            import uvicorn
+        except ImportError as exc:
+            raise PramaError(
+                "the HTTP server is not installed",
+                code="CLI.SERVER_MISSING",
+                remedy="Install it: pip install 'prama[serve]'.",
+                cause=exc,
+            ) from exc
+
+        from prama.api import create_app
+
+        ctx.emit(f"Prama {VERSION} — {PRODUCT_TAGLINE}")
+        ctx.emit(f"  API   http://{ctx.args.host}:{ctx.args.port}/api/v1")
+        ctx.emit(f"  Docs  http://{ctx.args.host}:{ctx.args.port}/api/v1/docs")
+        uvicorn.run(
+            create_app(ctx.config),
+            host=ctx.args.host,
+            port=ctx.args.port,
+            log_config=None,  # Prama configures logging itself
+        )
+        return EXIT_OK
+
+
 def all_commands() -> list[Command]:
-    return [VersionCommand(), ConfigCommand(), DbCommand()]
+    return [
+        VersionCommand(),
+        ConfigCommand(),
+        DbCommand(),
+        EstateCommand(),
+        ServeCommand(),
+    ]

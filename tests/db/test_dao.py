@@ -1,4 +1,4 @@
-"""Repositories, the unit of work, and the database-backed lease provider.
+"""Data access objects, the unit of work, and the database-backed lease provider.
 
 Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 """
@@ -40,9 +40,7 @@ class TestUnitOfWork:
                 uow.tenants.create(slug="dup", display_name="Two")
         assert "unique" in caught.value.remedy.lower()
 
-    async def test_repositories_are_cached_per_unit_of_work(
-        self, started_database: Database
-    ) -> None:
+    async def test_daos_are_cached_per_unit_of_work(self, started_database: Database) -> None:
         async with started_database.unit_of_work() as uow:
             assert uow.tenants is uow.tenants
 
@@ -162,10 +160,10 @@ class TestAuditAndSettings:
             assert len(events) == 2
             assert events[0].detail_json["severity"] == "critical"
         # The repository deliberately exposes no way to change history.
-        from prama.db.repositories import AuditRepository
+        from prama.db.dao import AuditDao
 
-        assert not hasattr(AuditRepository, "update")
-        assert not hasattr(AuditRepository, "delete_for_object")
+        assert not hasattr(AuditDao, "update")
+        assert not hasattr(AuditDao, "delete_for_object")
 
     async def test_timestamps_round_trip_as_aware_utc(
         self, started_database: Database, tenant_id: str

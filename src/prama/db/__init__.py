@@ -1,7 +1,7 @@
 """The database package — the ONLY package in Prama that imports SQLAlchemy.
 
-Everything above this boundary works with repositories and a unit of work, never
-with a session, a query or a dialect. ``tests/architecture/test_layering.py``
+Everything above this boundary works with DAOs and a unit of work, never with a
+session, a query or a dialect. ``tests/architecture/test_layering.py``
 enforces that by import scanning, so the rule is a property of the build rather
 than a convention people remember.
 
@@ -37,6 +37,7 @@ from prama.db.schema import (
     SchemaVerifier,
     VerificationReport,
 )
+from prama.db.security import ApiKeyIssuer, IssuedApiKey, PasswordHasher
 from prama.db.session import SessionManager, UnitOfWork
 from prama.db.settings import DbSettings
 
@@ -46,10 +47,13 @@ if TYPE_CHECKING:
 _log = get_logger(__name__)
 
 __all__ = [
+    "ApiKeyIssuer",
     "BootstrapResult",
     "Database",
     "DbSettings",
     "Dialect",
+    "IssuedApiKey",
+    "PasswordHasher",
     "SchemaBootstrapper",
     "SchemaVerifier",
     "UnitOfWork",
@@ -128,7 +132,7 @@ class Database:
     # -- work --------------------------------------------------------------
 
     def unit_of_work(self) -> UnitOfWork:
-        """A transaction boundary with its repositories."""
+        """A transaction boundary with its DAOs."""
         return UnitOfWork(self._sessions.session(), self._engines)
 
     def lease_provider(self) -> LeaseProvider:

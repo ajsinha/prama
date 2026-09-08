@@ -16,13 +16,17 @@ dependencies = [
     "PyYAML>=6.0",
     "SQLAlchemy>=2.0.30",
     "aiosqlite>=0.20",
+    "fastapi>=0.115",
+    "pydantic>=2.9",
 ]
 
 [project.optional-dependencies]
+serve = ["uvicorn[standard]>=0.30"]
 postgres = ["asyncpg>=0.29", "psycopg[binary]>=3.1"]
 fast = ["orjson>=3.10"]
 dev = [
     "pytest>=8.0",
+    "httpx>=0.27",
     "pytest-asyncio>=0.23",
     "pytest-cov>=5.0",
     "ruff>=0.6",
@@ -59,6 +63,11 @@ ignore = ["N818"]
 # TypeDecorator hooks take a `dialect` argument the base class imposes; the
 # portable types genuinely do not branch on it, which is the whole point.
 "src/prama/db/types.py" = ["ARG002"]
+# FastAPI idioms, both load-bearing:
+#   B008  Query()/Depends() in a default IS the framework's declaration syntax.
+#   ARG001 a `caller` a handler does not read still validates the tenant header
+#          and sets the logging context; removing it would remove that check.
+"src/prama/api/routes/*.py" = ["B008", "ARG001"]
 
 [tool.mypy]
 python_version = "3.11"

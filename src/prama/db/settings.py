@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import dataclasses
 from pathlib import Path
+from typing import ClassVar
 
 from prama.core.config import Configuration
 from prama.core.errors import ConfigError
@@ -91,7 +92,9 @@ class DbSettings:
     verify_on_start: bool = True
     echo: bool = False
 
-    SUPPORTED: tuple[str, ...] = ("sqlite", "postgres")
+    #: ClassVar, not a field: a slots dataclass turns a plain class-level
+    #: annotation into a slot descriptor, so this would not be a tuple.
+    SUPPORTED: ClassVar[tuple[str, ...]] = ("sqlite", "postgres")
 
     def validate(self) -> None:
         if self.dialect not in self.SUPPORTED:

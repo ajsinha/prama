@@ -1,14 +1,4 @@
-"""Repositories.
-
-A repository is the only way anything outside ``prama.db`` reaches the database.
-Two rules make the layering real rather than aspirational:
-
-* **Tenant scoping is structural.** ``TenantScopedRepository`` takes the tenant
-  on every read and write; there is no method that can omit it. Multi-tenancy
-  enforced by discipline is multi-tenancy that leaks.
-* **Repositories return ORM objects to the caller inside the unit of work, and
-  nothing else escapes.** Services never hold a session, never see SQLAlchemy
-  types, and therefore never accidentally issue a query outside a transaction.
+"""Platform data access: tenancy, identity, audit and settings.
 
 Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 """
@@ -16,19 +6,16 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Generic, TypeVar
+from typing import Any
 
-from sqlalchemy import Select, delete, func, select, text
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import delete, select, text
 
 from prama.core import pjson
 from prama.core.clock import utc_now
-from prama.core.errors import NotFoundError
-from prama.db.dialects import Dialect
+from prama.db.dao.base import Dao, TenantScopedDao
 from prama.db.models import (
     ApiKey,
     AuditEvent,
-    Base,
     Principal,
     PrincipalRole,
     Role,
@@ -36,98 +23,8 @@ from prama.db.models import (
     Tenant,
 )
 
-M = TypeVar("M", bound=Base)
 
-
-class Repository(Generic[M]):
-    """Base for every repository: one model, one session, one dialect."""
-
-    model: type[M]
-
-    def __init__(self, session: AsyncSession, dialect: Dialect) -> None:
-        self._session = session
-        self._dialect = dialect
-
-    # -- primitives --------------------------------------------------------
-
-    def add(self, entity: M) -> M:
-        self._session.add(entity)
-        return entity
-
-    async def get(self, identifier: Any) -> M | None:
-        return await self._session.get(self.model, identifier)
-
-    async def require(self, identifier: Any) -> M:
-        entity = await self.get(identifier)
-        if entity is None:
-            raise NotFoundError(
-                f"{self.model.__name__} {identifier!r} does not exist",
-                remedy="Check the identifier, or list the available entities first.",
-                context={"model": self.model.__name__, "id": str(identifier)},
-            )
-        return entity
-
-    async def delete(self, entity: M) -> None:
-        await self._session.delete(entity)
-
-    async def count(self, statement: Select[Any] | None = None) -> int:
-        stmt = statement if statement is not None else select(self.model)
-        result = await self._session.execute(select(func.count()).select_from(stmt.subquery()))
-        return int(result.scalar_one())
-
-    async def _all(self, statement: Select[Any]) -> list[M]:
-        result = await self._session.execute(statement)
-        return list(result.scalars().all())
-
-    async def _one_or_none(self, statement: Select[Any]) -> M | None:
-        result = await self._session.execute(statement)
-        return result.scalars().one_or_none()
-
-
-class TenantScopedRepository(Repository[M]):
-    """A repository whose every query is filtered by tenant.
-
-    The tenant is a parameter of each method rather than constructor state so
-    that a single unit of work can legitimately serve an admin operation across
-    tenants — while still never issuing an unscoped query by accident.
-    """
-
-    async def list_for_tenant(
-        self, tenant_id: str, *, limit: int = 100, offset: int = 0
-    ) -> list[M]:
-        stmt = (
-            select(self.model)
-            .where(self.model.tenant_id == tenant_id)  # type: ignore[attr-defined]
-            .order_by(self.model.id)  # type: ignore[attr-defined]
-            .limit(limit)
-            .offset(offset)
-        )
-        return await self._all(stmt)
-
-    async def get_for_tenant(self, tenant_id: str, identifier: str) -> M | None:
-        stmt = select(self.model).where(
-            self.model.id == identifier,  # type: ignore[attr-defined]
-            self.model.tenant_id == tenant_id,  # type: ignore[attr-defined]
-        )
-        return await self._one_or_none(stmt)
-
-    async def require_for_tenant(self, tenant_id: str, identifier: str) -> M:
-        entity = await self.get_for_tenant(tenant_id, identifier)
-        if entity is None:
-            raise NotFoundError(
-                f"{self.model.__name__} {identifier!r} does not exist in this tenant",
-                remedy="Check the identifier and the tenant it belongs to.",
-                context={"model": self.model.__name__, "id": identifier, "tenant": tenant_id},
-            )
-        return entity
-
-    async def count_for_tenant(self, tenant_id: str) -> int:
-        return await self.count(
-            select(self.model).where(self.model.tenant_id == tenant_id)  # type: ignore[attr-defined]
-        )
-
-
-class TenantRepository(Repository[Tenant]):
+class TenantDao(Dao[Tenant]):
     model = Tenant
 
     async def by_slug(self, slug: str) -> Tenant | None:
@@ -152,7 +49,7 @@ class TenantRepository(Repository[Tenant]):
         )
 
 
-class PrincipalRepository(TenantScopedRepository[Principal]):
+class PrincipalDao(TenantScopedDao[Principal]):
     model = Principal
 
     async def by_username(self, tenant_id: str, username: str) -> Principal | None:
@@ -192,17 +89,21 @@ class PrincipalRepository(TenantScopedRepository[Principal]):
         )
 
     async def roles_of(self, principal_id: str) -> list[Role]:
-        stmt = (
-            select(Role)
-            .join(PrincipalRole, PrincipalRole.role_id == Role.id)
-            .where(PrincipalRole.principal_id == principal_id)
-            .order_by(Role.name)
-        )
-        result = await self._session.execute(stmt)
-        return list(result.scalars().all())
+        """Roles granted to a principal.
+
+        Goes through the relationship rather than a hand-written join: the
+        association is declared once, on the model, and selectin loading makes
+        it one extra query rather than one per row.
+        """
+        await self._session.flush()
+        principal = await self._session.get(Principal, principal_id)
+        if principal is None:
+            return []
+        await self._session.refresh(principal, ["roles"])
+        return sorted(principal.roles, key=lambda r: r.name)
 
 
-class RoleRepository(TenantScopedRepository[Role]):
+class RoleDao(TenantScopedDao[Role]):
     model = Role
 
     async def by_name(self, tenant_id: str, name: str) -> Role | None:
@@ -266,7 +167,7 @@ class RoleRepository(TenantScopedRepository[Role]):
         )
 
 
-class ApiKeyRepository(TenantScopedRepository[ApiKey]):
+class ApiKeyDao(TenantScopedDao[ApiKey]):
     model = ApiKey
 
     async def by_prefix(self, prefix: str) -> ApiKey | None:
@@ -304,7 +205,7 @@ class ApiKeyRepository(TenantScopedRepository[ApiKey]):
         )
 
 
-class AuditRepository(Repository[AuditEvent]):
+class AuditDao(Dao[AuditEvent]):
     """Append-only. This class deliberately exposes no update or delete."""
 
     model = AuditEvent
@@ -362,7 +263,7 @@ class AuditRepository(Repository[AuditEvent]):
         )
 
 
-class SettingRepository(Repository[Setting]):
+class SettingDao(Dao[Setting]):
     model = Setting
 
     async def get_value(
