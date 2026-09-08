@@ -19,7 +19,8 @@ import asyncio
 import dataclasses
 import sys
 from collections import deque
-from typing import Any, Callable, Generic, TypeVar
+from collections.abc import Callable
+from typing import Any, Generic, TypeVar
 
 from prama.core.errors import BackPressureError
 
@@ -47,7 +48,7 @@ class QueueStats:
 
     @property
     def utilisation(self) -> float:
-        """Fraction of the byte budget in use, 0.0–1.0."""
+        """Fraction of the byte budget in use, 0.0-1.0."""
         return 0.0 if self.max_bytes == 0 else min(1.0, self.bytes / self.max_bytes)
 
 
@@ -55,7 +56,7 @@ def default_sizer(item: Any) -> int:
     """A cheap, deliberately approximate size estimate.
 
     ``sys.getsizeof`` is shallow, so containers are walked one level. Exactness
-    is not the point: the budget exists to prevent an order-of-magnitude
+    is not the goal: the budget exists to prevent an order-of-magnitude
     surprise, and an estimate that costs a deep traversal per item would cost
     more than the leak it prevents.
     """

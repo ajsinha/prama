@@ -10,6 +10,7 @@ it is doing more than one thing. Split it rather than raising the limit.
 
 Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 """
+
 from __future__ import annotations
 
 import io
@@ -18,7 +19,23 @@ import tokenize
 from pathlib import Path
 
 MAX_CODE_LINES = 1500
-EXEMPT_PREFIXES = ("prama-web/", "web/", "node_modules/", ".venv/", "build/", "dist/")
+EXEMPT_PREFIXES = ("prama-web/", "web/", "node_modules/", "build/", "dist/")
+#: Directories that are never ours to police, wherever they appear in a path.
+EXEMPT_PARTS = frozenset(
+    {
+        ".venv",
+        "venv",
+        "site-packages",
+        "node_modules",
+        ".git",
+        "__pycache__",
+        ".tox",
+        "build",
+        "dist",
+    }
+)
+#: When no paths are given, only these roots are walked.
+DEFAULT_ROOTS = ("src", "tests", "scripts", "schema")
 CHECKED_SUFFIXES = {".py", ".rs", ".sql", ".sh", ".ts", ".tsx"}
 UI_SUFFIXES = {".ts", ".tsx", ".css", ".scss"}
 
@@ -30,6 +47,8 @@ class LengthChecker:
         self._max = max_lines
 
     def is_exempt(self, path: Path) -> bool:
+        if EXEMPT_PARTS & set(path.parts):
+            return True
         posix = path.as_posix()
         if any(posix.startswith(p) for p in EXEMPT_PREFIXES):
             return True
@@ -64,12 +83,18 @@ class LengthChecker:
         prev_meaningful = tokenize.INDENT
         for tok in tokens:
             if tok.type in (
-                tokenize.COMMENT, tokenize.NL, tokenize.NEWLINE,
-                tokenize.INDENT, tokenize.DEDENT, tokenize.ENDMARKER,
+                tokenize.COMMENT,
+                tokenize.NL,
+                tokenize.NEWLINE,
+                tokenize.INDENT,
+                tokenize.DEDENT,
+                tokenize.ENDMARKER,
             ):
                 continue
             if tok.type == tokenize.STRING and prev_meaningful in (
-                tokenize.NEWLINE, tokenize.INDENT, tokenize.DEDENT,
+                tokenize.NEWLINE,
+                tokenize.INDENT,
+                tokenize.DEDENT,
             ):
                 prev_meaningful = tok.type  # docstring — skip its span
                 continue
@@ -91,14 +116,23 @@ class LengthChecker:
 
 def main(argv: list[str]) -> int:
     root = Path.cwd()
-    paths = [Path(a) for a in argv[1:]] or [
-        p for p in root.rglob("*") if p.suffix in CHECKED_SUFFIXES and ".git" not in p.parts
-    ]
+    if argv[1:]:
+        paths = [Path(a) for a in argv[1:]]
+    else:
+        paths = [
+            p
+            for name in DEFAULT_ROOTS
+            for p in (root / name).rglob("*")
+            if p.suffix in CHECKED_SUFFIXES
+        ]
     checker = LengthChecker()
     bad = checker.offenders(paths)
     if not bad:
         return 0
-    print(f"file-length: refused — {len(bad)} file(s) exceed {MAX_CODE_LINES} code lines:", file=sys.stderr)
+    print(
+        f"file-length: refused — {len(bad)} file(s) exceed {MAX_CODE_LINES} code lines:",
+        file=sys.stderr,
+    )
     for p, n in bad:
         print(f"  {n:>6} lines  {p}", file=sys.stderr)
     print("\n  A file over the ceiling is doing more than one thing. Split it.", file=sys.stderr)

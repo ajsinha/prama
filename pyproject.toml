@@ -55,7 +55,10 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "SIM", "RET", "ARG", "P
 ignore = ["N818"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["ARG001", "ARG002"]
+"tests/*" = ["ARG001", "ARG002", "RUF059", "SLF001"]
+# TypeDecorator hooks take a `dialect` argument the base class imposes; the
+# portable types genuinely do not branch on it, which is the whole point.
+"src/prama/db/types.py" = ["ARG002"]
 
 [tool.mypy]
 python_version = "3.11"

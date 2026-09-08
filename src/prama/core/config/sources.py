@@ -59,7 +59,9 @@ class MappingSource(ConfigSource):
         self.name = name
 
     def load(self) -> dict[str, Any]:
-        return _deep_copy(self._values)
+        copied = _deep_copy(self._values)
+        assert isinstance(copied, dict)
+        return copied
 
 
 class FileSource(ConfigSource):
@@ -118,6 +120,7 @@ class YamlFileSource(FileSource):
             ) from exc
         if data is None:
             return {}
+        # mypy: yaml.safe_load returns Any; the isinstance check below narrows it.
         if not isinstance(data, dict):
             raise ConfigError(
                 f"{self.path} must contain a mapping at the top level",
@@ -125,7 +128,7 @@ class YamlFileSource(FileSource):
                 remedy="Wrap the document in key: value pairs.",
                 context={"path": str(self.path), "found": type(data).__name__},
             )
-        return data
+        return dict(data)
 
 
 class PropertiesFileSource(FileSource):
@@ -242,7 +245,7 @@ def deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
     makes it impossible to *remove* a default entry, which is the operation
     operators actually need.
     """
-    result = _deep_copy(base)
+    result: dict[str, Any] = dict(_deep_copy(base))
     for key, value in overlay.items():
         current = result.get(key)
         if isinstance(current, dict) and isinstance(value, dict):

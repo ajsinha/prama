@@ -32,9 +32,21 @@ REDACTED: Final[str] = "***"
 #: Keys whose values never appear in a log record, whatever their content.
 SENSITIVE_KEYS: Final[frozenset[str]] = frozenset(
     {
-        "password", "passwd", "secret", "token", "api_key", "apikey",
-        "authorization", "auth", "private_key", "session_secret",
-        "client_secret", "credential", "credentials", "sas_token", "access_key",
+        "password",
+        "passwd",
+        "secret",
+        "token",
+        "api_key",
+        "apikey",
+        "authorization",
+        "auth",
+        "private_key",
+        "session_secret",
+        "client_secret",
+        "credential",
+        "credentials",
+        "sas_token",
+        "access_key",
     }
 )
 
@@ -88,10 +100,12 @@ class JsonFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
         }
-        if getattr(record, "correlation_id", None):
-            payload["correlation_id"] = record.correlation_id
-        if getattr(record, "tenant_id", None):
-            payload["tenant_id"] = record.tenant_id
+        cid = getattr(record, "correlation_id", None)
+        if cid:
+            payload["correlation_id"] = cid
+        tid = getattr(record, "tenant_id", None)
+        if tid:
+            payload["tenant_id"] = tid
         fields = getattr(record, "prama_fields", None)
         if isinstance(fields, dict) and fields:
             payload["fields"] = fields

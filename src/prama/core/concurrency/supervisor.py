@@ -91,7 +91,7 @@ class TaskSupervisor:
 
     # -- lifecycle ---------------------------------------------------------
 
-    async def __aenter__(self) -> "TaskSupervisor":
+    async def __aenter__(self) -> TaskSupervisor:
         return self
 
     async def __aexit__(self, *_exc: object) -> None:
@@ -130,15 +130,13 @@ class TaskSupervisor:
                     return
             except asyncio.CancelledError:
                 raise
-            except Exception as exc:  # noqa: BLE001 - the supervision boundary
+            except Exception as exc:
                 handle.last_error = exc
                 if handle.policy is RestartPolicy.NEVER:
                     self._failures.append(exc)
                     _log.error("task %s:%s failed: %s", self.name, handle.name, exc, exc_info=exc)
                     return
-                _log.warning(
-                    "task %s:%s failed (%s); restarting", self.name, handle.name, exc
-                )
+                _log.warning("task %s:%s failed (%s); restarting", self.name, handle.name, exc)
             now = self._clock.monotonic()
             if now - window_start > self._restart_window:
                 window_start, restarts_in_window = now, 0
@@ -163,7 +161,7 @@ class TaskSupervisor:
     def _backoff(self, attempt: int) -> float:
         """Exponential with full jitter — avoids a synchronised retry storm."""
         ceiling = min(self._max_backoff, self._base_backoff * (2 ** min(attempt, 16)))
-        return random.uniform(0, ceiling)  # noqa: S311 - jitter, not cryptography
+        return random.uniform(0, ceiling)
 
     # -- coordination ------------------------------------------------------
 
@@ -185,7 +183,8 @@ class TaskSupervisor:
             for task in pending:
                 _log.error(
                     "task %s did not stop within %.0fs of cancellation",
-                    task.get_name(), self._shutdown_grace,
+                    task.get_name(),
+                    self._shutdown_grace,
                 )
             for task in done:
                 exc = task.exception() if not task.cancelled() else None

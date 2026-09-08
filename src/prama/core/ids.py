@@ -106,11 +106,11 @@ class EntityId(str):
     prefix: ClassVar[str] = "id"
 
     @classmethod
-    def new(cls) -> "EntityId":
+    def new(cls) -> EntityId:
         return cls(new_ulid())
 
     @classmethod
-    def parse(cls, value: str) -> "EntityId":
+    def parse(cls, value: str) -> EntityId:
         raw = value.split(":", 1)[1] if ":" in value else value
         if not is_ulid(raw):
             raise ValueError(f"{cls.__name__} expects a ULID, got {value!r}")

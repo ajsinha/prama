@@ -136,10 +136,8 @@ class Registry(Generic[T]):
                 implementation = ep.load()
                 self.register(implementation)
                 loaded += 1
-            except Exception as exc:  # noqa: BLE001 - deliberate isolation boundary
-                _log.warning(
-                    "plugin %r from group %r failed to load: %s", ep.name, group_name, exc
-                )
+            except Exception as exc:
+                _log.warning("plugin %r from group %r failed to load: %s", ep.name, group_name, exc)
         self._discovered = True
         return loaded
 
@@ -192,7 +190,7 @@ class Registry(Generic[T]):
             )
         try:
             manifest = implementation.manifest()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise RegistryError(
                 f"{implementation.__name__}.manifest() raised {type(exc).__name__}",
                 remedy="manifest() must be a pure classmethod returning a PluginManifest.",
@@ -224,7 +222,7 @@ class Registry(Generic[T]):
 def _entry_points_for(group: str) -> list[EntryPoint]:
     try:
         return list(entry_points(group=group))
-    except Exception:  # noqa: BLE001 - importlib.metadata differs across environments
+    except Exception:
         return []
 
 

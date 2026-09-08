@@ -26,8 +26,8 @@ from typing import Any, TypeVar
 from prama.core.config.coercion import Coercer
 from prama.core.config.resolver import PlaceholderResolver
 from prama.core.config.sources import (
-    ConfigSource,
     CliSource,
+    ConfigSource,
     EnvironmentSource,
     MappingSource,
     deep_merge,
@@ -93,7 +93,7 @@ class Configuration:
             )
         return value
 
-    def section(self, path: str) -> "Configuration":
+    def section(self, path: str) -> Configuration:
         """A sub-view rooted at *path*. A missing section is an empty one."""
         value = self._lookup(path)
         if value is _MISSING:
@@ -238,19 +238,18 @@ class Configuration:
             hint = hints.get(field.name, str)
             has_default = (
                 field.default is not dataclasses.MISSING
-                or field.default_factory is not dataclasses.MISSING  # type: ignore[misc]
+                or field.default_factory is not dataclasses.MISSING
             )
             if not section.has(field.name):
                 if has_default:
                     continue
                 raise ConfigMissingError(
-                    f"required configuration key is not set: "
-                    f"{section._qualify(field.name)}",
+                    f"required configuration key is not set: {section._qualify(field.name)}",
                     remedy=f"Add {field.name} under {self._qualify(path)}.",
                     context={"key": section._qualify(field.name)},
                 )
             kwargs[field.name] = _coerce_hint(section, field.name, hint)
-        return typing.cast(T, cls(**kwargs))
+        return typing.cast("T", cls(**kwargs))
 
 
 def _coerce_hint(section: Configuration, name: str, hint: Any) -> Any:
@@ -290,29 +289,29 @@ class ConfigurationBuilder:
         self._sources: list[ConfigSource] = []
         self._environ: dict[str, str] | None = None
 
-    def with_defaults(self, values: dict[str, Any]) -> "ConfigurationBuilder":
+    def with_defaults(self, values: dict[str, Any]) -> ConfigurationBuilder:
         self._sources.append(MappingSource(values, name="built-in defaults"))
         return self
 
     def with_file(
         self, path: str | Path, *, required: bool = True, overlay: bool = True
-    ) -> "ConfigurationBuilder":
+    ) -> ConfigurationBuilder:
         self._sources.append(source_for(path, required=required))
         if overlay:
             local = local_overlay_for(path)
             self._sources.append(source_for(local, required=False))
         return self
 
-    def with_mapping(self, values: dict[str, Any], *, name: str) -> "ConfigurationBuilder":
+    def with_mapping(self, values: dict[str, Any], *, name: str) -> ConfigurationBuilder:
         self._sources.append(MappingSource(values, name=name))
         return self
 
-    def with_environment(self, environ: dict[str, str] | None = None) -> "ConfigurationBuilder":
+    def with_environment(self, environ: dict[str, str] | None = None) -> ConfigurationBuilder:
         self._environ = environ
         self._sources.append(EnvironmentSource(environ))
         return self
 
-    def with_cli(self, assignments: list[str] | None) -> "ConfigurationBuilder":
+    def with_cli(self, assignments: list[str] | None) -> ConfigurationBuilder:
         if assignments:
             self._sources.append(CliSource(assignments))
         return self
@@ -328,9 +327,7 @@ class ConfigurationBuilder:
         return Configuration(resolved, provenance=provenance)
 
 
-def _record_provenance(
-    node: Any, source: str, into: dict[str, str], prefix: str
-) -> None:
+def _record_provenance(node: Any, source: str, into: dict[str, str], prefix: str) -> None:
     if isinstance(node, dict):
         for key, value in node.items():
             _record_provenance(value, source, into, f"{prefix}.{key}" if prefix else key)

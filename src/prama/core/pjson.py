@@ -29,10 +29,14 @@ from typing import Any, Final
 try:  # pragma: no cover - exercised by whichever backend is installed
     import orjson as _orjson
 
-    HAVE_ORJSON: Final[bool] = True
+    _have_orjson = True
 except ImportError:  # pragma: no cover
     _orjson = None  # type: ignore[assignment]
-    HAVE_ORJSON = False
+    _have_orjson = False
+
+#: Which backend was chosen, decided once at import time so the choice costs
+#: nothing per call and cannot vary within a process.
+HAVE_ORJSON: Final[bool] = _have_orjson
 
 BACKEND: Final[str] = "orjson" if HAVE_ORJSON else "stdlib"
 
@@ -57,7 +61,15 @@ def _default(obj: Any) -> Any:
 
 
 def _sanitise(value: Any) -> Any:
-    """Replace non-finite floats anywhere in a structure with ``None``."""
+    """Normalise a structure before encoding.
+
+    Runs on both backends so they cannot disagree: orjson rewrites the message
+    of any exception raised inside ``default``, which would otherwise turn a
+    precise "naive datetime" complaint into a generic one on machines that
+    happen to have orjson installed.
+    """
+    if isinstance(value, _dt.datetime) and value.tzinfo is None:
+        raise TypeError("refusing to serialise a naive datetime; attach UTC")
     if isinstance(value, float):
         return value if math.isfinite(value) else None
     if isinstance(value, dict):
@@ -71,7 +83,12 @@ def dumpb(value: Any, *, sort_keys: bool = False, indent: bool = False) -> bytes
     """Encode to UTF-8 bytes."""
     value = _sanitise(value)
     if HAVE_ORJSON:
-        option = 0
+        # PASSTHROUGH_DATETIME routes datetimes to _default instead of orjson's
+        # native encoder. Without it the two backends disagree: orjson would
+        # accept a naive datetime and emit "+00:00" where the stdlib path
+        # refuses it and emits "Z" — a difference that would surface as a
+        # hash mismatch in the evidence ledger on some machines and not others.
+        option = _orjson.OPT_PASSTHROUGH_DATETIME
         if sort_keys:
             option |= _orjson.OPT_SORT_KEYS
         if indent:

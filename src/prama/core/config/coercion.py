@@ -24,18 +24,44 @@ _TRUE: Final[frozenset[str]] = frozenset({"1", "true", "yes", "y", "on", "enable
 _FALSE: Final[frozenset[str]] = frozenset({"0", "false", "no", "n", "off", "disabled"})
 
 _DURATION_UNITS: Final[dict[str, float]] = {
-    "ns": 1e-9, "us": 1e-6, "ms": 1e-3, "s": 1.0, "sec": 1.0, "secs": 1.0,
-    "m": 60.0, "min": 60.0, "mins": 60.0, "h": 3600.0, "hr": 3600.0, "hrs": 3600.0,
-    "d": 86400.0, "day": 86400.0, "days": 86400.0, "w": 604800.0,
+    "ns": 1e-9,
+    "us": 1e-6,
+    "ms": 1e-3,
+    "s": 1.0,
+    "sec": 1.0,
+    "secs": 1.0,
+    "m": 60.0,
+    "min": 60.0,
+    "mins": 60.0,
+    "h": 3600.0,
+    "hr": 3600.0,
+    "hrs": 3600.0,
+    "d": 86400.0,
+    "day": 86400.0,
+    "days": 86400.0,
+    "w": 604800.0,
 }
 _DURATION = re.compile(r"(?i)^\s*([0-9]*\.?[0-9]+)\s*([a-z]*)\s*$")
 
 _SIZE_UNITS: Final[dict[str, int]] = {
-    "": 1, "b": 1,
-    "k": 1000, "kb": 1000, "ki": 1024, "kib": 1024,
-    "m": 1000**2, "mb": 1000**2, "mi": 1024**2, "mib": 1024**2,
-    "g": 1000**3, "gb": 1000**3, "gi": 1024**3, "gib": 1024**3,
-    "t": 1000**4, "tb": 1000**4, "ti": 1024**4, "tib": 1024**4,
+    "": 1,
+    "b": 1,
+    "k": 1000,
+    "kb": 1000,
+    "ki": 1024,
+    "kib": 1024,
+    "m": 1000**2,
+    "mb": 1000**2,
+    "mi": 1024**2,
+    "mib": 1024**2,
+    "g": 1000**3,
+    "gb": 1000**3,
+    "gi": 1024**3,
+    "gib": 1024**3,
+    "t": 1000**4,
+    "tb": 1000**4,
+    "ti": 1024**4,
+    "tib": 1024**4,
 }
 _SIZE = re.compile(r"(?i)^\s*([0-9]*\.?[0-9]+)\s*([a-z]*)\s*$")
 
@@ -128,9 +154,7 @@ class Coercer:
                     return float(amount)
                 if unit in _DURATION_UNITS:
                     return float(amount) * _DURATION_UNITS[unit]
-        raise self._fail(
-            value, "duration", "Use a duration such as 500ms, 30s, 5m, 2h or 1d."
-        )
+        raise self._fail(value, "duration", "Use a duration such as 500ms, 30s, 5m, 2h or 1d.")
 
     def to_bytes(self, value: Any) -> int:
         """``512mb``, ``4gib``; a bare number means bytes.
@@ -151,6 +175,4 @@ class Coercer:
                 amount, unit = match.group(1), match.group(2).lower()
                 if unit in _SIZE_UNITS:
                     return int(float(amount) * _SIZE_UNITS[unit])
-        raise self._fail(
-            value, "byte size", "Use a size such as 1024, 512kb, 256mb or 4gib."
-        )
+        raise self._fail(value, "byte size", "Use a size such as 1024, 512kb, 256mb or 4gib.")

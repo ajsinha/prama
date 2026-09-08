@@ -29,8 +29,28 @@ There are exactly two schema files — `schema/sqlite.sql` and `schema/postgres.
 the authority. `prama.db` **applies** them idempotently and **verifies** the live database against
 them. A live schema that has drifted is a loud failure, never a silent migration.
 
-Both files describe the same logical schema. A change goes into both, in the same commit, and
-`tests/db/test_schema_parity.py` fails if the two drift apart.
+Both files describe the same logical schema — in fact they are **byte-identical apart from their
+headers**, and `tests/db/test_schema.py` fails if they ever are not.
+
+**Only four column types are permitted**, because only these mean the same thing in both engines:
+
+| Type | Use |
+|---|---|
+| `VARCHAR(n)` | Bounded strings. The width is enforced by PostgreSQL and documented in SQLite. Always declare it; a bare `VARCHAR` is unbounded in PostgreSQL and meaningless in SQLite. |
+| `TEXT` | Unbounded: JSON documents, descriptions, free text. |
+| `INTEGER` | Whole numbers, and booleans as `0`/`1` with a `CHECK`. |
+| `REAL` | Floating point. |
+
+Forbidden, and why: `BOOLEAN` (PostgreSQL has a real type, SQLite does not) · `TIMESTAMP`/`DATETIME`
+(SQLite has no date type; timestamps are ISO-8601 UTC text in `VARCHAR(32)`, which sorts
+chronologically) · `JSONB` (absent in SQLite) · `SERIAL`/`AUTOINCREMENT` (identifiers are ULIDs
+minted client-side, so a worker needs no round trip and a retry can reuse one) · `NUMERIC`,
+`BIGINT`, `UUID`, `BYTEA`, `BLOB` (accepted by SQLite only as affinity hints, so a constraint would
+bind on one engine and not the other).
+
+Every `PRIMARY KEY` column declares `NOT NULL` explicitly: PostgreSQL implies it, SQLite does not
+for a non-`INTEGER` primary key and would store a NULL id. Naming follows DishtaYantra's
+conventions: `uq_`, `ix_`, `ck_`.
 
 ### 3. Database code lives in exactly one package.
 

@@ -24,8 +24,8 @@ from prama.core.errors import BackPressureError
 class ConcurrencyLimiter:
     """At most *limit* holders at once, granted in arrival order.
 
-        async with limiter.acquire(timeout=30):
-            ...
+    async with limiter.acquire(timeout=30):
+        ...
     """
 
     def __init__(self, limit: int, *, name: str = "limiter") -> None:
@@ -49,7 +49,7 @@ class ConcurrencyLimiter:
     def high_water(self) -> int:
         return self._high_water
 
-    def acquire(self, *, timeout: float | None = None) -> "_LimiterContext":
+    def acquire(self, *, timeout: float | None = None) -> _LimiterContext:
         return _LimiterContext(self, timeout)
 
     async def _enter(self, timeout: float | None) -> None:

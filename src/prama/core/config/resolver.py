@@ -54,7 +54,9 @@ class PlaceholderResolver:
     def resolve_tree(self, tree: dict[str, Any]) -> dict[str, Any]:
         """Return *tree* with every string value resolved."""
         self._root = tree
-        return self._walk(tree, path="")
+        walked = self._walk(tree, path="")
+        assert isinstance(walked, dict)
+        return walked
 
     # -- internals ---------------------------------------------------------
 
@@ -93,8 +95,7 @@ class PlaceholderResolver:
                 default = match.group("default")
                 if default is None:
                     raise ConfigError(
-                        f"no value for ${{{name}}}"
-                        + (f" (referenced by {path})" if path else ""),
+                        f"no value for ${{{name}}}" + (f" (referenced by {path})" if path else ""),
                         code="CONFIG.PLACEHOLDER_UNRESOLVED",
                         remedy=(
                             f"Set the environment variable {name}, define {name} in "

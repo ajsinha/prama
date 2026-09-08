@@ -1,0 +1,182 @@
+"""The commands themselves.
+
+Wave 1 ships the three an operator needs before anything else exists:
+``version``, ``config show`` (what am I actually running with?) and
+``db init|verify|info`` (is my database what the schema file says it is?).
+
+Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
+"""
+
+from __future__ import annotations
+
+import argparse
+
+from prama.cli.base import EXIT_DRIFT, EXIT_OK, Command, CommandContext, CommandGroup
+from prama.db import Database
+from prama.version import IR_VERSION, PRODUCT_NAME, PRODUCT_TAGLINE, SCHEMA_VERSION, VERSION
+
+
+class VersionCommand(Command):
+    name = "version"
+    help = "print version information"
+
+    def run(self, ctx: CommandContext) -> int:
+        payload = {
+            "product": PRODUCT_NAME,
+            "version": VERSION,
+            "ir_version": IR_VERSION,
+            "schema_version": SCHEMA_VERSION,
+        }
+        if ctx.json_output:
+            ctx.emit_json(payload)
+        else:
+            ctx.emit(f"{PRODUCT_NAME} {VERSION} — {PRODUCT_TAGLINE}")
+            ctx.emit(f"  IR version:     {IR_VERSION}")
+            ctx.emit(f"  schema version: {SCHEMA_VERSION}")
+        return EXIT_OK
+
+
+class ConfigShowCommand(Command):
+    name = "show"
+    help = "print the effective merged configuration, with secrets redacted"
+
+    def configure(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument(
+            "--raw",
+            action="store_true",
+            help="do not redact (refused unless PRAMA_ALLOW_RAW_CONFIG=1)",
+        )
+        parser.add_argument("--provenance", action="store_true", help="show each value's source")
+
+    def run(self, ctx: CommandContext) -> int:
+        import os
+
+        redact = not (ctx.args.raw and os.environ.get("PRAMA_ALLOW_RAW_CONFIG") == "1")
+        flat = ctx.config.flatten(redact=redact)
+        if ctx.json_output:
+            ctx.emit_json(flat)
+            return EXIT_OK
+        width = max((len(k) for k in flat), default=0)
+        for key in sorted(flat):
+            line = f"{key:<{width}}  {flat[key]!r}"
+            if ctx.args.provenance:
+                line += f"    [{ctx.config.provenance(key) or 'built-in defaults'}]"
+            ctx.emit(line)
+        if not redact:
+            ctx.emit("\n! secrets were NOT redacted; do not paste this anywhere")
+        return EXIT_OK
+
+
+class ConfigCommand(CommandGroup):
+    name = "config"
+    help = "inspect configuration"
+
+    def commands(self) -> list[Command]:
+        return [ConfigShowCommand()]
+
+
+class DbInitCommand(Command):
+    name = "init"
+    help = "apply the authoritative schema file (idempotent; never alters)"
+
+    def run(self, ctx: CommandContext) -> int:
+        database = Database.from_config(ctx.config)
+        result = database.initialise()
+        if ctx.json_output:
+            ctx.emit_json(
+                {
+                    "dialect": result.dialect,
+                    "schema_path": result.schema_path,
+                    "digest": result.digest,
+                    "statements": result.statements_executed,
+                    "tables": result.tables_present,
+                    "created": result.created,
+                }
+            )
+        else:
+            ctx.emit(result.summary())
+        return EXIT_OK
+
+
+class DbVerifyCommand(Command):
+    name = "verify"
+    help = "compare the live database with the schema file; report drift, never repair it"
+
+    def run(self, ctx: CommandContext) -> int:
+        database = Database.from_config(ctx.config)
+        report = database.verify()
+        if ctx.json_output:
+            ctx.emit_json(
+                {
+                    "ok": report.ok,
+                    "dialect": report.dialect,
+                    "schema_path": report.schema_path,
+                    "expected_digest": report.expected_digest,
+                    "recorded_digest": report.recorded_digest,
+                    "drifts": [
+                        {
+                            "kind": d.kind.value,
+                            "object": d.object_name,
+                            "detail": d.detail,
+                            "blocking": d.blocking,
+                        }
+                        for d in report.drifts
+                    ],
+                }
+            )
+        else:
+            ctx.emit(report.summary())
+        return EXIT_OK if report.ok else EXIT_DRIFT
+
+
+class DbInfoCommand(Command):
+    name = "info"
+    help = "show which database is configured and what it contains"
+
+    def run(self, ctx: CommandContext) -> int:
+        database = Database.from_config(ctx.config)
+        dialect = database.dialect
+        payload: dict[str, object] = {
+            "dialect": dialect.name,
+            "schema_file": str(database.settings.schema_file),
+            # render_as_string(hide_password=True) is the only form of a URL
+            # that may ever be printed or logged.
+            "url": dialect.sync_url().render_as_string(hide_password=True),
+        }
+        # Reporting the configuration must not require the database to be
+        # reachable: "what am I configured for?" is exactly the question asked
+        # when it is *not* reachable.
+        try:
+            tables = dialect.list_tables(database.sync_engine())
+            payload["reachable"] = True
+            payload["tables"] = tables
+        except Exception as exc:
+            payload["reachable"] = False
+            payload["tables"] = []
+            payload["error"] = str(exc).splitlines()[0][:200]
+
+        if ctx.json_output:
+            ctx.emit_json(payload)
+        else:
+            ctx.emit(f"dialect:     {payload['dialect']}")
+            ctx.emit(f"schema file: {payload['schema_file']}")
+            ctx.emit(f"url:         {payload['url']}")
+            if payload["reachable"]:
+                listed = payload["tables"]
+                assert isinstance(listed, list)
+                ctx.emit(f"tables ({len(listed)}): {', '.join(listed) or '(none)'}")
+            else:
+                ctx.emit(f"reachable:   no — {payload['error']}")
+        return EXIT_OK
+
+
+class DbCommand(CommandGroup):
+    name = "db"
+    help = "database schema operations (Prama has no migrations)"
+
+    def commands(self) -> list[Command]:
+        return [DbInitCommand(), DbVerifyCommand(), DbInfoCommand()]
+
+
+def all_commands() -> list[Command]:
+    return [VersionCommand(), ConfigCommand(), DbCommand()]

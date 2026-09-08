@@ -27,6 +27,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import dataclasses
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
@@ -57,7 +58,8 @@ class LeaseSettings:
             _log.warning(
                 "lease renew_interval (%.1fs) leaves no room for a missed renewal within "
                 "ttl (%.1fs); consider ttl >= 3x renew_interval",
-                self.renew_interval_seconds, self.ttl_seconds,
+                self.renew_interval_seconds,
+                self.ttl_seconds,
             )
 
 
@@ -94,9 +96,7 @@ class LeaseProvider(ABC):
     """
 
     @abstractmethod
-    async def acquire(
-        self, resource: str, holder: str, ttl_seconds: float
-    ) -> Lease | None:
+    async def acquire(self, resource: str, holder: str, ttl_seconds: float) -> Lease | None:
         """Grant the lease, or return None if another holder owns it."""
 
     @abstractmethod
@@ -118,10 +118,8 @@ class LeaseProvider(ABC):
         holder: str | None = None,
         settings: LeaseSettings | None = None,
         clock: Clock | None = None,
-    ) -> "LeaseHolder":
-        return LeaseHolder(
-            self, resource, holder=holder, settings=settings, clock=clock
-        )
+    ) -> LeaseHolder:
+        return LeaseHolder(self, resource, holder=holder, settings=settings, clock=clock)
 
 
 class LeaseHolder:
@@ -190,23 +188,29 @@ class LeaseHolder:
             await asyncio.sleep(poll_interval)
 
     async def _renew_loop(self) -> None:
-        try:
-            while self._lease is not None:
-                await asyncio.sleep(self._settings.renew_interval_seconds)
-                if self._lease is None:
-                    return
-                renewed = await self._provider.renew(self._lease, self._settings.ttl_seconds)
-                if renewed is None:
-                    _log.error(
-                        "lease on %r lost by holder %s; work under it must stop",
-                        self._resource, self._holder,
-                    )
-                    self._lease = None
-                    self._lost.set()
-                    return
-                self._lease = renewed
-        except asyncio.CancelledError:
-            raise
+        """Renew until the lease is released or lost.
+
+        Cancellation propagates: this task is owned by the holder, and a
+        cancelled renewer must not be mistaken for a healthy one.
+        """
+        while True:
+            await asyncio.sleep(self._settings.renew_interval_seconds)
+            # Re-read: release() may have cleared the lease from another task
+            # while this one was sleeping.
+            current = self._lease
+            if current is None:
+                return
+            renewed = await self._provider.renew(current, self._settings.ttl_seconds)
+            if renewed is None:
+                _log.error(
+                    "lease on %r lost by holder %s; work under it must stop",
+                    self._resource,
+                    self._holder,
+                )
+                self._lease = None
+                self._lost.set()
+                return
+            self._lease = renewed
 
     async def wait_until_lost(self) -> None:
         await self._lost.wait()
@@ -235,16 +239,14 @@ class LeaseHolder:
     async def release(self) -> None:
         if self._renewer is not None:
             self._renewer.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._renewer
-            except asyncio.CancelledError:
-                pass
             self._renewer = None
         if self._lease is not None:
             await self._provider.release(self._lease)
             self._lease = None
 
-    async def __aenter__(self) -> "LeaseHolder":
+    async def __aenter__(self) -> LeaseHolder:
         if not await self.acquire():
             raise LeaseLostError(
                 f"lease on {self._resource!r} is held by another instance",
@@ -305,9 +307,7 @@ class MemoryLeaseProvider(LeaseProvider):
             now = self._clock.now()
             if not current.is_valid_at(now):
                 return None
-            renewed = dataclasses.replace(
-                current, expires_at=now + timedelta(seconds=ttl_seconds)
-            )
+            renewed = dataclasses.replace(current, expires_at=now + timedelta(seconds=ttl_seconds))
             self._leases[lease.resource] = renewed
             return renewed
 
