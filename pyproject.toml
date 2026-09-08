@@ -18,6 +18,8 @@ dependencies = [
     "aiosqlite>=0.20",
     "fastapi>=0.115",
     "pydantic>=2.9",
+    "pyarrow>=17",
+    "duckdb>=1.1",
 ]
 
 [project.optional-dependencies]
@@ -78,7 +80,7 @@ warn_unreachable = true
 disallow_any_generics = false
 
 [[tool.mypy.overrides]]
-module = ["yaml", "orjson"]
+module = ["yaml", "orjson", "pyarrow", "pyarrow.*", "duckdb"]
 ignore_missing_imports = true
 
 [tool.coverage.run]
