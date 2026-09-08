@@ -85,3 +85,7 @@ ignore_missing_imports = true
 
 [tool.coverage.run]
 source = ["src/prama"]
+
+[[tool.mypy.overrides]]
+module = ["asyncpg.*"]
+ignore_missing_imports = true

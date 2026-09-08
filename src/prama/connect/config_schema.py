@@ -128,11 +128,28 @@ class ConfigSchemaDeriver:
     CONFIG_ACCESSORS = ("config", "self.config", "cfg")
 
     def derive(self, connector_class: type) -> dict[str, FieldSpec]:
-        try:
-            source = inspect.getsource(connector_class)
-        except (OSError, TypeError):  # built dynamically, e.g. in a test
-            return {}
-        return self.derive_source(ast.parse(_dedent(source)))
+        """Every field the connector reads, including through its base classes.
+
+        Walking the MRO matters as soon as connectors share a base: a SQL
+        connector inherits ``statement_timeout_ms`` and ``schemas`` from the
+        base that reads them, and a deriver that saw only the leaf class would
+        omit those fields from the form — leaving a setting that the code
+        honours but that nobody can set.
+
+        Most-derived first, and ``setdefault`` inside, so a subclass that reads
+        the same key with a different default wins over its base.
+        """
+        fields: dict[str, FieldSpec] = {}
+        for klass in connector_class.__mro__:
+            if klass is object:
+                continue
+            try:
+                source = inspect.getsource(klass)
+            except (OSError, TypeError):  # built dynamically, e.g. in a test
+                continue
+            for name, spec in self.derive_source(ast.parse(_dedent(source))).items():
+                fields.setdefault(name, spec)
+        return fields
 
     def derive_source(self, tree: ast.AST) -> dict[str, FieldSpec]:
         fields: dict[str, FieldSpec] = {}

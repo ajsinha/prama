@@ -19,6 +19,8 @@ from prama.connect.config_schema import FieldPresentation, InputKind
 from prama.connect.registry import ConnectorRegistry, default_registry
 from prama.connect.sources.filesystem import CAPABILITIES as FILESYSTEM_CAPABILITIES
 from prama.connect.sources.filesystem import FilesystemConnector
+from prama.connect.sources.sql.postgres import CAPABILITIES as POSTGRES_CAPABILITIES
+from prama.connect.sources.sql.postgres import PostgresConnector
 from prama.connect.sources.sqlite import CAPABILITIES as SQLITE_CAPABILITIES
 from prama.connect.sources.sqlite import SqliteConnector
 
@@ -84,9 +86,87 @@ SQLITE_OVERLAY: dict[str, FieldPresentation] = {
     ),
 }
 
+POSTGRES_OVERLAY: dict[str, FieldPresentation] = {
+    "host": FieldPresentation(label="Host", required=True, order=10),
+    "port": FieldPresentation(label="Port", input_kind=InputKind.NUMBER, order=20),
+    "database": FieldPresentation(label="Database", required=True, order=30),
+    "user": FieldPresentation(
+        label="User",
+        help=(
+            "A role with SELECT on what Prama should read, and nothing more. "
+            "The session is opened read-only at the server regardless, but a "
+            "read-only role is the guarantee that survives a misconfiguration."
+        ),
+        order=40,
+    ),
+    "password": FieldPresentation(
+        label="Password",
+        help="Stored as a vault reference, never in the connection record.",
+        input_kind=InputKind.PASSWORD,
+        secret=True,
+        order=50,
+    ),
+    "dsn": FieldPresentation(
+        label="Connection string",
+        help=(
+            "postgresql://... — an alternative to the fields above, for estates "
+            "that already manage connection strings centrally."
+        ),
+        input_kind=InputKind.PASSWORD,
+        secret=True,
+        group="advanced",
+        order=60,
+    ),
+    "ssl_mode": FieldPresentation(
+        label="TLS mode",
+        help="disable, prefer, require, verify-ca or verify-full.",
+        order=70,
+    ),
+    "schemas": FieldPresentation(
+        label="Schemas",
+        help=(
+            "Restrict discovery to these schemas. Leave empty to offer everything "
+            "the connecting role can already read."
+        ),
+        order=80,
+    ),
+    "include_views": FieldPresentation(
+        label="Include views",
+        help="Whether discovery offers views and materialised views as well as tables.",
+        input_kind=InputKind.BOOLEAN,
+        order=90,
+    ),
+    "statement_timeout_ms": FieldPresentation(
+        label="Statement timeout",
+        help=(
+            "The ceiling on any single query. Prama reading a table must never be "
+            "able to pin the database the business is using."
+        ),
+        input_kind=InputKind.DURATION,
+        group="advanced",
+        order=110,
+    ),
+    "connect_timeout_seconds": FieldPresentation(
+        label="Connection timeout",
+        input_kind=InputKind.DURATION,
+        group="advanced",
+        order=120,
+    ),
+    "application_name": FieldPresentation(
+        label="Application name",
+        help=(
+            "How this connection identifies itself in pg_stat_activity, so a DBA "
+            "who finds an unfamiliar query can see whose it is."
+        ),
+        group="advanced",
+        order=130,
+    ),
+}
+
 BUILTIN: tuple[tuple[type, CapabilityMatrix, dict[str, FieldPresentation]], ...] = (
     (FilesystemConnector, FILESYSTEM_CAPABILITIES, FILESYSTEM_OVERLAY),
     (SqliteConnector, SQLITE_CAPABILITIES, SQLITE_OVERLAY),
+    (PostgresConnector, POSTGRES_CAPABILITIES, POSTGRES_OVERLAY),
 )
 
 
