@@ -36,6 +36,7 @@ def positions(**overrides: object) -> DatasetDeclaration:
             AttributeDeclaration(
                 name="market_value",
                 currency_attribute="ccy",
+                optionality=Optionality.MANDATORY,
                 value_domain=ValueDomain(kind=ValueDomainKind.RANGE, minimum=0),
             ),
             AttributeDeclaration(name="ccy"),
@@ -56,16 +57,56 @@ def generated(declaration: DatasetDeclaration) -> list[ast.Control]:
 def test_coverage_is_measured_per_dimension_not_per_column() -> None:
     """A single IS NOT NULL makes a column "covered" while its format, its
     domain and its consistency go unchecked."""
-    declaration = positions()
-    coverage = CoverageAnalyser().analyse(declaration, generated(declaration))
+    declaration = positions(
+        grain=None,
+        attributes=(
+            AttributeDeclaration(
+                name="lei",
+                optionality=Optionality.MANDATORY,
+                semantic_type="lei",
+                is_cde=True,
+            ),
+        ),
+    )
+    completeness_only = [parse_control("CHECK positions.lei IS NOT NULL DIMENSION completeness")]
+    coverage = CoverageAnalyser().analyse(declaration, completeness_only)
+    assert coverage.touched_fraction == 1.0
     assert coverage.fraction < coverage.touched_fraction
+    assert {g.dimension for g in coverage.gaps} == {
+        ast.Dimension.VALIDITY,
+        ast.Dimension.ACCURACY,
+    }
 
 
 def test_the_flattering_number_is_reported_beside_the_honest_one() -> None:
     """So the difference is visible rather than a choice somebody made about
-    which to print."""
-    declaration = positions()
-    coverage = CoverageAnalyser().analyse(declaration, generated(declaration))
+    which to print. Shown on the case that makes it matter: every column has a
+    completeness control and nothing else, which a per-column count calls
+    fully covered."""
+    declaration = positions(
+        grain=None,
+        attributes=(
+            AttributeDeclaration(
+                name="a",
+                optionality=Optionality.MANDATORY,
+                semantic_type="lei",
+                is_cde=True,
+            ),
+            AttributeDeclaration(
+                name="b",
+                optionality=Optionality.MANDATORY,
+                semantic_type="isin",
+                is_cde=True,
+            ),
+        ),
+    )
+    completeness_only = [
+        parse_control("CHECK positions.a IS NOT NULL DIMENSION completeness"),
+        parse_control("CHECK positions.b IS NOT NULL DIMENSION completeness"),
+    ]
+    coverage = CoverageAnalyser().analyse(declaration, completeness_only)
+    assert coverage.touched_fraction == 1.0
+    assert coverage.fraction < 0.5
     assert "which is the number that flatters" in coverage.describe()
 
 
@@ -86,9 +127,23 @@ def test_a_completeness_control_alone_does_not_cover_validity() -> None:
 def test_a_dimension_an_attribute_cannot_have_is_not_counted_against_it() -> None:
     """Counting them would make a well-covered estate look sparse and bury the
     real gaps in the noise."""
-    plain = positions(grain=None, attributes=(AttributeDeclaration(name="comment"),))
+    plain = positions(
+        grain=None,
+        attributes=(AttributeDeclaration(name="comment", optionality=Optionality.MANDATORY),),
+    )
     coverage = CoverageAnalyser().analyse(plain, [])
     assert {g.dimension for g in coverage.gaps} == {ast.Dimension.COMPLETENESS}
+
+
+def test_a_column_declared_optional_has_its_completeness_question_answered() -> None:
+    """By the declaration, which said no control is wanted. Counting it as a
+    gap would mean an estate could only reach 100% by declaring every column
+    mandatory — pushing people into false declarations to move a metric."""
+    optional = positions(
+        grain=None,
+        attributes=(AttributeDeclaration(name="comment", optionality=Optionality.OPTIONAL),),
+    )
+    assert CoverageAnalyser().analyse(optional, []).gaps == ()
 
 
 def test_only_a_cde_is_expected_to_have_an_accuracy_control() -> None:
@@ -107,14 +162,28 @@ def test_an_amount_is_expected_to_be_consistent_with_its_currency() -> None:
     assert "market_value" in consistency
 
 
+def test_a_referential_control_answers_the_accuracy_expectation() -> None:
+    """It checks a value against another dataset, which is exactly what
+    "compared with something outside the row" asks for. Treating them as
+    different would report a CDE with a master-data check as having no accuracy
+    control, which is not true in any sense a reviewer would recognise."""
+    declaration = positions()
+    referential = [
+        parse_control("CHECK positions.counterparty_lei REFERENCES parties.lei DIMENSION integrity")
+    ]
+    coverage = CoverageAnalyser().analyse(declaration, referential)
+    accuracy = {g.attribute for g in coverage.gaps if g.dimension is ast.Dimension.ACCURACY}
+    assert "counterparty_lei" not in accuracy
+
+
 def test_a_control_with_no_declared_dimension_covers_nothing() -> None:
     """A suite nobody has classified cannot be measured, and assuming a
     dimension would produce a number that is wrong and confident."""
     declaration = positions()
-    unclassified = [parse_control("CHECK positions.comment IS NOT NULL")]
+    unclassified = [parse_control("CHECK positions.account_id IS NOT NULL")]
     coverage = CoverageAnalyser().analyse(declaration, unclassified)
     assert any(
-        g.attribute == "comment" and g.dimension is ast.Dimension.COMPLETENESS
+        g.attribute == "account_id" and g.dimension is ast.Dimension.COMPLETENESS
         for g in coverage.gaps
     )
 
@@ -135,7 +204,7 @@ def test_the_ranking_actually_discriminates() -> None:
     every gap scored exactly 1.00 and "sort by risk" quietly became alphabetical
     order — the one thing a ranked list must not become."""
     declaration = positions()
-    coverage = CoverageAnalyser().analyse(declaration, generated(declaration))
+    coverage = CoverageAnalyser().analyse(declaration, [])
     scores = {round(g.risk, 3) for g in coverage.gaps}
     assert len(scores) > 1
     assert max(scores) < 1.0001

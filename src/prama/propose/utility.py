@@ -218,8 +218,13 @@ class UtilityScorer:
         statement of intent, and no amount of statistical support makes a mined
         pattern equal to one.
         """
+        # A declaration alone does not reach 1.0, and the ceiling is reserved
+        # rather than wasted. Scoring it 1.0 would make corroboration invisible
+        # precisely where it is worth the most — "you declared this and the
+        # data independently confirms it" is the strongest evidence the system
+        # can produce, and a saturated scale cannot say so.
         base = {
-            Origin.DECLARATION: 1.0,
+            Origin.DECLARATION: 0.9,
             Origin.DOCUMENT: 0.85,
             Origin.IMPORT: 0.7,
             Origin.MINING: 0.55,

@@ -960,7 +960,15 @@ class ControlGenerator:
             ),
             name=f"{declaration.slug or declaration.name}_{attribute.name}_codelist",
             severity=severity_for(declaration, attribute),
-            dimensions=(ast.Dimension.VALIDITY,),
+            # Consistency as well as validity when this control exists because
+            # an amount is denominated in it: an invalid code does not make one
+            # row invalid, it makes the amount and its currency disagree, and
+            # every total over the amount meaningless.
+            dimensions=(
+                (ast.Dimension.VALIDITY, ast.Dimension.CONSISTENCY)
+                if because
+                else (ast.Dimension.VALIDITY,)
+            ),
             because=because or f"{attribute.name} is declared to be a {label}",
             evidence=evidence_for(attribute),
             on_fail=fail_action_for(attribute),

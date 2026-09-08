@@ -422,29 +422,57 @@ proposal queue is a major UI surface).
 
 ### Tasks
 
-W6.1 Γ generator for grain, rhythm and value domains · W6.2 Γ for all 13 relationship kinds ·
-W6.3 semantic-type cascade with deterministic validators first · W6.4 UCC and FD mining ·
-W6.5 approximate and conditional variants · W6.6 IND and DC mining · W6.7 relationship discovery ·
-W6.8 LLM provider abstraction with BYO and self-hosted · W6.9 **grammar-constrained decoding** ·
-W6.10 candidate validation against real data, discarding trivial and unstable rules ·
-W6.11 utility ranking learned from acceptance history · W6.12 Proposal object and review workflow ·
-W6.13 induction from documents with citation retention · W6.14 example-driven induction ·
-W6.15 coverage analyser ranking unprotected CDEs by risk.
+W6.1 Γ generator for grain, rhythm and value domains ✅ · W6.2 Γ for all 13 relationship kinds ✅ ·
+W6.3 semantic-type cascade with deterministic validators first ✅ · W6.4 UCC and FD mining ✅ ·
+W6.5 approximate and conditional variants ✅ · W6.6 IND and DC mining ✅ ·
+W6.7 relationship discovery ✅ · W6.8 LLM provider abstraction with BYO and self-hosted ✅ ·
+W6.9 **grammar-constrained decoding** ✅ ·
+W6.10 candidate validation against real data, discarding trivial and unstable rules ✅ ·
+W6.11 utility ranking learned from acceptance history ✅ · W6.12 Proposal object and review workflow ✅ ·
+W6.13 induction from documents with citation retention ✅ · W6.14 example-driven induction ✅ ·
+W6.15 coverage analyser ranking unprotected CDEs by risk ✅.
 
 ### Acceptance criteria
 
-- [ ] On a real source, **≥ 80% of columns and ≥ 95% of declared CDEs** under a reviewed control
-      after one week of effort (`S5`).
-- [ ] Every declaration in docs/03 §5 generates its stated controls, with provenance naming the
-      declaration that produced it.
-- [ ] 100% of LLM-generated PQL is parsed, type-checked and sandbox-executed before display; the
-      generation-failure rate is measured and reported.
-- [ ] Mining + LLM fusion beats either alone on acceptance rate (`RQ5`).
-- [ ] Zero code paths where a model output reaches a verdict — architecture test green.
-- [ ] Induction from ≤ 20 labelled cells produces a usable rule (the Raha result).
+- [◑] On a real source, **≥ 80% of columns and ≥ 95% of declared CDEs** under a reviewed control
+      after one week of effort (`S5`). **Mechanism proven, on synthetic data.** Coverage is
+      measured per *(attribute, dimension)* rather than per column, because a single
+      `IS NOT NULL` makes a column "covered" while its format and its domain go unchecked.
+      On a realistic Tier 1 declaration the dataset declaration alone reaches **82% of pairs
+      and 71% of CDE pairs** — short of the target, and the reason is worth stating: nothing a
+      business owner can say about *one* dataset covers a CDE's accuracy, because accuracy
+      means comparison against something outside the row. Adding the relationship declarations
+      reaches **100% and 100%**. The remaining claim — that a week of a real steward's effort
+      produces those declarations on a real source — needs a real source.
+- [x] Every declaration in docs/03 §5 generates its stated controls, with provenance naming the
+      declaration that produced it. Every generated control round-trips through the parser and
+      lowers to a plan, which is asserted rather than assumed — the round-trip found two defects
+      the first time it ran.
+- [x] 100% of LLM-generated PQL is parsed, type-checked and sandbox-executed before display; the
+      generation-failure rate is measured and reported. Enforced by construction: `Validated`
+      refuses to be built unless every gate ran, and a fifth gate rejects a control that cannot
+      be made to fail. The failure rate counts every attempt, not just the last of a retry —
+      an earlier version counted three parse errors as one.
+- [◑] Mining + LLM fusion beats either alone on acceptance rate (`RQ5`). **The mechanism is
+      built and the comparison needs reviewers.** Two origins reaching the same rule merge into
+      one corroborated proposal rather than two, or one with the evidence discarded, and the
+      corroborated one ranks higher. The acceptance-rate claim itself is about human decisions
+      and cannot be measured without them.
+- [x] Zero code paths where a model output reaches a verdict — architecture test green, and the
+      guard now carries a counterfactual proving it still fires. It also had to be narrowed:
+      bare `prompt` matched a business word in this codebase, and a guard that cries wolf earns
+      an exclusion list.
+- [x] Induction from ≤ 20 labelled cells produces a usable rule (the Raha result). **Six labels
+      yield `IS VALID 'lei'`.** The first implementation yielded an enumeration of the labelled
+      values — perfect recall, generalising to nothing — so an enumeration is now offered only
+      when the labelled values repeat, which is what separates a closed domain from a sample.
 
 **Demo.** Declare a grain, a rhythm and one relationship; watch eight controls appear, each with the
 sentence that justifies it, a backtest and an estimated alert volume; approve them in one click.
+
+**Outcome.** All fifteen tasks complete. The two half-answered criteria are half-answered for
+the same reason: both are claims about what real people do with real data, and what this wave
+could build and measure was the machinery underneath them.
 
 **Wave risks.** `RSK-16` — induction quality depends on semantic-layer richness, which is a
 chicken-and-egg with adoption. Mitigated because mining works with zero declarations, and because

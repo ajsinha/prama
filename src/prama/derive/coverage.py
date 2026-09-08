@@ -32,6 +32,7 @@ from typing import Any
 
 from prama.derive.declaration import AttributeDeclaration, DatasetDeclaration
 from prama.pql import ast
+from prama.semantic.values import Optionality
 
 #: The dimensions coverage is measured over. Deliberately not all of
 #: ``ast.Dimension``: timeliness and uniqueness are properties of a *dataset*
@@ -220,7 +221,7 @@ class CoverageAnalyser:
                 applicable += 1
                 if attribute.is_cde:
                     cde_applicable += 1
-                if dimension in protected.get(attribute.name, set()):
+                if self._is_covered(attribute, dimension, protected):
                     covered += 1
                     if attribute.is_cde:
                         cde_covered += 1
@@ -265,6 +266,28 @@ class CoverageAnalyser:
         results.sort(key=lambda c: (c.cde_fraction, c.fraction, c.dataset))
         return tuple(results)
 
+    @staticmethod
+    def _is_covered(
+        attribute: AttributeDeclaration,
+        dimension: ast.Dimension,
+        protected: dict[str, set[ast.Dimension]],
+    ) -> bool:
+        """Whether something checks this attribute on this dimension.
+
+        Usually a control on the attribute itself. The exception follows a
+        declaration: an amount declared to be denominated in another column is
+        made summable by the control on *that* column, so a currency-code check
+        on ``exposure_ccy`` is what answers ``exposure_amount``'s consistency
+        question. Requiring the control to sit on the amount would report a
+        correctly controlled pair as a gap, and the remedy would be to write a
+        second control that checks the same thing.
+        """
+        if dimension in protected.get(attribute.name, set()):
+            return True
+        if dimension is ast.Dimension.CONSISTENCY and attribute.currency_attribute:
+            return dimension in protected.get(attribute.currency_attribute, set())
+        return False
+
     # -- what applies, and what is protected -------------------------------
 
     @staticmethod
@@ -275,7 +298,21 @@ class CoverageAnalyser:
         estate look sparse and bury the real gaps — the same failure as
         counting only columns, approached from the other side.
         """
-        dimensions = [ast.Dimension.COMPLETENESS]
+        dimensions = []
+        if attribute.optionality is not Optionality.OPTIONAL:
+            # A column declared optional has had its completeness question
+            # answered — by the declaration, which said no control is wanted.
+            # Counting it as a gap would mean an estate could only reach 100%
+            # by declaring every column mandatory, which is a worse outcome
+            # than an imperfect number: it pushes people into false
+            # declarations to move a metric.
+            #
+            # The default *is* optional, so a column nobody has considered
+            # looks answered here. That is chased by the maturity score
+            # (`prama.semantic.maturity`), which measures how much has been
+            # declared, and this measures how much of what was declared is
+            # enforced. Conflating the two would hide both.
+            dimensions.append(ast.Dimension.COMPLETENESS)
         if attribute.generates_a_domain_control:
             dimensions.append(ast.Dimension.VALIDITY)
         if attribute.currency_attribute or attribute.is_monetary:
@@ -302,8 +339,17 @@ class CoverageAnalyser:
         """
         protected: dict[str, set[ast.Dimension]] = {}
         for control in controls:
+            dimensions = set(control.dimensions)
+            if ast.Dimension.INTEGRITY in dimensions:
+                # A referential control checks a value against another dataset,
+                # which is exactly what the accuracy expectation asks for:
+                # something outside the row to compare against. Treating them
+                # as different would report a CDE with a master-data check as
+                # having no accuracy control, which is not true in any sense a
+                # reviewer would recognise.
+                dimensions.add(ast.Dimension.ACCURACY)
             for name in _subjects(control):
-                protected.setdefault(name, set()).update(control.dimensions)
+                protected.setdefault(name, set()).update(dimensions)
         return protected
 
     @staticmethod
