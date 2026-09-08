@@ -283,11 +283,11 @@ by a conformance suite that blocks the build.
 
 ### Tasks
 
-W4.1 grammar and parser · W4.2 AST and the two surfaces · W4.3 type checker and resolution ·
-W4.4 selector expansion, materialised and versioned · W4.5 IR model and content addressing ·
-W4.6 SQL backend and dialect adapters · W4.7 Arrow/DuckDB backend · W4.8 **conformance corpus and
-reference interpreter** · W4.9 property-based equivalence testing · W4.10 cost estimation ·
-W4.11 linter · W4.12 formatter · W4.13 plain-language renderer · W4.14 LSP · W4.15 importers for
+W4.1 grammar and parser ✅ · W4.2 AST ✅ · W4.3 type checker and resolution ✅ ·
+W4.4 selector expansion, materialised and versioned · W4.5 IR model and content addressing ✅ ·
+W4.6 SQL backend and dialect adapters ✅ · W4.7 Arrow/DuckDB backend · W4.8 **conformance corpus and
+reference interpreter** ✅ · W4.9 property-based equivalence testing ✅ · W4.10 cost estimation ·
+W4.11 linter · W4.12 formatter · W4.13 plain-language renderer ✅ · W4.14 LSP · W4.15 importers for
 SodaCL, Great Expectations, dbt tests and ODCS quality blocks.
 
 ### Acceptance criteria
