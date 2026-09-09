@@ -919,3 +919,129 @@ CREATE TABLE IF NOT EXISTS ctl_rejection (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_ctl_rejection_identity
     ON ctl_rejection (tenant_id, identity, content_hash);
+
+-- ---------------------------------------------------------------------------
+-- ATTESTATIONS  (Wave 9)
+--
+-- A named person's statement that they reviewed a scope for a period. Never
+-- edited: a signed attestation is immutable, and a correction is a *new* row
+-- naming the one it supersedes, because the fact that somebody signed the
+-- first one is itself part of the record.
+--
+-- The seal is an HMAC over content_hash. It says the content was sealed by a
+-- holder of the key and nothing to anybody else; the column is named `seal`
+-- rather than `signature` so the word cannot imply more than it delivers.
+--
+-- evidence_root ties the statement to the facts. Without it an attestation
+-- floats free of the records, and evidence written afterwards is
+-- indistinguishable from evidence written before.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS att_attestation (
+    id                 VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id          VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    attester_id        VARCHAR(26)   NOT NULL,
+    -- The name as it was at signing. Denormalised on purpose: an attestation
+    -- reprinted years later must say who signed it, not who happens to hold
+    -- that principal id now.
+    attester_name      VARCHAR(255)  NOT NULL,
+    statement          TEXT          NOT NULL,
+    scope              VARCHAR(255)  NOT NULL,
+    period_start       VARCHAR(32)   NOT NULL,
+    period_end         VARCHAR(32)   NOT NULL,
+    coverage_json      TEXT          NOT NULL DEFAULT '{}',
+    -- Every failure and every unestablished control in the period, in full.
+    -- Summarising them into a count would be asking somebody to sign for
+    -- things they were not shown.
+    exceptions_json    TEXT          NOT NULL DEFAULT '[]',
+    evidence_root      VARCHAR(64)   NOT NULL,
+    evidence_records   INTEGER       NOT NULL DEFAULT 0,
+    content_hash       VARCHAR(64)   NOT NULL,
+    seal               VARCHAR(64)   NOT NULL,
+    signed_at          VARCHAR(32)   NOT NULL,
+    -- Set on the *superseded* row when a correction arrives, so a reader
+    -- looking at an old attestation learns it was replaced rather than
+    -- having to search for a newer one.
+    superseded_by      VARCHAR(26),
+    supersedes         VARCHAR(26),
+    supersedes_because TEXT          NOT NULL DEFAULT '',
+    version            VARCHAR(16)   NOT NULL DEFAULT '1.0',
+    CONSTRAINT ck_att_period CHECK (period_end >= period_start)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_att_content ON att_attestation (content_hash);
+CREATE INDEX IF NOT EXISTS ix_att_tenant ON att_attestation (tenant_id, period_end);
+CREATE INDEX IF NOT EXISTS ix_att_scope ON att_attestation (tenant_id, scope, period_end);
+CREATE INDEX IF NOT EXISTS ix_att_attester ON att_attestation (attester_id);
+
+-- ---------------------------------------------------------------------------
+-- RECONCILIATION BREAKS  (Wave 9)
+--
+-- The break queue, persisted. Working state rather than evidence: the ledger
+-- records what a reconciliation concluded, and this records what people are
+-- doing about it. So this table is *mutable* where the ledger is not, and the
+-- three things that must not move are protected by the shape rather than by
+-- discipline.
+--
+-- first_seen never moves. A break re-detected for forty days is forty days
+-- old; a queue that stamps each detection with today reports it as new every
+-- morning and nothing ever ages.
+--
+-- Clearing is inferred, never announced. No reconciliation tells you a break
+-- has gone — it stops reporting it. A break open in the last run and absent
+-- from this one is cleared here, and a queue that waits to be told never
+-- closes anything.
+--
+-- A cleared break is not deleted. "We had four hundred breaks and they
+-- cleared" and "we had four hundred breaks" are the same sentence in a system
+-- that forgets, and only one of them is reassuring.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS rec_break (
+    id                VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id         VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    -- Which reconciliation produced it. A break key is only unique within its
+    -- own definition; two reconciliations over the same accounts would
+    -- otherwise collide and each would clear the other's breaks.
+    definition        VARCHAR(255)  NOT NULL,
+    break_key         VARCHAR(255)  NOT NULL,
+    -- prama.recon.classify.BreakKind. A test asserts the constraint and the
+    -- enum agree in both directions: a constraint listing a kind the enum does
+    -- not have accepts rows nothing can read, and one missing a kind the enum
+    -- has rejects an ordinary break at the worst moment.
+    kind              VARCHAR(32)   NOT NULL,
+    -- The two sides, as text rather than REAL: these are money, and summing
+    -- or storing them in binary floating point manufactures exactly the small
+    -- discrepancies a reconciliation exists to find. A queue that renders a
+    -- break as 0.30000000000000004 is not one anybody works.
+    left_value        VARCHAR(64)   NOT NULL DEFAULT '',
+    right_value       VARCHAR(64)   NOT NULL DEFAULT '',
+    difference        VARCHAR(64)   NOT NULL DEFAULT '0',
+    -- Why it was classified this way, in a sentence somebody can argue with.
+    because           TEXT          NOT NULL DEFAULT '',
+    -- What normalisation did to get here. The first question about any break
+    -- is whether it is real or a translation error, and this answers it.
+    normalisation_json TEXT         NOT NULL DEFAULT '[]',
+    aggregated        INTEGER       NOT NULL DEFAULT 0,
+    first_seen        VARCHAR(32)   NOT NULL,
+    last_seen         VARCHAR(32)   NOT NULL,
+    -- prama.recon.workflow.State, enforced the same way as kind.
+    state             VARCHAR(32)   NOT NULL DEFAULT 'open',
+    owner             VARCHAR(255)  NOT NULL DEFAULT '',
+    accepted_reason   TEXT          NOT NULL DEFAULT '',
+    -- Appended to, never rewritten. The disposition history is the reason a
+    -- carried break is defensible years later.
+    comments_json     TEXT          NOT NULL DEFAULT '[]',
+    cleared_at        VARCHAR(32),
+    CONSTRAINT ck_rec_break_kind CHECK (kind IN (
+        'timing', 'fx', 'rounding', 'missing', 'extra', 'duplicate', 'sign',
+        'genuine')),
+    CONSTRAINT ck_rec_break_state CHECK (state IN (
+        'open', 'assigned', 'explained', 'cleared', 'accepted')),
+    CONSTRAINT ck_rec_break_aggregated CHECK (aggregated IN (0, 1)),
+    CONSTRAINT ck_rec_break_seen CHECK (last_seen >= first_seen)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_rec_break_key
+    ON rec_break (tenant_id, definition, break_key);
+CREATE INDEX IF NOT EXISTS ix_rec_break_open
+    ON rec_break (tenant_id, definition, state, first_seen);
+CREATE INDEX IF NOT EXISTS ix_rec_break_owner ON rec_break (tenant_id, owner);

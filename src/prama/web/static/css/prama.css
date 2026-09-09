@@ -98,7 +98,12 @@ a { color: var(--text-link); }
 }
 .table thead th {
     background: var(--bg-raised);
-    color: var(--text-secondary);
+    /* Primary, not muted. A header is structural — it says what the column
+       *is*, and a reader who cannot make it out cannot read the rows either.
+       It was muted at .72rem on the raised ground, which measured 4.12:1 in a
+       browser and passed every arithmetic test, because nothing had computed
+       the blend that ground actually is. */
+    color: var(--text-primary);
     font-weight: 600;
     text-transform: uppercase;
     font-size: .72rem;
@@ -244,6 +249,24 @@ a { color: var(--text-link); }
     --bs-code-color: var(--dim-uniqueness-text);
 }
 
+/* Bootstrap's secondary button hardcodes #6c757d and ignores every --bs-*
+   token, so it stayed Bootstrap grey in all five themes and failed AA on
+   three of them: 4.38:1 on light, 3.98 on wallstreet, 3.65 on dark. Bound to
+   the theme's own muted colour, which is measured against every ground the
+   button can sit on. */
+[data-theme] .btn-outline-secondary {
+    --bs-btn-color: var(--text-muted);
+    --bs-btn-border-color: var(--border-color);
+    --bs-btn-hover-bg: var(--bg-raised);
+    --bs-btn-hover-color: var(--text-primary);
+    --bs-btn-hover-border-color: var(--text-muted);
+    --bs-btn-active-bg: var(--bg-raised);
+    --bs-btn-active-color: var(--text-primary);
+    --bs-btn-active-border-color: var(--text-muted);
+    --bs-btn-disabled-color: var(--text-muted);
+    --bs-btn-disabled-border-color: var(--border-color);
+}
+
 /* The theme picker itself has to be readable on the masthead of every theme,
    including the amber-on-black one where a default select is invisible. */
 #theme-select {
@@ -259,3 +282,15 @@ a { color: var(--text-link); }
     flex-shrink: 1;
 }
 #theme-select option { color: #14182E; background: #FFFFFF; }
+
+/* The editor's hover card.
+   Positioned fixed against the pointer, so it is not clipped by the editor's
+   own scroll container — a tooltip that appears half off the panel is one
+   people learn to ignore. */
+.pql-hover {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: .375rem;
+  pointer-events: none;
+}

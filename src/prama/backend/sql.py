@@ -92,9 +92,17 @@ class SqlCompiler:
 
     # -- entry point -------------------------------------------------------
 
-    def compile(self, plan: ControlPlan, *, table: str = "") -> CompiledControl:
+    def compile(
+        self, plan: ControlPlan, *, table: str = "", scan_limit: int = 0
+    ) -> CompiledControl:
         self._check_capabilities(plan)
         source = self.dialect.qualify(table or plan.scope.binding or plan.scope.dataset)
+        if scan_limit > 0:
+            # Wrapping the source, not appending to the query. The metric query
+            # aggregates, so a trailing LIMIT would bound the single row of
+            # *results* and leave the scan exactly as expensive — a cap that
+            # reads as applied and is not, which is worse than none.
+            source = f"({self.dialect.limit(f'SELECT * FROM {source}', scan_limit)})"
         self._source = source
         where = self._where(plan)
         selects, names = self._metric_selects(plan)
@@ -382,8 +390,10 @@ class SqlCompiler:
         return f"NOT ({rendered})" if negated else f"({rendered})"
 
 
-def compile_for(plan: ControlPlan, target: str, *, table: str = "") -> CompiledControl:
-    return SqlCompiler(target).compile(plan, table=table)
+def compile_for(
+    plan: ControlPlan, target: str, *, table: str = "", scan_limit: int = 0
+) -> CompiledControl:
+    return SqlCompiler(target).compile(plan, table=table, scan_limit=scan_limit)
 
 
 #: Aggregates. Rendered by the metric path rather than the catalogue, because

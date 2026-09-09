@@ -148,7 +148,10 @@ prama control compile suite.pql --fuse   # the SQL that will run, grouped into s
 prama control import schema.yml --from dbt   # and what did not come across
 prama db init                            # apply schema/<dialect>.sql idempotently
 prama db verify                          # fail loudly if the live schema has drifted
+prama lsp catalogue --out cat.json       # export the estate's schemas for an editor
+prama lsp serve --catalogue cat.json     # PQL language server on stdio
 python scripts/check_file_length.py      # the 1500-line ceiling
+pytest -q tests/web/test_axe.py           # axe-core in Chrome; needs pip install -e ".[audit]"
 ruff check src tests && ruff format --check src tests
 mypy src
 ```

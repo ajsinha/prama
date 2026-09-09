@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Attestations — Prama{% endblock %}
+{% block heading %}Who signed for what{% endblock %}
+
+{% block content %}
+<a class="btn btn-primary btn-sm mb-3" href="{{ url_for('attestation_form') }}">
+  <i class="bi bi-pen" aria-hidden="true"></i> Sign an attestation
+</a>
+
+{% if attestations %}
+<div class="table-responsive">
+  <table class="table align-middle">
+    <thead><tr>
+      <th scope="col">Scope</th><th scope="col">Period</th>
+      <th scope="col">Attester</th><th scope="col">Coverage</th>
+      <th scope="col">Signed</th>
+    </tr></thead>
+    <tbody>
+      {% for row in attestations %}
+      <tr>
+        <td class="fw-semibold">
+          <a href="{{ url_for('attestation_detail', attestation_id=row.id) }}">
+            {{ row.scope }}</a>
+        </td>
+        <td class="small">{{ row.period_start }} → {{ row.period_end }}</td>
+        <td>{{ row.attester_name }}</td>
+        <td class="small">
+          {{ row.coverage_json.get('controls_run', 0) }} of
+          {{ row.coverage_json.get('controls_in_scope', 0) }}
+          {% if row.exceptions_json %}
+          {# Qualified is not a failure state — it is the honest one, and it has
+             to be visible in a list somebody scans rather than only on the
+             detail page they may not open. #}
+          <span class="verdict verdict-warn">
+            qualified · {{ row.exceptions_json | length }} exception(s)</span>
+          {% endif %}
+        </td>
+        <td class="small text-muted">{{ row.signed_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="text-muted">
+  Nothing has been attested. An estate with controls and evidence but no sign-off
+  has nobody accountable for it — which is the state most estates are actually in,
+  and the reason this page exists.
+</p>
+{% endif %}
+{% endblock %}

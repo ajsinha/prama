@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}{{ row.scope }} — attestation{% endblock %}
+{% block heading %}{{ row.scope }}, {{ row.period_start }} to {{ row.period_end }}{% endblock %}
+
+{% block content %}
+{# Whether the record still verifies, before the statement it carries. A page
+   that showed the signature without saying whether the content still matches it
+   would be showing a seal on an envelope nobody checked. #}
+<div class="card mb-3">
+  <div class="card-body">
+    <h2 class="h6 text-uppercase text-muted">Is this record intact?</h2>
+    {% if intact and sealed %}
+    <p class="verdict verdict-pass mb-1">
+      <i class="bi bi-shield-check" aria-hidden="true"></i>
+      Unchanged since signing, and the seal verifies.
+    </p>
+    {% else %}
+    <p class="verdict verdict-fail mb-1">
+      <i class="bi bi-shield-exclamation" aria-hidden="true"></i>
+      {% if not intact %}The stored content no longer hashes to its stored hash.
+      {% else %}The seal does not verify — altered, or sealed by another deployment.
+      {% endif %}
+    </p>
+    {% endif %}
+    <dl class="row small mb-0">
+      <dt class="col-sm-3">Content hash</dt><dd class="col-sm-9"><code>{{ row.content_hash }}</code></dd>
+      <dt class="col-sm-3">Seal</dt><dd class="col-sm-9"><code>{{ row.seal }}</code></dd>
+      <dt class="col-sm-3">Evidence root</dt><dd class="col-sm-9"><code>{{ row.evidence_root }}</code></dd>
+      <dt class="col-sm-3">Records covered</dt><dd class="col-sm-9">{{ row.evidence_records }}</dd>
+    </dl>
+  </div>
+</div>
+
+{% if row.superseded_by %}
+<div class="uncalibrated mb-3">
+  This attestation was superseded.
+  <a href="{{ url_for('attestation_detail', attestation_id=row.superseded_by) }}">See the one
+  that replaced it.</a> It stays here because the fact that it was signed is part of
+  the record.
+</div>
+{% endif %}
+
+<div class="card mb-3">
+  <div class="card-body">
+    <h2 class="h6 text-uppercase text-muted">The statement</h2>
+    <p class="mb-2">“{{ row.statement }}”</p>
+    <p class="small text-muted mb-0">
+      — {{ row.attester_name }}, {{ row.signed_at }}
+    </p>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <h2 class="h6 text-uppercase text-muted">Coverage</h2>
+    <p class="mb-0">{{ attestation.coverage.describe() }}.</p>
+    {% if attestation.is_qualified %}
+    <p class="verdict verdict-warn mt-2 mb-0">
+      Qualified — it carries exceptions or incomplete coverage. That is still an
+      attestation; presenting one as unqualified would be the misrepresentation.
+    </p>
+    {% endif %}
+  </div>
+</div>
+
+{% if attestation.exceptions %}
+<div class="card mb-3">
+  <div class="card-body">
+    <h2 class="h6 text-uppercase text-muted">
+      Exceptions <span class="badge text-bg-warning">{{ attestation.exceptions | length }}</span>
+    </h2>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead><tr>
+          <th scope="col">Dataset</th><th scope="col">Verdict</th>
+          <th scope="col">What was found</th><th scope="col">Disposition</th>
+        </tr></thead>
+        <tbody>
+          {% for item in attestation.exceptions %}
+          <tr>
+            <td class="fw-semibold">{{ item.dataset or '—' }}</td>
+            <td><span class="verdict verdict-{{ 'fail' if item.verdict == 'fail' else 'warn' }}">
+              {{ item.verdict }}</span></td>
+            <td class="small">{{ item.detail }}</td>
+            <td class="small">{% if item.disposition %}{{ item.disposition }}{% else %}
+              <span class="verdict verdict-stale">nothing recorded</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<a class="btn btn-outline-secondary btn-sm"
+   href="{{ url_for('attestation_pack', attestation_id=row.id) }}" target="_blank" rel="noopener">
+  <i class="bi bi-file-earmark-text" aria-hidden="true"></i> Open the pack
+</a>
+{% endblock %}

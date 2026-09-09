@@ -113,7 +113,16 @@ class DeclarationRoutes(UiRoutes):
         return out
 
     async def declaration_form(self, request: Request) -> Any:
-        return render(request, "declarations/form.html", shapes=SHAPES, tiers=self._tiers())
+        return render(
+            request,
+            "declarations/form.html",
+            shapes=SHAPES,
+            tiers=self._tiers(),
+            # Hidden rather than shown-and-broken when there is nothing to
+            # profile: a button that always fails teaches people the screen is
+            # unreliable, and they stop trusting the parts that work.
+            preview_configured=bool(request.app.state.config.get_str("web.preview.source", "")),
+        )
 
     async def declaration_create(
         self,
@@ -162,6 +171,7 @@ class DeclarationRoutes(UiRoutes):
                 "declarations/form.html",
                 shapes=SHAPES,
                 tiers=self._tiers(),
+                preview_configured=bool(request.app.state.config.get_str("web.preview.source", "")),
                 status_code=422,
                 submitted={
                     "name": name,

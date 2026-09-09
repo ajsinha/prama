@@ -36,6 +36,7 @@ from prama.derive.relationships import (
     RelationshipGenerator,
     generation_for,
 )
+from prama.derive.suggestions import Defaults, Suggestion, Warning_, defaults_from
 
 __all__ = [
     "ATTRIBUTE_DIMENSIONS",
@@ -48,6 +49,7 @@ __all__ = [
     "Coverage",
     "CoverageAnalyser",
     "DatasetDeclaration",
+    "Defaults",
     "Deferred",
     "DerivedControl",
     "Edge",
@@ -57,8 +59,11 @@ __all__ = [
     "Provenance",
     "RelationshipGeneration",
     "RelationshipGenerator",
+    "Suggestion",
     "Unsatisfiable",
+    "Warning_",
     "content_hash",
+    "defaults_from",
     "evidence_for",
     "fail_action_for",
     "generation_for",

@@ -14,7 +14,7 @@
   <div class="col-lg-6">
     <div class="card">
       <div class="card-body">
-        <label class="form-label fw-semibold" for="pql-source">PQL</label>
+        <label class="form-label fw-semibold" id="pql-label" for="pql-source">PQL</label>
         <textarea id="pql-source" name="source" rows="14"
                   aria-describedby="pql-help">{{ starter }}</textarea>
         <div id="pql-help" class="form-text">
@@ -27,6 +27,9 @@
           </button>
           <button class="btn btn-outline-secondary btn-sm" id="compile">
             <i class="bi bi-code-slash" aria-hidden="true"></i> Show the SQL
+          </button>
+          <button class="btn btn-outline-secondary btn-sm" id="preview">
+            <i class="bi bi-play-circle" aria-hidden="true"></i> Run it now
           </button>
           <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('rule_builder') }}">
             <i class="bi bi-ui-checks" aria-hidden="true"></i> Build one from questions
@@ -63,6 +66,39 @@
     <div id="findings" aria-live="polite">
       <p class="text-muted">Check the control to see what it means and what is wrong with it.</p>
     </div>
+    <div id="preview-panel" class="mt-3" aria-live="polite"></div>
+
+    {% if preview_configured %}
+    {# The backtest asks for one thing the studio cannot infer: which column
+       carries the business date. Guessing it would produce a backtest of the
+       wrong slices that looks exactly like a backtest of the right ones. #}
+    <div class="card mt-3">
+      <div class="card-body">
+        <h2 class="h6 mb-2">What would this have done last month?</h2>
+        <div class="row g-2 align-items-end">
+          <div class="col-sm-6">
+            <label class="form-label small mb-1" for="period-column">Business-date column</label>
+            <input class="form-control form-control-sm" id="period-column"
+                   placeholder="as_of_date" aria-describedby="period-help">
+          </div>
+          <div class="col-sm-3">
+            <label class="form-label small mb-1" for="backtest-days">Days</label>
+            <input class="form-control form-control-sm" id="backtest-days" type="number"
+                   value="{{ backtest_days }}" min="1" max="{{ max_periods }}">
+          </div>
+          <div class="col-sm-3">
+            <button class="btn btn-outline-secondary btn-sm w-100" id="backtest">Backtest</button>
+          </div>
+        </div>
+        <div id="period-help" class="form-text">
+          Business days only. Days with no rows in scope are reported separately and
+          are not counted as quiet — an empty day is not a passing day.
+        </div>
+        <div id="backtest-progress" class="mt-3" aria-live="polite"></div>
+      </div>
+    </div>
+    {% endif %}
+
     <div id="plans" class="mt-3" aria-live="polite"></div>
   </div>
 </div>
@@ -79,6 +115,11 @@
   window.pramaPqlStudio({
     check: {{ url_for('control_check') | tojson }},
     compile: {{ url_for('control_compile') | tojson }},
+    completions: {{ url_for('control_completions') | tojson }},
+    hover: {{ url_for('control_hover') | tojson }},
+    preview: {{ url_for('control_preview') | tojson }},
+    backtest: {{ url_for('control_backtest') | tojson }},
+    previewConfigured: {{ preview_configured | tojson }},
     datasets: {{ dataset_slugs | tojson }}
   });
 </script>

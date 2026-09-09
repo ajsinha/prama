@@ -15,6 +15,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import dataclasses
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
@@ -288,3 +289,50 @@ def detectable_rate(sampled_rows: int, *, confidence: float = 0.95) -> float:
         return 1.0
     multiplier = 3.0 if confidence >= 0.95 else 2.3
     return min(1.0, multiplier / sampled_rows)
+
+
+def from_rows(
+    path: tuple[str, ...],
+    rows: Sequence[dict[str, Any]],
+    *,
+    plan: SamplePlan,
+    computed_at: datetime,
+    duration_seconds: float = 0.0,
+    top_k: int = 20,
+) -> DatasetProfile:
+    """A profile from rows already in hand, rather than through a connector.
+
+    The console reads through one query callable and has no connector to hand,
+    and a second profiling implementation for that path is how two screens end
+    up disagreeing about a null rate. So the accumulators are the same ones; only
+    the source of the values differs.
+
+    ``plan`` is required and is not defaulted. It is what decides whether the
+    resulting rates may be extrapolated at all, and a caller who has not thought
+    about how these rows were obtained has not earned a profile that claims they
+    are representative.
+    """
+    accumulators: dict[str, ColumnAccumulator] = {}
+    order: list[str] = []
+    for row in rows:
+        for name, value in row.items():
+            accumulator = accumulators.get(name)
+            if accumulator is None:
+                accumulator = ColumnAccumulator(name, type(value).__name__, top_k=top_k)
+                accumulators[name] = accumulator
+                order.append(name)
+            accumulator.add_values([value])
+    # Columns absent from a row are absent, not null: a row that did not carry
+    # the key is a row the query did not return it for, and counting it as a
+    # null would invent a completeness defect out of a projection.
+    return DatasetProfile(
+        path=path,
+        columns=tuple(accumulators[name].profile() for name in order),
+        provenance=ProfileProvenance(
+            computed_at=computed_at,
+            snapshot=None,
+            plan=plan,
+            rows_examined=len(rows),
+            duration_seconds=duration_seconds,
+        ),
+    )

@@ -664,12 +664,12 @@ semantic layer stops being a theory.
 
 W9.1 ✅ design tokens and the Jinja app shell · W9.2 ✅ estate map with Sigma.js WebGL rendering ·
 W9.3 ✅ drag-to-declare canvas ·
-W9.4 ◐ declaration flows with inferred-then-confirmed defaults · W9.5 ✅ no-code rule builder ·
-W9.6 ◐ CodeMirror PQL editor and LSP integration · W9.7 live preview and backtest over SSE ·
+W9.4 ✅ declaration flows with inferred-then-confirmed defaults · W9.5 ✅ no-code rule builder ·
+W9.6 ✅ CodeMirror PQL editor and LSP integration · W9.7 ✅ live preview and backtest over SSE ·
 W9.8 ✅ proposal review queue ·
-W9.9 ◐ incident triage workspace · W9.10 ◐ reconciliation workbench · W9.11 ◐ scorecards and drill-down ·
-W9.12 attestation and e-signature · W9.13 ✅ **assistant with the full safety contract** · W9.14 ✅ MCP
-server · W9.15 ✅ print rendering · W9.16 ◐ accessibility audit · W9.17 usability study.
+W9.9 ✅ incident triage workspace · W9.10 ✅ reconciliation workbench · W9.11 ✅ scorecards and drill-down ·
+W9.12 ✅ attestation and e-signature · W9.13 ✅ **assistant with the full safety contract** · W9.14 ✅ MCP
+server · W9.15 ✅ print rendering · W9.16 ✅ accessibility audit · W9.17 usability study.
 
 ### Where the console stands
 
@@ -683,18 +683,25 @@ configuration or the error taxonomy.
 | App shell: nav that marks where you are, skip link, live region, flash | Sign-in; the caller comes from `tenancy.default_tenant` until Wave 10 |
 | Estate map on Sigma/WebGL over graphology, with the same nodes in a keyboard-reachable table | Cytoscape drag-to-declare (W9.3) |
 | Dataset page naming the *control* each gap costs, not the null column | Attribute editing and relationship drawing |
-| Declaration list and form, organised around questions, approval requirement derived from `ApprovalPolicy` | Inferred-then-confirmed defaults from profiling (W9.4) |
-| Control studio: CodeMirror 5, check/explain/compile, residual disclosure on the SQL | LSP, live preview and backtest over SSE (W9.6, W9.7) |
+| Declaration list and form, organised around questions, approval requirement derived from `ApprovalPolicy` | Attribute-level suggestions — concepts, value domains, CDE marks |
+| **Inferred, never confirmed** — the form profiles a table and offers what it found with the evidence attached; a head sample pre-fills nothing, and warnings are kept apart from defaults | Profiling through a connector rather than the console's one local file |
+| Control studio: CodeMirror 5, check/explain/compile, residual disclosure on the SQL | Go-to-definition and rename, which need a workspace rather than a document |
+| **A real language server** — `prama lsp serve` over stdio, and the console's editor calling the same `LanguageService`, so an editor cannot underline something the compiler accepts | A live catalogue; the server reads an exported file so an editor needs no warehouse credentials |
+| **Preview and backtest** — run an unapproved control against real data, one business day per SSE event; empty days counted apart from quiet ones; nothing written to the ledger | A preview against a warehouse rather than a local file, which needs the connector query path wired to the console |
 | The no-code builder: eight rules in business terms, always showing the PQL it wrote, refusing to emit anything that will not re-read | More rule shapes — functional dependency, cross-dataset comparison |
 | Relationships end to end: declare, confirm, reject; pick-then-pick on the map | Attribute-level relationship editing |
 | Charts as server-rendered SVG (`prama.report`), one renderer for screen and print | Wiring them into scorecards, which have no measurements to draw |
-| Contrast measured, not eyeballed; text-safe dimension tokens derived from the brand hues | `axe-core` in a browser (W9.16) — computed contrast, focus order, ARIA validity |
-| Print artefacts: declaration pack and control pack, self-contained, coverage stated on every one | The attestation pack, which needs evidence and a signature |
+| Contrast measured, not eyeballed; every derived colour legible on all three grounds — card, page, striped row | Keyboard-only walkthroughs and a screen-reader pass, which are judgement rather than a rule engine |
+| **`axe-core` in Chrome** over sixteen pages and five themes, WCAG 2.2 AA, with a counterfactual proving the audit can fail | Running it in CI, which needs a browser on the runner |
+| Print artefacts: declaration pack, control pack and **attestation pack**, self-contained, coverage stated on every one | Batch export of a period's packs as one bundle |
 | `prama mcp` — the MCP server on the assistant's own registry, fenced and scanned | Streamable-HTTP transport; stdio only for now |
 | Proposal queue with accept and reject, `Unsatisfiable` first, rejections recorded so nothing is re-proposed | Batch approve; backtest and expected alert volume beside each proposal |
 | **The evidence ledger, persisted** — hash-chained, append-only, erasure without breaking the chain, verification on a screen | Retention tiering and WORM export wired to the persisted store |
 | **Controls, persisted** — bitemporal, idempotent by identity, everything derived from the PQL, suppression that needs an expiry and a reason | A scheduler that runs them; nothing executes on its own yet |
-| Incidents, reconciliation and scorecards reading real evidence | Sample drill-down; the side-by-side break workbench |
+| Incidents, reconciliation and scorecards reading real evidence | Batch disposition across a whole incident queue |
+| **Sample drill-down** — the failing rows beside the count they are a sample of, with masked columns named and "never collected" told apart from "no longer held" | Re-querying the source for fresh rows, which needs the connector query path on the console |
+| **The break workbench, persisted** — breaks tracked across runs, ageing from first sighting, clearing inferred from absence, ordered by what needs a person rather than by size | The reconciliation certificate signed off from this screen |
+| **Attestation** — figures derived from the ledger, not typed; sealed with an HMAC over the content hash; append-only with supersession | An asymmetric signature, which would say something to a reader who does not hold the key |
 
 **The honest limit of this wave.** Controls are stored and evidence is stored, and *nothing runs
 them*. There is no scheduler wired to the persisted estate, so every screen above reads evidence

@@ -132,6 +132,12 @@ class OperationsRoutes(UiRoutes):
             "reconciliation/list.html",
             observation=await self._observation(caller, uow),
             reconciliations=reconciliations,
+            # Break queues are a different thing from reconciliation verdicts
+            # and are listed as one. A verdict says whether the two sides
+            # agreed; a queue says what people are doing about the ones that
+            # did not, and merging them would let an empty queue read as a
+            # clean reconciliation.
+            queues=await uow.breaks.definitions(caller.tenant_id),
         )
 
     async def scorecard_list(self, request: Request, caller: Caller, uow: Uow) -> Any:

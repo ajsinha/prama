@@ -35,6 +35,7 @@ from prama.report.contrast import (
     accessible_on,
     ratio,
     report,
+    rgb,
 )
 from prama.report.palette import (
     DARK_SURFACE,
@@ -218,6 +219,64 @@ class TestEveryThemeIsLegible:
         assert ratio(theme.unverified_text(), theme.surface) >= BODY_TEXT, report(
             theme.unverified_text(), theme.surface
         )
+
+    def test_the_raised_ground_matches_the_stylesheet(self) -> None:
+        """The blend Python computes and the one the browser paints must be the
+        same colour.
+
+        ``--bg-raised`` is translucent, so no token holds its actual value and
+        the derivation has to compute it. Two numbers for one ground is a
+        ground nothing has really checked — which is how a table header came to
+        sit at 4.12:1 with every arithmetic test passing.
+        """
+        from prama.report.themes import RAISED_ALPHA, RAISED_GREY
+
+        declared = re.search(r"--bg-raised:\s*rgba\(([^)]*)\)", CSS.read_text())
+        assert declared, "prama.css no longer declares --bg-raised as an rgba()"
+        red, green, blue, alpha = [part.strip() for part in declared.group(1).split(",")]
+        assert (int(red), int(green), int(blue)) == rgb(RAISED_GREY)
+        assert float(alpha) == RAISED_ALPHA
+
+    @pytest.mark.parametrize("theme", THEMES, ids=lambda t: t.name)
+    def test_every_dimension_word_is_legible_on_every_ground(self, theme: Theme) -> None:
+        """A card, the page behind it, and a striped row.
+
+        Deriving against one and rendering on another is the defect axe found
+        three times over. This is that check without a browser, so the next one
+        fails in a unit test rather than in an audit.
+        """
+        for name, colour in theme.texts().items():
+            for ground in theme.grounds:
+                assert ratio(colour, ground) >= BODY_TEXT, (
+                    f"{theme.name}: {name} {colour} on {ground} is {ratio(colour, ground):.2f}:1"
+                )
+
+    @pytest.mark.parametrize("theme", THEMES, ids=lambda t: t.name)
+    def test_every_dimension_mark_is_visible_on_every_ground(self, theme: Theme) -> None:
+        for name, colour in theme.fills().items():
+            for ground in theme.grounds:
+                assert ratio(colour, ground) >= NON_TEXT, (
+                    f"{theme.name}: {name} {colour} on {ground} is {ratio(colour, ground):.2f}:1"
+                )
+
+    @pytest.mark.parametrize("theme", THEMES, ids=lambda t: t.name)
+    def test_muted_text_is_legible_on_the_page_ground_too(self, theme: Theme) -> None:
+        """Not only on a card.
+
+        The gap axe found in a browser: `muted` was measured against `surface`
+        and passed at 4.68:1, while the footer and the map status line sit on
+        `body` where it was 4.37:1. A colour checked against the background the
+        test assumed and not the one it renders on is a colour nobody has
+        checked.
+        """
+        assert ratio(theme.muted, theme.body) >= BODY_TEXT, (
+            f"{theme.name}: muted {theme.muted} on body {theme.body} is "
+            f"{ratio(theme.muted, theme.body):.2f}:1"
+        )
+
+    @pytest.mark.parametrize("theme", THEMES, ids=lambda t: t.name)
+    def test_ink_is_legible_on_the_page_ground_too(self, theme: Theme) -> None:
+        assert ratio(theme.ink, theme.body) >= BODY_TEXT
 
     @pytest.mark.parametrize("theme", THEMES, ids=lambda t: t.name)
     def test_ink_and_muted_text_are_legible(self, theme: Theme) -> None:

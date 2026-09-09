@@ -35,6 +35,23 @@ tenancy:
 web:
   enabled: true                     # serve the console alongside the API
 
+  preview:
+    # Where the control studio runs a preview or a backtest. Empty means the
+    # studio can check and compile a control but cannot run one, and it says so
+    # on the screen rather than showing an empty result that reads as clean.
+    #
+    # A preview writes nothing to the evidence ledger. It runs an unapproved
+    # control, often against a bounded scan, and evidence a regulator may read
+    # must be the record of a control the estate agreed to, run in full.
+    source: ""                      # a local .duckdb or .sqlite file
+    dialect: duckdb                 # duckdb | sqlite
+    # A scan ceiling, so a preview against a billion-row table cannot be the
+    # thing that takes the warehouse down. Applied by wrapping the source, so
+    # it bounds the scan and not just the row of results. Zero is unbounded.
+    max_rows: 1000000
+    # How many business days a backtest covers by default.
+    backtest_days: 30
+
 database:
   # The only switch that chooses a database. No code branches on this value
   # outside prama/db/dialects.py, and there are no migrations: schema/sqlite.sql

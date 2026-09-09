@@ -4,8 +4,12 @@
   <strong>This does not parse.</strong>
   <div>{{ syntax_error.message }}</div>
   {% if syntax_error.remedy %}<div class="small mt-1">{{ syntax_error.remedy }}</div>{% endif %}
-  {% if syntax_error.line %}
+  {% if syntax_error.has_position %}
   <div class="small text-muted mt-1">Line {{ syntax_error.line }}, column {{ syntax_error.column }}.</div>
+  {% else %}
+  {# Never a guessed line. An editor sent to line 1 has the reader looking for a
+     problem that is somewhere else, which is worse than no location at all. #}
+  <div class="small text-muted mt-1">The parser could not say where.</div>
   {% endif %}
 </div>
 {% else %}
@@ -41,6 +45,9 @@
               {% else %}text-bg-warning{% endif %}">{{ finding.level }}</span>
         <code class="small">{{ finding.control }}</code>
         {{ finding.message }}
+        {% if finding.has_position %}
+        <span class="small text-muted">(line {{ finding.line }})</span>
+        {% endif %}
         {% if finding.remedy %}<div class="small text-muted ms-4">{{ finding.remedy }}</div>{% endif %}
       </li>
       {% endfor %}

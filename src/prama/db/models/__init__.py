@@ -9,6 +9,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+from prama.db.models.attestation import AttAttestation
 from prama.db.models.base import (
     Base,
     CreatedAt,
@@ -31,6 +32,7 @@ from prama.db.models.platform import (
     Setting,
     Tenant,
 )
+from prama.db.models.recon import RecBreak
 from prama.db.models.semantic import (
     SemAttribute,
     SemAttributeVersion,
@@ -56,6 +58,7 @@ from prama.db.models.semantic_graph import (
 
 __all__ = [
     "ApiKey",
+    "AttAttestation",
     "AuditEvent",
     "Base",
     "CreatedAt",
@@ -70,6 +73,7 @@ __all__ = [
     "ModelMixin",
     "Principal",
     "PrincipalRole",
+    "RecBreak",
     "Role",
     "SchemaState",
     "SemAttribute",

@@ -134,6 +134,47 @@ per-recipient scoping and redaction, via API, and by asking the assistant. **Nar
 LLM-drafted but numerically grounded** — every figure in generated prose is a live reference, and
 drafts are marked as drafts until a human releases them (`FR-SCR-015`).
 
+### 3.1 The attestation, and the four things it must not do
+
+An attestation is a named person saying **"I have reviewed the controls over this scope for this
+period"**. It is not a claim that everything passed, and the design has to keep those two apart,
+because a system that quietly conflates them turns a sign-off into a rubber stamp. Four rules
+follow, each of them a thing the implementation is forbidden to do.
+
+**It must not let the attester type the figures.** Coverage, exceptions and the evidence root are
+derived from the ledger at the moment of signing. An attestation whose numbers were typed is a
+statement about what the attester *believed*; one whose numbers were derived is a statement about
+what *happened*, and only the second is worth anything to a regulator. The consequence is that an
+attester cannot round a number in their own favour without editing the evidence ledger, which is
+hash-chained and will say so.
+
+**It must not summarise the exceptions.** Every failing and every unestablished control in the
+period appears in the pack by name, with its dataset, its verdict and whatever disposition the
+attester recorded. Collapsing them into "3 exceptions" would be asking somebody to sign for things
+they were not shown. A disposition left blank is permitted and is itself informative: it marks an
+exception nobody explained.
+
+**It must not treat a qualified attestation as a failure.** Most real sign-offs are qualified — there
+were exceptions, or coverage was incomplete, and the attester signed anyway with the reasons
+recorded. A qualified attestation is a valid attestation. What would be a misrepresentation is
+*presenting* one as unqualified, so the pack says which it is in its first paragraph.
+
+**It must not overstate what the seal proves.** The seal is an HMAC over the attestation's content
+hash. It establishes that the content was sealed by a holder of this deployment's key and that it
+has not changed since — and it says nothing at all to a reader who does not hold that key. An
+asymmetric signature would say more; this does not, and the pack prints that sentence rather than
+letting a reader infer more from the word "seal" than is there. Verification therefore returns
+**two** answers, not one: whether the content still hashes to its stored hash, and whether the seal
+holds. "Somebody edited this row" and "this came from another deployment" are different incidents
+with different responses, and a single boolean would make them indistinguishable.
+
+A control that produced no verdict in the period is counted separately from one that failed. It is
+not an exception — there is no verdict to except from — but it is precisely the number that decides
+how much of the scope the attestation actually covers, so it is stated on the face of the pack.
+Corrections are made by **superseding**, never by editing: both rows survive, the earlier one is
+marked as replaced with the reason, and its own seal still verifies. Being replaced does not make
+the earlier statement untrue, and the sequence is usually worth more than the correction alone.
+
 ---
 
 ## 4. Alerting that people keep switched on

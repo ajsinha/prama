@@ -9,33 +9,45 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+from prama.web.routes.attestation_routes import AttestationRoutes
 from prama.web.routes.base import UiRoutes
 from prama.web.routes.control_routes import ControlRoutes
 from prama.web.routes.declaration_routes import DeclarationRoutes
 from prama.web.routes.estate_routes import EstateRoutes
 from prama.web.routes.operations_routes import OperationsRoutes
+from prama.web.routes.preview_routes import PreviewRoutes
 from prama.web.routes.proposal_routes import ProposalRoutes
+from prama.web.routes.recon_routes import ReconRoutes
 from prama.web.routes.relationship_routes import RelationshipRoutes
 from prama.web.routes.report_routes import ReportRoutes
+from prama.web.routes.triage_routes import TriageRoutes
 
 ROUTE_CLASSES: tuple[type[UiRoutes], ...] = (
     EstateRoutes,
     DeclarationRoutes,
     ControlRoutes,
+    PreviewRoutes,
     RelationshipRoutes,
     ProposalRoutes,
     OperationsRoutes,
+    TriageRoutes,
+    ReconRoutes,
+    AttestationRoutes,
     ReportRoutes,
 )
 
 __all__ = [
     "ROUTE_CLASSES",
+    "AttestationRoutes",
     "ControlRoutes",
     "DeclarationRoutes",
     "EstateRoutes",
     "OperationsRoutes",
+    "PreviewRoutes",
     "ProposalRoutes",
+    "ReconRoutes",
     "RelationshipRoutes",
     "ReportRoutes",
+    "TriageRoutes",
     "UiRoutes",
 ]

@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}Incident — Prama{% endblock %}
+{% block heading %}{{ version.name if version else control_id }}{% endblock %}
+
+{% block content %}
+{% if latest is none %}
+{# Not "no problems". The control exists and has never produced a verdict,
+   which is a different fact and the one worth acting on. #}
+<div class="uncalibrated">
+  <strong>This control has never run.</strong>
+  There is no evidence about it either way — not a clean result, and not a
+  failing one. Nothing on this page describes the data.
+</div>
+{% else %}
+
+<div class="row g-3">
+  <div class="col-lg-7">
+
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="d-flex align-items-baseline gap-2 mb-2">
+          <span class="verdict verdict-{{ 'fail' if latest.verdict in ('fail', 'error') else 'warn' }}">
+            {{ latest.claim }}</span>
+          <span class="ms-auto small text-muted">{{ latest.finished_at }}</span>
+        </div>
+
+        {% if latest.metrics.get('violating_rows') is not none %}
+        <p class="mb-2 fs-5">
+          <strong>{{ '{:,}'.format(latest.metrics.get('violating_rows') | int) }}</strong>
+          of {{ '{:,}'.format(latest.metrics.get('scanned_rows', 0) | int) }} rows
+          {% set scanned = latest.metrics.get('scanned_rows', 0) %}
+          {% if scanned %}
+          <span class="text-muted">({{ (latest.metrics.get('violating_rows', 0) / scanned) | rate }})</span>
+          {% endif %}
+        </p>
+        {% endif %}
+
+        {% if latest.coverage != 'full' %}
+        {# The width the verdict was established at. Conflating an incremental
+           result with a full one lets the narrower claim be read as the wider. #}
+        <div class="uncalibrated small mb-2">
+          Established over a <strong>{{ latest.coverage }}</strong> scan, not the whole
+          dataset. It says what it says about the rows examined.
+        </div>
+        {% endif %}
+
+        {% if latest.detail %}
+        <div class="uncalibrated small mb-2">{{ latest.detail }}</div>
+        {% endif %}
+
+        {% if began %}
+        <p class="small text-muted mb-0">
+          Not passing since <strong>{{ began }}</strong>.
+        </p>
+        {% elif latest.verdict != 'pass' and history_is_truncated %}
+        <p class="small text-muted mb-0">
+          {# A date that is really "the oldest run we still hold" reads as the
+             date the problem began, which is the more comforting of the two. #}
+          This has not passed within the {{ history | length }} runs held here, so
+          when it started is not known from this page.
+        </p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-body">
+        <h2 class="h6 mb-2">The failing rows</h2>
+
+        <div class="{{ 'uncalibrated' if not sample.is_complete else 'small text-muted' }} mb-2">
+          {{ sample.describe() }}
+        </div>
+
+        {% if sample.masked %}
+        {# Named, always. A sample with a column silently removed is one a reader
+           draws conclusions from without knowing what is missing. #}
+        <div class="uncalibrated small mb-2">
+          Withheld from these rows:
+          {% for column in sample.masked %}<code>{{ column }}</code>{% if not loop.last %}, {% endif %}{% endfor %}.
+        </div>
+        {% endif %}
+
+        {% if sample.rows %}
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead><tr>
+              {% for column in sample.columns %}<th scope="col">{{ column }}</th>{% endfor %}
+            </tr></thead>
+            <tbody>
+              {% for row in sample.rows %}
+              <tr>
+                {% for column in sample.columns %}
+                <td class="small">
+                  {% if row[column] is none %}
+                  {# A NULL is usually the finding, so it is marked rather than
+                     rendered as an empty cell indistinguishable from a blank. #}
+                  <span class="text-muted fst-italic">null</span>
+                  {% else %}{{ row[column] }}{% endif %}
+                </td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if sample.expires_at %}
+        <p class="small text-muted mt-2 mb-0">
+          These rows are held until {{ sample.expires_at }}. The record that names
+          them outlives them.
+        </p>
+        {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    {% if version %}
+    <div class="card mb-3">
+      <div class="card-body">
+        <h2 class="h6 mb-2">What this control says</h2>
+        <p class="mb-2">{{ sentence }}</p>
+        {% if version.because %}
+        <p class="small text-muted mb-2">Because: {{ version.because }}</p>
+        {% endif %}
+        <details>
+          <summary class="small">The PQL</summary>
+          <pre class="rounded small mt-2 mb-0"><code>{{ version.pql }}</code></pre>
+        </details>
+      </div>
+    </div>
+    {% else %}
+    <div class="uncalibrated mb-3">
+      {# Evidence outlives the control it came from, deliberately. Hiding the
+         evidence because the control is gone would erase the record of a
+         failure by retiring the control that found it. #}
+      <strong>This control is no longer in the estate.</strong>
+      The evidence remains and is shown above; what the control said cannot be
+      read from here.
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-body">
+        <h2 class="h6 mb-2">History</h2>
+        <table class="table table-sm mb-0">
+          <thead><tr><th scope="col">When</th><th scope="col">Verdict</th><th scope="col">Violating</th></tr></thead>
+          <tbody>
+            {% for record in history %}
+            <tr>
+              <td class="small">{{ record.finished_at }}</td>
+              <td><span class="verdict-{{ record.verdict }} badge">{{ record.verdict }}</span></td>
+              <td class="small">
+                {% if record.metrics.get('violating_rows') is not none %}
+                  {{ '{:,}'.format(record.metrics.get('violating_rows') | int) }}
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% if history_is_truncated %}
+        <p class="small text-muted mt-2 mb-0">
+          The most recent {{ history | length }}. There are older runs than these.
+        </p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<p class="mt-3"><a href="{{ url_for('incident_list') }}">Back to what is wrong</a></p>
+{% endblock %}

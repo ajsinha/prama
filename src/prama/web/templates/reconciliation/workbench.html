@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}{{ definition }} breaks — Prama{% endblock %}
+{% block heading %}{{ definition }}{% endblock %}
+
+{% macro sides(row) %}
+<div class="d-flex gap-3 align-items-baseline">
+  <div class="text-end" style="min-width:9rem">
+    {% if row.left %}<span class="font-monospace">{{ row.left }}</span>
+    {% else %}
+    {# Not zero. "Nothing on the left" and "zero on the left" are different
+       breaks, and rendering the first as the second turns a missing record
+       into a balanced one. #}
+    <span class="text-muted fst-italic">nothing</span>{% endif %}
+  </div>
+  <div class="text-muted">vs</div>
+  <div style="min-width:9rem">
+    {% if row.right %}<span class="font-monospace">{{ row.right }}</span>
+    {% else %}<span class="text-muted fst-italic">nothing</span>{% endif %}
+  </div>
+  <div class="ms-auto font-monospace fw-semibold">{{ row.difference }}</div>
+</div>
+{% endmacro %}
+
+{% block content %}
+{% if not rows and not cleared_count %}
+<div class="uncalibrated">
+  <strong>No breaks are recorded for this reconciliation.</strong>
+  That is not the same as a clean reconciliation: it means nothing has been
+  observed into this queue. A reconciliation that ran and matched everything
+  would show its cleared breaks below.
+</div>
+{% else %}
+
+<div class="d-flex flex-wrap gap-3 align-items-baseline mb-3">
+  <p class="mb-0">
+    <strong>{{ rows | length }}</strong> outstanding
+    {% if accepted %}<span class="text-muted">({{ accepted | length }} accepted and carried)</span>{% endif %}
+  </p>
+  {% if cleared_count %}
+  <p class="mb-0 text-muted">
+    {# Said out loud. "Forty cleared and forty appeared" and "nothing changed"
+       produce the same queue length. #}
+    {{ cleared_count }} have cleared.
+  </p>
+  {% endif %}
+  <div class="ms-auto">
+    {% if show == 'all' %}
+    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('break_workbench', definition=definition) }}">Outstanding only</a>
+    {% else %}
+    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('break_workbench', definition=definition) }}?show=all">Include cleared</a>
+    {% endif %}
+  </div>
+</div>
+
+<p class="text-muted small">
+  Ordered by what needs a person, not by size. A hundred-million timing break is
+  less urgent than a thousand-euro genuine one: the first clears itself and the
+  second is somebody's missing trade.
+</p>
+
+{% if stale %}
+<div class="uncalibrated mb-3">
+  <strong>{{ stale | length }} break(s) have been open a long time.</strong>
+  Age is its own severity — a small break nobody has explained in a month says
+  the process is not working, and the amount is beside the point.
+</div>
+{% endif %}
+
+{% if configuration %}
+<div class="uncalibrated mb-3">
+  <strong>{{ configuration | length }} of these look like setup, not data.</strong>
+  Sign conventions, duplicated sides and currency conversion are usually the
+  reconciliation being wrong rather than the systems disagreeing. Sending them to
+  a data steward wastes their day and leaves the setup wrong.
+</div>
+{% endif %}
+
+{% for row in rows %}
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="d-flex flex-wrap align-items-baseline gap-2 mb-2">
+      <code class="fw-semibold">{{ row.key }}</code>
+      <span class="badge text-bg-light">{{ row.label }}</span>
+      {% if row.state != 'open' %}<span class="badge text-bg-secondary">{{ row.state }}</span>{% endif %}
+      {% if row.owner %}<span class="small text-muted">{{ row.owner }}</span>{% endif %}
+      <span class="ms-auto small {{ 'text-danger' if row.is_stale else 'text-muted' }}">
+        {{ row.age_days }} day(s) old
+      </span>
+    </div>
+
+    {{ sides(row) }}
+
+    <p class="small mt-2 mb-1">{{ row.because }}</p>
+
+    {% if row.aggregated %}
+    <div class="small text-muted mb-1">
+      These are totals: the key repeats, so the comparison is between sums rather
+      than rows.
+    </div>
+    {% endif %}
+
+    {% if row.normalisation %}
+    {# The first question about any break is whether it is real or a translation
+       error. A workbench showing two amounts without showing what was done to
+       them invites the reader to answer it wrong. #}
+    <div class="small text-muted mb-1">
+      Before comparing:
+      {% for step in row.normalisation %}{{ step }}{% if not loop.last %}; {% endif %}{% endfor %}.
+    </div>
+    {% endif %}
+
+    {% if row.clears_itself %}
+    <div class="small text-muted mb-1">
+      Expected to clear on its own; nothing needs doing unless it does not.
+    </div>
+    {% endif %}
+
+    {% if row.state == 'accepted' %}
+    <div class="uncalibrated small mb-1">
+      Accepted as a known reconciling item: {{ row.accepted_reason }}
+      <div>It stays on this screen — a carried break that disappears is how a
+        reconciliation quietly stops reconciling.</div>
+    </div>
+    {% endif %}
+
+    {% if row.comments %}
+    <details class="mt-2">
+      <summary class="small">{{ row.comments | length }} note(s)</summary>
+      <ul class="small mt-2 mb-0 ps-3">
+        {% for comment in row.comments %}
+        <li><span class="text-muted">{{ comment.at }} · {{ comment.by or 'unattributed' }}</span>
+          — {{ comment.text }}</li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% endif %}
+
+    {% if row.state != 'cleared' %}
+    <div class="row g-2 mt-2">
+      <div class="col-md-4">
+        <form method="post" action="{{ url_for('break_assign', break_id=row.id) }}" class="d-flex gap-1">
+          <input type="hidden" name="definition" value="{{ definition }}">
+          <label class="visually-hidden" for="owner-{{ row.id }}">Assign {{ row.key }} to</label>
+          <input class="form-control form-control-sm" id="owner-{{ row.id }}" name="owner"
+                 placeholder="assign to" value="{{ row.owner }}">
+          <button class="btn btn-sm btn-outline-secondary">Assign</button>
+        </form>
+      </div>
+      <div class="col-md-4">
+        <form method="post" action="{{ url_for('break_explain', break_id=row.id) }}" class="d-flex gap-1">
+          <input type="hidden" name="definition" value="{{ definition }}">
+          <label class="visually-hidden" for="note-{{ row.id }}">Note on {{ row.key }}</label>
+          <input class="form-control form-control-sm" id="note-{{ row.id }}" name="text"
+                 placeholder="what you found">
+          <button class="btn btn-sm btn-outline-secondary">Note</button>
+        </form>
+      </div>
+      {% if row.state != 'accepted' %}
+      <div class="col-md-4">
+        <form method="post" action="{{ url_for('break_accept', break_id=row.id) }}" class="d-flex gap-1">
+          <input type="hidden" name="definition" value="{{ definition }}">
+          <label class="visually-hidden" for="accept-{{ row.id }}">Reason for accepting {{ row.key }}</label>
+          <input class="form-control form-control-sm" id="accept-{{ row.id }}" name="reason"
+                 placeholder="why this is expected" aria-describedby="accept-help-{{ row.id }}">
+          <button class="btn btn-sm btn-outline-secondary">Accept</button>
+        </form>
+        <div id="accept-help-{{ row.id }}" class="form-text">
+          A reason is required: an acceptance nobody explained cannot be defended
+          when somebody asks about it in a year.
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+
+<p class="mt-3"><a href="{{ url_for('reconciliation_list') }}">Back to reconciliations</a></p>
+{% endblock %}
