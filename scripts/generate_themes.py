@@ -50,10 +50,16 @@ def block(theme: Theme) -> str:
     lines.append(f"    --bg-body: {theme.body};")
     lines.append(f"    --bg-card: {theme.surface};")
     lines.append(f"    --bg-header: {theme.header};")
-    lines.append(f"    --text-primary: {theme.ink};")
-    lines.append(f"    --text-muted: {theme.muted};")
-    lines.append(f"    --text-link: {theme.link};")
-    lines.append(f"    --accent: {theme.accent};")
+    # The *derived* values, not the declared ones. A colour declared in
+    # themes.py is the designer's intent; what a reader has to be able to see is
+    # that intent walked to legibility on every ground it can land on — card,
+    # page and striped row. Emitting the declaration would put a number in the
+    # stylesheet that nothing has checked, which is how muted text shipped at
+    # 4.12:1 against a background no test had computed.
+    lines.append(f"    --text-primary: {theme.legible_ink};")
+    lines.append(f"    --text-muted: {theme.legible_muted};")
+    lines.append(f"    --text-link: {theme.legible_link};")
+    lines.append(f"    --accent: {theme.legible_accent};")
     lines.append(f"    --border-color: {theme.border};")
     lines.append("")
     lines.append("    /* Marks: bars, rings, dots. 3:1 against this theme's card. */")

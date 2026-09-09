@@ -42,6 +42,7 @@ import uvicorn
 from prama.api import create_app
 from prama.core.config import Configuration, ConfigurationBuilder
 from prama.db import Database
+from prama.report.themes import BASES
 
 AXE = Path(__file__).parent / "vendor" / "axe.min.js"
 
@@ -171,13 +172,29 @@ def browser(server: str):
 
 
 def _violations(browser, base: str, path: str, theme: str) -> list[dict]:
-    page = browser.new_page()
+    # Reduced motion, which the stylesheet already honours by collapsing every
+    # transition to .01ms. Without it, switching the theme starts Bootstrap's
+    # 150ms colour transition and axe samples a frame *part way through it*:
+    # the dark link came back as #5c6fc9, which is the midpoint between the
+    # light and dark values and a colour the page never rests at. Auditing in
+    # the mode a motion-sensitive reader browses in is also the mode worth
+    # auditing.
+    page = browser.new_page(reduced_motion="reduce")
     try:
         page.goto(f"{base}{path}", wait_until="networkidle")
-        # Set on the root element, which is where the stylesheet's [data-theme]
-        # selectors bind. Setting it before axe runs means the contrast axe
-        # measures is the contrast a reader in that theme actually sees.
-        page.evaluate("t => document.documentElement.setAttribute('data-theme', t)", theme)
+        # BOTH attributes, exactly as the switcher sets them. Flipping
+        # `data-theme` alone leaves `data-bs-theme` on the base the server
+        # rendered, so a dark theme paints Prama's dark tokens over Bootstrap's
+        # light ones — a mismatch no reader can reach, and one that reports
+        # contrast failures nobody has. That is what made this suite fail on
+        # `dark` and `wallstreet`, the two themes whose base actually differs.
+        page.evaluate(
+            """([theme, base]) => {
+                document.documentElement.setAttribute('data-theme', theme);
+                document.documentElement.setAttribute('data-bs-theme', base);
+            }""",
+            [theme, BASES[theme]],
+        )
         page.add_script_tag(path=str(AXE))
         result = page.evaluate(
             "async tags => await axe.run(document, {runOnly: {type: 'tag', values: tags}})",
@@ -264,7 +281,7 @@ def test_the_json_report_is_written(browser, server: str, tmp_path: Path) -> Non
     is a report that goes stale, and a stale accessibility report is read as a
     current one.
     """
-    page = browser.new_page()
+    page = browser.new_page(reduced_motion="reduce")
     try:
         page.goto(f"{server}/estate", wait_until="networkidle")
         page.add_script_tag(path=str(AXE))
