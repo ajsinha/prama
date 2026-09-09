@@ -115,7 +115,7 @@ class EvRecord(EvidenceBase, UlidPrimaryKey):
 
     __table_args__ = (
         CheckConstraint(
-            "verdict IN ('pass', 'fail', 'warn', 'error', 'skipped', 'unknown')",
+            "verdict IN ('pass', 'fail', 'error', 'skipped', 'indeterminate')",
             name="ck_ev_record_verdict",
         ),
         CheckConstraint(

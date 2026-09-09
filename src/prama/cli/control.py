@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any
 
 from prama.cli.base import EXIT_ERROR, EXIT_OK, EXIT_USAGE, Command, CommandContext, CommandGroup
+from prama.core.errors import PramaError
 from prama.importers import IMPORTERS, importer
 from prama.pql import parse
 from prama.pql.ast import Control
@@ -236,6 +237,7 @@ class ControlCommand(CommandGroup):
             ControlExplainCommand(),
             ControlFormatCommand(),
             ControlCompileCommand(),
+            ControlRunCommand(),
             ControlImportCommand(),
         ]
 
@@ -260,3 +262,93 @@ def _read(ctx: CommandContext) -> tuple[list[Control], str, int | None]:
 
 def _head(control: Control) -> str:
     return control.render().splitlines()[0]
+
+
+class ControlRunCommand(Command):
+    name = "run"
+    help = "execute the estate's live controls and record the evidence"
+
+    def configure(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("--tenant", default="", help="the estate to run")
+        parser.add_argument(
+            "--against",
+            required=True,
+            help="path to the DuckDB or SQLite file holding the data to check",
+        )
+        parser.add_argument(
+            "--dialect",
+            default="duckdb",
+            choices=["duckdb", "sqlite"],
+            help="which engine the SQL is compiled for",
+        )
+        parser.add_argument(
+            "--samples",
+            action="store_true",
+            help="keep failing rows as evidence (they become personal data on a clock)",
+        )
+
+    def run(self, ctx: CommandContext) -> int:
+        """Run every live control and write the results into the ledger.
+
+        Deliberately narrow: it takes a file, not a connection. The runner's
+        whole interface to a source is a callable that takes SQL and returns
+        rows, so pointing it at a warehouse is a matter of supplying a
+        different callable — and until the connector SPI exposes a query path,
+        pretending otherwise here would mean reaching into a connector's
+        private methods from the CLI.
+        """
+        import asyncio
+
+        from prama.connect.sources.query import executor_for
+        from prama.db import Database
+        from prama.execute import ControlRun
+
+        tenant = ctx.args.tenant or ctx.config.get_str("tenancy.default_tenant", "")
+        if not tenant:
+            raise PramaError(
+                "no tenant to run",
+                code="CLI.NO_TENANT",
+                remedy="Pass --tenant, or set tenancy.default_tenant.",
+            )
+        execute, close = executor_for(ctx.args.against, ctx.args.dialect)
+        database = Database.from_config(ctx.config)
+
+        async def go() -> Any:
+            await database.start()
+            try:
+                async with database.unit_of_work() as uow:
+                    return await ControlRun(
+                        uow,
+                        tenant,
+                        execute=execute,
+                        sample=execute if ctx.args.samples else None,
+                        engine=ctx.args.dialect,
+                        triggered_by="manual",
+                    ).execute_all()
+            finally:
+                await database.stop()
+                close()
+
+        report = asyncio.run(go())
+        if ctx.json_output:
+            ctx.emit_json(
+                {
+                    "run_id": report.run_id,
+                    "controls": len(report.outcomes),
+                    "executed": report.executed,
+                    "failed_to_run": report.failed_to_run,
+                    "verdicts": report.verdicts,
+                    "summary": report.describe(),
+                }
+            )
+            return EXIT_OK
+
+        ctx.emit(f"run {report.run_id}")
+        ctx.emit(f"  {report.describe()}")
+        for outcome in report.outcomes:
+            if not outcome.ran:
+                ctx.emit(f"  ! {outcome.record.dataset}: {outcome.error}")
+        # Non-zero when something did not run, so a scheduled invocation fails
+        # loudly rather than logging a green line over an estate that went
+        # unchecked.
+        return EXIT_ERROR if report.failed_to_run else EXIT_OK

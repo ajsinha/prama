@@ -31,7 +31,7 @@ from prama.web.routes.base import UiRoutes
 #: ``fail``: a control that could not run has no verdict, and a list of
 #: problems that quietly omitted it would report the controls that did run as
 #: though they were all of them.
-UNRESOLVED = ("fail", "warn", "error", "skipped", "unknown")
+UNRESOLVED = ("fail", "error", "skipped", "indeterminate")
 
 #: Where a record with no dimension of its own goes — one written before
 #: evidence format 1.1. Deliberately a real dimension rather than a synthetic
@@ -255,7 +255,7 @@ def _measurement(record: Any, dimension: str) -> Measurement:
     number.
     """
     scanned = int(record.metrics.get("scanned_rows", 0))
-    ran = record.verdict not in ("error", "skipped", "unknown") and scanned > 0
+    ran = record.verdict not in ("error", "skipped", "indeterminate") and scanned > 0
     return Measurement(
         control=record.control_id or record.plan_id,
         dimension=_dimension(dimension),

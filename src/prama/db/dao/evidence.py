@@ -305,7 +305,7 @@ class EvidenceDao(Dao[EvRecord]):
             select(EvRecord)
             .where(
                 EvRecord.tenant_id == tenant_id,
-                EvRecord.verdict.in_(("fail", "warn", "error", "skipped", "unknown")),
+                EvRecord.verdict.in_(("fail", "error", "skipped", "indeterminate")),
             )
             .order_by(EvRecord.finished_at.desc(), EvRecord.sequence.desc())
             .limit(limit)

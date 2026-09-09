@@ -763,8 +763,13 @@ CREATE TABLE IF NOT EXISTS ev_record (
     content_hash     VARCHAR(64)   NOT NULL,
     record_hash      VARCHAR(64)   NOT NULL,
     evidence_version VARCHAR(16)   NOT NULL DEFAULT '1.0',
+    -- These are prama.ir.Verdict and prama.execute.Coverage, and a test
+    -- asserts the constraints match the enums. A constraint that omits a
+    -- verdict the engine can produce rejects a perfectly ordinary result at
+    -- the worst moment: the run is over, the finding is real, and there is
+    -- nowhere to put it.
     CONSTRAINT ck_ev_record_verdict CHECK (verdict IN (
-        'pass', 'fail', 'warn', 'error', 'skipped', 'unknown')),
+        'pass', 'fail', 'error', 'skipped', 'indeterminate')),
     CONSTRAINT ck_ev_record_coverage CHECK (coverage IN (
         'full', 'incremental', 'forward_only'))
 );

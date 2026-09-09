@@ -270,11 +270,16 @@ class TestReading:
         quietly omitted it would report the controls that did run as though
         they were all of them."""
         async with started_database.unit_of_work() as uow:
-            for verdict in ("pass", "fail", "error", "skipped", "warn"):
+            for verdict in ("pass", "fail", "error", "skipped", "indeterminate"):
                 await uow.evidence.append(_record(verdict=verdict), tenant_id=tenant_id)
             failing = await uow.evidence.failing(tenant_id)
 
-        assert {record.verdict for record in failing} == {"fail", "error", "skipped", "warn"}
+        assert {record.verdict for record in failing} == {
+            "fail",
+            "error",
+            "skipped",
+            "indeterminate",
+        }
 
     async def test_latest_per_control_does_not_weight_by_schedule(
         self, started_database: Database, tenant_id: str
@@ -437,6 +442,49 @@ class TestSamples:
     ) -> None:
         async with started_database.unit_of_work() as uow:
             assert await uow.samples.forget("f" * 64) is False
+
+
+class TestTheSchemaAgreesWithTheEnums:
+    """Derive, never restate — checked, because this one was got wrong.
+
+    The verdict constraint was first written from memory and listed ``warn``
+    and ``unknown``, neither of which the engine produces, while omitting
+    ``indeterminate``, which it does. The result was an integrity error at the
+    end of a run: the finding was real, and there was nowhere to put it.
+    """
+
+    def test_every_verdict_the_engine_produces_is_accepted(self) -> None:
+        from pathlib import Path
+
+        from prama.ir import Verdict
+
+        schema = (Path(__file__).resolve().parents[2] / "schema" / "sqlite.sql").read_text()
+        clause = schema.split("ck_ev_record_verdict")[1].split("))")[0]
+        for verdict in Verdict:
+            assert f"'{verdict.value}'" in clause, verdict.value
+
+    def test_the_constraint_names_no_verdict_the_engine_cannot_produce(self) -> None:
+        """The other direction. A constraint accepting values nothing writes
+        is a constraint nobody has checked against the code."""
+        import re
+        from pathlib import Path
+
+        from prama.ir import Verdict
+
+        schema = (Path(__file__).resolve().parents[2] / "schema" / "sqlite.sql").read_text()
+        clause = schema.split("ck_ev_record_verdict")[1].split("))")[0]
+        listed = set(re.findall(r"'([a-z_]+)'", clause))
+        assert listed == {verdict.value for verdict in Verdict}
+
+    def test_every_coverage_width_is_accepted(self) -> None:
+        from pathlib import Path
+
+        from prama.execute import Coverage
+
+        schema = (Path(__file__).resolve().parents[2] / "schema" / "sqlite.sql").read_text()
+        clause = schema.split("ck_ev_record_coverage")[1].split("))")[0]
+        for coverage in Coverage:
+            assert f"'{coverage.value}'" in clause, coverage.value
 
 
 class TestTheDaoHasNoUpdatePath:
