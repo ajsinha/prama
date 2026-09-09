@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block title %}Controls — Prama{% endblock %}
+{% block heading %}The controls on this estate{% endblock %}
+
+{% macro control_table(versions, overdue, actions) %}
+<div class="table-responsive">
+  <table class="table table-sm align-middle">
+    <thead><tr>
+      <th scope="col">Dataset</th><th scope="col">What it checks</th>
+      <th scope="col">Severity</th><th scope="col">Origin</th>
+      <th scope="col"><span class="visually-hidden">Actions</span></th>
+    </tr></thead>
+    <tbody>
+      {% for version in versions %}
+      <tr>
+        <td class="fw-semibold">{{ version.dataset or '—' }}</td>
+        <td>
+          <code class="small">{{ version.pql | truncate(90) }}</code>
+          {% if version.is_silenced %}
+          <div class="small">
+            <span class="verdict verdict-stale">
+              silenced until {{ version.suppressed_until }} — {{ version.suppressed_because }}
+            </span>
+            {% if version.control_id in overdue %}
+            {# Not lifted automatically: turning it back on by itself would
+               surprise whoever silenced it. Naming it is the only honest
+               option, and it is how "temporary" stops becoming permanent. #}
+            <div class="verdict verdict-fail">
+              the suppression expired and nobody turned it back on
+            </div>
+            {% endif %}
+          </div>
+          {% endif %}
+          {% if not version.plan_id %}
+          <div class="small verdict verdict-warn">
+            parses but does not compile on this build — it will not run
+          </div>
+          {% endif %}
+        </td>
+        <td>
+          <span class="verdict verdict-{{ 'fail' if version.severity == 'critical' else 'warn' }}">
+            {{ version.severity }}</span>
+          {% for dimension in version.dimensions_json %}
+          <span class="dim dim-{{ dimension }}">{{ dimension }}</span>
+          {% endfor %}
+        </td>
+        <td class="small text-muted">
+          {{ version.origin }}{% if version.rule %} · <code>{{ version.rule }}</code>{% endif %}
+          {% if version.control_id in unreadable %}
+          {# A control whose schedule cannot be read will never run again, and
+             nothing else in the system says so. #}
+          <div class="verdict verdict-fail">{{ schedules[version.control_id] }}</div>
+          {% else %}
+          <div>{{ schedules[version.control_id] }}</div>
+          {% endif %}
+        </td>
+        <td class="text-end">
+          {% if 'activate' in actions %}
+          <form method="post" class="d-inline"
+                action="{{ url_for('control_activate', control_id=version.control_id) }}">
+            <button class="btn btn-sm btn-outline-success" type="submit">Start running it</button>
+          </form>
+          {% endif %}
+          {% if 'suppress' in actions %}
+          <button class="btn btn-sm btn-outline-secondary" type="button"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#silence-{{ version.control_id }}"
+                  aria-expanded="false">Silence</button>
+          {% endif %}
+        </td>
+      </tr>
+      {% if 'suppress' in actions %}
+      <tr class="collapse" id="silence-{{ version.control_id }}">
+        <td colspan="5">
+          <form method="post" class="row g-2 align-items-end"
+                action="{{ url_for('control_suppress', control_id=version.control_id) }}">
+            <div class="col-md-3">
+              <label class="form-label small" for="until-{{ version.control_id }}">
+                Running again on</label>
+              <input class="form-control form-control-sm" name="until" required
+                     id="until-{{ version.control_id }}" placeholder="2026-10-01T00:00:00Z">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small" for="because-{{ version.control_id }}">
+                Why</label>
+              <input class="form-control form-control-sm" name="because" required
+                     id="because-{{ version.control_id }}"
+                     placeholder="upstream migration until the new feed settles">
+            </div>
+            <div class="col-md-3">
+              <button class="btn btn-sm btn-outline-secondary" type="submit">Silence it</button>
+            </div>
+            {# Both required, by the schema as well as by this form. A control
+               muted with neither is one nobody turns back on, and the estate
+               stops checking something without anyone deciding to. #}
+            <div class="col-12 form-text">
+              Both are required. A control silenced with no date and no reason is one
+              nobody ever turns back on.
+            </div>
+          </form>
+        </td>
+      </tr>
+      {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endmacro %}
+
+{% block content %}
+<div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+  <a class="btn btn-primary btn-sm" href="{{ url_for('rule_builder') }}">
+    <i class="bi bi-ui-checks" aria-hidden="true"></i> Build a rule
+  </a>
+  <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('control_studio') }}">
+    <i class="bi bi-code-slash" aria-hidden="true"></i> Write PQL
+  </a>
+  <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('proposal_queue') }}">
+    <i class="bi bi-lightbulb" aria-hidden="true"></i> What your declarations imply
+  </a>
+</div>
+
+{# The grouping is the point. "We have 340 controls" is the number every tool of
+   this kind reports; how many are proposals nobody accepted, and how many were
+   silenced during an incident and never turned back on, is the number that
+   decides whether the estate is actually protected. #}
+<div class="row g-3 mb-3">
+  {% set summary = [
+      ('Running', live | length, 'verdict-pass'),
+      ('Proposed, not running', proposed | length, 'verdict-stale'),
+      ('Silenced', suppressed | length, 'verdict-warn'),
+      ('Retired', retired, 'text-muted')
+  ] %}
+  {% for label, value, tone in summary %}
+  <div class="col-6 col-lg-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="text-muted small text-uppercase">{{ label }}</div>
+      <div class="fs-3 fw-semibold {{ tone }}">{{ value }}</div>
+    </div></div>
+  </div>
+  {% endfor %}
+</div>
+
+{% if unreadable %}
+<div class="uncalibrated mb-3">
+  <strong>{{ unreadable | length }} control(s) have a schedule Prama cannot read.</strong>
+  They will never run again, and no verdict anywhere will say so — a control that
+  silently stops being scheduled is indistinguishable from one that is passing.
+</div>
+{% endif %}
+
+{% if overdue %}
+<div class="uncalibrated mb-3">
+  <strong>{{ overdue | length }} control(s) are still silent past the date they were
+  meant to resume.</strong>
+  Prama does not turn them back on by itself — that would surprise whoever silenced
+  them — but leaving it unsaid is how "temporary" becomes permanent.
+</div>
+{% endif %}
+
+<h2 class="h6 text-uppercase text-muted mt-4">Running</h2>
+{% if live %}
+  {{ control_table(live, overdue, ['suppress']) }}
+{% else %}
+<p class="text-muted">
+  Nothing is running. Controls exist as proposals until somebody accepts one —
+  an estate of proposals checks nothing.
+</p>
+{% endif %}
+
+{% if proposed %}
+<h2 class="h6 text-uppercase text-muted mt-4">
+  Proposed <span class="badge text-bg-secondary">{{ proposed | length }}</span>
+</h2>
+<p class="small text-muted">These are not running and are not protecting anything yet.</p>
+{{ control_table(proposed, overdue, ['activate']) }}
+{% endif %}
+
+{% if suppressed %}
+<h2 class="h6 text-uppercase text-muted mt-4">Silenced</h2>
+{{ control_table(suppressed, overdue, []) }}
+{% endif %}
+{% endblock %}

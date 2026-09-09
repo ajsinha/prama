@@ -1,0 +1,81 @@
+{% extends "_shell.html" %}
+
+{% block coverage_detail %}
+{% if unsatisfiable %}
+<p>
+  <strong>{{ unsatisfiable | length }} declaration(s) produced no control at all.</strong>
+  They are listed at the end of this document. Until they are resolved the datasets
+  concerned are not covered by anything in it.
+</p>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<h2 class="section">Controls</h2>
+{% for control in controls %}
+<div class="control">
+  <h3>{{ control.name }}</h3>
+  <p class="because">{{ control.description }}</p>
+
+  <pre>{{ control.pql }}</pre>
+
+  {% if control.metric_query %}
+  {# Included because the point of this document is that the platform is
+     inspectable rather than trusted. A reader who cannot see the query is being
+     asked to take the verdict on faith, which is the thing Prama exists to
+     stop doing. #}
+  <pre>{{ control.metric_query }}</pre>
+  {% endif %}
+
+  {% if control.residual_validators %}
+  <div class="incomplete-screen">
+    <strong>This query does not decide the control on its own.</strong>
+    It applies a screen — a necessary condition — and the rows that pass it must
+    still be checked exactly before a pass may be reported. The violation count it
+    produces is a lower bound.
+    <ul>
+      {% for residual in control.residual_validators %}
+      <li>{{ residual.validator }} on {{ residual.column }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <div class="provenance">
+    {% if control.plan_id %}<div>Plan {{ control.plan_id }}</div>{% endif %}
+    {% if control.dataset %}<div>On {{ control.dataset }}</div>{% endif %}
+  </div>
+</div>
+{% else %}
+<p class="stale">
+  No controls. That is not a clean bill of health — it means the declarations do not
+  yet say enough for any control to follow from them.
+</p>
+{% endfor %}
+
+{% if unsatisfiable %}
+<h2 class="section">Declared, but no control could be generated</h2>
+<p>
+  Each of these is a finding about the declaration, not about the data. Every tool of
+  this kind lists what it generated; this section lists what it declined to, because
+  without it the set above looks complete when it is not.
+</p>
+<table>
+  <thead>
+    <tr><th scope="col">Dataset</th><th scope="col">Rule</th><th scope="col">Why not</th></tr>
+  </thead>
+  <tbody>
+    {% for item in unsatisfiable %}
+    <tr>
+      <td>{{ item.dataset }}</td>
+      <td>{{ item.rule }}</td>
+      <td>
+        {{ item.reason }}
+        {% if item.declared %}<div>Declared: {{ item.declared }}</div>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

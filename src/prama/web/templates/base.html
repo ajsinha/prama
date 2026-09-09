@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+{# Rendered server-side from the cookie. The alternative — light markup that a
+   script repaints on load — flashes on every theme and is genuinely unusable
+   on the amber-on-black one, where the flash is a white screen. #}
+<html lang="en" data-theme="{{ theme }}" data-bs-theme="{{ theme_bases[theme] }}"
+      data-density="{{ density }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Prama{% endblock %}</title>
+
+  {# Everything vendored. Nothing is fetched at run time, so the UI renders
+     identically in an air-gapped deployment — not a nicety for the buyers this
+     is built for, a precondition. #}
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap/css/bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fonts/inter.css') }}">
+  {# themes.css first: it defines the tokens prama.css consumes. #}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/themes.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/prama.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  {# The cheapest accessibility win there is, and the one most often missing:
+     without it a keyboard user traverses the whole nav on every page. #}
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <nav class="navbar navbar-expand-lg navbar-prama" aria-label="Primary">
+    <div class="container-fluid">
+      <a class="navbar-brand fw-semibold" href="{{ url_for('estate_map') }}">
+        <i class="bi bi-diagram-3" aria-hidden="true"></i> Prama
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+              data-bs-target="#nav" aria-controls="nav" aria-expanded="false"
+              aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="nav">
+        <ul class="navbar-nav me-auto">
+          {% for item in nav %}
+          <li class="nav-item">
+            <a class="nav-link {% if item.active %}active{% endif %}" href="{{ item.href }}"
+               {% if item.active %}aria-current="page"{% endif %}>
+              <i class="bi {{ item.icon }}" aria-hidden="true"></i> {{ item.label }}
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+        <div class="d-flex align-items-center gap-2 flex-nowrap ms-auto">
+          {# The tagline used to sit here and printed itself over the theme
+             controls at 1440px. With eleven navigation items there is honestly
+             no room for it, and the fix is to remove it rather than to keep
+             finding a width where it just fits: the footer carries the product
+             line, and a navbar's job is navigation. #}
+          <button class="btn btn-sm btn-outline-light flex-shrink-0" id="density-toggle"
+                  aria-label="Toggle table density" title="Row density">
+            <i class="bi bi-list" aria-hidden="true"></i>
+          </button>
+          {# A picker rather than a light/dark toggle. Five themes is more than
+             a toggle can express, and each exists for a different reading
+             register — an academic print look, a retail-banking one, a trading
+             terminal — so the names matter as much as the colours. #}
+          <label class="visually-hidden" for="theme-select">Theme</label>
+          <select class="form-select form-select-sm" id="theme-select">
+            {% for theme in themes %}
+            <option value="{{ theme.name }}" title="{{ theme.note }}">{{ theme.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main id="main" class="container-fluid py-4">
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div class="alert alert-{{ {'error': 'danger', 'warning': 'warning', 'success': 'success'}.get(category, 'info') }} alert-dismissible fade show"
+         role="alert">
+      {{ message }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Dismiss"></button>
+    </div>
+    {% endfor %}
+
+    {% block breadcrumb %}{% endblock %}
+    {% if self.heading() | trim %}<h1 class="h4 mb-3">{% block heading %}{% endblock %}</h1>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="container-fluid py-3 small text-muted border-top">
+    Prama {{ app_version }} · evidence, not assertion
+  </footer>
+
+  {# A live region for anything jQuery updates asynchronously. Without it a
+     screen-reader user gets a silently changed page, which is the commonest way
+     an otherwise-accessible app becomes unusable. #}
+  <div id="announcer" class="visually-hidden" role="status" aria-live="polite"></div>
+
+  <script>window.pramaThemeBases = {{ theme_bases | tojson }};</script>
+  <script src="{{ url_for('static', filename='vendor/jquery/jquery.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/prama.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

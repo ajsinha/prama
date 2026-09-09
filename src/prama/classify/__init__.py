@@ -5,6 +5,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from prama.classify.codelists import REGISTRY as CODELISTS
 from prama.classify.codelists import CodeList, CodeListRegistry, CodeListVersion
+from prama.classify.plugins import PLUGINS, PluginRegistry, scan_source
 from prama.classify.semantic import (
     NAME_HINTS,
     SENSITIVE_TYPES,
@@ -30,6 +31,7 @@ from prama.classify.validators import (
 __all__ = [
     "CODELISTS",
     "NAME_HINTS",
+    "PLUGINS",
     "SENSITIVE_TYPES",
     "VALIDATORS",
     "Classification",
@@ -44,9 +46,11 @@ __all__ = [
     "Judgement",
     "NoClassification",
     "PatternValidator",
+    "PluginRegistry",
     "SemanticAdjudicator",
     "SemanticClassifier",
     "SemanticValidator",
     "Stage",
     "ValidatorRegistry",
+    "scan_source",
 ]

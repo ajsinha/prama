@@ -1,0 +1,26 @@
+{% if error %}
+<div class="alert alert-warning">
+  <strong>{{ error.message }}</strong>
+  {% if error.remedy %}<div class="small mt-1">{{ error.remedy }}</div>{% endif %}
+</div>
+{% else %}
+<div class="card mb-3">
+  <div class="card-body">
+    <h2 class="h6 text-uppercase text-muted">What this control says</h2>
+    {# From the lowered plan, the same structure the SQL comes from — so the
+       sentence and the query cannot describe different controls. #}
+    <p class="mb-0">{{ sentence }}</p>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <h2 class="h6 text-uppercase text-muted">The control, as PQL</h2>
+    <pre class="rounded small mb-2"><code class="language-sql">{{ pql }}</code></pre>
+    <p class="small text-muted mb-0">
+      Copy this into a suite file, or paste it into the studio to compile it and see
+      the SQL that will run.
+    </p>
+  </div>
+</div>
+{% endif %}

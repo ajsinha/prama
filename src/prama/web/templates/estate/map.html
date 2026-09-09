@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Estate — Prama{% endblock %}
+{% block heading %}The estate, as the business describes it{% endblock %}
+
+{% block content %}
+<div class="row g-3 mb-3">
+  {% set cards = [
+      ('Datasets declared', total, 'bi-boxes', ''),
+      ('Not connected', unbound, 'bi-plug', 'text-warning'),
+      ('Incomplete declarations', incomplete, 'bi-exclamation-circle', 'text-warning'),
+      ('Tier 1 · regulatory', tier_one, 'bi-shield-exclamation', 'text-danger')
+  ] %}
+  {% for label, value, icon, tone in cards %}
+  <div class="col-6 col-lg-3">
+    <div class="card h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">{{ label }}</div>
+        <div class="fs-3 fw-semibold {{ tone }}">
+          <i class="bi {{ icon }}" aria-hidden="true"></i> {{ value }}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{# The counts above are not a summary of the map — they are the reason to look
+   at it. "Not connected" is a first-class state, not an error: it is the gap
+   between what the business says exists and what Prama can reach, and no
+   crawler can produce that number at all. #}
+
+<div class="card mb-3">
+  <div class="card-body d-flex flex-wrap gap-2 align-items-center">
+    <label class="form-label mb-0 me-2" for="map-search">Find</label>
+    <input type="search" id="map-search" class="form-control form-control-sm w-auto"
+           placeholder="dataset name" aria-describedby="map-search-help">
+    <span id="map-search-help" class="visually-hidden">
+      Filters the map to datasets whose name contains what you type.
+    </span>
+    <div class="btn-group btn-group-sm ms-auto" role="group" aria-label="Highlight">
+      <button class="btn btn-outline-secondary active" data-highlight="none">All</button>
+      <button class="btn btn-outline-secondary" data-highlight="unbound">Not connected</button>
+      <button class="btn btn-outline-secondary" data-highlight="incomplete">Incomplete</button>
+    </div>
+    <div class="form-check form-switch ms-2">
+      <input class="form-check-input" type="checkbox" id="declare-mode">
+      <label class="form-check-label small" for="declare-mode">Relate two datasets</label>
+    </div>
+    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('estate_gaps') }}">
+      <i class="bi bi-list-check" aria-hidden="true"></i> Coverage gaps
+    </a>
+  </div>
+</div>
+
+<div id="estate-map" role="img"
+     aria-label="Estate map. Every dataset is also listed in the table below this map."></div>
+<p id="map-status" class="small text-muted mt-2" role="status">Loading the estate…</p>
+
+{# Drag-to-declare, done as pick-then-pick. A true drag gesture has no keyboard
+   equivalent at all, and the same two clicks work with a mouse, a touch screen
+   and a screen reader. The table below offers the identical action per row, so
+   the map is the better story and the table is the better tool for finding one
+   dataset among two thousand — neither is the other's fallback. #}
+<div id="declare-tray" class="card mt-2" hidden>
+  <div class="card-body py-2 d-flex flex-wrap gap-2 align-items-center">
+    <span class="small">Relating <strong id="declare-source">—</strong>
+      to <strong id="declare-target">—</strong></span>
+    <a class="btn btn-sm btn-primary ms-auto disabled" id="declare-go"
+       href="{{ url_for('relationship_form') }}">Say what is true of them</a>
+    <button class="btn btn-sm btn-link" id="declare-clear" type="button">Clear</button>
+  </div>
+</div>
+
+{# The map is a picture, and a picture is not an interface. Everything on it is
+   also here, keyboard-reachable and screen-reader-readable — not as a fallback
+   for a broken canvas, but because a graph of two thousand nodes is a worse way
+   to find a named dataset than a sorted list is, for everyone. #}
+<details class="mt-3" id="map-table">
+  <summary class="fw-semibold">Every dataset on this map, as a list</summary>
+  <div class="table-responsive mt-2">
+    <table class="table table-sm align-middle">
+      <thead>
+        <tr><th scope="col">Dataset</th><th scope="col">Shape</th>
+            <th scope="col">Tier</th><th scope="col">State</th>
+            <th scope="col"><span class="visually-hidden">Relate</span></th></tr>
+      </thead>
+      <tbody id="map-rows"><tr><td colspan="5" class="text-muted">Loading…</td></tr></tbody>
+    </table>
+  </div>
+</details>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/graphology/graphology.umd.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/sigma/sigma.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/estate-map.js') }}"></script>
+<script>
+  window.pramaEstateMap({
+    graph: {{ url_for('estate_graph') | tojson }},
+    detail: {{ url_for('dataset_detail', dataset_id='__ID__') | tojson }},
+    relate: {{ url_for('relationship_form') | tojson }}
+  });
+</script>
+{% endblock %}

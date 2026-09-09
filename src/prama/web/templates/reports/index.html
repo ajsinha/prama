@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Reports — Prama{% endblock %}
+{% block heading %}Documents that leave the building{% endblock %}
+
+{% block content %}
+<p class="text-muted">
+  A screen is read by someone who can click into it. A pack is read by an auditor
+  six months later with nothing but the paper, so each of these carries what it
+  covers, what it was generated from, and what it does <em>not</em> cover.
+</p>
+
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <h2 class="h6">Declaration pack</h2>
+        <p class="small text-muted">
+          What the business says its data is — including the {{ declared }} declared
+          datasets nobody has connected to yet. A physical-first tool cannot produce
+          this document at all, because it only knows what it managed to crawl.
+        </p>
+        <a class="btn btn-sm btn-primary" href="{{ url_for('report_declarations') }}"
+           target="_blank" rel="noopener">Open</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <h2 class="h6">Control pack</h2>
+        <p class="small text-muted">
+          Every control, why it exists, and the SQL it becomes — plus the declarations
+          from which no control could be generated, so the set above cannot look
+          complete when it is not.
+        </p>
+        <a class="btn btn-sm btn-primary" href="{{ url_for('report_controls') }}"
+           target="_blank" rel="noopener">Open</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Stated rather than discovered. WeasyPrint and its relatives pull in cairo,
+   pango and their system packages — a serious dependency for an on-premises
+   install, for a job the browser already does correctly. #}
+<div class="uncalibrated mt-3">
+  These open as print-ready documents. Use your browser's <strong>Print → Save as PDF</strong>
+  to file one. Prama does not bundle a PDF engine: adding one would mean native
+  graphics libraries in every on-premises install for something the browser already
+  does correctly.
+</div>
+{% endblock %}

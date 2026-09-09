@@ -330,6 +330,111 @@ release (`NFR-TST-002`, `NFR-POR-003`).
 
 ---
 
+## 7a. The expression layer — formulas and function calls
+
+> Implemented in Wave 11. `prama.pql.functions` (the catalogue), `prama.pql.library`
+> (what ships), `prama.pql.excel` (the surface), `prama.classify.plugins` (third-party
+> validators).
+
+### 7a.1 The function catalogue
+
+Every function the language has is **declared once**, carrying its per-engine lowering,
+its reference implementation, its unknown-propagation rule, its pushdown requirement and
+its stated divergence from a spreadsheet. Three rules follow, and each is enforced by
+test rather than convention:
+
+| Rule | Why |
+|---|---|
+| **No function without a reference implementation.** | It is a required field, so one cannot be added without it. A corpus then runs every function's SQL against its own reference implementation and requires agreement. |
+| **A function an engine cannot express is refused.** | Never approximated. The same control would otherwise mean two things on two engines, and nothing would notice. |
+| **A function that cannot replay does not exist.** | `NOW`, `TODAY`, `RAND`, `INDIRECT`, `OFFSET` are refused by name. Evidence that cannot be re-derived is not evidence. |
+
+Before the catalogue, an unrecognised name passed straight through to SQL — `NONSENSE_FN(b)`
+parsed, lowered, received a plan id and compiled to `WHERE (NONSENSE_FN("b") > 1)` — while
+the reference interpreter returned `UNKNOWN` for the same expression. **The compiler and the
+independent check that exists to catch the compiler being wrong disagreed silently.**
+
+### 7a.2 The Excel-familiar surface
+
+```pql
+CHECK trade_blotter
+  SATISFIES EXCEL '=AND([quantity] > 0, [notional] = [quantity] * [price])'
+  SEVERITY critical DIMENSION consistency
+  BECAUSE 'the notional is the quantity times the price'
+```
+
+`EXCEL` is an explicit marker, not a sniffed one: `=` means equality in a formula and nothing
+in PQL, and a parser guessing between the two would occasionally guess wrong on a control that
+then means something its author did not write. What it produces is an ordinary
+`ExpressionAssertion` over the **same** AST — there is no Excel IR, no Excel evaluator and no
+Excel path in the compiler. The formula as typed is kept on the assertion so
+`parse(render(x)) == x` holds for both surfaces.
+
+Columns are `[bracketed]` or bare. There are no `A1` references: this is a formula over a named
+dataset, not a grid.
+
+### 7a.3 Familiarity, never compatibility
+
+Saying "we accept Excel formulas" makes every reader expect `VLOOKUP`, `IFERROR` and
+`"1" + 1 = 2`. The moment one behaves differently — silently — the trust the product is built
+on is gone. So the differences are **declared on the function** and printed by
+`control explain`:
+
+| Prama | Excel | Why |
+|---|---|---|
+| No implicit coercion; `TRUE` is not `1` | `"1" + 1 = 2`, `TRUE + 1 = 2` | A control that silently reinterprets its data has a verdict nobody can reason about |
+| A blank is `UNKNOWN`, and unknown is a **violation** | Blank is `0` in arithmetic, `""` in concatenation | The inversion of SQL's default that the whole language rests on |
+| No error values; `IFERROR` does not exist | `#DIV/0!`, `#VALUE!` propagate by their own rules | A failed computation is UNKNOWN, which is a violation rather than something to swallow |
+| `IF` with an undetermined condition is undetermined | Takes the FALSE branch | Choosing a branch invents an answer, and the branch it invents is the one that passes |
+| `ISBLANK("")` is true | False for a cell holding an empty string | In a database an empty string and a NULL are the same defect wearing two hats |
+| `ROUND` is half away from zero, on an exact type | Half away from zero, on a float | A settlement system rounds this way. Several engines default to half-to-even |
+| Dates are ISO-8601 text | Serial numbers, with the 1900 leap-year bug | No serial number, no bug, and no arithmetic on dates that silently means days |
+| `^` is refused | Exponentiation | The engines disagree about precision and about a fractional exponent of a negative |
+| `MIN`/`MAX` of an unknown is unknown | Ranges skip blanks | Skipping a missing value makes a minimum a statement about the rows that happened to be populated |
+
+**`ROUND` is refused on SQLite.** SQLite has no exact numeric type — every number is a double,
+so `2.675` is already `2.67499…` before `ROUND` sees it and no template can recover the intended
+value. A penny is exactly the size of error a hash total exists to detect.
+
+### 7a.4 Performance is pushdown, not parsing
+
+Parsing is never the bottleneck: a control is parsed once and content-addressed, and the plan is
+cached by hash. The decision that matters is whether an expression **compiles to SQL that runs
+inside the engine** or falls back to row-by-row evaluation — a hundredfold difference on the
+scans these run against. The catalogue exists so that the common functions push down and the
+fallback is loud.
+
+### 7a.5 Third-party validators, not arbitrary code
+
+There is deliberately **no `PYTHON("…")` escape hatch**. It would break replay (arbitrary code
+can read a clock), break versioning (the code is part of a control's meaning and not of its
+hash), remove the reference interpreter's ability to check the compiler, and become the place
+every hard control goes until the declarative core is decoration around a pile of Python.
+
+What is supported is what already worked: a `SemanticValidator` with a SQL **screen** and a
+Python **residual**, which is how `ISIN` and `LEI` have always been checked. The PQL surface does
+not change — `IS VALID 'my_scheme'` — and a distribution advertises one through the
+`prama.validators` entry point.
+
+The contract is enforced, not documented:
+
+- **Purity.** No clock, no network, no filesystem, no model. Checked by scanning the module's
+  source — *before it is imported*, because importing runs its top-level code, so a gate that had
+  to import the thing it was gating would already have run it.
+- **Determinism.** Run twice on the same probes, including an empty string, and required to give
+  the same answer. A validator that raises on a blank raises on the first blank in production.
+- **Identity.** A hash of the implementation is folded into the plan id of every control that
+  names it, so editing a validator changes the control's identity rather than silently changing
+  what last month's evidence meant.
+- **`CON-007`.** A plugin importing a model client is refused: a model output would otherwise
+  determine a pass or fail verdict on data.
+
+A Python check is a **residual over rows a screen has already narrowed**, never a scan. A per-row
+Python predicate over a billion rows is not viable, and making that structural rather than
+advisory is what keeps the design honest.
+
+---
+
 ## 8. Escape hatches, contained
 
 ```pql

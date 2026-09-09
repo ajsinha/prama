@@ -648,26 +648,79 @@ semantic layer stops being a theory.
 
 | Module | Contents | Requirements |
 |---|---|---|
-| `prama-web/design` | Design system on Radix + Tailwind, six-dimension palette, WCAG 2.2 AA from the first component, light/dark, density modes | `NFR-USA-003`, `008` |
-| `prama-web/estate` | **Estate map**: WebGL graph, overlays, drag-to-declare relationships | `FR-MET-100`…`102`, `NFR-SCA-011` |
-| `prama-web/declare` | Dataset in ≤ 5 min, relationship by drawing, attribute interpretation, propose-and-confirm everywhere | `NFR-OPS-003` |
-| `prama-web/studio` | No-code builder, CodeMirror PQL editor with LSP, live preview, backtest, cost | `FR-UIX-002`…`004` |
-| `prama-web/proposals` | Review queue with evidence, backtest, expected alert volume; batch approve | `FR-IND-007` |
-| `prama-web/incidents` | Keyboard-first one-screen triage, batch disposition | `FR-UIX-006` |
-| `prama-web/recon` | Side-by-side break workbench, grouping, certificate sign-off | `FR-REC-008` |
-| `prama-web/scorecards` | Drill-down to evidence; attestation with e-signature and seal | `FR-SCR-007`, `008` |
+| `prama.web/design` | Design tokens on Bootstrap 5 + CSS custom properties, six-dimension palette, WCAG 2.2 AA, light/dark, density modes | `NFR-USA-003`, `008` |
+| `prama.web/estate` | **Estate map**: Sigma.js WebGL graph, overlays, Cytoscape drag-to-declare canvas | `FR-MET-100`…`102`, `NFR-SCA-011` |
+| `prama.web/declare` | Dataset in ≤ 5 min, relationship by drawing, attribute interpretation, propose-and-confirm everywhere | `NFR-OPS-003` |
+| `prama.web/studio` | No-code builder, CodeMirror 6 PQL editor with LSP, live preview over SSE, backtest, cost | `FR-UIX-002`…`004` |
+| `prama.web/proposals` | Review queue with evidence, backtest, expected alert volume; batch approve | `FR-IND-007` |
+| `prama.web/incidents` | Keyboard-first one-screen triage, batch disposition | `FR-UIX-006` |
+| `prama.web/recon` | Side-by-side break workbench, grouping, certificate sign-off | `FR-REC-008` |
+| `prama.web/scorecards` | Drill-down to evidence; attestation with e-signature and seal | `FR-SCR-007`, `008` |
 | `prama.assistant` | Conversational agent: contextual panel, workspace, Slack/Teams | `FR-CHT-001`…`017` |
 | `prama.mcp` | MCP server, read and propose tools only by default | `FR-EXT-008` |
 | `prama.report.render` | Jinja-rendered PDF and print artefacts | `FR-SCR-009` |
 
 ### Tasks
 
-W9.1 design system and tokens · W9.2 estate map with WebGL rendering · W9.3 drag-to-declare canvas ·
-W9.4 declaration flows with inferred-then-confirmed defaults · W9.5 no-code rule builder ·
-W9.6 PQL editor and LSP integration · W9.7 live preview and backtest · W9.8 proposal review queue ·
-W9.9 incident triage workspace · W9.10 reconciliation workbench · W9.11 scorecards and drill-down ·
-W9.12 attestation and e-signature · W9.13 **assistant with the full safety contract** · W9.14 MCP
-server · W9.15 print/PDF rendering · W9.16 accessibility audit · W9.17 usability study.
+W9.1 ✅ design tokens and the Jinja app shell · W9.2 ✅ estate map with Sigma.js WebGL rendering ·
+W9.3 ✅ drag-to-declare canvas ·
+W9.4 ◐ declaration flows with inferred-then-confirmed defaults · W9.5 ✅ no-code rule builder ·
+W9.6 ◐ CodeMirror PQL editor and LSP integration · W9.7 live preview and backtest over SSE ·
+W9.8 ✅ proposal review queue ·
+W9.9 ◐ incident triage workspace · W9.10 ◐ reconciliation workbench · W9.11 ◐ scorecards and drill-down ·
+W9.12 attestation and e-signature · W9.13 ✅ **assistant with the full safety contract** · W9.14 ✅ MCP
+server · W9.15 ✅ print rendering · W9.16 ◐ accessibility audit · W9.17 usability study.
+
+### Where the console stands
+
+Built on the reversed stack: Jinja on FastAPI, Bootstrap 5, jQuery, everything vendored, mounted
+onto the same application as the API so the two cannot disagree about the database, the
+configuration or the error taxonomy.
+
+| Done | Not done |
+|---|---|
+| Design tokens: the six-dimension palette, light/dark, comfortable/compact density, Unverified Grey reserved | The chart primitives — server-rendered SVG in Python, which doubles as the PDF renderer |
+| App shell: nav that marks where you are, skip link, live region, flash | Sign-in; the caller comes from `tenancy.default_tenant` until Wave 10 |
+| Estate map on Sigma/WebGL over graphology, with the same nodes in a keyboard-reachable table | Cytoscape drag-to-declare (W9.3) |
+| Dataset page naming the *control* each gap costs, not the null column | Attribute editing and relationship drawing |
+| Declaration list and form, organised around questions, approval requirement derived from `ApprovalPolicy` | Inferred-then-confirmed defaults from profiling (W9.4) |
+| Control studio: CodeMirror 5, check/explain/compile, residual disclosure on the SQL | LSP, live preview and backtest over SSE (W9.6, W9.7) |
+| The no-code builder: eight rules in business terms, always showing the PQL it wrote, refusing to emit anything that will not re-read | More rule shapes — functional dependency, cross-dataset comparison |
+| Relationships end to end: declare, confirm, reject; pick-then-pick on the map | Attribute-level relationship editing |
+| Charts as server-rendered SVG (`prama.report`), one renderer for screen and print | Wiring them into scorecards, which have no measurements to draw |
+| Contrast measured, not eyeballed; text-safe dimension tokens derived from the brand hues | `axe-core` in a browser (W9.16) — computed contrast, focus order, ARIA validity |
+| Print artefacts: declaration pack and control pack, self-contained, coverage stated on every one | The attestation pack, which needs evidence and a signature |
+| `prama mcp` — the MCP server on the assistant's own registry, fenced and scanned | Streamable-HTTP transport; stdio only for now |
+| Proposal queue with accept and reject, `Unsatisfiable` first, rejections recorded so nothing is re-proposed | Batch approve; backtest and expected alert volume beside each proposal |
+| **The evidence ledger, persisted** — hash-chained, append-only, erasure without breaking the chain, verification on a screen | Retention tiering and WORM export wired to the persisted store |
+| **Controls, persisted** — bitemporal, idempotent by identity, everything derived from the PQL, suppression that needs an expiry and a reason | A scheduler that runs them; nothing executes on its own yet |
+| Incidents, reconciliation and scorecards reading real evidence | Sample drill-down; the side-by-side break workbench |
+
+**The honest limit of this wave.** Controls are stored and evidence is stored, and *nothing runs
+them*. There is no scheduler wired to the persisted estate, so every screen above reads evidence
+that arrived some other way. What those screens will not do is render an empty list as a clean one,
+which is the single most dangerous screen a data quality product can ship.
+
+**Evidence format 1.1.** The record now carries the control's dimensions and the tier it ran under.
+`content()` hashes the fields the record's *own* version defines, so a 1.0 chain still verifies
+against a 1.1 build — emitting a new field unconditionally would break every hash after the first
+and present as an estate-wide tampering alert the morning after a deploy.
+
+**No PDF engine, deliberately.** WeasyPrint and its relatives pull in cairo, pango and their system
+packages, which is a serious dependency to add to every on-premises install for a job the browser
+already does correctly. The packs are self-contained print-ready HTML and the console says so;
+Print → Save as PDF, or a headless Chrome in the deployment, produces the file.
+
+**No MCP SDK, deliberately.** `prama.mcp` implements JSON-RPC 2.0 over stdio directly, in about two
+hundred lines, because every transitive dependency is a question someone has to answer in an
+air-gapped estate. The cost: when MCP's schema moves, this moves by hand. The protocol version is a
+pinned constant, reported in the handshake.
+
+**A defect the console surfaced, recorded here because it is not a UI defect.**
+`Threshold.render()` drops the comparator for a rate — `BELOW 0.5%` — so a threshold built with
+`<` renders identically to one built with `<=` and re-reads as `<=`. No parsed control can reach
+it, because the parser only ever produces `<=`; anything constructing a rate threshold
+programmatically can. Found by the rule builder's `parse(render(c)) == c` guard.
 
 ### Acceptance criteria
 
@@ -682,8 +735,94 @@ server · W9.15 print/PDF rendering · W9.16 accessibility audit · W9.17 usabil
 **Demo.** A business owner who has never seen the product declares a dataset, draws a relationship,
 approves the generated controls, and asks the assistant why last night's feed was late.
 
-**Wave risks.** The largest single engineering line item (docs/18 §4). Scope discipline matters more
-here than anywhere: every screen not on the list above is a screen not built.
+**Wave risks.** Reversing DEC-18 (docs/18 §4) removes the largest single engineering line item and
+adds two smaller ones: keyboard-first batch triage and rich selection state are hand-written rather
+than inherited from a component library, and the accessibility guarantee is held by `axe-core` in CI
+rather than by a component contract. Scope discipline still matters more here than anywhere: every
+screen not on the list above is a screen not built.
+
+---
+
+## Wave 11 — The expression layer
+
+**Objective.** A business owner writes the expression they would have written in a
+spreadsheet, and it compiles to pushed-down SQL that means exactly one thing on every engine.
+
+**Depends on** Wave 4 (PQL, IR, the conformance suite). **Enables** the controls that today get
+written as SQL by somebody else, or not at all.
+
+### Why this wave exists
+
+Two requests keep arriving and they are the same request: *"can I write a formula?"* and *"can I
+call my own code?"*. Both are asking for expressiveness the declarative core does not have, and
+both have an easy answer that would destroy the product's guarantees.
+
+The easy answer to the first is "we accept Excel formulas". Excel's syntax is a weekend of work;
+Excel's *semantics* contradict Prama at half a dozen points — `"1" + 1 = 2`, a blank is `0` in
+arithmetic and `""` in concatenation, `#DIV/0!` propagates differently from `NULL`, money is a
+float, dates are serial numbers with a 1900 leap-year bug, and `NOW()` makes a plan unreplayable.
+Adopting them wholesale would mean the same control giving two answers and nothing noticing.
+
+The easy answer to the second is a `PYTHON("…")` escape hatch. It breaks replay (arbitrary code can
+read a clock), breaks versioning (the code is part of the control's meaning and not part of its
+hash), removes the reference interpreter's ability to check the compiler, and becomes the place
+every hard control goes — so in two years the semantic layer is decoration around a pile of Python.
+
+So this wave does neither. It claims Excel **familiarity**, never Excel **compatibility**, and it
+widens the *validator catalogue* rather than the language.
+
+### The hole this closes first
+
+Today an unknown function name passes straight through to SQL. `NONSENSE_FN(b)` parses, lowers,
+receives a plan id, and compiles to `WHERE (NONSENSE_FN("b") > 1)`. Meanwhile the reference
+interpreter returns `UNKNOWN` for any function it does not recognise. **The compiler and its
+independent check silently disagree**, which is precisely the condition the conformance suite
+exists to make impossible. There is no function catalogue at all.
+
+### Deliverables
+
+| Module | Contents | Requirements |
+|---|---|---|
+| `prama.pql.functions` | The function catalogue: one declaration per function carrying its per-dialect lowering, its reference implementation, its unknown-propagation rule, its pushdown requirement and its stated divergence from Excel | `FR-RUL-*`, `CON-004` |
+| `prama.pql.excel` | Excel-familiar surface: a hand-written precedence-climbing parser producing the **same** `ast.Expression` tree. No second IR, no second evaluator | `FR-UIX-002` |
+| `prama.classify.plugins` | Third-party `SemanticValidator` registration by entry point, with purity enforced by import scanning and the implementation's content hash folded into the plan id | `FR-EXT-*`, `NFR-SEC-*` |
+| `bench/expressions` | Pushdown coverage and throughput: which functions compile to SQL and which fall back | `NFR-PER-*` |
+
+### Tasks
+
+W11.1 function catalogue and registry · W11.2 type-check function calls, refusing unknown names ·
+W11.3 lowering refuses what the catalogue does not hold · W11.4 per-dialect rendering from the
+catalogue · W11.5 reference implementation for **every** function, no exceptions ·
+W11.6 **function conformance corpus** — every function's SQL and its reference implementation give
+the same answer on the same inputs, on every engine · W11.7 Excel front end (Pratt parser) ·
+W11.8 `SATISFIES EXCEL '…'` surface · W11.9 divergence notes rendered by `control explain` ·
+W11.10 volatile functions refused by name · W11.11 validator plugin registry ·
+W11.12 purity enforcement and implementation hashing · W11.13 pushdown coverage benchmark.
+
+### Acceptance criteria
+
+- [ ] **No function exists without both a lowering and a reference implementation.** Enforced by
+      test, not convention.
+- [ ] Every catalogued function agrees between SQL and the reference interpreter on the conformance
+      corpus, on every engine that claims it.
+- [ ] An unknown function name is refused at type-check time, naming the ones that exist.
+- [ ] A function an engine cannot express is **refused**, never approximated.
+- [ ] Every divergence from Excel is declared on the function and printed by `control explain`.
+- [ ] A volatile function (`NOW`, `RAND`, `INDIRECT`) is refused with the reason: a control must
+      replay.
+- [ ] A validator plugin's implementation hash is part of the plan id: editing the code changes the
+      control's identity rather than silently changing what past evidence meant.
+- [ ] A plugin that imports a clock, a socket or a model is refused at registration.
+- [ ] ≥ 90% of the catalogue pushes down on PostgreSQL and DuckDB.
+
+**Demo.** A business owner writes `SATISFIES EXCEL '=AND([quantity]>0, [notional]=[quantity]*[price])'`,
+sees the SQL it becomes, and sees the one place it differs from what Excel would do — stated on the
+control rather than discovered in production.
+
+**Wave risks.** The temptation to add "just one more" Excel function without a reference
+implementation, which is how the compiler and its independent check drift apart. The mitigation is
+structural: the catalogue makes the reference implementation a required field, so a function
+without one does not exist.
 
 ---
 

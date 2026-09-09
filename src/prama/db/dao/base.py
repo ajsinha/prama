@@ -30,12 +30,17 @@ from typing import Any, Generic, TypeVar
 
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import DeclarativeBase
 
 from prama.core.errors import NotFoundError
 from prama.db.dialects import Dialect
-from prama.db.models import Base
 
-M = TypeVar("M", bound=Base)
+#: Bound to ``DeclarativeBase`` rather than to ``Base``, because there are two
+#: declarative bases: the platform's and the evidence ledger's. The split is
+#: what keeps a platform operation from reaching the ledger, and binding this
+#: TypeVar to one of them would have forced the evidence DAOs to sit outside
+#: the layer that translates errors and owns the session.
+M = TypeVar("M", bound=DeclarativeBase)
 
 
 class Dao(Generic[M]):

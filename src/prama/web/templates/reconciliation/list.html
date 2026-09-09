@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Reconciliation — Prama{% endblock %}
+{% block heading %}Reconciliation{% endblock %}
+{% block content %}
+{% include "_observation.html" %}
+
+{% if reconciliations %}
+<div class="table-responsive">
+  <table class="table align-middle">
+    <thead><tr>
+      <th scope="col">Dataset</th><th scope="col">Match rate</th>
+      <th scope="col">Breaks</th><th scope="col">Rows compared</th><th scope="col">When</th>
+    </tr></thead>
+    <tbody>
+      {% for run in reconciliations %}
+      <tr>
+        <td class="fw-semibold">{{ run.dataset or run.control_id }}</td>
+        <td>
+          {% if run.match_rate is none %}
+          {# Not 0%. A reconciliation over no rows scored as a total failure is
+             a false alarm; it is not a measurement at all. #}
+          <span class="verdict verdict-stale">nothing compared</span>
+          {% else %}
+          {{ run.match_rate | rate(2) }}
+          {% endif %}
+        </td>
+        <td>{{ '{:,}'.format(run.breaks) }}</td>
+        <td>{{ '{:,}'.format(run.scanned) }}</td>
+        <td class="small text-muted">{{ run.finished_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% elif observation.state == 'observed' %}
+<p class="text-muted">
+  Controls have run, but none of them was a reconciliation. Declare a
+  <a href="{{ url_for('relationship_form') }}">reconciles-with relationship</a> between two
+  datasets and one will be generated.
+</p>
+{% endif %}
+{% endblock %}

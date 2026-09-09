@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Coverage gaps — Prama{% endblock %}
+{% block heading %}What the estate cannot answer for{% endblock %}
+
+{% block content %}
+<p class="text-muted">
+  Every entry here is something the business declared and Prama cannot act on.
+  The list is produced from declarations, so it includes things no crawler would
+  ever see — that is the point of it.
+</p>
+
+{% if gaps %}
+  {% for category, items in gaps.items() %}
+  <div class="card mb-3">
+    <div class="card-body">
+      <h2 class="h6 text-uppercase text-muted">
+        {{ category.replace('_', ' ') }}
+        <span class="badge text-bg-secondary">{{ items | length }}</span>
+      </h2>
+      {% if items %}
+      <ul class="mb-0 columns-2">
+        {% for item in items %}<li>{{ item }}</li>{% endfor %}
+      </ul>
+      {% else %}
+      <p class="verdict verdict-pass mb-0">None.</p>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+<p class="verdict verdict-pass">No gaps reported.</p>
+{% endif %}
+{% endblock %}

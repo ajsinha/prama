@@ -20,6 +20,12 @@ dependencies = [
     "pydantic>=2.9",
     "pyarrow>=17",
     "duckdb>=1.1",
+    # The console: server-rendered Jinja, session cookies signed by
+    # itsdangerous. Not optional, because a control plane whose users are
+    # business owners is not usefully deployable headless.
+    "jinja2>=3.1",
+    "itsdangerous>=2.2",
+    "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]
@@ -44,6 +50,23 @@ version = { attr = "prama.version.VERSION" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+# The console's templates and vendored assets are part of the package, not
+# build output. Without this an installed wheel serves an application whose
+# every page 500s on a missing template — and it passes every test run from a
+# source checkout, where the files are simply there.
+"prama.report" = [
+    "templates/*.html",
+    "templates/*.css",
+]
+"prama.web" = [
+    "templates/*.html",
+    "templates/**/*.html",
+    "static/css/*.css",
+    "static/js/*.js",
+    "static/vendor/**/*",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

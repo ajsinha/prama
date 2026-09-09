@@ -1,0 +1,56 @@
+{# A fragment, returned to the studio's right-hand column. #}
+{% if syntax_error %}
+<div class="alert alert-danger">
+  <strong>This does not parse.</strong>
+  <div>{{ syntax_error.message }}</div>
+  {% if syntax_error.remedy %}<div class="small mt-1">{{ syntax_error.remedy }}</div>{% endif %}
+  {% if syntax_error.line %}
+  <div class="small text-muted mt-1">Line {{ syntax_error.line }}, column {{ syntax_error.column }}.</div>
+  {% endif %}
+</div>
+{% else %}
+
+{% if explanations %}
+<div class="card mb-3">
+  <div class="card-body">
+    <h2 class="h6 text-uppercase text-muted">What these controls say</h2>
+    {# Taken from the lowered plan, which is what the SQL is also generated
+       from. A second English renderer here is how a console ends up explaining
+       one control and running another. #}
+    <ul class="mb-0 ps-3">
+      {% for item in explanations %}
+      <li class="mb-1"><code class="small">{{ item.name }}</code> — {{ item.sentence }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}
+
+{% if findings %}
+<div class="card">
+  <div class="card-body">
+    <h2 class="h6 text-uppercase text-muted">
+      Findings
+      {% if error_count %}<span class="badge text-bg-danger">{{ error_count }} error(s)</span>{% endif %}
+    </h2>
+    <ul class="list-unstyled mb-0">
+      {% for finding in findings %}
+      <li class="mb-2">
+        <span class="badge {% if finding.level == 'error' %}text-bg-danger
+              {% elif finding.level == 'unchecked' %}text-bg-secondary
+              {% else %}text-bg-warning{% endif %}">{{ finding.level }}</span>
+        <code class="small">{{ finding.control }}</code>
+        {{ finding.message }}
+        {% if finding.remedy %}<div class="small text-muted ms-4">{{ finding.remedy }}</div>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% else %}
+<p class="verdict verdict-pass">
+  <i class="bi bi-check-circle" aria-hidden="true"></i>
+  No type errors and no lint findings.
+</p>
+{% endif %}
+{% endif %}

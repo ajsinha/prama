@@ -1,0 +1,261 @@
+/* Prama design tokens.
+ *
+ * The palette is docs/brand.md §4, and the six spectrum hues are not
+ * decoration: they are the product's dimension colour language. The same hue
+ * means the same dimension on every scorecard, chart and report, which is why
+ * they are named for dimensions here rather than for colours — a token called
+ * --dim-validity cannot drift onto a chart about something else, and a token
+ * called --red can.
+ *
+ * Unverified Grey is reserved, absolutely, for "stale or not yet examined".
+ * Most products render that state as healthy or hide it; making it visible is
+ * a product decision (docs/03 §6.3), and giving it a colour nothing else may
+ * use is how the decision survives contact with a designer in a hurry.
+ *
+ * Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
+ */
+
+/* Theme tokens — every colour — are generated into themes.css from
+   prama/report/themes.py. They are deliberately not here: a second copy is a
+   copy nobody checks against a contrast threshold. What remains in this file
+   is layout and component styling, which no theme changes.
+
+   Two tokens are still defined here because they are structural rather than
+   chromatic. */
+
+:root {
+    --prama-indigo: #0E1A46;
+    --refract-blue: #2B3FA8;
+    --slate: #5A6480;
+
+    /* Status reuses the spectrum ends, so a verdict and a dimension never
+       disagree about what teal means. */
+    --status-pass: var(--dim-accuracy);
+    --status-warn: var(--dim-timeliness);
+    --status-fail: var(--dim-validity);
+    --status-stale: var(--unverified-grey);
+
+    --bg-raised: rgba(127, 127, 127, .08);
+    --bg-code: #11162E;
+    --text-secondary: var(--text-muted);
+    --text-on-primary: #EEF0F8;
+    --border-light: var(--border-color);
+    --card-shadow: 0 4px 16px -6px rgba(14, 26, 70, .18),
+                   0 2px 4px -1px rgba(14, 26, 70, .08);
+
+    /* -- density -------------------------------------------------------- */
+    --row-pad-y: .55rem;
+    --row-pad-x: .75rem;
+    --card-pad: 1.25rem;
+    --font-size-base: 0.95rem;
+}
+
+/* Compact density, for the evidence and break tables where a screenful of
+   rows is the point. Offered as a mode rather than a default because the
+   declaration screens are read slowly and the tables are scanned. */
+[data-density="compact"] {
+    --row-pad-y: .3rem;
+    --row-pad-x: .5rem;
+    --card-pad: .85rem;
+    --font-size-base: 0.875rem;
+}
+
+/* -- base -------------------------------------------------------------- */
+
+body {
+    background: var(--bg-body);
+    color: var(--text-primary);
+    font-size: var(--font-size-base);
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+a { color: var(--text-link); }
+
+.card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--card-shadow);
+}
+.card-body { padding: var(--card-pad); }
+
+.navbar-prama {
+    background: var(--bg-header);
+    color: var(--text-on-primary);
+}
+.navbar-prama .nav-link,
+.navbar-prama .navbar-brand { color: var(--text-on-primary); }
+.navbar-prama .nav-link:hover { color: #ffffff; }
+.navbar-prama .nav-link.active {
+    color: #ffffff;
+    box-shadow: inset 0 -2px 0 var(--dim-timeliness);
+}
+
+.table > :not(caption) > * > * {
+    padding: var(--row-pad-y) var(--row-pad-x);
+    background: transparent;
+    color: var(--text-primary);
+    border-bottom-color: var(--border-light);
+}
+.table thead th {
+    background: var(--bg-raised);
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: .72rem;
+    letter-spacing: .04em;
+}
+
+/* -- dimension and status ---------------------------------------------- */
+
+/* Every dimension chip carries its name as text. The palette is
+   deuteranopia-safe, and it is still never the only signal: a reader who
+   cannot see the hue reads the word, and a reader who can gets both. */
+.dim {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    font-size: .75rem;
+    font-weight: 600;
+    padding: .12rem .5rem;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+}
+.dim::before {
+    content: "";
+    width: .5rem;
+    height: .5rem;
+    border-radius: 50%;
+    background: currentColor;
+}
+/* The chip prints the dimension's name, so it takes the text token; the dot
+   inside it is a mark, not a word, and takes the fill token. */
+.dim-accuracy     { color: var(--dim-accuracy-text); }
+.dim-accuracy::before     { background: var(--dim-accuracy); }
+.dim-completeness { color: var(--dim-completeness-text); }
+.dim-completeness::before { background: var(--dim-completeness); }
+.dim-consistency  { color: var(--dim-consistency-text); }
+.dim-consistency::before  { background: var(--dim-consistency); }
+.dim-timeliness   { color: var(--dim-timeliness-text); }
+.dim-timeliness::before   { background: var(--dim-timeliness); }
+.dim-uniqueness   { color: var(--dim-uniqueness-text); }
+.dim-uniqueness::before   { background: var(--dim-uniqueness); }
+.dim-validity     { color: var(--dim-validity-text); }
+.dim-validity::before     { background: var(--dim-validity); }
+.dim-integrity    { color: var(--dim-integrity-text); }
+.dim-conformity   { color: var(--dim-conformity-text); }
+
+/* Verdicts are words, so they take the text tokens. Rendering "pass" in the
+   brand teal would be the same 2.63:1 mistake in the place it matters most. */
+.verdict { font-weight: 600; }
+.verdict-pass  { color: var(--dim-accuracy-text); }
+.verdict-warn  { color: var(--dim-timeliness-text); }
+.verdict-fail  { color: var(--dim-validity-text); }
+
+/* The reserved state. Greyed and italic, because "we have not looked" should
+   never be mistakable for "we looked and it was fine" at a glance.
+
+   The " · not examined" suffix is deliberately NOT on this class. It reads as
+   a verdict, and this class is also used to tint counts and labels — where the
+   suffix turns "0 proposed controls" into "0 proposed controls · not
+   examined", which is nonsense in the reserved vocabulary and therefore
+   corrodes it everywhere. Say it with .verdict-unexamined where it is true. */
+.verdict-stale {
+    color: var(--unverified-grey-text);
+    font-style: italic;
+}
+.verdict-unexamined::after {
+    content: " · not examined";
+    font-weight: 400;
+    font-size: .8em;
+}
+
+/* -- uncalibrated disclosure ------------------------------------------- */
+
+/* Wave 7's degradation, given a visual weight that matches what it means: the
+   monitor still works and its number no longer means what it says. */
+.uncalibrated {
+    border-left: 3px solid var(--status-warn);
+    background: color-mix(in srgb, var(--status-warn) 8%, transparent);
+    padding: .5rem .75rem;
+    font-size: .85rem;
+}
+
+/* -- focus, because keyboard-first is a requirement not a nicety -------- */
+
+:focus-visible {
+    outline: 3px solid var(--refract-blue);
+    outline-offset: 2px;
+}
+.skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    background: var(--bg-card);
+    padding: .5rem 1rem;
+    z-index: 1080;
+}
+.skip-link:focus { left: 0; }
+
+/* -- code -------------------------------------------------------------- */
+
+.pql, code, pre { font-family: "Spline Sans Mono", ui-monospace, "SFMono-Regular", Menlo, monospace; }
+.CodeMirror {
+    height: auto;
+    min-height: 8rem;
+    border: 1px solid var(--border-color);
+    border-radius: .375rem;
+    font-size: .9rem;
+}
+
+/* -- the estate map ---------------------------------------------------- */
+
+#estate-map, #declare-canvas {
+    width: 100%;
+    height: 32rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: .5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+
+/* -- the Bootstrap bridge ---------------------------------------------- */
+
+/* Bootstrap 5.3 themes itself through --bs-* tokens. Without this, everything
+   Prama does not style directly — dropdowns, form controls, close buttons,
+   the table striping — stays on Bootstrap's own light or dark palette and the
+   page reads as two designs stitched together. The base (light or dark) is set
+   by the switcher; these carry the *theme's* actual colours over it. */
+[data-theme] {
+    --bs-body-bg: var(--bg-body);
+    --bs-body-color: var(--text-primary);
+    --bs-emphasis-color: var(--text-primary);
+    --bs-secondary-color: var(--text-muted);
+    --bs-secondary-bg: var(--bg-card);
+    --bs-tertiary-bg: var(--bg-raised);
+    --bs-tertiary-color: var(--text-muted);
+    --bs-border-color: var(--border-color);
+    --bs-heading-color: var(--text-primary);
+    --bs-link-color: var(--text-link);
+    --bs-link-hover-color: var(--text-link);
+    --bs-code-color: var(--dim-uniqueness-text);
+}
+
+/* The theme picker itself has to be readable on the masthead of every theme,
+   including the amber-on-black one where a default select is invisible. */
+#theme-select {
+    background: rgba(255, 255, 255, .1);
+    color: var(--text-on-primary);
+    border-color: rgba(255, 255, 255, .25);
+    /* Allowed to shrink, unlike the buttons. With eleven navigation items the
+       masthead is genuinely tight, and a select that refused to give way
+       simply hung off the right edge. */
+    width: auto;
+    min-width: 6rem;
+    max-width: 9.5rem;
+    flex-shrink: 1;
+}
+#theme-select option { color: #14182E; background: #FFFFFF; }

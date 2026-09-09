@@ -30,17 +30,24 @@ import dataclasses
 import difflib
 from typing import Any
 
-from prama.pql import ast
+from prama.pql import ast, families
 from prama.pql.errors import PqlTypeError
+from prama.pql.functions import VOLATILE
+from prama.pql.library import FUNCTIONS
 
 #: Types the language reasons about. Deliberately coarse: the point is to catch
 #: a comparison between a date and a currency code, not to model every engine's
 #: numeric tower — which differs, and which the IR leaves to the engine.
-NUMBER = "number"
-TEXT = "text"
-BOOLEAN = "boolean"
-TEMPORAL = "temporal"
-UNKNOWN = "unknown"
+# Re-exported from prama.pql.families, which has no dependencies. The
+# catalogue and this module genuinely depend on each other — the checker
+# consults the catalogue to type a call, and the catalogue declares its
+# argument types in this vocabulary — so the names live in a leaf module both
+# can import.
+NUMBER = families.NUMBER
+TEXT = families.TEXT
+BOOLEAN = families.BOOLEAN
+TEMPORAL = families.TEMPORAL
+UNKNOWN = families.UNKNOWN
 
 #: Source type names, lowercased, mapped onto the coarse set above. Anything
 #: unrecognised becomes UNKNOWN, which suppresses type errors rather than
@@ -213,9 +220,16 @@ class TypeChecker:
         write anything.
         """
         self._source = source
+        # Function names are checked *before* the schema, because they do not
+        # need one. A misspelled function is misspelled whether or not the
+        # dataset has been declared, and holding the finding back until the
+        # estate is described would mean the commonest mistake in a new control
+        # is invisible for exactly as long as the control is new.
+        findings: list[Finding] = self._function_check(control)
         schema = self._catalogue.get(control.target)
         if schema is None:
             return [
+                *findings,
                 Finding(
                     message=f"nothing is known about {control.target}",
                     remedy=(
@@ -225,12 +239,25 @@ class TypeChecker:
                     ),
                     position=control.position,
                     level="unchecked",
-                )
+                ),
             ]
-        findings: list[Finding] = []
         for column in self._columns_of(control):
             findings.extend(self._resolve(column, schema))
         findings.extend(self._type_check(control, schema))
+        return findings
+
+    def _function_check(self, control: ast.Control) -> list[Finding]:
+        """Every function call, against the catalogue.
+
+        This check did not exist. An unrecognised name lowered, received a plan
+        id, and compiled straight through to SQL — where it failed at execution
+        or, worse, succeeded on an engine that happened to have a function of
+        that name and meant something else.
+        """
+        findings: list[Finding] = []
+        for expression in _expressions_of(control):
+            for message, remedy, _name in check_calls(expression):
+                findings.append(Finding(message=message, remedy=remedy, position=control.position))
         return findings
 
     def require(self, control: ast.Control, *, source: str = "") -> None:
@@ -406,13 +433,13 @@ class TypeChecker:
             # would produce errors on correct controls.
             return UNKNOWN
         if isinstance(node, ast.FunctionCall):
-            return {
-                "COUNT": NUMBER,
-                "SUM": NUMBER,
-                "AVG": NUMBER,
-                "LENGTH": NUMBER,
-                "STDDEV": NUMBER,
-            }.get(node.name.upper(), UNKNOWN)
+            # Aggregates are part of the language rather than the scalar
+            # catalogue: they belong to a metric, not to a row expression.
+            aggregate = _AGGREGATE_TYPES.get(node.name.upper())
+            if aggregate is not None:
+                return aggregate
+            declared = FUNCTIONS.find(node.name)
+            return declared.returns if declared else UNKNOWN
         if isinstance(node, ast.BinaryOp):
             if node.operator in ("+", "-", "*", "/", "%"):
                 return NUMBER
@@ -420,6 +447,101 @@ class TypeChecker:
         if isinstance(node, ast.UnaryOp):
             return BOOLEAN if node.operator.isalpha() else NUMBER
         return UNKNOWN
+
+
+#: Aggregates. Not in the function catalogue because they are not row
+#: expressions: an aggregate belongs to a metric, and a catalogue entry
+#: promises a per-row lowering it could not honour.
+_AGGREGATE_TYPES: dict[str, str] = {
+    "COUNT": NUMBER,
+    "SUM": NUMBER,
+    "AVG": NUMBER,
+    "MIN_AGG": NUMBER,
+    "MAX_AGG": NUMBER,
+    "STDDEV": NUMBER,
+}
+
+
+def check_calls(node: ast.Expression) -> list[tuple[str, str, str]]:
+    """Every function call problem in one expression.
+
+    Returns ``(message, remedy, name)`` triples rather than raising, because a
+    checker that stopped at the first mistake would make somebody fix an
+    expression one error per attempt.
+
+    This is the check that did not exist: an unrecognised name used to lower,
+    receive a plan id and compile straight through to SQL, where it failed at
+    execution — or worse, succeeded on an engine that happened to have a
+    function of that name and meant something else.
+    """
+    problems: list[tuple[str, str, str]] = []
+    for call in _calls_in(node):
+        name = call.name.upper()
+        if name in _AGGREGATE_TYPES:
+            continue
+        declared = FUNCTIONS.find(name)
+        if declared is None:
+            if name in VOLATILE:
+                problems.append(
+                    (
+                        f"{name} is refused: it returns {VOLATILE[name]}",
+                        (
+                            "A control has to replay — the same plan against the same "
+                            "snapshot must give the same verdict, or the evidence is "
+                            "not evidence. Pass the value in as a parameter, which is "
+                            "recorded with the run."
+                        ),
+                        name,
+                    )
+                )
+            else:
+                problems.append(
+                    (
+                        f"there is no function called {name}",
+                        "Available: " + ", ".join(FUNCTIONS.names()) + ".",
+                        name,
+                    )
+                )
+            continue
+        if not declared.accepts(len(call.arguments)):
+            problems.append(
+                (
+                    f"{name} takes {declared.arity_words()}, and was given {len(call.arguments)}",
+                    declared.summary,
+                    name,
+                )
+            )
+    return problems
+
+
+def _expressions_of(control: ast.Control) -> list[ast.Expression]:
+    """Everywhere in a control an expression can hide."""
+    found: list[ast.Expression] = []
+    if control.where is not None:
+        found.append(control.where)
+    assertion = control.assertion
+    for attribute in ("subject", "argument", "upper", "condition"):
+        value = getattr(assertion, attribute, None)
+        if isinstance(value, ast.Expression):
+            found.append(value)
+    return found
+
+
+def _calls_in(node: ast.Expression) -> list[ast.FunctionCall]:
+    found: list[ast.FunctionCall] = []
+    stack: list[Any] = [node]
+    while stack:
+        current = stack.pop()
+        if isinstance(current, ast.FunctionCall):
+            found.append(current)
+            stack.extend(current.arguments)
+        elif isinstance(current, ast.BinaryOp):
+            stack.extend([current.left, current.right])
+        elif isinstance(current, ast.UnaryOp):
+            stack.append(current.operand)
+        elif isinstance(current, ast.ListExpression):
+            stack.extend(current.items)
+    return found
 
 
 def _columns_in(node: ast.Expression) -> list[ast.ColumnRef]:

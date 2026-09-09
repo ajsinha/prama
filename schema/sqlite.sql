@@ -681,3 +681,241 @@ CREATE INDEX IF NOT EXISTS ix_sem_binding_version_connection
     ON sem_binding_version (connection_id);
 CREATE INDEX IF NOT EXISTS ix_sem_binding_version_entity
     ON sem_binding_version (binding_id, recorded_at);
+
+-- ---------------------------------------------------------------------------
+-- EVIDENCE LEDGER  (Wave 9)
+--
+-- Append-only and hash-linked. These tables are owned by EvidenceBase rather
+-- than Base, so no platform operation can create, truncate or cascade into
+-- them: the ledger outlives the semantic layer it describes, is retained for
+-- years after it, and is the one thing in Prama that is never rewritten.
+--
+-- There is no UPDATE path in the DAO and no ON DELETE CASCADE here — both
+-- deliberate. A foreign key from ev_record to a semantic table would let a
+-- tenant deletion silently take the evidence of what was checked with it,
+-- which is precisely the record somebody would later need. The identifiers are
+-- carried as plain values.
+--
+-- The one exception to immutability is erasure, and it is not a delete:
+-- content columns are blanked, the original content hash is preserved in
+-- ev_record.tombstone_json, and the chain still verifies across the gap. See
+-- prama/evidence/record.py::Tombstone.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS ev_run (
+    id             VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id      VARCHAR(26)   NOT NULL,
+    -- What caused it: schedule, api, backfill, manual, replay.
+    triggered_by   VARCHAR(32)   NOT NULL DEFAULT 'schedule',
+    actor_id       VARCHAR(26),
+    engine         VARCHAR(64)   NOT NULL DEFAULT '',
+    started_at     VARCHAR(32)   NOT NULL,
+    finished_at    VARCHAR(32),
+    -- running | complete | failed | abandoned. A run that never finished is a
+    -- fact about the estate, not a row to tidy away: its controls have no
+    -- verdict, and a scorecard that silently omitted them would report the
+    -- controls that did run as though they were all of them.
+    status         VARCHAR(32)   NOT NULL DEFAULT 'running',
+    record_count   INTEGER       NOT NULL DEFAULT 0,
+    detail         TEXT          NOT NULL DEFAULT '',
+    CONSTRAINT ck_ev_run_status CHECK (status IN (
+        'running', 'complete', 'failed', 'abandoned'))
+);
+CREATE INDEX IF NOT EXISTS ix_ev_run_tenant ON ev_run (tenant_id, started_at);
+
+CREATE TABLE IF NOT EXISTS ev_record (
+    id               VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id        VARCHAR(26)   NOT NULL,
+    -- Position in the chain, per tenant. Contiguous from zero, so a missing
+    -- record shows as a gap rather than only as a broken hash.
+    sequence         INTEGER       NOT NULL,
+    run_id           VARCHAR(26),
+    plan_id          VARCHAR(128)  NOT NULL DEFAULT '',
+    control_id       VARCHAR(26)   NOT NULL DEFAULT '',
+    control_version  INTEGER       NOT NULL DEFAULT 1,
+    dataset          VARCHAR(128)  NOT NULL DEFAULT '',
+    binding          VARCHAR(128)  NOT NULL DEFAULT '',
+    snapshot_json    TEXT          NOT NULL DEFAULT '{}',
+    parameters_json  TEXT          NOT NULL DEFAULT '{}',
+    engine           VARCHAR(64)   NOT NULL DEFAULT '',
+    -- full | incremental | forward_only. Carried because a verdict means
+    -- different things at different widths: "passed" after a full scan says
+    -- the dataset is sound, and after an incremental run says only that the
+    -- rows examined were.
+    coverage         VARCHAR(32)   NOT NULL DEFAULT 'full',
+    verdict          VARCHAR(32)   NOT NULL DEFAULT 'error',
+    metrics_json     TEXT          NOT NULL DEFAULT '{}',
+    samples_digest   VARCHAR(64)   NOT NULL DEFAULT '',
+    sample_count     INTEGER       NOT NULL DEFAULT 0,
+    started_at       VARCHAR(32)   NOT NULL DEFAULT '',
+    finished_at      VARCHAR(32)   NOT NULL DEFAULT '',
+    duration_ms      INTEGER       NOT NULL DEFAULT 0,
+    triggered_by     VARCHAR(32)   NOT NULL DEFAULT 'schedule',
+    detail           TEXT          NOT NULL DEFAULT '',
+    -- Added with evidence format 1.1. Nullable and defaulted, so a row written
+    -- under 1.0 reads back as 1.0 and still hashes to the value stored beside
+    -- it: EvidenceRecord.content() emits these only for records whose own
+    -- evidence_version has them.
+    dimensions_json  TEXT          NOT NULL DEFAULT '[]',
+    criticality      INTEGER       NOT NULL DEFAULT 4,
+    tombstone_json   TEXT,
+    previous_hash    VARCHAR(64)   NOT NULL,
+    content_hash     VARCHAR(64)   NOT NULL,
+    record_hash      VARCHAR(64)   NOT NULL,
+    evidence_version VARCHAR(16)   NOT NULL DEFAULT '1.0',
+    -- These are prama.ir.Verdict and prama.execute.Coverage, and a test
+    -- asserts the constraints match the enums. A constraint that omits a
+    -- verdict the engine can produce rejects a perfectly ordinary result at
+    -- the worst moment: the run is over, the finding is real, and there is
+    -- nowhere to put it.
+    CONSTRAINT ck_ev_record_verdict CHECK (verdict IN (
+        'pass', 'fail', 'error', 'skipped', 'indeterminate')),
+    CONSTRAINT ck_ev_record_coverage CHECK (coverage IN (
+        'full', 'incremental', 'forward_only'))
+);
+-- One record per position per tenant. This is the constraint that makes a
+-- concurrent second writer fail loudly instead of forking the chain.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_ev_record_sequence
+    ON ev_record (tenant_id, sequence);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_ev_record_hash ON ev_record (record_hash);
+CREATE INDEX IF NOT EXISTS ix_ev_record_dataset ON ev_record (tenant_id, dataset, finished_at);
+CREATE INDEX IF NOT EXISTS ix_ev_record_control ON ev_record (control_id, finished_at);
+CREATE INDEX IF NOT EXISTS ix_ev_record_run ON ev_record (run_id);
+CREATE INDEX IF NOT EXISTS ix_ev_record_verdict ON ev_record (tenant_id, verdict, finished_at);
+
+CREATE TABLE IF NOT EXISTS ev_sample (
+    -- The digest is the identity: the same failing rows recorded twice are one
+    -- sample set, and a record refers to it by hash rather than owning it.
+    digest       VARCHAR(64)   NOT NULL PRIMARY KEY,
+    tenant_id    VARCHAR(26)   NOT NULL,
+    rows_json    TEXT          NOT NULL DEFAULT '[]',
+    -- Which columns were removed before storage, so a reader knows what they
+    -- are not seeing rather than assuming the row is complete.
+    masked_json  TEXT          NOT NULL DEFAULT '[]',
+    row_count    INTEGER       NOT NULL DEFAULT 0,
+    created_at   VARCHAR(32)   NOT NULL,
+    -- Samples expire on their own schedule, years before the records that name
+    -- them: the rows are the personal data, the record is the audit trail, and
+    -- keeping the two on one clock means either discarding evidence early or
+    -- holding personal data for seven years.
+    expires_at   VARCHAR(32)
+);
+CREATE INDEX IF NOT EXISTS ix_ev_sample_expiry ON ev_sample (expires_at);
+CREATE INDEX IF NOT EXISTS ix_ev_sample_tenant ON ev_sample (tenant_id);
+
+-- ---------------------------------------------------------------------------
+-- CONTROLS  (Wave 9)
+--
+-- The estate of controls, bitemporal like every other declaration. Editing a
+-- threshold is an AMEND — the old threshold really was the rule until Tuesday —
+-- and discovering the control was wrong all along is a CORRECT. Conflating the
+-- two loses the ability to replay an evidence record against the control that
+-- was actually in force when it ran, which is the whole point of keeping both
+-- axes.
+--
+-- The PQL text is the authority. plan_id, severity and dimensions_json are
+-- DERIVED from it when a version is written, never supplied by a caller, and a
+-- test re-lowers the stored text and compares. They exist as columns so the
+-- estate can be queried without parsing every control, not as a second source
+-- of truth.
+--
+-- ctl_control.identity is what makes regeneration idempotent: it is derived
+-- from what a control is *about* — the declaration, the rule, the subject —
+-- and not from its text, so re-running the generator after an edit amends the
+-- existing control instead of orphaning one and creating another.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS ctl_control (
+    id          VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id   VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    -- Stable across regeneration. See prama/core/provenance.py::identity.
+    identity    VARCHAR(64)   NOT NULL,
+    created_at  VARCHAR(32)   NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_ctl_control_identity ON ctl_control (tenant_id, identity);
+CREATE INDEX IF NOT EXISTS ix_ctl_control_tenant ON ctl_control (tenant_id);
+
+CREATE TABLE IF NOT EXISTS ctl_control_version (
+    id              VARCHAR(26)   NOT NULL PRIMARY KEY,
+    control_id      VARCHAR(26)   NOT NULL REFERENCES ctl_control (id) ON DELETE CASCADE,
+    version         INTEGER       NOT NULL,
+    valid_from      VARCHAR(32)   NOT NULL,
+    valid_to        VARCHAR(32),
+    recorded_at     VARCHAR(32)   NOT NULL,
+    superseded_at   VARCHAR(32),
+    authored_by     VARCHAR(26),
+    approved_by     VARCHAR(26),
+    approved_at     VARCHAR(32),
+    change_reason   TEXT          NOT NULL DEFAULT '',
+
+    -- The authority. Everything below it is derived from this text.
+    pql             TEXT          NOT NULL,
+    name            VARCHAR(255)  NOT NULL DEFAULT '',
+    dataset         VARCHAR(128)  NOT NULL DEFAULT '',
+    -- Content-addressed plan the text lowers to. An evidence record names this,
+    -- so a verdict can be traced to exactly what was executed rather than to a
+    -- row that happened to point at it.
+    plan_id         VARCHAR(128)  NOT NULL DEFAULT '',
+    content_hash    VARCHAR(64)   NOT NULL DEFAULT '',
+    severity        VARCHAR(32)   NOT NULL DEFAULT 'major',
+    dimensions_json TEXT          NOT NULL DEFAULT '[]',
+    criticality     INTEGER       NOT NULL DEFAULT 4,
+
+    -- How it came to exist, and what that is worth. A mined rule says the data
+    -- behaves this way; a declared one says the business means it to.
+    origin          VARCHAR(32)   NOT NULL DEFAULT 'declaration',
+    rule            VARCHAR(128)  NOT NULL DEFAULT '',
+    source_ref      VARCHAR(128)  NOT NULL DEFAULT '',
+    provenance_json TEXT          NOT NULL DEFAULT '{}',
+
+    -- proposed | active | suppressed | retired. A control is never deleted:
+    -- retiring it keeps the evidence it produced attributable to something.
+    status          VARCHAR(32)   NOT NULL DEFAULT 'proposed',
+    -- Set when status is 'suppressed'. Both are required together, because a
+    -- control silenced with no expiry and no reason is a control nobody will
+    -- ever turn back on.
+    suppressed_until   VARCHAR(32),
+    suppressed_because TEXT,
+    schedule        VARCHAR(64)   NOT NULL DEFAULT '',
+    owner_id        VARCHAR(26),
+    CONSTRAINT ck_ctl_control_status CHECK (status IN (
+        'proposed', 'active', 'suppressed', 'retired')),
+    CONSTRAINT ck_ctl_control_severity CHECK (severity IN (
+        'info', 'warning', 'minor', 'major', 'critical')),
+    CONSTRAINT ck_ctl_control_origin CHECK (origin IN (
+        'declaration', 'import', 'document', 'mining', 'example', 'induction')),
+    CONSTRAINT ck_ctl_control_criticality CHECK (criticality BETWEEN 1 AND 4),
+    CONSTRAINT ck_ctl_control_suppression CHECK (
+        status <> 'suppressed' OR (suppressed_until IS NOT NULL AND suppressed_because IS NOT NULL))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_ctl_control_current
+    ON ctl_control_version (control_id) WHERE superseded_at IS NULL AND valid_to IS NULL;
+CREATE INDEX IF NOT EXISTS ix_ctl_control_version_entity
+    ON ctl_control_version (control_id, recorded_at);
+CREATE INDEX IF NOT EXISTS ix_ctl_control_version_dataset
+    ON ctl_control_version (dataset, status);
+CREATE INDEX IF NOT EXISTS ix_ctl_control_version_plan ON ctl_control_version (plan_id);
+
+-- A proposal a person turned down, kept so the same one is not offered again.
+-- Recorded rather than deleted: a rejection is a training signal, and
+-- re-proposing something a steward has already refused is the fastest way to
+-- lose their attention.
+CREATE TABLE IF NOT EXISTS ctl_rejection (
+    id            VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id     VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    identity      VARCHAR(64)   NOT NULL,
+    content_hash  VARCHAR(64)   NOT NULL DEFAULT '',
+    reason        VARCHAR(32)   NOT NULL DEFAULT 'incorrect',
+    note          TEXT          NOT NULL DEFAULT '',
+    rejected_by   VARCHAR(26),
+    rejected_at   VARCHAR(32)   NOT NULL,
+    -- These are prama.propose.proposal.RejectionReason, and a test asserts the
+    -- two agree. A constraint listing reasons the enum does not have accepts
+    -- rows nothing can read; one missing a reason the enum has rejects a
+    -- perfectly ordinary rejection at the worst moment.
+    CONSTRAINT ck_ctl_rejection_reason CHECK (reason IN (
+        'incorrect', 'not_material', 'coincidental', 'duplicate', 'too_noisy',
+        'pending_remediation'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_ctl_rejection_identity
+    ON ctl_rejection (tenant_id, identity, content_hash);

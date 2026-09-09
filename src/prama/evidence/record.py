@@ -31,7 +31,35 @@ from prama.core.pjson import canonical
 #: Bumped only when the *meaning* of a field changes. A record names the version
 #: it was written under, so a record from 2026 is still read the way it was
 #: written after the format has moved on.
-EVIDENCE_VERSION = "1.0"
+#:
+#: **1.1** adds ``dimensions`` and ``criticality``. Without them a scorecard can
+#: say how much passed and cannot say which kind of quality it was, and a
+#: materiality-weighted score has to guess at the tier.
+EVIDENCE_VERSION = "1.1"
+
+#: The version each hashed field first appeared in. This is the mechanism that
+#: lets the format move without breaking every chain already written: a
+#: record's content is hashed over the fields *its own version* defines, so a
+#: 1.0 record read by a 1.1 build still hashes to the value stored beside it.
+#:
+#: Getting this wrong is not a subtle bug. Emitting a new field unconditionally
+#: would change the content dict of every historical record, break every hash
+#: after the first, and present as an estate-wide tampering alert on the
+#: morning after a deploy.
+FIELDS_SINCE: dict[str, tuple[int, int]] = {
+    "dimensions": (1, 1),
+    "criticality": (1, 1),
+}
+
+
+def _version_tuple(version: str) -> tuple[int, int]:
+    """``"1.10"`` sorts after ``"1.9"``, which string comparison does not."""
+    parts = version.split(".")
+    try:
+        return int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
+    except ValueError:
+        return (0, 0)
+
 
 #: The hash a chain starts from. Sixty-four zeros, so a reader can tell the
 #: first record from a record whose parent is missing.
@@ -139,6 +167,15 @@ class EvidenceRecord:
     #: Who or what caused this run.
     triggered_by: str = "schedule"
     tenant_id: str = ""
+    #: Which quality dimensions the control belonged to. Added in 1.1: without
+    #: it a scorecard can report how much passed and cannot report which kind
+    #: of quality it was, which is the whole point of having six of them.
+    dimensions: tuple[str, ...] = ()
+    #: The dataset's tier, 1 (regulatory) to 4 (informational). Carried on the
+    #: record rather than looked up later, because the tier a control ran under
+    #: is a fact about that run: re-tiering a dataset next year must not
+    #: silently re-weight last year's score.
+    criticality: int = 4
     #: Set when this record's content has been erased under a right-to-erasure
     #: request. The content hash it carried is preserved, so the chain still
     #: verifies and the erasure is visible rather than being a hole nobody can
@@ -156,14 +193,21 @@ class EvidenceRecord:
     # -- hashing -----------------------------------------------------------
 
     def content(self) -> dict[str, Any]:
-        """Everything the hash covers.
+        """Everything the hash covers, for *this record's own version*.
 
         Every field except the hashes themselves. Nothing is excluded for
         convenience: a field left out of the hash is a field somebody can
         change without detection, and the whole point of the record is that
         nobody can.
+
+        Fields added in a later version are emitted only for records written
+        under it. That is what lets the format evolve at all — emitting a new
+        field unconditionally would change the content of every record already
+        written, break every hash after the first, and show up as an
+        estate-wide tampering alert the morning after a deploy.
         """
-        return {
+        mine = _version_tuple(self.evidence_version)
+        payload: dict[str, Any] = {
             "evidence_version": self.evidence_version,
             "sequence": self.sequence,
             "plan_id": self.plan_id,
@@ -186,6 +230,11 @@ class EvidenceRecord:
             "tenant_id": self.tenant_id,
             "detail": self.detail[:DETAIL_LIMIT],
         }
+        if mine >= FIELDS_SINCE["dimensions"]:
+            payload["dimensions"] = list(self.dimensions)
+        if mine >= FIELDS_SINCE["criticality"]:
+            payload["criticality"] = int(self.criticality)
+        return payload
 
     @property
     def content_hash(self) -> str:
@@ -255,6 +304,7 @@ class EvidenceRecord:
             sample_count=0,
             detail="",
             snapshot=SnapshotRef(),
+            dimensions=(),
             tombstone=Tombstone(
                 original_content_hash=self.content_hash,
                 erased_at=at,
@@ -302,6 +352,8 @@ class EvidenceRecord:
             triggered_by=str(payload.get("triggered_by", "schedule")),
             tenant_id=str(payload.get("tenant_id", "")),
             detail=str(payload.get("detail", "")),
+            dimensions=tuple(str(d) for d in (payload.get("dimensions") or ())),
+            criticality=int(payload.get("criticality", 4)),
             tombstone=(
                 Tombstone.from_dict(payload["tombstone"]) if payload.get("tombstone") else None
             ),

@@ -267,6 +267,45 @@ class SqlConnector(Connector):
             "pacing": pacer.report.to_dict(),
         }
 
+    # -- running a control -------------------------------------------------
+
+    @property
+    def can_run_controls(self) -> bool:
+        """A relational source has a query engine, which is the whole point."""
+        return True
+
+    async def run_metric_query(self, sql: str) -> list[dict[str, Any]]:
+        """Evaluate a compiled control's metric query.
+
+        Two guards, both because the statement is *generated* and defence in
+        depth is cheap where the thing executing was written by a compiler:
+
+        * **Read-only.** A control is a check. It has no business writing, and
+          refusing anything that is not a SELECT or a WITH means a defect in
+          the compiler cannot damage the data it was meant to examine.
+        * **One statement.** A trailing semicolon and a second statement is the
+          shape of every SQL injection there has ever been, and a metric query
+          has no legitimate reason to be two.
+        """
+        from prama.connect.sources.query import sole_read_statement
+
+        statement = sole_read_statement(sql)
+        rows = await self._fetch(statement)
+        names = self._column_names()
+        if not names:
+            # A driver that reports no column names has given us positional
+            # tuples we cannot label, and a metric dictionary with invented
+            # keys would be judged against the wrong thresholds.
+            raise ConnectorError(
+                "the source returned rows without column names",
+                remedy=(
+                    "A metric query's columns have to be named for its results to be "
+                    "judged. This is a driver problem rather than a control problem."
+                ),
+                context={"connector": type(self).__name__},
+            )
+        return [dict(zip(names, row, strict=False)) for row in rows]
+
     def pushdown_capabilities(self) -> tuple[Capability, ...]:
         return self.dialect.capabilities.to_capabilities()
 

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Scorecards — Prama{% endblock %}
+{% block heading %}Scorecards{% endblock %}
+{% block content %}
+{% include "_observation.html" %}
+
+{% if scores %}
+{% if not decomposed %}
+{# Said, not implied. Records written before evidence format 1.1 do not carry
+   the dimension of the control that produced them; they land in one bucket
+   rather than being spread across the six by guesswork, and the reader is told
+   how many so the breakdown is not mistaken for a complete one. #}
+<div class="uncalibrated mb-3">
+  {{ undecomposed }} measurement(s) come from records written before the evidence
+  format carried a dimension. They are counted in the totals and grouped under
+  <em>conformity</em> rather than spread across the six by guesswork, so the
+  breakdown below is incomplete rather than invented.
+</div>
+{% endif %}
+
+<div class="row g-3">
+  {% for score in scores %}
+  <div class="col-md-6 col-xl-4">
+    <div class="card h-100">
+      <div class="card-body">
+        <h2 class="h6">{{ score.subject }}</h2>
+        <div class="fs-2 fw-semibold">{{ score.value | rate }}</div>
+
+        {% if score.not_run %}
+        {# The number beside the number. A dataset scoring 100% because half its
+           controls were skipped is the most misleading output this product
+           could produce. #}
+        <div class="verdict verdict-stale small mb-2">
+          {{ score.not_run }} of {{ score.controls }} controls did not run — this
+          describes {{ score.coverage | rate(0) }} of what was meant
+          to be checked
+        </div>
+        {% endif %}
+
+        {% if score.methods_disagree %}
+        {# Surfaced rather than resolved: the mean saying 98% and the minimum
+           saying 62% is not a contradiction, it is the finding. #}
+        <div class="small mb-2">
+          <strong>The composites disagree.</strong>
+          {% for name, value in score.composites.items() %}
+          <div><code>{{ name }}</code> {{ value | rate }}</div>
+          {% endfor %}
+          Most of the dataset is fine and something in it is not.
+        </div>
+        {% endif %}
+
+        {% if score.components %}
+        {# Decomposed, because a score that cannot be explained is a score
+           nobody will act on. Each chip carries its dimension's name as well
+           as its hue: the palette is deuteranopia-safe and it is still never
+           the only signal. #}
+        <ul class="list-unstyled small mb-2">
+          {% for part in score.components %}
+          <li class="d-flex justify-content-between align-items-center gap-2">
+            <span class="dim dim-{{ part.dimension }}">{{ part.dimension }}</span>
+            <span>{{ part.value | rate }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+
+        <details class="small">
+          <summary>How this was derived</summary>
+          <p class="mb-0 mt-1">{{ score.explanation }}</p>
+          {% if score.worst %}
+          <p class="mb-0 mt-1"><strong>Weakest:</strong> {{ score.worst.describe() }}</p>
+          {% endif %}
+        </details>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% elif observation.state == 'observed' %}
+<p class="text-muted">Controls have run, but none produced a scoreable measurement.</p>
+{% endif %}
+{% endblock %}

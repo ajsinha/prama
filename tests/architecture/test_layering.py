@@ -232,9 +232,36 @@ class TestModelVerdicts:
                     node.body = node.body[1:]
         return ast.unparse(stripped)
 
+    #: The one module that names a model client in order to *forbid* it. The
+    #: exemption is not a bare allowlist: the test below proves the mentions are
+    #: confined to the forbidden tables — the module never imports one and never
+    #: calls one. An allowlist without that proof is how a real violation
+    #: eventually gets waved through.
+    NAMES_MODELS_TO_BAN_THEM = "src/prama/classify/plugins.py"
+
+    def test_the_exemption_is_a_ban_list_not_a_model_call(self) -> None:
+        """``plugins.py`` refuses a validator that imports a model client, so
+        it has to name them. This proves the mentions are only that."""
+        from prama.classify import plugins
+
+        source = (SRC / "classify" / "plugins.py").read_text()
+        tree = ast.parse(source)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    assert not self.MODEL_HINT.search(alias.name), alias.name
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                assert not self.MODEL_HINT.search(node.module), node.module
+        # And the names it does hold are the ones it refuses.
+        banned = {**plugins.FORBIDDEN, **plugins.FORBIDDEN_PRAMA}
+        assert any(self.MODEL_HINT.search(name) for name in banned)
+        assert all("CON-007" in banned[n] for n in banned if self.MODEL_HINT.search(n))
+
     def test_no_module_both_calls_a_model_and_produces_a_verdict(self) -> None:
         offenders = []
         for path in python_files(SRC):
+            if relative(path) == self.NAMES_MODELS_TO_BAN_THEM:
+                continue
             code = self.executable(path.read_text())
             if self.MODEL_HINT.search(code) and self.FORBIDDEN.search(code):
                 offenders.append(relative(path))

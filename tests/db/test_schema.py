@@ -11,11 +11,12 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from prama.db import Database
-from prama.db.models import Base
+from prama.db.models import Base, EvidenceBase
 from prama.db.schema import SchemaLoader
 from prama.db.schema.verifier import DriftKind
 
@@ -34,6 +35,21 @@ NON_PORTABLE = re.compile(
     r"FLOAT|DATE|TIME)\b",
     re.IGNORECASE,
 )
+
+
+def all_tables() -> dict[str, Any]:
+    """Every ORM table, across both declarative bases.
+
+    Two bases, one pair of schema files. The split exists so no platform
+    operation can create, truncate or cascade into the evidence ledger — but
+    the files remain the single authority for what the database contains, so
+    every agreement check below has to look at both. Checking only ``Base``
+    would let an evidence table drift from its declaration unnoticed, which is
+    the one table where that matters most.
+    """
+    merged = dict(Base.metadata.tables)
+    merged.update(EvidenceBase.metadata.tables)
+    return merged
 
 
 def _body(path: Path) -> list[str]:
@@ -96,18 +112,18 @@ class TestModelAgreement:
 
     def test_every_orm_table_exists_in_the_schema_file(self, repo_root: Path) -> None:
         schema = SchemaLoader().load(repo_root / "schema" / "sqlite.sql")
-        missing = set(Base.metadata.tables) - set(schema.table_names)
+        missing = set(all_tables()) - set(schema.table_names)
         assert not missing, f"declared in ORM but not in schema/sqlite.sql: {sorted(missing)}"
 
     def test_every_schema_table_has_an_orm_model(self, repo_root: Path) -> None:
         schema = SchemaLoader().load(repo_root / "schema" / "sqlite.sql")
-        missing = set(schema.table_names) - set(Base.metadata.tables)
+        missing = set(schema.table_names) - set(all_tables())
         assert not missing, f"in schema/sqlite.sql but no ORM model: {sorted(missing)}"
 
     def test_columns_and_nullability_agree(self, repo_root: Path) -> None:
         schema = SchemaLoader().load(repo_root / "schema" / "sqlite.sql")
         problems: list[str] = []
-        for name, table in Base.metadata.tables.items():
+        for name, table in all_tables().items():
             spec = schema.table(name)
             assert spec is not None
             declared = {c.name: c for c in spec.columns}
@@ -134,7 +150,7 @@ class TestModelAgreement:
         difference the restricted type set exists to remove.
         """
         offenders = []
-        for name, table in Base.metadata.tables.items():
+        for name, table in all_tables().items():
             for column in table.columns:
                 physical = type(column.type).__name__.upper()
                 if physical not in PORTABLE_TYPES:
@@ -148,7 +164,7 @@ class TestModelAgreement:
         """Derive, never restate: a width declared twice will drift."""
         schema = SchemaLoader().load(repo_root / "schema" / "sqlite.sql")
         problems = []
-        for name, table in Base.metadata.tables.items():
+        for name, table in all_tables().items():
             spec = schema.table(name)
             assert spec is not None
             for column in table.columns:
@@ -165,6 +181,57 @@ class TestModelAgreement:
                         f"{name}.{column.name}: schema VARCHAR({width}), ORM {orm_width}"
                     )
         assert not problems, "\n".join(problems)
+
+
+class TestTheEvidenceLedgerIsSeparate:
+    """One database, two declarative bases, and the split is the enforcement.
+
+    The evidence ledger outlives the semantic layer it describes and is
+    retained for years after it. Keeping it out of ``Base`` means nothing that
+    operates on the platform's metadata — a create_all, a drop, a tenant
+    cascade — can reach it by accident.
+    """
+
+    def test_the_two_metadatas_do_not_overlap(self) -> None:
+        overlap = set(Base.metadata.tables) & set(EvidenceBase.metadata.tables)
+        assert not overlap, f"a table declared under both bases: {sorted(overlap)}"
+
+    def test_the_ledger_tables_are_under_evidence_base(self) -> None:
+        assert {"ev_record", "ev_run", "ev_sample"} <= set(EvidenceBase.metadata.tables)
+        assert not {"ev_record", "ev_run", "ev_sample"} & set(Base.metadata.tables)
+
+    def test_no_evidence_table_references_a_platform_table(self) -> None:
+        """No foreign key out of the ledger, deliberately.
+
+        A referential link would let a tenant deletion take the evidence of
+        what was checked along with it — exactly the record somebody would
+        later need — and would stop a record outliving the declaration it
+        refers to, which is the normal case over a seven-year retention.
+        """
+        for name, table in EvidenceBase.metadata.tables.items():
+            for column in table.columns:
+                assert not column.foreign_keys, f"{name}.{column.name} has a foreign key"
+
+    def test_the_ledger_has_no_cascade_in_the_schema_file(self, repo_root: Path) -> None:
+        """The counterfactual for the above, read from the authority itself.
+
+        Scoped to the ``ev_*`` definitions rather than to everything after
+        them: the platform tables that follow have foreign keys for good
+        reasons, and a check that swept them in would fail for the wrong
+        reason and get relaxed.
+        """
+        lines = _body(repo_root / "schema" / "sqlite.sql")
+        inside = False
+        checked = 0
+        for line in lines:
+            if line.startswith("CREATE TABLE IF NOT EXISTS ev_"):
+                inside = True
+            elif inside and line.startswith(");"):
+                inside = False
+            elif inside:
+                checked += 1
+                assert "REFERENCES" not in line.upper(), line.strip()
+        assert checked > 20, "the ledger definitions were not found in the schema file"
 
 
 class TestBootstrapAndVerify:

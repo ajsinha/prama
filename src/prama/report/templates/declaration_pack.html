@@ -1,0 +1,77 @@
+{% extends "_shell.html" %}
+
+{% block coverage_detail %}
+{# The two numbers that decide whether the rest of this document means
+   anything. A pack of forty perfectly-described datasets is worth little if
+   thirty-five more exist and nobody has described them, and this is where the
+   reader is told rather than left to assume. #}
+<p>
+  {{ unconnected }} of the datasets listed here are declared but not connected —
+  Prama cannot execute anything against them. {{ undeclared_grain }} have no declared
+  grain, so no uniqueness or completeness control can be generated for them.
+</p>
+{% endblock %}
+
+{% block content %}
+<h2 class="section">Declared datasets</h2>
+<table>
+  <caption>Every dataset the business has described, most critical first.</caption>
+  <thead>
+    <tr>
+      <th scope="col">Dataset</th>
+      <th scope="col">Tier</th>
+      <th scope="col">Shape</th>
+      <th scope="col">One row is</th>
+      <th scope="col">Owner</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for dataset in datasets %}
+    <tr>
+      <td>
+        <strong>{{ dataset.name }}</strong>
+        {% if dataset.description %}<div>{{ dataset.description }}</div>{% endif %}
+      </td>
+      <td class="{% if dataset.criticality == 1 %}tier-1{% endif %}">
+        {{ dataset.tier_label }}</td>
+      <td>
+        {{ dataset.shape }}
+        {% if not dataset.is_bound %}<div class="stale">not connected</div>{% endif %}
+      </td>
+      <td>
+        {% if dataset.grain_statement %}
+          {{ dataset.grain_statement }}
+        {% elif dataset.grain_attributes %}
+          one row per {{ dataset.grain_attributes | join(', ') }}
+        {% else %}
+          {# Said as the control that cannot exist, not as an empty field. #}
+          <span class="gap">not declared — no uniqueness or completeness control</span>
+        {% endif %}
+      </td>
+      <td>{{ dataset.owner or '—' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="stale">Nothing declared.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% if gaps %}
+<h2 class="section">What the estate cannot answer for</h2>
+<p>
+  Each entry is something the business declared and Prama cannot act on. This list
+  is produced from declarations, so it includes things no crawler would ever see —
+  which is the reason it exists.
+</p>
+{% for category, items in gaps.items() %}
+<table>
+  <caption>{{ category.replace('_', ' ') }} — {{ items | length }}</caption>
+  <thead><tr><th scope="col">Item</th></tr></thead>
+  <tbody>
+    {% for item in items %}<tr><td>{{ item }}</td></tr>{% else %}
+    <tr><td>None.</td></tr>{% endfor %}
+  </tbody>
+</table>
+{% endfor %}
+{% endif %}
+{% endblock %}

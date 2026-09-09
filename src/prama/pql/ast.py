@@ -548,11 +548,23 @@ class ExpressionAssertion(Assertion):
     """``SATISFIES <expression>`` — an arbitrary per-row condition."""
 
     condition: Expression = dataclasses.field(default_factory=lambda: Literal(value=True))
+    #: ``pql`` or ``excel``. Which surface the author wrote it in, so the
+    #: control renders back as what they typed rather than as a translation
+    #: they would not recognise — ``parse(render(x)) == x`` has to hold for
+    #: both syntaxes, and it cannot if the Excel form is lost on the way in.
+    source_syntax: str = "pql"
+    #: The formula as written, when the syntax is Excel.
+    source: str = ""
 
     def render(self) -> str:
+        if self.source_syntax == "excel" and self.source:
+            escaped = self.source.replace("'", "''")
+            return f"SATISFIES EXCEL '{escaped}'"
         return f"SATISFIES {self.condition.render()}"
 
     def describe(self) -> str:
+        if self.source_syntax == "excel" and self.source:
+            return f"every row satisfies the formula {self.source}"
         return f"every row satisfies {self.condition.render()}"
 
     @property

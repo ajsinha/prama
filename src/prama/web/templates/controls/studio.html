@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Control studio — Prama{% endblock %}
+{% block heading %}Control studio{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/codemirror/codemirror.min.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/codemirror/show-hint.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/codemirror/lint.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/prism/prism-tomorrow.min.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-body">
+        <label class="form-label fw-semibold" for="pql-source">PQL</label>
+        <textarea id="pql-source" name="source" rows="14"
+                  aria-describedby="pql-help">{{ starter }}</textarea>
+        <div id="pql-help" class="form-text">
+          Checked against the datasets you have declared — not against a separately
+          maintained catalogue, so a control that checks clean here is one that can run.
+        </div>
+        <div class="d-flex flex-wrap gap-2 mt-3 align-items-center">
+          <button class="btn btn-primary btn-sm" id="check">
+            <i class="bi bi-check2-square" aria-hidden="true"></i> Check &amp; explain
+          </button>
+          <button class="btn btn-outline-secondary btn-sm" id="compile">
+            <i class="bi bi-code-slash" aria-hidden="true"></i> Show the SQL
+          </button>
+          <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('rule_builder') }}">
+            <i class="bi bi-ui-checks" aria-hidden="true"></i> Build one from questions
+          </a>
+          <label class="form-label mb-0 ms-auto small" for="target">for</label>
+          <select class="form-select form-select-sm w-auto" id="target" name="target">
+            {% for dialect in dialects %}<option value="{{ dialect }}">{{ dialect }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    {% if dataset_slugs %}
+    <div class="card mt-3">
+      <div class="card-body">
+        <h2 class="h6 text-uppercase text-muted">Datasets you can write against</h2>
+        <div class="d-flex flex-wrap gap-1">
+          {% for slug in dataset_slugs %}
+          <code class="badge text-bg-light">{{ slug }}</code>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="uncalibrated mt-3">
+      Nothing is declared, so nothing can be checked against a real schema. A control
+      written now will parse and will not be verified against any dataset.
+      <a href="{{ url_for('declaration_form') }}">Declare a dataset first.</a>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-6">
+    <div id="findings" aria-live="polite">
+      <p class="text-muted">Check the control to see what it means and what is wrong with it.</p>
+    </div>
+    <div id="plans" class="mt-3" aria-live="polite"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/codemirror/codemirror.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/codemirror/simple.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/codemirror/show-hint.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/prism/prism.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/prism/components/prism-sql.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pql-editor.js') }}"></script>
+<script>
+  window.pramaPqlStudio({
+    check: {{ url_for('control_check') | tojson }},
+    compile: {{ url_for('control_compile') | tojson }},
+    datasets: {{ dataset_slugs | tojson }}
+  });
+</script>
+{% endblock %}

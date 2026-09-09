@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Incidents — Prama{% endblock %}
+{% block heading %}What is currently wrong{% endblock %}
+{% block content %}
+{% include "_observation.html" %}
+
+{% if incidents %}
+<p class="text-muted">
+  One row per control, not per run: a control failing every hour for a week is one
+  problem, and listing it a hundred and sixty-eight times is how a triage queue
+  becomes something nobody opens.
+  {% if passing %}<strong>{{ passing }}</strong> control(s) are currently passing.{% endif %}
+</p>
+<div class="table-responsive">
+  <table class="table align-middle">
+    <thead><tr>
+      <th scope="col">Dataset</th><th scope="col">Control</th>
+      <th scope="col">Verdict</th><th scope="col">What was found</th>
+      <th scope="col">When</th>
+    </tr></thead>
+    <tbody>
+      {% for incident in incidents %}
+      <tr>
+        <td class="fw-semibold">{{ incident.dataset or '—' }}</td>
+        <td><code class="small">{{ incident.control_id }}</code></td>
+        <td>
+          <span class="verdict verdict-{{ 'fail' if incident.verdict in ('fail', 'error') else 'warn' }}">
+            {{ incident.claim }}</span>
+          {% if incident.coverage != 'full' %}
+          {# The width the verdict was established at. "Passed" after a full scan
+             says the dataset is sound; after an incremental run it says only
+             that the rows examined were, and conflating the two lets the
+             narrower claim be read as the wider one. #}
+          <div class="small text-muted">{{ incident.coverage }} scan</div>
+          {% endif %}
+        </td>
+        <td class="small">
+          {% if incident.metrics.get('violating_rows') is not none %}
+            {{ '{:,}'.format(incident.metrics.get('violating_rows') | int) }} of
+            {{ '{:,}'.format(incident.metrics.get('scanned_rows', 0) | int) }} rows
+          {% endif %}
+          {% if incident.detail %}<div>{{ incident.detail }}</div>{% endif %}
+          {% if incident.sample_count %}
+          <div class="text-muted">{{ incident.sample_count }} example row(s) kept</div>
+          {% endif %}
+        </td>
+        <td class="small text-muted">{{ incident.finished_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% elif observation.state == 'observed' %}
+{# Earned, and said as what it is: a statement about the controls that ran,
+   with the number of them, rather than a green tick that means nothing. #}
+<p class="verdict verdict-pass">
+  <i class="bi bi-check-circle" aria-hidden="true"></i>
+  Nothing is currently failing. {{ passing }} control(s) ran and passed.
+</p>
+{% endif %}
+{% endblock %}

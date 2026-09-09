@@ -147,14 +147,27 @@ class TestCompile:
         assert "SELECT COUNT(*)" in output
         assert 'FROM "positions_eod"' in output
 
-    def test_a_refusal_is_reported_rather_than_raised(self, suite: Path) -> None:
-        # The engine saying which control it cannot run, before anything is
-        # scheduled against it.
+    def test_sqlite_now_compiles_the_whole_suite(self, suite: Path) -> None:
+        """This used to assert a refusal, and the refusal stopped happening.
+
+        SQLite reserves the ``REGEXP`` operator for a function the host
+        registers, and Prama's SQLite executor registers one — so the pattern
+        control compiles and agrees with every other engine rather than being
+        approximated. The consequence is worth stating plainly: **there is no
+        control expressible in PQL today that the SQLite dialect refuses.**
+
+        The refusal *path* is still exercised, at the compiler level, by
+        ``tests/backend/test_fuse.py`` — which builds a plan requiring an
+        approximate distinct count, a capability SQLite genuinely lacks. A test
+        asserting a refusal that no longer happens would have gone on passing
+        while testing nothing, which is why this one changed rather than being
+        deleted.
+        """
         code, output = run(["control", "compile", str(suite), "--dialect", "sqlite"])
         assert code == EXIT_OK
-        assert "refused" in output
-        assert "pushdown.regex" in output
-        assert "1 control(s) cannot run on sqlite" in output
+        assert "refused" not in output
+        assert output.upper().count("SELECT") == 3
+        assert "REGEXP" in output
 
     def test_fusing_shows_one_query_and_the_saving(self, suite: Path) -> None:
         code, output = run(["control", "compile", str(suite), "--dialect", "duckdb", "--fuse"])

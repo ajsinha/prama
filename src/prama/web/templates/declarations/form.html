@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Declare a dataset — Prama{% endblock %}
+{% block heading %}Declare a dataset{% endblock %}
+
+{% block content %}
+{# Organised around questions, not columns. "What does one row represent?" is
+   answerable by the person who owns the data; "grain_json" is not, and the
+   difference decides whether this screen gets used. #}
+<form method="post" action="{{ url_for('declaration_create') }}" class="row g-3"
+      style="max-width: 46rem">
+  {% set s = submitted or {} %}
+
+  <div class="col-12">
+    <label class="form-label" for="name">What is it called?</label>
+    <input class="form-control" id="name" name="name" required
+           value="{{ s.get('name', '') }}"
+           aria-describedby="name-help">
+    <div id="name-help" class="form-text">
+      The business's name for it. The identifier controls are written against is
+      derived from this, so it does not have to be SQL-safe.
+    </div>
+  </div>
+
+  <div class="col-12">
+    <label class="form-label" for="description">What is it?</label>
+    <textarea class="form-control" id="description" name="description" rows="2"
+              aria-describedby="description-help">{{ s.get('description', '') }}</textarea>
+    <div id="description-help" class="form-text">
+      One sentence. This is what an incident quotes at three in the morning, and
+      it is the difference between an alert somebody can act on and one they cannot.
+    </div>
+  </div>
+
+  <div class="col-12">
+    <label class="form-label" for="grain_statement">What does one row represent?</label>
+    <input class="form-control" id="grain_statement" name="grain_statement"
+           value="{{ s.get('grain_statement', '') }}"
+           placeholder="one position per account per instrument per business day"
+           aria-describedby="grain-help">
+    <div id="grain-help" class="form-text">
+      The single most valuable sentence here: it determines uniqueness,
+      duplication, completeness and what a row count means — four controls from
+      one answer. Kept verbatim, and quoted back in every control it generates.
+    </div>
+  </div>
+
+  <div class="col-12">
+    <label class="form-label" for="grain">…and which attributes are those?</label>
+    <input class="form-control" id="grain" name="grain"
+           value="{{ s.get('grain', '') }}"
+           placeholder="account_id, instrument_id, as_of_date">
+    <div class="form-text">Comma-separated. Leave blank if you do not know yet —
+      that is an honest answer, and it is recorded as one.</div>
+  </div>
+
+  <div class="col-md-6">
+    <label class="form-label" for="shape">What kind of thing is it?</label>
+    <select class="form-select" id="shape" name="shape">
+      {% for shape in shapes %}
+      <option value="{{ shape }}" {% if s.get('shape') == shape %}selected{% endif %}>
+        {{ shape.replace('_', ' ') }}</option>
+      {% endfor %}
+    </select>
+    <div class="form-text">A feed's controls are not a table's.
+      <em>unbound</em> is fine: it means declared but not yet connected.</div>
+  </div>
+
+  <div class="col-md-6">
+    <label class="form-label" for="criticality">How much does a defect matter?</label>
+    <select class="form-select" id="criticality" name="criticality">
+      {% for tier in tiers %}
+      <option value="{{ tier.value }}"
+              data-needs-approver="{{ 1 if tier.needs_approver else 0 }}"
+              data-needs-second-person="{{ 1 if tier.needs_second_person else 0 }}"
+              {% if s.get('criticality', 4) == tier.value %}selected{% endif %}>
+        {{ tier.label }}</option>
+      {% endfor %}
+    </select>
+    {# Said before it is submitted, and derived from the policy rather than
+       restated here. Finding out that a tier needs approval only after typing
+       the whole form is how a control that exists for good reasons gets
+       resented; a hard-coded "Tier 1 needs approval" would also go stale the
+       moment the policy is configured differently, and it would go stale in
+       the flattering direction. #}
+    <div class="form-text" id="approval-warning" hidden>
+      This tier requires approval before it takes effect. It will be held as
+      <em>proposed</em> until an approver signs it off<span id="second-person" hidden>,
+      and on this tier the approver must be someone other than you</span>.
+    </div>
+  </div>
+
+  <div class="col-12">
+    <label class="form-label" for="purpose">What is it used for?</label>
+    <input class="form-control" id="purpose" name="purpose" value="{{ s.get('purpose', '') }}">
+  </div>
+
+  <div class="col-12">
+    <button class="btn btn-primary" type="submit">Declare it</button>
+    <a class="btn btn-link" href="{{ url_for('declaration_list') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  jQuery(function ($) {
+    $("#criticality").on("change", function () {
+      var option = $(this).find("option:selected");
+      $("#approval-warning").prop("hidden", option.data("needs-approver") !== 1);
+      $("#second-person").prop("hidden", option.data("needs-second-person") !== 1);
+    }).trigger("change");
+  });
+</script>
+{% endblock %}

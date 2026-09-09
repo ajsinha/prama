@@ -1,0 +1,132 @@
+/* Print artefacts.
+ *
+ * A single committed look, not a themed one. A pack is read on paper or as a
+ * PDF, where there is no viewer preference to follow and no dark mode to
+ * respect — and a document whose colours depend on the reader's settings is a
+ * document two readers can disagree about.
+ *
+ * Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
+ */
+
+@page {
+    size: A4;
+    margin: 18mm 16mm 20mm 16mm;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 10pt;
+    line-height: 1.45;
+    color: #14182E;
+    background: #FFFFFF;
+    margin: 0;
+}
+
+.sheet { max-width: 190mm; margin: 0 auto; padding: 8mm; }
+
+/* -- masthead ---------------------------------------------------------- */
+
+.masthead {
+    border-bottom: 2px solid #0E1A46;
+    padding-bottom: 6mm;
+    margin-bottom: 8mm;
+}
+.wordmark { font-size: 16pt; font-weight: 700; letter-spacing: .06em; color: #0E1A46; }
+.tagline { font-size: 9pt; font-style: italic; color: #5A6480; }
+.doc-title { font-size: 20pt; font-weight: 600; margin: 4mm 0 2mm; }
+
+.provenance {
+    font-size: 8.5pt;
+    color: #5A6480;
+}
+.provenance dt { float: left; width: 28mm; font-weight: 600; clear: left; }
+.provenance dd { margin: 0 0 1mm 28mm; }
+
+/* -- the coverage statement -------------------------------------------- */
+
+/* Deliberately prominent, and never suppressed when a pack happens to be
+   complete: a reader who sees the box only on partial packs learns to skim it,
+   and then misses the one that matters. */
+.coverage {
+    border: 1px solid #0E1A46;
+    border-left-width: 4px;
+    padding: 3mm 4mm;
+    margin: 0 0 8mm;
+    font-size: 9.5pt;
+}
+.coverage.partial { border-color: #E8823A; background: #FDF4EE; }
+.coverage h2 { font-size: 10pt; margin: 0 0 1mm; text-transform: uppercase; letter-spacing: .05em; }
+
+/* -- tables ------------------------------------------------------------ */
+
+table { width: 100%; border-collapse: collapse; margin-bottom: 6mm; font-size: 9pt; }
+caption { text-align: left; font-weight: 600; padding-bottom: 1.5mm; }
+th, td { text-align: left; padding: 1.6mm 2mm; border-bottom: .3pt solid #DFE3EF; vertical-align: top; }
+thead th {
+    border-bottom: 1pt solid #5A6480;
+    font-size: 8pt;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #5A6480;
+}
+/* Repeat the header on every page. Without it, page four of a table is a grid
+   of unlabelled values. */
+thead { display: table-header-group; }
+tr, .control { break-inside: avoid; page-break-inside: avoid; }
+
+h2.section {
+    font-size: 12pt;
+    margin: 8mm 0 3mm;
+    padding-bottom: 1mm;
+    border-bottom: .5pt solid #DFE3EF;
+    break-after: avoid;
+}
+
+/* -- states ------------------------------------------------------------ */
+
+.stale { color: #5D6480; font-style: italic; }
+.gap { color: #7A3C1D; }
+.tier-1 { font-weight: 600; color: #C84C49; }
+
+pre {
+    font-family: "Spline Sans Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    font-size: 8pt;
+    background: #F6F7FB;
+    border: .3pt solid #DFE3EF;
+    padding: 2mm 3mm;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 1.5mm 0;
+}
+
+.control { margin-bottom: 5mm; padding-bottom: 3mm; border-bottom: .3pt solid #EEF0F7; }
+.control h3 { font-size: 10pt; margin: 0 0 1mm; font-family: ui-monospace, monospace; }
+.because { font-size: 9pt; color: #14182E; }
+.incomplete-screen {
+    border-left: 3px solid #E8B33A;
+    background: #FDF8EC;
+    padding: 2mm 3mm;
+    font-size: 8.5pt;
+    margin: 1.5mm 0;
+}
+
+/* -- colophon ---------------------------------------------------------- */
+
+.colophon {
+    margin-top: 10mm;
+    padding-top: 3mm;
+    border-top: 1pt solid #0E1A46;
+    font-size: 7.5pt;
+    color: #5A6480;
+}
+
+@media screen {
+    body { background: #EEF0F7; padding: 8mm 0; }
+    .sheet {
+        background: #FFFFFF;
+        box-shadow: 0 2px 12px rgba(14, 26, 70, .18);
+        padding: 14mm;
+    }
+}

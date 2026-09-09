@@ -100,4 +100,14 @@ def create_app(config: Configuration | None = None, *, database: Database | None
     app.include_router(semantic.router, prefix=API_PREFIX)
     app.include_router(graph.router, prefix=API_PREFIX)
     app.include_router(estate.router, prefix=API_PREFIX)
+
+    # The console is mounted onto the same application rather than run beside
+    # it, so the two cannot disagree about the database, the configuration or
+    # the error taxonomy. It is a flag because a headless deployment — a worker
+    # node, an API-only estate — should not be made to hold a session secret it
+    # has no use for.
+    if config.get_bool("web.enabled", True):
+        from prama.web import mount_ui
+
+        mount_ui(app, config)
     return app

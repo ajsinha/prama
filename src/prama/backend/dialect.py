@@ -74,6 +74,22 @@ class SqlDialect:
         """A dataset name, which may already be qualified by schema."""
         return ".".join(self.quote(part) for part in name.split("."))
 
+    def as_text(self, expression: str) -> str:
+        """The expression as text, for an operation that only means text.
+
+        A regular expression is by definition a test on characters. Asking for
+        one on a DATE or a NUMERIC means "its textual form", and a strict
+        engine refuses to bind the function rather than guessing — DuckDB says
+        ``regexp_matches(DATE, ...)`` has no candidate, which surfaces as a
+        control that cannot run rather than as a wrong answer.
+
+        Casting here rather than at each call site keeps the decision in one
+        place and makes it visible in the emitted SQL, which is the artefact a
+        DBA reads before granting access. All three shipped engines render a
+        date as ISO-8601, which is what any pattern for a date expects.
+        """
+        return f"CAST({expression} AS VARCHAR)"
+
     def literal(self, value: Any) -> str:
         if value is None:
             return "NULL"
@@ -205,10 +221,20 @@ class SqliteDialect(SqlDialect):
     """
 
     name = "sqlite"
-    capabilities = frozenset({FILTER, AGGREGATION, CROSS_OBJECT_JOIN})
-    regex_flavour = "none"
+    capabilities = frozenset({FILTER, AGGREGATION, CROSS_OBJECT_JOIN, REGEX})
+    #: Python's ``re``, not POSIX and not RE2. SQLite ships no regular
+    #: expression engine at all: it reserves the ``REGEXP`` operator and calls
+    #: a function of that name if the host has registered one, which is exactly
+    #: what ``prama.connect.sources.query`` does for every SQLite connection it
+    #: opens. The capability is therefore real for Prama's own executor and
+    #: absent for a bare connection — where it fails loudly as "no such
+    #: function: REGEXP" rather than quietly matching nothing.
+    regex_flavour = "python"
     double_type = "REAL"
     has_aggregate_filter = False
+
+    def regex_match(self, expression: str, pattern: str) -> str:
+        return f"{expression} REGEXP {self.literal(pattern)}"
 
     def boolean(self, value: bool) -> str:
         # No BOOLEAN type; 1 and 0 are what comparisons yield.

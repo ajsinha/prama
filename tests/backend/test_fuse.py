@@ -175,16 +175,39 @@ class TestTheFusedQuery:
         assert [s.key for s in results[0].failing_segments] == ["APAC"]
 
     def test_a_control_the_engine_cannot_run_stops_that_group(self) -> None:
-        # It must not be silently dropped from a group and reported as passing.
+        """It must not be silently dropped from a group and reported as passing.
+
+        The exemplar is a *sampled* control on SQLite. It used to be a regular
+        expression, until SQLite gained regex through the function Prama's
+        executor registers — and a test whose refusal quietly stopped happening
+        would have gone on passing while testing nothing.
+        """
+        import dataclasses
+
+        from prama.backend.dialect import APPROX_DISTINCT, dialect
+        from prama.ir import Metric, MetricAggregate
+
+        assert APPROX_DISTINCT not in dialect("sqlite").capabilities
+
+        ordinary, approximate = plans(
+            "CHECK corpus.isin IS NOT NULL",
+            "CHECK corpus.isin IS NOT NULL",
+        )
+        # An approximate distinct count is a real, reachable construct that
+        # SQLite has no function for. Built here rather than parsed because no
+        # PQL surface produces one yet — which is itself worth knowing.
+        approximate = dataclasses.replace(
+            approximate,
+            metrics=(
+                *approximate.metrics,
+                Metric(name="approx_keys", aggregate=MetricAggregate.APPROX_COUNT_DISTINCT),
+            ),
+        )
+        assert APPROX_DISTINCT in approximate.requires
+
         with pytest.raises(PqlUnsupportedError) as caught:
             fuser = Fuser("sqlite")
-            group = fuser.group(
-                plans(
-                    "CHECK corpus.isin IS NOT NULL",
-                    r"CHECK corpus.isin MATCHES /^[A-Z]{2}/",
-                )
-            )[0]
-            fuser.fuse(group, table="corpus")
+            fuser.fuse(fuser.group([ordinary, approximate])[0], table="corpus")
         assert "must not be silently dropped" in caught.value.remedy
 
 

@@ -31,6 +31,19 @@ DEFAULTS: dict[str, Any] = {
         # on a public secret. Put the real value in application.local.yaml.
         "session_secret": "",
         "api_key_hash_rounds": 210000,
+        # Off in development only because a developer on http://localhost would
+        # otherwise never receive the cookie at all and would spend an afternoon
+        # on it. Any real deployment sets it true.
+        "cookies_https_only": True,
+    },
+    "tenancy": {
+        # A single-tenant deployment names its one tenant here and nobody has to
+        # sign in to look at a read-only page. Empty means multi-tenant, and an
+        # unauthenticated request is then refused rather than guessed at.
+        "default_tenant": "",
+    },
+    "web": {
+        "enabled": True,
     },
     "database": {
         "dialect": "sqlite",
@@ -86,6 +99,10 @@ DEFAULTS: dict[str, Any] = {
             "prama.monitors",
             "prama.notifiers",
             "prama.scorers",
+            # Validators arrive here. A distribution advertising one is checked
+            # for purity before it is usable, and its implementation hash is
+            # folded into the plan id of every control that names it.
+            "prama.validators",
         ],
         "disabled": [],
     },

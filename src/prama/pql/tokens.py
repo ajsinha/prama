@@ -105,6 +105,12 @@ KEYWORDS: frozenset[str] = frozenset(
         "TRAILER",
         "RECORD",
         "SATISFIES",
+        # The marker that switches SATISFIES into the spreadsheet surface.
+        # Explicit rather than sniffed: "=" means equality in a formula and
+        # nothing in PQL, and a parser guessing between the two would
+        # occasionally guess wrong on a control that then means something its
+        # author did not write.
+        "EXCEL",
         "DETERMINES",
         "REFERENCES",
         "SUM",

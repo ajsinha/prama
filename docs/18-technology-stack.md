@@ -26,7 +26,7 @@ world-class UI ([`FR-UIX`](04-requirements-functional.md#p-user-interface-fr-uix
 | Control-plane language | **Python 3.12+** (FastAPI, async) | ✅ Same stack, proven |
 | Hot-path language | **Rust** via PyO3 — format parsers, local IR evaluator, streaming validator | ⚠️ Pattern exists (`core/rust`), code does not |
 | Web framework | **FastAPI + uvicorn** | ✅ Adopt wholesale |
-| **UI** | **React 19 + TypeScript + Vite**, self-hosted static build served by FastAPI | ❌ **Deliberate divergence** — see §4 |
+| **UI** | **Jinja2 on FastAPI + HTMX + Alpine + Bootstrap 5**, all assets vendored, no build step | ✅ **Same as DishtaYantra** — the Phase-0 divergence to React was reversed; see §4 |
 | Local compute | **Apache Arrow + Polars + DuckDB** | ✅ Already the stack |
 | Pushdown compute | Generated SQL per dialect; Spark via job submission | ⚠️ Spark submission pattern exists |
 | **Streaming validation** | **DishtaYantra as the streaming engine** — not Flink | ✅ **The biggest win. See §5** |
@@ -145,49 +145,90 @@ XBRL).
 
 ---
 
-## 4. The UI — the deliberate divergence
+## 4. The UI — the divergence, reconsidered and reversed
+
+> **DEC-18 was reversed in September 2026.** Prama's UI is server-rendered Jinja on FastAPI, with
+> Bootstrap 5, vendored assets and CSS-custom-property theming — the same stack as DishtaYantra —
+> plus two framework-agnostic JavaScript islands where the requirements genuinely need them. The
+> original argument and what survives of it are both kept below, because a decision reversed
+> without its reasoning is a decision that gets reversed back.
 
 DishtaYantra's UI is server-rendered Jinja + Bootstrap 5 + jQuery + Cytoscape.js, with every asset
 vendored locally, CSS-custom-property theming, and light/dark modes. For its purpose — 138 admin,
 monitoring, and help pages — that is a *correct* and unusually well-executed choice: it renders
 air-gapped, it has no build step, and it is maintainable by one person.
 
-**It will not reach "world class" for Prama**, because Prama's interface requirements are
-qualitatively different:
+### 4.1 The original objection
 
-| Prama requirement | Why Jinja+Bootstrap+jQuery is the wrong tool |
+Seven of Prama's interface requirements were judged to need a component framework:
+
+| Prama requirement | The objection to Jinja+Bootstrap+jQuery |
 |---|---|
-| Estate map, 50,000 nodes at 60 fps pan/zoom (`NFR-SCA-011`) | Cytoscape is canvas/SVG; it degrades past ~5–10k elements. Needs WebGL. |
-| PQL editor with live schema/glossary autocomplete, inline type errors, cost estimates (`FR-UIX-003`) | This is an IDE surface, not a form |
+| Estate map, 50,000 nodes at 60 fps pan/zoom (`NFR-SCA-011`) | Cytoscape's default renderer is canvas/SVG and degrades past ~5–10k elements |
+| PQL editor with autocomplete, inline type errors, cost estimates (`FR-UIX-003`) | This is an IDE surface, not a form |
 | Live preview of a rule against real data in ≤ 5 s (`FR-UIX-004`) | Requires optimistic, incremental, cancellable client state |
 | Keyboard-first triage with batch disposition (`FR-UIX-006`) | Requires client-side selection/undo state across a virtualised list |
-| Streaming chat with inline artefacts, pinnable into a report (`FR-CHT-001`) | Server round-trip per interaction is unusable |
+| Streaming chat with inline artefacts (`FR-CHT-001`) | A server round-trip per interaction is unusable |
 | WCAG 2.2 AA with a real component contract (`NFR-USA-003`) | Achievable in Jinja, but only by hand-auditing 100+ pages forever |
-| p95 ≤ 300 ms navigation (`NFR-PRF-001`) | Full-page reloads cannot hold this over a WAN to an on-prem cluster |
+| p95 ≤ 300 ms navigation (`NFR-PRF-001`) | Full-page reloads cannot hold this over a WAN |
+
+### 4.2 What survives, and what does not
+
+**Two of the seven rested on a false premise.** CodeMirror 6 and Sigma.js are framework-agnostic
+JavaScript libraries: neither needs React, and both mount into a `<div>` on a server-rendered page.
+The two hardest requirements — the IDE surface and the 50,000-node WebGL map — are therefore
+answered by *choosing the right library*, which was always the real requirement, rather than by
+choosing a framework to host it. Attributing them to React was a category error.
+
+**Three are answered by HTMX.** Live preview, sub-300 ms navigation and streaming chat are
+partial-page updates over a persistent connection, which is exactly what HTMX and server-sent
+events do. A full-page reload was never the only alternative to a single-page app.
+
+**Two are real costs, and are accepted.** Keyboard-first batch triage with undo across a
+virtualised list, and rich client-side selection state, are genuinely more code without a component
+framework — a few hundred lines of vanilla JavaScript per surface rather than a library call. The
+accessibility contract is likewise hand-held rather than inherited from Radix, and the answer is
+`axe-core` in CI over every rendered page, which is a weaker guarantee than a component contract and
+a stronger one than an annual audit.
+
+### 4.3 Why the reversal is right anyway
+
+The objection was written as though the only cost of React were engineering hours. It is not.
+
+- **One language.** The rest of Prama is Python. A TypeScript app is a second toolchain, a second
+  dependency tree, a second supply chain to vendor for an air-gapped install, and a second set of
+  people. For a product whose differentiator is statistical and semantic rather than visual, that
+  is a large permanent tax on the wrong axis.
+- **No build step is an air-gap feature.** DishtaYantra renders in a restricted-egress deployment
+  because there is nothing to build and nothing to fetch. Prama's buyers are the same buyers.
+- **It is proven here.** The same author maintains a well-executed instance of this stack, and
+  "maintainable by one person" is not a limitation to design around — it is the operating reality.
+- **The estimate that justified the divergence was the Experience team growing from three to nine
+  engineers.** That is the single largest line item in the plan, spent on a framework rather than
+  on the product.
 
 **Recommended front-end:**
 
 | Concern | Choice | Why |
 |---|---|---|
-| Framework | **React 19 + TypeScript**, **Vite** | Deepest talent pool, best component/a11y ecosystem, mature at this complexity |
-| Routing / data | **TanStack Router + TanStack Query** | Type-safe routes, cache/invalidations that match an event-driven backend |
-| Tables | **TanStack Table** + virtualisation | 10⁵-row evidence and incident lists |
-| Components | **Radix UI primitives + Tailwind CSS** (own the design system) | Accessible primitives, unopinionated styling; avoids fighting a vendor theme, which is how "world class" dies |
-| Editor | **CodeMirror 6** + an LSP client speaking to the PQL language server (`FR-EXT` tooling) | Lighter and more embeddable than Monaco; same PQL LSP serves IDEs |
-| Charts | **visx** (or ECharts where speed of delivery wins) with the [six-dimension palette](brand.md#4-palette) | Composable primitives; we need a *system*, not a chart library's opinions |
-| Estate map / lineage | **Sigma.js v3 (WebGL)** for scale; **React Flow** for the small, editable relationship canvas | Two different jobs: 50k-node exploration vs. drag-to-declare authoring |
-| State | TanStack Query + Zustand for local UI state | No Redux ceremony |
-| i18n / a11y | `react-i18next`, `axe-core` in CI | `FR-UIX-009/010` |
-| Build/serve | Static bundle served by FastAPI; **all assets vendored, no CDN, no external fonts** | Preserves the air-gap property that DishtaYantra gets right |
+| Rendering | **Jinja2 on FastAPI**, server-rendered | One language, no build step, air-gapped by construction |
+| Interactivity | **HTMX** for partial updates, **Alpine.js** for local component state | Partial-page updates and small client state without a framework |
+| Components | **Bootstrap 5** + CSS custom properties, light/dark, density modes | Proven in DishtaYantra; the six-dimension palette lives in tokens |
+| Editor | **CodeMirror 6**, vanilla, speaking to the PQL language server | Framework-agnostic; the same LSP serves IDEs |
+| Estate map | **Sigma.js v3 (WebGL)** for scale; **Cytoscape.js** for the small editable canvas | Two different jobs, as before — and neither needs React |
+| Charts | **ECharts**, themed to the six-dimension palette | Vendored, no build step, adequate at this complexity |
+| Streaming | **Server-sent events** for chat and live preview | Simpler than websockets and enough for one-directional streaming |
+| Tables | Server-rendered with HTMX paging; virtualised only where 10⁵ rows are real | Most tables are not that big, and the ones that are get the extra code |
+| Build/serve | No build. **All assets vendored**, no CDN, no external fonts | Preserves the air-gap property outright rather than by discipline |
+| a11y | `axe-core` in CI over every rendered page | Weaker than a component contract, stronger than an audit |
 
-**Keep Jinja for exactly one thing:** server-side rendering of PDF/print report and attestation
-artefacts, where a deterministic, JS-free render is a feature, not a limitation.
+**Keep Jinja for PDF and print artefacts too** — server-side, JS-free rendering was already the
+right answer there, and now it is the same renderer as everything else.
 
-**Cost honesty.** This is the largest single divergence and the largest single engineering line
-item — roughly the Experience team in [16](16-roadmap-and-delivery-plan.md#4-team-shape) (3 → 9
-engineers). It is justified because the UI *is* the product for the target persona: a business data
-owner who will never open a terminal. A merely adequate UI here does not lose style points, it
-loses the thesis.
+**Cost honesty, revised.** This removes the largest single engineering line item in the plan. What
+it costs instead is a few hundred lines of hand-written JavaScript on the two most interactive
+surfaces, and an accessibility guarantee held by CI rather than by a component library. Both are
+real; neither is nine engineers.
 
 ---
 
@@ -311,7 +352,7 @@ prama/
 ├── prama-formats/*     # parsers (Rust ext modules) — same plugin contract
 ├── prama-intel/        # profiling, mining, monitors, calibration, induction
 ├── prama-server/       # FastAPI: API, scheduler, workflow, semantic layer
-├── prama-web/          # React app, built to static assets
+├── web/                # Jinja templates and vendored static assets. No build step.
 ├── prama-packs/*       # domain packs (signed bundles, not code)
 └── prama-sdk-{py,java,ts}/  + prama-cli
 ```
@@ -372,7 +413,7 @@ documentation.
 | ID | Decision | Options | Lean | Needed by |
 |---|---|---|---|---|
 | DEC-17 | **Streaming backend** | DishtaYantra · Flink · both | **DishtaYantra default, Flink pluggable** — subject to the `NFR-SCA-005` benchmark | Phase 0 spike, Phase 2 commit |
-| DEC-18 | **Front-end framework** | React+TS · Jinja+HTMX (DY-style) · SvelteKit | **React + TypeScript** — talent pool and a11y ecosystem outweigh bundle size | Phase 0 |
+| DEC-18 | **Front-end framework** | React+TS · Jinja+HTMX (DY-style) · SvelteKit | **Jinja + HTMX + Alpine, Bootstrap 5, vendored** — reversed Sep 2026. Two of the seven objections to it rested on a false premise (CodeMirror and Sigma need no framework), three are answered by HTMX, and two are accepted costs. One language and no build step outweigh them — see §4 | Phase 0, reversed Wave 9 |
 | DEC-19 | **Estate-map renderer** | Sigma.js (WebGL) · Cytoscape · deck.gl · Cosmograph | **Sigma.js v3** for scale + **React Flow** for the editable relationship canvas | Phase 1 |
 | DEC-20 | **Rust scope** | Parsers only · parsers + evaluator · parsers + evaluator + streaming | **Parsers first**, extend on measurement | Phase 1 |
 | DEC-21 | **Shared code with DishtaYantra** | Submodule · shared package now · copy-adapt with provenance | **Copy-adapt**, extract at the third consumer | Phase 0 |
