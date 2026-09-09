@@ -41,6 +41,11 @@ dev = [
     "mypy>=1.11",
     "types-PyYAML",
 ]
+# The accessibility audit. Separate from `dev` because it is the one dependency
+# that needs a browser: playwright drives the Chrome already installed rather
+# than downloading its own, so this adds a package and not 150MB — but a clone
+# without it should skip the audit loudly rather than fail to install.
+audit = ["playwright>=1.44"]
 
 [project.scripts]
 prama = "prama.cli.main:main"

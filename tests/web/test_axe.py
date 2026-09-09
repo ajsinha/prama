@@ -1,0 +1,283 @@
+"""axe-core, in a real browser, on every page of the console.
+
+``test_accessibility.py`` is the floor: contrast arithmetic and HTML structure,
+both checked without a DOM. This is the ceiling, and it catches three classes of
+failure that static analysis structurally cannot:
+
+* **Computed contrast.** A colour is legible or not only after the cascade has
+  run. A token that passes in the palette can fail on the page because something
+  inherited a background, and the arithmetic tests cannot see it.
+* **ARIA validity.** A ``role`` that does not exist, a ``aria-labelledby``
+  pointing at nothing, a required child missing from a composite widget. Every
+  one of these parses fine and is announced as nothing.
+* **Focus order and interactivity.** Whether a control can be reached, in an
+  order that matches the reading order.
+
+Two decisions worth stating.
+
+**The browser is the one already installed.** Playwright drives Chrome through
+``channel="chrome"`` rather than downloading its own, because an accessibility
+suite that costs a 150MB download on every clone is one that gets disabled.
+
+**A skip is loud.** An audit that quietly does not run and reports green is
+worse than no audit: the badge says accessible and nobody has looked. Missing
+playwright or missing Chrome produces a skip whose reason says exactly that, and
+``test_the_audit_actually_ran`` fails rather than skips when the vendored
+axe-core is absent — because that one is a repository problem, not an
+environment one.
+
+Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
+"""
+
+from __future__ import annotations
+
+import json
+import threading
+from collections.abc import Iterator
+from pathlib import Path
+
+import pytest
+import uvicorn
+
+from prama.api import create_app
+from prama.core.config import Configuration, ConfigurationBuilder
+from prama.db import Database
+
+AXE = Path(__file__).parent / "vendor" / "axe.min.js"
+
+#: WCAG 2.2 AA. Best-practice rules are excluded deliberately: they are
+#: opinions, several of them contradict Bootstrap's own markup, and a suite that
+#: fails on an opinion is one somebody switches off along with the conformance
+#: rules it was protecting.
+TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]
+
+PAGES = (
+    "/estate",
+    "/estate/gaps",
+    "/declarations",
+    "/declarations/new",
+    "/relationships",
+    "/relationships/new",
+    "/controls",
+    "/controls/studio",
+    "/controls/build",
+    "/proposals",
+    "/evidence",
+    "/reports",
+    "/incidents",
+    "/reconciliation",
+    "/scorecards",
+    "/attestations",
+)
+
+#: Both ends of the light/dark axis and the three brand themes. Computed
+#: contrast is a property of the rendered page, so a palette that passes the
+#: arithmetic in every theme still has to be looked at in every theme.
+THEMES = ("light", "dark", "crimson", "bmo", "wallstreet")
+
+
+def _playwright():
+    return pytest.importorskip(
+        "playwright.sync_api",
+        reason=(
+            "playwright is not installed, so the accessibility audit did NOT run. "
+            "`pip install playwright` — it drives the Chrome already on this "
+            "machine and downloads no browser."
+        ),
+    )
+
+
+@pytest.fixture(scope="module")
+def server(tmp_path_factory) -> Iterator[str]:
+    """The real application on a real port.
+
+    A live server rather than an ASGI transport: axe runs inside a browser, and
+    a browser needs a URL. Started once for the module, because the audit visits
+    eighty pages and a per-test server would dominate the runtime.
+    """
+    from prama.core.config.defaults import DEFAULTS
+
+    root = tmp_path_factory.mktemp("axe")
+    config: Configuration = (
+        ConfigurationBuilder()
+        .with_defaults(DEFAULTS)
+        .with_mapping(
+            {
+                "database": {
+                    "dialect": "sqlite",
+                    "sqlite": {"path": str(root / "axe.db")},
+                    "schema_dir": str(Path(__file__).resolve().parents[2] / "schema"),
+                    "verify_on_start": True,
+                },
+                "security": {"session_secret": "axe-audit-secret", "cookies_https_only": False},
+                "web": {"enabled": True},
+            },
+            name="axe",
+        )
+        .build()
+    )
+    # A tenant, and the configuration that names it, before the app is built.
+    # Without it every page 303s to the sign-in redirect and the audit measures
+    # that instead — which passes nothing and looks like sixteen broken pages.
+    import asyncio
+
+    async def _tenant() -> str:
+        database_ = Database.from_config(config)
+        database_.initialise(applied_by="axe-audit")
+        await database_.start()
+        try:
+            async with database_.unit_of_work() as uow:
+                tenant = uow.tenants.create(slug="axe-bank", display_name="Axe Bank")
+                await uow.flush()
+                return str(tenant.id)
+        finally:
+            await database_.stop()
+
+    tenant_id = asyncio.run(_tenant())
+    config = (
+        ConfigurationBuilder()
+        .with_defaults(config.raw())
+        .with_mapping({"tenancy": {"default_tenant": tenant_id}}, name="axe-tenant")
+        .build()
+    )
+
+    database = Database.from_config(config)
+    app = create_app(config, database=database)
+
+    server_ = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=0, log_level="warning"))
+    thread = threading.Thread(target=server_.run, daemon=True)
+    thread.start()
+    while not server_.started:
+        if not thread.is_alive():  # pragma: no cover - the server failed to boot
+            raise RuntimeError("the console did not start")
+    port = server_.servers[0].sockets[0].getsockname()[1]
+    yield f"http://127.0.0.1:{port}"
+    server_.should_exit = True
+    thread.join(timeout=10)
+
+
+@pytest.fixture(scope="module")
+def browser(server: str):
+    sync_api = _playwright()
+    with sync_api.sync_playwright() as playwright:
+        try:
+            # The Chrome already installed, rather than a downloaded one: an
+            # audit that costs a 150MB download per clone gets disabled.
+            launched = playwright.chromium.launch(channel="chrome")
+        except Exception as exc:  # pragma: no cover - environment dependent
+            pytest.skip(f"no Chrome to drive, so the accessibility audit did NOT run: {exc}")
+        yield launched
+        launched.close()
+
+
+def _violations(browser, base: str, path: str, theme: str) -> list[dict]:
+    page = browser.new_page()
+    try:
+        page.goto(f"{base}{path}", wait_until="networkidle")
+        # Set on the root element, which is where the stylesheet's [data-theme]
+        # selectors bind. Setting it before axe runs means the contrast axe
+        # measures is the contrast a reader in that theme actually sees.
+        page.evaluate("t => document.documentElement.setAttribute('data-theme', t)", theme)
+        page.add_script_tag(path=str(AXE))
+        result = page.evaluate(
+            "async tags => await axe.run(document, {runOnly: {type: 'tag', values: tags}})",
+            TAGS,
+        )
+        return list(result.get("violations") or [])
+    finally:
+        page.close()
+
+
+def _describe(violations: list[dict], path: str, theme: str) -> str:
+    """A failure message somebody can act on without opening a browser."""
+    lines = [f"{path} in the {theme} theme: {len(violations)} violation(s)"]
+    for violation in violations:
+        lines.append(f"  [{violation['impact']}] {violation['id']}: {violation['help']}")
+        for node in violation.get("nodes", [])[:3]:
+            lines.append(f"      {''.join(node.get('target', []))}")
+            summary = (node.get("failureSummary") or "").replace("\n", " ")
+            lines.append(f"      {summary[:200]}")
+        lines.append(f"      {violation['helpUrl']}")
+    return "\n".join(lines)
+
+
+class TestTheAuditItself:
+    def test_axe_core_is_vendored(self) -> None:
+        """A repository problem, not an environment one, so it fails rather
+        than skips. A suite that silently has no analyser to run reports green
+        and nobody has looked."""
+        assert AXE.exists(), (
+            "tests/web/vendor/axe.min.js is missing. Without it nothing is "
+            "audited and the rest of this file would skip quietly."
+        )
+        assert AXE.stat().st_size > 100_000
+
+    def test_it_finds_a_violation_when_there_is_one(self, browser, server: str) -> None:
+        """The counterfactual. An audit that passes everything is
+        indistinguishable from an audit that is not running, and this is the
+        only test that tells them apart."""
+        page = browser.new_page()
+        try:
+            page.set_content(
+                "<html lang='en'><body><img src='x.png'><input type='text'></body></html>"
+            )
+            page.add_script_tag(path=str(AXE))
+            result = page.evaluate(
+                "async tags => await axe.run(document, {runOnly: {type: 'tag', values: tags}})",
+                TAGS,
+            )
+            found = {v["id"] for v in result["violations"]}
+        finally:
+            page.close()
+        assert "image-alt" in found
+        assert found, "axe reported nothing on deliberately broken markup"
+
+
+@pytest.mark.parametrize("path", PAGES)
+def test_no_violations_in_the_default_theme(browser, server: str, path: str) -> None:
+    violations = _violations(browser, server, path, "light")
+    assert not violations, _describe(violations, path, "light")
+
+
+@pytest.mark.parametrize("theme", THEMES)
+def test_every_theme_is_clean_on_the_densest_page(browser, server: str, theme: str) -> None:
+    """The estate map carries the most colour of any screen — dimension chips,
+    verdict marks, brand accents — so it is where a theme's computed contrast
+    fails first."""
+    violations = _violations(browser, server, "/estate", theme)
+    assert not violations, _describe(violations, "/estate", theme)
+
+
+@pytest.mark.parametrize("theme", ("dark", "wallstreet"))
+def test_the_dark_themes_are_clean_on_a_form(browser, server: str, theme: str) -> None:
+    """Forms are where a dark theme most often fails: an input that inherits a
+    light background from a component library, with dark text on it, passes
+    every arithmetic check on the tokens and is unreadable on the page."""
+    violations = _violations(browser, server, "/declarations/new", theme)
+    assert not violations, _describe(violations, "/declarations/new", theme)
+
+
+def test_the_json_report_is_written(browser, server: str, tmp_path: Path) -> None:
+    """Somebody has to be able to read the audit without running it.
+
+    Written to a temporary path rather than the repository: a report checked in
+    is a report that goes stale, and a stale accessibility report is read as a
+    current one.
+    """
+    page = browser.new_page()
+    try:
+        page.goto(f"{server}/estate", wait_until="networkidle")
+        page.add_script_tag(path=str(AXE))
+        result = page.evaluate(
+            "async tags => await axe.run(document, {runOnly: {type: 'tag', values: tags}})",
+            TAGS,
+        )
+    finally:
+        page.close()
+    report = tmp_path / "axe.json"
+    report.write_text(json.dumps(result, indent=2))
+    loaded = json.loads(report.read_text())
+    assert loaded["violations"] == []
+    # Passes are recorded too. "Nothing failed" and "forty rules ran and
+    # nothing failed" are different claims and only the second is evidence.
+    assert len(loaded["passes"]) > 5

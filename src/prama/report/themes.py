@@ -31,13 +31,20 @@ from __future__ import annotations
 
 import dataclasses
 
-from prama.report.contrast import BODY_TEXT, NON_TEXT, accessible_on
+from prama.report.contrast import BODY_TEXT, NON_TEXT, accessible_on, blend
 from prama.report.palette import (
     DIMENSION_DARK_HEX,
     DIMENSION_HEX,
     UNVERIFIED_GREY,
     UNVERIFIED_GREY_DARK,
 )
+
+#: The grey behind a striped row, and how much of it shows. Mirrors
+#: ``--bg-raised`` in prama.css; a test asserts the two agree, because a blend
+#: computed from one number here and painted from another there is a ground
+#: nothing has checked.
+RAISED_GREY = "#7F7F7F"
+RAISED_ALPHA = 0.08
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -84,25 +91,53 @@ class Theme:
     def unverified_source(self) -> str:
         return UNVERIFIED_GREY_DARK if self.is_dark else UNVERIFIED_GREY
 
+    @property
+    def raised(self) -> str:
+        """The striped-row ground, computed rather than declared.
+
+        ``--bg-raised`` is a translucent grey over whatever is behind it, so its
+        actual colour is a blend and no token holds it. Computing it here is the
+        only way the derivation can account for it — and a table header was
+        failing at 4.12:1 precisely because nothing did.
+        """
+        return blend(RAISED_GREY, self.body, RAISED_ALPHA)
+
+    @property
+    def grounds(self) -> tuple[str, ...]:
+        """Every background a coloured word can land on.
+
+        A card, the page behind it, and a striped row. Deriving against one of
+        them and rendering on another is the defect axe found three times over:
+        a colour checked against the background the test assumed rather than
+        the one it renders on is a colour nobody has checked.
+        """
+        return (self.surface, self.body, self.raised)
+
+    def _legible(self, colour: str, threshold: float) -> str:
+        """The nearest shade legible on **every** ground, not the first one.
+
+        Applied in turn: each pass only moves further from the background, so
+        the result of the last pass still satisfies the earlier ones. Taking
+        the worst ground up front would be equivalent and would need this code
+        to know which ground is worst for a given hue, which it does not.
+        """
+        for ground in self.grounds:
+            colour = accessible_on(colour, ground, threshold=threshold)
+        return colour
+
     def fills(self) -> dict[str, str]:
         """Dimension colours for marks, at the 3:1 non-text threshold."""
-        return {
-            name: accessible_on(value, self.surface, threshold=NON_TEXT)
-            for name, value in self.source_hues.items()
-        }
+        return {name: self._legible(value, NON_TEXT) for name, value in self.source_hues.items()}
 
     def texts(self) -> dict[str, str]:
         """Dimension colours for words, at the 4.5:1 body-text threshold."""
-        return {
-            name: accessible_on(value, self.surface, threshold=BODY_TEXT)
-            for name, value in self.source_hues.items()
-        }
+        return {name: self._legible(value, BODY_TEXT) for name, value in self.source_hues.items()}
 
     def unverified_fill(self) -> str:
-        return accessible_on(self.unverified_source, self.surface, threshold=NON_TEXT)
+        return self._legible(self.unverified_source, NON_TEXT)
 
     def unverified_text(self) -> str:
-        return accessible_on(self.unverified_source, self.surface, threshold=BODY_TEXT)
+        return self._legible(self.unverified_source, BODY_TEXT)
 
 
 #: Every theme, in the order the picker offers them.
@@ -114,7 +149,11 @@ THEMES: tuple[Theme, ...] = (
         surface="#FFFFFF",
         body="#F6F7FB",
         ink="#14182E",
-        muted="#6B7391",
+        # Darkened from #6B7391, which passed against `surface` and failed
+        # against `body` at 4.37:1 — the footer and the map status line sit on
+        # the page ground, not on a card. Found by axe in a browser; the
+        # arithmetic tests had only ever measured it against the card.
+        muted="#69718E",
         border="#DFE3EF",
         header="linear-gradient(135deg, #0E1A46 0%, #1B2A63 50%, #0E1A46 100%)",
         link="#2B3FA8",

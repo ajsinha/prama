@@ -306,4 +306,11 @@ def test_matching_throughput_is_measured_rather_than_assumed() -> None:
         f"single-threaded, and the work partitions by key)"
     )
     assert len(report.pairs) == rows
-    assert per_second > 50_000
+    # A floor on the *complexity class*, not on the machine. Measured at around
+    # 157,000/s on an idle laptop, so 50,000 left barely three times' headroom
+    # and the suite went red the first time something else — the browser the
+    # accessibility audit drives — wanted the CPU. A test that fails for
+    # reasons unrelated to the code gets ignored when it fails for a related
+    # one. A quadratic matcher at this size would be thousands of times slower
+    # than this bound, which is the regression worth catching.
+    assert per_second > 10_000

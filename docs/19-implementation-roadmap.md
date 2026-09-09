@@ -669,7 +669,7 @@ W9.6 ✅ CodeMirror PQL editor and LSP integration · W9.7 ✅ live preview and 
 W9.8 ✅ proposal review queue ·
 W9.9 ✅ incident triage workspace · W9.10 ✅ reconciliation workbench · W9.11 ✅ scorecards and drill-down ·
 W9.12 ✅ attestation and e-signature · W9.13 ✅ **assistant with the full safety contract** · W9.14 ✅ MCP
-server · W9.15 ✅ print rendering · W9.16 ◐ accessibility audit · W9.17 usability study.
+server · W9.15 ✅ print rendering · W9.16 ✅ accessibility audit · W9.17 usability study.
 
 ### Where the console stands
 
@@ -691,7 +691,8 @@ configuration or the error taxonomy.
 | The no-code builder: eight rules in business terms, always showing the PQL it wrote, refusing to emit anything that will not re-read | More rule shapes — functional dependency, cross-dataset comparison |
 | Relationships end to end: declare, confirm, reject; pick-then-pick on the map | Attribute-level relationship editing |
 | Charts as server-rendered SVG (`prama.report`), one renderer for screen and print | Wiring them into scorecards, which have no measurements to draw |
-| Contrast measured, not eyeballed; text-safe dimension tokens derived from the brand hues | `axe-core` in a browser (W9.16) — computed contrast, focus order, ARIA validity |
+| Contrast measured, not eyeballed; every derived colour legible on all three grounds — card, page, striped row | Keyboard-only walkthroughs and a screen-reader pass, which are judgement rather than a rule engine |
+| **`axe-core` in Chrome** over sixteen pages and five themes, WCAG 2.2 AA, with a counterfactual proving the audit can fail | Running it in CI, which needs a browser on the runner |
 | Print artefacts: declaration pack, control pack and **attestation pack**, self-contained, coverage stated on every one | Batch export of a period's packs as one bundle |
 | `prama mcp` — the MCP server on the assistant's own registry, fenced and scanned | Streamable-HTTP transport; stdio only for now |
 | Proposal queue with accept and reject, `Unsatisfiable` first, rejections recorded so nothing is re-proposed | Batch approve; backtest and expected alert volume beside each proposal |

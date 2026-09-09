@@ -120,3 +120,18 @@ def accessible_on(
             best = candidate
             break
     return best
+
+
+def blend(colour: str, over: str, alpha: float) -> str:
+    """``colour`` at ``alpha`` composited over ``over``, as hex.
+
+    Needed because a translucent background has no token: ``rgba(127,127,127,.08)``
+    over a page is a real colour that no stylesheet variable holds, and text on
+    it has to be checked against what it actually renders on. Computing the
+    blend is the only way to check it at all.
+    """
+    if not 0.0 <= alpha <= 1.0:
+        raise ValueError(f"alpha must be between 0 and 1, not {alpha}")
+    front, back = rgb(colour), rgb(over)
+    mixed = tuple(round(f * alpha + b * (1.0 - alpha)) for f, b in zip(front, back, strict=True))
+    return "#{:02X}{:02X}{:02X}".format(*mixed)

@@ -50,6 +50,14 @@
       }
     });
 
+    /* CodeMirror hides the original textarea and types into one of its own,
+       which inherits no label — so the field a screen-reader user actually
+       lands on was announced as "edit text, blank". Pointed at the same label
+       and the same help text as the element it replaced, rather than given a
+       second name that could drift from it. */
+    editor.getInputField().setAttribute("aria-labelledby", "pql-label");
+    editor.getInputField().setAttribute("aria-describedby", "pql-help");
+
     /* Completion and hover are answered by the server, from the same module
        `prama lsp` calls. Nothing here decides whether a name is real: two
        implementations of that question is how an editor comes to underline

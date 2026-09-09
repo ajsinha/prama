@@ -19,34 +19,34 @@
     --bg-card: #FFFFFF;
     --bg-header: linear-gradient(135deg, #0E1A46 0%, #1B2A63 50%, #0E1A46 100%);
     --text-primary: #14182E;
-    --text-muted: #6B7391;
+    --text-muted: #69718E;
     --text-link: #2B3FA8;
     --accent: #2B3FA8;
     --border-color: #DFE3EF;
 
     /* Marks: bars, rings, dots. 3:1 against this theme's card. */
-    --dim-accuracy: #00A699;
-    --dim-completeness: #2CA96B;
-    --dim-consistency: #76A035;
-    --dim-timeliness: #B78D2E;
-    --dim-uniqueness: #DC7C37;
+    --dim-accuracy: #00998D;
+    --dim-completeness: #289A62;
+    --dim-consistency: #6C9330;
+    --dim-timeliness: #A9822B;
+    --dim-uniqueness: #C87132;
     --dim-validity: #D9534F;
     --dim-integrity: #2B3FA8;
     --dim-conformity: #5A6480;
 
     /* Words: dimension names, verdicts. 4.5:1 against the same. */
-    --dim-accuracy-text: #008479;
-    --dim-completeness-text: #228554;
-    --dim-consistency-text: #5E802A;
-    --dim-timeliness-text: #927125;
-    --dim-uniqueness-text: #AE622C;
-    --dim-validity-text: #C84C49;
+    --dim-accuracy-text: #00786E;
+    --dim-completeness-text: #1F794C;
+    --dim-consistency-text: #567526;
+    --dim-timeliness-text: #856722;
+    --dim-uniqueness-text: #9F5928;
+    --dim-validity-text: #B64542;
     --dim-integrity-text: #2B3FA8;
     --dim-conformity-text: #5A6480;
 
     /* Reserved for 'stale or not yet examined'. Nothing else may use it. */
-    --unverified-grey: #8A93AD;
-    --unverified-grey-text: #6E768A;
+    --unverified-grey: #7F88A0;
+    --unverified-grey-text: #656B7D;
 }
 
 /* Prama dark — The same palette on a night ground, for long sessions. */
@@ -97,28 +97,28 @@
     --border-color: #E7DDDF;
 
     /* Marks: bars, rings, dots. 3:1 against this theme's card. */
-    --dim-accuracy: #00A699;
-    --dim-completeness: #2CA96B;
-    --dim-consistency: #76A035;
-    --dim-timeliness: #B78D2E;
-    --dim-uniqueness: #DC7C37;
+    --dim-accuracy: #00978C;
+    --dim-completeness: #289961;
+    --dim-consistency: #6B9230;
+    --dim-timeliness: #A7802A;
+    --dim-uniqueness: #C97132;
     --dim-validity: #D9534F;
     --dim-integrity: #2B3FA8;
     --dim-conformity: #5A6480;
 
     /* Words: dimension names, verdicts. 4.5:1 against the same. */
-    --dim-accuracy-text: #008479;
-    --dim-completeness-text: #228554;
-    --dim-consistency-text: #5E802A;
-    --dim-timeliness-text: #927125;
-    --dim-uniqueness-text: #AE622C;
-    --dim-validity-text: #C84C49;
+    --dim-accuracy-text: #00786E;
+    --dim-completeness-text: #1F794D;
+    --dim-consistency-text: #557426;
+    --dim-timeliness-text: #846621;
+    --dim-uniqueness-text: #9E5928;
+    --dim-validity-text: #B64542;
     --dim-integrity-text: #2B3FA8;
     --dim-conformity-text: #5A6480;
 
     /* Reserved for 'stale or not yet examined'. Nothing else may use it. */
-    --unverified-grey: #8A93AD;
-    --unverified-grey-text: #6E768A;
+    --unverified-grey: #7F879F;
+    --unverified-grey-text: #636A7C;
 }
 
 /* BMO blue — BMO Blue on cool grey. A retail-banking register. */
@@ -133,28 +133,28 @@
     --border-color: #D8E3EE;
 
     /* Marks: bars, rings, dots. 3:1 against this theme's card. */
-    --dim-accuracy: #00A699;
-    --dim-completeness: #2CA96B;
-    --dim-consistency: #76A035;
-    --dim-timeliness: #B78D2E;
-    --dim-uniqueness: #DC7C37;
+    --dim-accuracy: #00978C;
+    --dim-completeness: #289961;
+    --dim-consistency: #6B9230;
+    --dim-timeliness: #A7802A;
+    --dim-uniqueness: #C97132;
     --dim-validity: #D9534F;
     --dim-integrity: #2B3FA8;
     --dim-conformity: #5A6480;
 
     /* Words: dimension names, verdicts. 4.5:1 against the same. */
-    --dim-accuracy-text: #008479;
-    --dim-completeness-text: #228554;
-    --dim-consistency-text: #5E802A;
-    --dim-timeliness-text: #927125;
-    --dim-uniqueness-text: #AE622C;
-    --dim-validity-text: #C84C49;
+    --dim-accuracy-text: #00786E;
+    --dim-completeness-text: #1F794D;
+    --dim-consistency-text: #557426;
+    --dim-timeliness-text: #846621;
+    --dim-uniqueness-text: #9E5928;
+    --dim-validity-text: #B64542;
     --dim-integrity-text: #2B3FA8;
     --dim-conformity-text: #5A6480;
 
     /* Reserved for 'stale or not yet examined'. Nothing else may use it. */
-    --unverified-grey: #8A93AD;
-    --unverified-grey-text: #6E768A;
+    --unverified-grey: #7F879F;
+    --unverified-grey-text: #636A7C;
 }
 
 /* Wall Street — Amber on black, as a terminal. For a desk that lives in one. */
