@@ -10,6 +10,8 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+import re
+
 import httpx
 import pytest
 
@@ -308,7 +310,7 @@ class TestControlStudio:
         self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
     ) -> None:
         await _declare(started_database, tenant_id, name="Positions", slug="positions_eod")
-        response = await ui.get("/controls")
+        response = await ui.get("/controls/studio")
         assert response.status_code == 200
         assert "positions_eod" in response.text
 
@@ -875,3 +877,206 @@ class TestEvidenceScreen:
         body = (await ui.get("/evidence")).text
         assert "erased" in body
         assert "chain verified" in body
+
+
+class TestControlEstate:
+    async def test_accepting_a_proposal_puts_it_in_the_estate(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        await _declare(
+            started_database,
+            tenant_id,
+            name="Positions",
+            slug="positions_eod",
+            shape="table",
+            grain_json={"attributes": ["account_id", "instrument_id"]},
+        )
+        queue = (await ui.get("/proposals")).text
+        assert "Accept" in queue
+
+        identity = re.search(r'name="identity" value="([^"]+)"', queue)
+        pql = re.search(r'name="pql" value="([^"]+)"', queue)
+        assert identity and pql
+
+        import html as html_module
+
+        response = await ui.post(
+            "/proposals/accept",
+            data={"identity": identity.group(1), "pql": html_module.unescape(pql.group(1))},
+        )
+        assert response.status_code == 303
+
+        async with started_database.unit_of_work() as uow:
+            live = await uow.controls.live(tenant_id)
+        assert len(live) == 1
+        assert live[0].status == "active"
+
+    async def test_an_accepted_proposal_is_not_offered_again(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """Showing it again would invite somebody to accept it twice."""
+        await _declare(
+            started_database,
+            tenant_id,
+            name="Positions",
+            slug="positions_eod",
+            shape="table",
+            grain_json={"attributes": ["account_id"]},
+        )
+        queue = (await ui.get("/proposals")).text
+        identity = re.search(r'name="identity" value="([^"]+)"', queue)
+        pql = re.search(r'name="pql" value="([^"]+)"', queue)
+        assert identity and pql
+
+        import html as html_module
+
+        await ui.post(
+            "/proposals/accept",
+            data={"identity": identity.group(1), "pql": html_module.unescape(pql.group(1))},
+        )
+        again = (await ui.get("/proposals")).text
+        assert "already accepted" in again
+
+    async def test_a_rejection_is_recorded_and_not_re_proposed(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """Asking again every night is the fastest way to lose a steward's
+        attention."""
+        await _declare(
+            started_database,
+            tenant_id,
+            name="Positions",
+            slug="positions_eod",
+            shape="table",
+            grain_json={"attributes": ["account_id"]},
+        )
+        queue = (await ui.get("/proposals")).text
+        identity = re.search(r'name="identity" value="([^"]+)"', queue)
+        digest = re.search(r'name="content_hash" value="([^"]+)"', queue)
+        assert identity and digest
+
+        await ui.post(
+            "/proposals/reject",
+            data={
+                "identity": identity.group(1),
+                "content_hash": digest.group(1),
+                "reason": "too_noisy",
+                "note": "fires every month end",
+            },
+        )
+        again = (await ui.get("/proposals")).text
+        assert "already turned down" in again
+
+        async with started_database.unit_of_work() as uow:
+            [rejection] = await uow.rejections.for_tenant(tenant_id)
+        assert rejection.reason == "too_noisy"
+
+    async def test_the_rejection_reasons_come_from_the_enum(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """So a new reason appears in the form the moment it exists, and the
+        form can never offer one the schema will refuse."""
+        from prama.propose.proposal import RejectionReason
+
+        await _declare(
+            started_database,
+            tenant_id,
+            name="Positions",
+            slug="positions_eod",
+            shape="table",
+            grain_json={"attributes": ["account_id"]},
+        )
+        body = (await ui.get("/proposals")).text
+        for reason in RejectionReason:
+            assert f'value="{reason.value}"' in body, reason.value
+
+    async def test_a_proposal_that_changes_a_control_says_so(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """A different decision from adding a new control, and a queue that
+        rendered them identically would get this one waved through."""
+        await _declare(
+            started_database,
+            tenant_id,
+            name="Positions",
+            slug="positions_eod",
+            shape="table",
+            grain_json={"attributes": ["account_id"]},
+        )
+        queue = (await ui.get("/proposals")).text
+        identity = re.search(r'name="identity" value="([^"]+)"', queue)
+        assert identity
+
+        async with started_database.unit_of_work() as uow:
+            await uow.controls.declare(
+                tenant_id=tenant_id,
+                identity=identity.group(1),
+                pql=(
+                    "CHECK positions_eod.account_id IS NOT NULL "
+                    "SEVERITY minor DIMENSION completeness BECAUSE 'something else'"
+                ),
+            )
+        again = (await ui.get("/proposals")).text
+        assert "changes an existing control" in again
+
+    async def test_the_estate_page_separates_running_from_proposed(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """ "We have 340 controls" is the number every tool reports; how many
+        actually run is the number that decides whether the estate is
+        protected."""
+        async with started_database.unit_of_work() as uow:
+            await uow.controls.declare(
+                tenant_id=tenant_id,
+                identity="i1",
+                pql=(
+                    "CHECK positions_eod.a IS NOT NULL SEVERITY major "
+                    "DIMENSION completeness BECAUSE 'why'"
+                ),
+            )
+        body = (await ui.get("/controls")).text
+        assert "Proposed, not running" in body
+        assert "are not protecting anything yet" in body
+
+    async def test_silencing_needs_a_date_and_a_reason(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        async with started_database.unit_of_work() as uow:
+            control, _ = await uow.controls.declare(
+                tenant_id=tenant_id,
+                identity="i1",
+                pql=(
+                    "CHECK positions_eod.a IS NOT NULL SEVERITY major "
+                    "DIMENSION completeness BECAUSE 'why'"
+                ),
+            )
+            await uow.controls.activate(str(control.id), approved_by="alice")
+            control_id = str(control.id)
+
+        await ui.post(f"/controls/{control_id}/suppress", data={"until": "", "because": ""})
+        async with started_database.unit_of_work() as uow:
+            still_live = await uow.controls.live(tenant_id)
+        assert len(still_live) == 1
+
+    async def test_an_expired_suppression_is_named_on_the_page(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """Prama does not lift it automatically — that would surprise whoever
+        silenced it — but leaving it unsaid is how "temporary" becomes
+        permanent."""
+        async with started_database.unit_of_work() as uow:
+            control, _ = await uow.controls.declare(
+                tenant_id=tenant_id,
+                identity="i1",
+                pql=(
+                    "CHECK positions_eod.a IS NOT NULL SEVERITY major "
+                    "DIMENSION completeness BECAUSE 'why'"
+                ),
+            )
+            await uow.controls.activate(str(control.id), approved_by="alice")
+            await uow.controls.suppress(
+                str(control.id), until="2020-01-01T00:00:00Z", because="migration"
+            )
+        body = (await ui.get("/controls")).text
+        assert "still silent past the date" in body
+        assert "nobody turned it back on" in body

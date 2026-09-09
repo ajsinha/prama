@@ -48,12 +48,24 @@
     <h2 class="h6 text-uppercase text-muted">
       Proposed controls <span class="badge text-bg-secondary">{{ proposals | length }}</span>
     </h2>
+    {# Shown always, not only when the queue empties. "Nothing left to decide"
+       and "nothing was generated" are opposite facts, and the reader needs the
+       denominator while they are still working through the list, not after. #}
+    {% if accepted_already or rejected_already %}
+    <p class="small text-muted">
+      {% if accepted_already %}{{ accepted_already }} already accepted{% endif %}
+      {%- if accepted_already and rejected_already %} · {% endif %}
+      {%- if rejected_already %}{{ rejected_already }} already turned down{% endif %}
+      — not shown again.
+    </p>
+    {% endif %}
     {% if proposals %}
     <div class="table-responsive">
       <table class="table table-sm align-middle">
         <thead><tr>
           <th scope="col">Dataset</th><th scope="col">Rule</th>
           <th scope="col">What it says</th><th scope="col">PQL</th>
+          <th scope="col"><span class="visually-hidden">Decision</span></th>
         </tr></thead>
         <tbody>
           {% for proposal in proposals %}
@@ -69,16 +81,70 @@
                 <div class="small text-muted">{{ proposal.content_hash }}</div>
               </details>
             </td>
+            <td class="text-end text-nowrap">
+              {% if proposal.amends %}
+              {# A different decision from adding a new control, and a queue
+                 that rendered them identically would get this one waved
+                 through. #}
+              <div class="small verdict verdict-warn">changes an existing control</div>
+              {% endif %}
+              <form method="post" class="d-inline" action="{{ url_for('proposal_accept') }}">
+                <input type="hidden" name="identity" value="{{ proposal.identity }}">
+                <input type="hidden" name="pql" value="{{ proposal.pql }}">
+                <input type="hidden" name="rule" value="{{ proposal.rule }}">
+                <input type="hidden" name="dataset_id" value="{{ proposal.dataset_id }}">
+                <button class="btn btn-sm btn-outline-success" type="submit">Accept</button>
+              </form>
+              <button class="btn btn-sm btn-outline-secondary" type="button"
+                      data-bs-toggle="collapse" data-bs-target="#no-{{ proposal.identity }}">
+                Reject</button>
+            </td>
+          </tr>
+          <tr class="collapse" id="no-{{ proposal.identity }}">
+            <td colspan="5">
+              {# The reason is not paperwork: "too noisy" is a threshold problem
+                 and "incorrect" is a rule that should never have been proposed,
+                 and the learning loop cannot tell them apart without it. #}
+              <form method="post" class="row g-2 align-items-end"
+                    action="{{ url_for('proposal_reject') }}">
+                <input type="hidden" name="identity" value="{{ proposal.identity }}">
+                <input type="hidden" name="content_hash" value="{{ proposal.content_hash }}">
+                <div class="col-md-4">
+                  <label class="form-label small" for="why-{{ proposal.identity }}">Why not?</label>
+                  <select class="form-select form-select-sm" name="reason"
+                          id="why-{{ proposal.identity }}">
+                    {% for value, text in reasons %}
+                    <option value="{{ value }}">{{ text }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small" for="note-{{ proposal.identity }}">
+                    Anything worth recording</label>
+                  <input class="form-control form-control-sm" name="note"
+                         id="note-{{ proposal.identity }}">
+                </div>
+                <div class="col-md-2">
+                  <button class="btn btn-sm btn-outline-secondary" type="submit">Reject it</button>
+                </div>
+              </form>
+            </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
     {% else %}
+    {# An empty queue means one of two opposite things, and saying which is the
+       difference between "we are done" and "we generated nothing". #}
+    {% if accepted_already or rejected_already %}
+    <p class="text-muted mb-0">Nothing left to decide.</p>
+    {% else %}
     <p class="text-muted mb-0">
       Nothing was derived. That is not a clean bill of health — it means the
       declarations do not yet say enough for any control to follow from them.
     </p>
+    {% endif %}
     {% endif %}
   </div>
 </div>

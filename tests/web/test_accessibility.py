@@ -64,7 +64,11 @@ PAGES = (
     "/relationships",
     "/relationships/new",
     "/controls",
+    "/controls/studio",
+    "/controls/build",
     "/proposals",
+    "/evidence",
+    "/reports",
     "/incidents",
     "/reconciliation",
     "/scorecards",
@@ -226,14 +230,22 @@ class _Structure(HTMLParser):
         self.landmarks: set[str] = set()
         self.first_h1: str | None = None
         self.headings: list[str] = []
+        #: Depth of open <label> elements. An input nested inside a label is
+        #: labelled by it — implicit labelling, which is valid, is what every
+        #: Bootstrap radio list uses, and a checker that only understood
+        #: ``for=`` would fail correct markup and get switched off.
+        self._label_depth = 0
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         attributes = {k: (v or "") for k, v in attrs}
         if tag in ("input", "select", "textarea"):
             if attributes.get("type") not in ("hidden", "submit", "button"):
+                attributes = {**attributes, "_wrapped_in_label": str(self._label_depth > 0)}
                 self.inputs.append(attributes)
-        elif tag == "label" and attributes.get("for"):
-            self.labels_for.add(attributes["for"])
+        elif tag == "label":
+            self._label_depth += 1
+            if attributes.get("for"):
+                self.labels_for.add(attributes["for"])
         elif tag == "img" and not attributes.get("alt"):
             self.images_without_text.append(attributes.get("src", "?"))
         elif tag == "table":
@@ -247,6 +259,8 @@ class _Structure(HTMLParser):
             self.headings.append(tag)
 
     def handle_endtag(self, tag: str) -> None:
+        if tag == "label":
+            self._label_depth = max(0, self._label_depth - 1)
         if tag == "table" and self._in_table:
             self._in_table = False
             if self._table_had_header:
@@ -274,6 +288,7 @@ class TestPageStructure:
             if not (
                 attributes.get("aria-label")
                 or attributes.get("aria-labelledby")
+                or attributes.get("_wrapped_in_label") == "True"
                 or (attributes.get("id") and attributes["id"] in structure.labels_for)
             )
         ]

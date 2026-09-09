@@ -34,12 +34,14 @@ if TYPE_CHECKING:
         ConceptDao,
         ConceptPropertyDao,
         ConnectionDao,
+        ControlDao,
         DatasetDao,
         DomainDao,
         EvidenceDao,
         EvidenceRunDao,
         JourneyDao,
         PrincipalDao,
+        RejectionDao,
         RelationshipDao,
         RoleDao,
         SampleDao,
@@ -185,6 +187,20 @@ class UnitOfWork:
         from prama.db.dao import BindingDao
 
         return self._dao("bindings", BindingDao)  # type: ignore[no-any-return]
+
+    # -- controls -----------------------------------------------------------
+
+    @property
+    def controls(self) -> ControlDao:
+        from prama.db.dao import ControlDao
+
+        return self._dao("controls", ControlDao)  # type: ignore[no-any-return]
+
+    @property
+    def rejections(self) -> RejectionDao:
+        from prama.db.dao import RejectionDao
+
+        return self._dao("rejections", RejectionDao)  # type: ignore[no-any-return]
 
     # -- the evidence ledger ----------------------------------------------
     #

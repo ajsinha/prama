@@ -18,6 +18,7 @@ from prama.db.models.base import (
     Timestamped,
     UlidPrimaryKey,
 )
+from prama.db.models.control import CtlControl, CtlControlVersion, CtlRejection
 from prama.db.models.evidence import EvRecord, EvRun, EvSample
 from prama.db.models.platform import (
     ApiKey,
@@ -58,6 +59,9 @@ __all__ = [
     "AuditEvent",
     "Base",
     "CreatedAt",
+    "CtlControl",
+    "CtlControlVersion",
+    "CtlRejection",
     "EvRecord",
     "EvRun",
     "EvSample",

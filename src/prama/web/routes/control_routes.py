@@ -24,7 +24,9 @@ from typing import Annotated, Any
 from fastapi import Form, Request
 
 from prama.backend import DIALECTS, compile_for
+from prama.core.clock import utc_now
 from prama.core.errors import PramaError
+from prama.core.provenance import content_hash
 from prama.ir import lower
 from prama.pql import parse
 from prama.pql.errors import PqlError
@@ -32,7 +34,7 @@ from prama.pql.lint import Linter
 from prama.pql.types import Catalogue, Column, DatasetSchema, TypeChecker
 from prama.web import builder
 from prama.web.deps import Caller, Uow
-from prama.web.rendering import render
+from prama.web.rendering import flash_error_and_log, redirect_to, render
 from prama.web.routes.base import UiRoutes
 
 STARTER = """CHECK positions_eod HAS UNIQUE KEY (account_id, instrument_id, as_of_date)
@@ -46,12 +48,26 @@ class ControlRoutes(UiRoutes):
     """The studio, and the two endpoints its editor calls."""
 
     def register(self) -> None:
-        self.page("/controls", self.control_studio, name="control_studio")
+        self.page("/controls", self.control_list, name="control_list")
+        self.page("/controls/studio", self.control_studio, name="control_studio")
         self.page("/controls/build", self.rule_builder, name="rule_builder")
         self.page("/controls/build", self.rule_build, name="rule_build", methods=["POST"])
         self.page("/controls/check", self.control_check, name="control_check", methods=["POST"])
         self.page(
             "/controls/compile", self.control_compile, name="control_compile", methods=["POST"]
+        )
+        self.page("/controls/save", self.control_save, name="control_save", methods=["POST"])
+        self.page(
+            "/controls/{control_id}/activate",
+            self.control_activate,
+            name="control_activate",
+            methods=["POST"],
+        )
+        self.page(
+            "/controls/{control_id}/suppress",
+            self.control_suppress,
+            name="control_suppress",
+            methods=["POST"],
         )
 
     async def _catalogue(self, caller: Caller, uow: Uow) -> Catalogue:
@@ -84,6 +100,94 @@ class ControlRoutes(UiRoutes):
             dataset_slugs=sorted(v.slug for v in datasets),
             dialects=sorted(DIALECTS),
         )
+
+    async def control_list(self, request: Request, caller: Caller, uow: Uow) -> Any:
+        """The estate of controls, grouped by whether they actually run.
+
+        The grouping is the point. "We have 340 controls" is the number every
+        tool of this kind reports; how many of them are proposals nobody has
+        accepted, and how many were silenced during an incident and never
+        turned back on, is the number that decides whether the estate is
+        protected.
+        """
+        live = await uow.controls.live(caller.tenant_id)
+        proposed = await uow.controls.of_status(caller.tenant_id, "proposed")
+        suppressed = await uow.controls.of_status(caller.tenant_id, "suppressed")
+        overdue = await uow.controls.silenced_past_expiry(caller.tenant_id, utc_now().isoformat())
+        return render(
+            request,
+            "controls/list.html",
+            live=live,
+            proposed=proposed,
+            suppressed=suppressed,
+            overdue={str(version.control_id) for version in overdue},
+            retired=len(await uow.controls.of_status(caller.tenant_id, "retired")),
+        )
+
+    async def control_save(
+        self,
+        request: Request,
+        caller: Caller,
+        uow: Uow,
+        pql: Annotated[str, Form()],
+        identity: Annotated[str, Form()] = "",
+    ) -> Any:
+        """Save a hand-written control into the estate.
+
+        Authored controls get an identity derived from their text when none is
+        supplied, which is the honest fallback: a person editing their own
+        control in the studio and saving it again means to replace it, and an
+        identity derived from the text cannot know that. So the studio passes
+        the identity back when it has one, and a genuinely new control gets a
+        new one.
+        """
+        try:
+            control, _ = await uow.controls.declare(
+                tenant_id=caller.tenant_id,
+                identity=identity or content_hash(pql),
+                pql=pql,
+                origin="declaration",
+                rule="authored",
+                status="proposed",
+                authored_by=caller.principal_id,
+                reason="written in the studio",
+            )
+        except PramaError as exc:
+            flash_error_and_log(request, "That control could not be saved", exc)
+            return redirect_to(request, "control_studio")
+        return redirect_to(
+            request,
+            "control_list",
+            flash_message=(
+                f"Saved as a proposal. Accept it on this page to start running it "
+                f"({control.identity[:12]}…)."
+            ),
+        )
+
+    async def control_activate(
+        self, request: Request, control_id: str, caller: Caller, uow: Uow
+    ) -> Any:
+        await uow.controls.activate(
+            control_id, approved_by=caller.principal_id or "console", reason="accepted"
+        )
+        return redirect_to(request, "control_list", flash_message="The control is now running.")
+
+    async def control_suppress(
+        self,
+        request: Request,
+        control_id: str,
+        caller: Caller,
+        uow: Uow,
+        until: Annotated[str, Form()] = "",
+        because: Annotated[str, Form()] = "",
+    ) -> Any:
+        try:
+            await uow.controls.suppress(
+                control_id, until=until, because=because, by=caller.principal_id
+            )
+        except PramaError as exc:
+            flash_error_and_log(request, "That control could not be suppressed", exc)
+        return redirect_to(request, "control_list")
 
     async def rule_builder(self, request: Request, caller: Caller, uow: Uow) -> Any:
         """The form a person who will never write PQL uses."""

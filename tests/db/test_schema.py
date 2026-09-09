@@ -213,13 +213,25 @@ class TestTheEvidenceLedgerIsSeparate:
                 assert not column.foreign_keys, f"{name}.{column.name} has a foreign key"
 
     def test_the_ledger_has_no_cascade_in_the_schema_file(self, repo_root: Path) -> None:
-        """The counterfactual for the above, read from the authority itself."""
+        """The counterfactual for the above, read from the authority itself.
+
+        Scoped to the ``ev_*`` definitions rather than to everything after
+        them: the platform tables that follow have foreign keys for good
+        reasons, and a check that swept them in would fail for the wrong
+        reason and get relaxed.
+        """
         lines = _body(repo_root / "schema" / "sqlite.sql")
-        start = next(
-            i for i, line in enumerate(lines) if "CREATE TABLE IF NOT EXISTS ev_run" in line
-        )
-        for line in lines[start:]:
-            assert "REFERENCES" not in line.upper(), line.strip()
+        inside = False
+        checked = 0
+        for line in lines:
+            if line.startswith("CREATE TABLE IF NOT EXISTS ev_"):
+                inside = True
+            elif inside and line.startswith(");"):
+                inside = False
+            elif inside:
+                checked += 1
+                assert "REFERENCES" not in line.upper(), line.strip()
+        assert checked > 20, "the ledger definitions were not found in the schema file"
 
 
 class TestBootstrapAndVerify:

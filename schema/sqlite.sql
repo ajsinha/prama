@@ -791,3 +791,120 @@ CREATE TABLE IF NOT EXISTS ev_sample (
 );
 CREATE INDEX IF NOT EXISTS ix_ev_sample_expiry ON ev_sample (expires_at);
 CREATE INDEX IF NOT EXISTS ix_ev_sample_tenant ON ev_sample (tenant_id);
+
+-- ---------------------------------------------------------------------------
+-- CONTROLS  (Wave 9)
+--
+-- The estate of controls, bitemporal like every other declaration. Editing a
+-- threshold is an AMEND — the old threshold really was the rule until Tuesday —
+-- and discovering the control was wrong all along is a CORRECT. Conflating the
+-- two loses the ability to replay an evidence record against the control that
+-- was actually in force when it ran, which is the whole point of keeping both
+-- axes.
+--
+-- The PQL text is the authority. plan_id, severity and dimensions_json are
+-- DERIVED from it when a version is written, never supplied by a caller, and a
+-- test re-lowers the stored text and compares. They exist as columns so the
+-- estate can be queried without parsing every control, not as a second source
+-- of truth.
+--
+-- ctl_control.identity is what makes regeneration idempotent: it is derived
+-- from what a control is *about* — the declaration, the rule, the subject —
+-- and not from its text, so re-running the generator after an edit amends the
+-- existing control instead of orphaning one and creating another.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS ctl_control (
+    id          VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id   VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    -- Stable across regeneration. See prama/core/provenance.py::identity.
+    identity    VARCHAR(64)   NOT NULL,
+    created_at  VARCHAR(32)   NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_ctl_control_identity ON ctl_control (tenant_id, identity);
+CREATE INDEX IF NOT EXISTS ix_ctl_control_tenant ON ctl_control (tenant_id);
+
+CREATE TABLE IF NOT EXISTS ctl_control_version (
+    id              VARCHAR(26)   NOT NULL PRIMARY KEY,
+    control_id      VARCHAR(26)   NOT NULL REFERENCES ctl_control (id) ON DELETE CASCADE,
+    version         INTEGER       NOT NULL,
+    valid_from      VARCHAR(32)   NOT NULL,
+    valid_to        VARCHAR(32),
+    recorded_at     VARCHAR(32)   NOT NULL,
+    superseded_at   VARCHAR(32),
+    authored_by     VARCHAR(26),
+    approved_by     VARCHAR(26),
+    approved_at     VARCHAR(32),
+    change_reason   TEXT          NOT NULL DEFAULT '',
+
+    -- The authority. Everything below it is derived from this text.
+    pql             TEXT          NOT NULL,
+    name            VARCHAR(255)  NOT NULL DEFAULT '',
+    dataset         VARCHAR(128)  NOT NULL DEFAULT '',
+    -- Content-addressed plan the text lowers to. An evidence record names this,
+    -- so a verdict can be traced to exactly what was executed rather than to a
+    -- row that happened to point at it.
+    plan_id         VARCHAR(128)  NOT NULL DEFAULT '',
+    content_hash    VARCHAR(64)   NOT NULL DEFAULT '',
+    severity        VARCHAR(32)   NOT NULL DEFAULT 'major',
+    dimensions_json TEXT          NOT NULL DEFAULT '[]',
+    criticality     INTEGER       NOT NULL DEFAULT 4,
+
+    -- How it came to exist, and what that is worth. A mined rule says the data
+    -- behaves this way; a declared one says the business means it to.
+    origin          VARCHAR(32)   NOT NULL DEFAULT 'declaration',
+    rule            VARCHAR(128)  NOT NULL DEFAULT '',
+    source_ref      VARCHAR(128)  NOT NULL DEFAULT '',
+    provenance_json TEXT          NOT NULL DEFAULT '{}',
+
+    -- proposed | active | suppressed | retired. A control is never deleted:
+    -- retiring it keeps the evidence it produced attributable to something.
+    status          VARCHAR(32)   NOT NULL DEFAULT 'proposed',
+    -- Set when status is 'suppressed'. Both are required together, because a
+    -- control silenced with no expiry and no reason is a control nobody will
+    -- ever turn back on.
+    suppressed_until   VARCHAR(32),
+    suppressed_because TEXT,
+    schedule        VARCHAR(64)   NOT NULL DEFAULT '',
+    owner_id        VARCHAR(26),
+    CONSTRAINT ck_ctl_control_status CHECK (status IN (
+        'proposed', 'active', 'suppressed', 'retired')),
+    CONSTRAINT ck_ctl_control_severity CHECK (severity IN (
+        'info', 'warning', 'minor', 'major', 'critical')),
+    CONSTRAINT ck_ctl_control_origin CHECK (origin IN (
+        'declaration', 'import', 'document', 'mining', 'example', 'induction')),
+    CONSTRAINT ck_ctl_control_criticality CHECK (criticality BETWEEN 1 AND 4),
+    CONSTRAINT ck_ctl_control_suppression CHECK (
+        status <> 'suppressed' OR (suppressed_until IS NOT NULL AND suppressed_because IS NOT NULL))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_ctl_control_current
+    ON ctl_control_version (control_id) WHERE superseded_at IS NULL AND valid_to IS NULL;
+CREATE INDEX IF NOT EXISTS ix_ctl_control_version_entity
+    ON ctl_control_version (control_id, recorded_at);
+CREATE INDEX IF NOT EXISTS ix_ctl_control_version_dataset
+    ON ctl_control_version (dataset, status);
+CREATE INDEX IF NOT EXISTS ix_ctl_control_version_plan ON ctl_control_version (plan_id);
+
+-- A proposal a person turned down, kept so the same one is not offered again.
+-- Recorded rather than deleted: a rejection is a training signal, and
+-- re-proposing something a steward has already refused is the fastest way to
+-- lose their attention.
+CREATE TABLE IF NOT EXISTS ctl_rejection (
+    id            VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id     VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    identity      VARCHAR(64)   NOT NULL,
+    content_hash  VARCHAR(64)   NOT NULL DEFAULT '',
+    reason        VARCHAR(32)   NOT NULL DEFAULT 'incorrect',
+    note          TEXT          NOT NULL DEFAULT '',
+    rejected_by   VARCHAR(26),
+    rejected_at   VARCHAR(32)   NOT NULL,
+    -- These are prama.propose.proposal.RejectionReason, and a test asserts the
+    -- two agree. A constraint listing reasons the enum does not have accepts
+    -- rows nothing can read; one missing a reason the enum has rejects a
+    -- perfectly ordinary rejection at the worst moment.
+    CONSTRAINT ck_ctl_rejection_reason CHECK (reason IN (
+        'incorrect', 'not_material', 'coincidental', 'duplicate', 'too_noisy',
+        'pending_remediation'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_ctl_rejection_identity
+    ON ctl_rejection (tenant_id, identity, content_hash);
