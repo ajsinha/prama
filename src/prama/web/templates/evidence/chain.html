@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Evidence ledger — Prama{% endblock %}
+{% block heading %}The evidence ledger{% endblock %}
+{% block content %}
+{% include "_observation.html" %}
+
+{# On a screen, not only in a CLI. "Is our audit trail intact?" is a question an
+   owner should be able to answer without asking an engineer, and a verification
+   nobody performs is a verification that does not exist. #}
+<div class="card mb-3">
+  <div class="card-body">
+    <h2 class="h6 text-uppercase text-muted">Is it intact?</h2>
+    {% if verification.is_intact %}
+    <p class="verdict verdict-pass mb-1">
+      <i class="bi bi-shield-check" aria-hidden="true"></i>
+      {{ verification.records }} record(s), chain verified.
+    </p>
+    {% else %}
+    <p class="verdict verdict-fail mb-1">
+      <i class="bi bi-shield-exclamation" aria-hidden="true"></i>
+      The chain does not verify.
+    </p>
+    <ul class="small mb-1">
+      {% for breach in verification.breaches %}<li>{{ breach.render() }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+    <dl class="row small mb-0">
+      <dt class="col-sm-3">Head</dt>
+      <dd class="col-sm-9"><code>{{ verification.head }}</code></dd>
+      <dt class="col-sm-3">Merkle root</dt>
+      <dd class="col-sm-9"><code>{{ verification.merkle_root }}</code></dd>
+      {% if verification.erased %}
+      <dt class="col-sm-3">Erased</dt>
+      <dd class="col-sm-9">
+        {{ verification.erased }} record(s) erased under a right-to-erasure request.
+        The chain still verifies across them.
+      </dd>
+      {% endif %}
+    </dl>
+    <p class="small text-muted mt-2 mb-0">
+      The Merkle root is one short string standing for this whole chain. Published
+      somewhere Prama cannot reach, it turns "our records are internally consistent"
+      into "our records are what they were on the third".
+    </p>
+  </div>
+</div>
+
+{% if recent %}
+<div class="card mb-3">
+  <div class="card-body">
+    <h2 class="h6 text-uppercase text-muted">Recent runs</h2>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead><tr>
+          <th scope="col">Started</th><th scope="col">Trigger</th>
+          <th scope="col">Status</th><th scope="col">Records</th>
+        </tr></thead>
+        <tbody>
+          {% for run in recent %}
+          <tr>
+            <td class="small">{{ run.started_at }}</td>
+            <td class="small">{{ run.triggered_by }}</td>
+            <td>
+              {% if run.status == 'running' %}
+                <span class="verdict verdict-stale">still running</span>
+              {% elif run.status == 'complete' %}
+                <span class="verdict verdict-pass">complete</span>
+              {% else %}
+                <span class="verdict verdict-fail">{{ run.status }}</span>
+              {% endif %}
+            </td>
+            <td>{{ run.record_count }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if records %}
+<div class="card">
+  <div class="card-body">
+    <h2 class="h6 text-uppercase text-muted">The most recent records</h2>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead><tr>
+          <th scope="col">#</th><th scope="col">Dataset</th>
+          <th scope="col">Verdict</th><th scope="col">Finished</th><th scope="col">Hash</th>
+        </tr></thead>
+        <tbody>
+          {% for record in records %}
+          <tr>
+            <td>{{ record.sequence }}</td>
+            <td>
+              {% if record.is_erased %}
+                <span class="verdict verdict-stale">erased</span>
+              {% else %}{{ record.dataset or '—' }}{% endif %}
+            </td>
+            <td>{{ record.claim }}</td>
+            <td class="small text-muted">{{ record.finished_at }}</td>
+            <td><code class="small">{{ record.record_hash[:16] }}…</code></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

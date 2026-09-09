@@ -36,10 +36,13 @@ if TYPE_CHECKING:
         ConnectionDao,
         DatasetDao,
         DomainDao,
+        EvidenceDao,
+        EvidenceRunDao,
         JourneyDao,
         PrincipalDao,
         RelationshipDao,
         RoleDao,
+        SampleDao,
         SettingDao,
         TenantDao,
     )
@@ -182,6 +185,33 @@ class UnitOfWork:
         from prama.db.dao import BindingDao
 
         return self._dao("bindings", BindingDao)  # type: ignore[no-any-return]
+
+    # -- the evidence ledger ----------------------------------------------
+    #
+    # Reached through the same unit of work as everything else, so a run that
+    # writes evidence and updates the platform commits or rolls back as one.
+    # The *tables* are separate (EvidenceBase, no foreign keys out of the
+    # ledger); the transaction is not, because a control result recorded
+    # without the run it belongs to — or a run recorded without its results —
+    # is worse than neither.
+
+    @property
+    def evidence(self) -> EvidenceDao:
+        from prama.db.dao import EvidenceDao
+
+        return self._dao("evidence", EvidenceDao)  # type: ignore[no-any-return]
+
+    @property
+    def evidence_runs(self) -> EvidenceRunDao:
+        from prama.db.dao import EvidenceRunDao
+
+        return self._dao("evidence_runs", EvidenceRunDao)  # type: ignore[no-any-return]
+
+    @property
+    def samples(self) -> SampleDao:
+        from prama.db.dao import SampleDao
+
+        return self._dao("samples", SampleDao)  # type: ignore[no-any-return]
 
     # -- transaction boundary ---------------------------------------------
 

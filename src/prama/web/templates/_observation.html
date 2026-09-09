@@ -1,8 +1,11 @@
-{# The "nothing has run" panel.
-   Shared, so the three run-backed screens cannot drift into saying it three
-   different ways — or, worse, one of them forgetting to say it. #}
+{# The observation panel.
+
+   Shared, so the run-backed screens cannot drift into saying it three
+   different ways — or, worse, one of them forgetting to say it. Two panels,
+   not one: "nothing has run" and "something is still running" are different
+   facts and the second can be true while the page is full of numbers. #}
 {% if observation.state == 'no_runs' %}
-<div class="card border-secondary">
+<div class="card border-secondary mb-3">
   <div class="card-body">
     <h2 class="h6 verdict verdict-stale mb-2">Nothing has been examined</h2>
     <p class="mb-1">{{ observation.reason }}</p>
@@ -12,5 +15,16 @@
       must never be shown the same way.
     </p>
   </div>
+</div>
+{% endif %}
+
+{% if observation.unfinished_runs %}
+{# A run that started and never reported is neither "clean" nor "broken": its
+   controls have no verdict at all, and every number on this page is quietly
+   missing them. Said before the numbers, not after. #}
+<div class="uncalibrated mb-3">
+  <strong>{{ observation.unfinished_runs }} run(s) started and have not reported.</strong>
+  Their controls have no verdict, so anything below describes only the runs that
+  finished. <a href="{{ url_for('evidence_chain') }}">See the ledger.</a>
 </div>
 {% endif %}

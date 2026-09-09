@@ -681,3 +681,113 @@ CREATE INDEX IF NOT EXISTS ix_sem_binding_version_connection
     ON sem_binding_version (connection_id);
 CREATE INDEX IF NOT EXISTS ix_sem_binding_version_entity
     ON sem_binding_version (binding_id, recorded_at);
+
+-- ---------------------------------------------------------------------------
+-- EVIDENCE LEDGER  (Wave 9)
+--
+-- Append-only and hash-linked. These tables are owned by EvidenceBase rather
+-- than Base, so no platform operation can create, truncate or cascade into
+-- them: the ledger outlives the semantic layer it describes, is retained for
+-- years after it, and is the one thing in Prama that is never rewritten.
+--
+-- There is no UPDATE path in the DAO and no ON DELETE CASCADE here — both
+-- deliberate. A foreign key from ev_record to a semantic table would let a
+-- tenant deletion silently take the evidence of what was checked with it,
+-- which is precisely the record somebody would later need. The identifiers are
+-- carried as plain values.
+--
+-- The one exception to immutability is erasure, and it is not a delete:
+-- content columns are blanked, the original content hash is preserved in
+-- ev_record.tombstone_json, and the chain still verifies across the gap. See
+-- prama/evidence/record.py::Tombstone.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS ev_run (
+    id             VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id      VARCHAR(26)   NOT NULL,
+    -- What caused it: schedule, api, backfill, manual, replay.
+    triggered_by   VARCHAR(32)   NOT NULL DEFAULT 'schedule',
+    actor_id       VARCHAR(26),
+    engine         VARCHAR(64)   NOT NULL DEFAULT '',
+    started_at     VARCHAR(32)   NOT NULL,
+    finished_at    VARCHAR(32),
+    -- running | complete | failed | abandoned. A run that never finished is a
+    -- fact about the estate, not a row to tidy away: its controls have no
+    -- verdict, and a scorecard that silently omitted them would report the
+    -- controls that did run as though they were all of them.
+    status         VARCHAR(32)   NOT NULL DEFAULT 'running',
+    record_count   INTEGER       NOT NULL DEFAULT 0,
+    detail         TEXT          NOT NULL DEFAULT '',
+    CONSTRAINT ck_ev_run_status CHECK (status IN (
+        'running', 'complete', 'failed', 'abandoned'))
+);
+CREATE INDEX IF NOT EXISTS ix_ev_run_tenant ON ev_run (tenant_id, started_at);
+
+CREATE TABLE IF NOT EXISTS ev_record (
+    id               VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id        VARCHAR(26)   NOT NULL,
+    -- Position in the chain, per tenant. Contiguous from zero, so a missing
+    -- record shows as a gap rather than only as a broken hash.
+    sequence         INTEGER       NOT NULL,
+    run_id           VARCHAR(26),
+    plan_id          VARCHAR(128)  NOT NULL DEFAULT '',
+    control_id       VARCHAR(26)   NOT NULL DEFAULT '',
+    control_version  INTEGER       NOT NULL DEFAULT 1,
+    dataset          VARCHAR(128)  NOT NULL DEFAULT '',
+    binding          VARCHAR(128)  NOT NULL DEFAULT '',
+    snapshot_json    TEXT          NOT NULL DEFAULT '{}',
+    parameters_json  TEXT          NOT NULL DEFAULT '{}',
+    engine           VARCHAR(64)   NOT NULL DEFAULT '',
+    -- full | incremental | forward_only. Carried because a verdict means
+    -- different things at different widths: "passed" after a full scan says
+    -- the dataset is sound, and after an incremental run says only that the
+    -- rows examined were.
+    coverage         VARCHAR(32)   NOT NULL DEFAULT 'full',
+    verdict          VARCHAR(32)   NOT NULL DEFAULT 'error',
+    metrics_json     TEXT          NOT NULL DEFAULT '{}',
+    samples_digest   VARCHAR(64)   NOT NULL DEFAULT '',
+    sample_count     INTEGER       NOT NULL DEFAULT 0,
+    started_at       VARCHAR(32)   NOT NULL DEFAULT '',
+    finished_at      VARCHAR(32)   NOT NULL DEFAULT '',
+    duration_ms      INTEGER       NOT NULL DEFAULT 0,
+    triggered_by     VARCHAR(32)   NOT NULL DEFAULT 'schedule',
+    detail           TEXT          NOT NULL DEFAULT '',
+    tombstone_json   TEXT,
+    previous_hash    VARCHAR(64)   NOT NULL,
+    content_hash     VARCHAR(64)   NOT NULL,
+    record_hash      VARCHAR(64)   NOT NULL,
+    evidence_version VARCHAR(16)   NOT NULL DEFAULT '1.0',
+    CONSTRAINT ck_ev_record_verdict CHECK (verdict IN (
+        'pass', 'fail', 'warn', 'error', 'skipped', 'unknown')),
+    CONSTRAINT ck_ev_record_coverage CHECK (coverage IN (
+        'full', 'incremental', 'forward_only'))
+);
+-- One record per position per tenant. This is the constraint that makes a
+-- concurrent second writer fail loudly instead of forking the chain.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_ev_record_sequence
+    ON ev_record (tenant_id, sequence);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_ev_record_hash ON ev_record (record_hash);
+CREATE INDEX IF NOT EXISTS ix_ev_record_dataset ON ev_record (tenant_id, dataset, finished_at);
+CREATE INDEX IF NOT EXISTS ix_ev_record_control ON ev_record (control_id, finished_at);
+CREATE INDEX IF NOT EXISTS ix_ev_record_run ON ev_record (run_id);
+CREATE INDEX IF NOT EXISTS ix_ev_record_verdict ON ev_record (tenant_id, verdict, finished_at);
+
+CREATE TABLE IF NOT EXISTS ev_sample (
+    -- The digest is the identity: the same failing rows recorded twice are one
+    -- sample set, and a record refers to it by hash rather than owning it.
+    digest       VARCHAR(64)   NOT NULL PRIMARY KEY,
+    tenant_id    VARCHAR(26)   NOT NULL,
+    rows_json    TEXT          NOT NULL DEFAULT '[]',
+    -- Which columns were removed before storage, so a reader knows what they
+    -- are not seeing rather than assuming the row is complete.
+    masked_json  TEXT          NOT NULL DEFAULT '[]',
+    row_count    INTEGER       NOT NULL DEFAULT 0,
+    created_at   VARCHAR(32)   NOT NULL,
+    -- Samples expire on their own schedule, years before the records that name
+    -- them: the rows are the personal data, the record is the audit trail, and
+    -- keeping the two on one clock means either discarding evidence early or
+    -- holding personal data for seven years.
+    expires_at   VARCHAR(32)
+);
+CREATE INDEX IF NOT EXISTS ix_ev_sample_expiry ON ev_sample (expires_at);
+CREATE INDEX IF NOT EXISTS ix_ev_sample_tenant ON ev_sample (tenant_id);

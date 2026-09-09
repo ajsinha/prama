@@ -17,6 +17,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 from prama.db.dao.base import Dao, TenantScopedDao
+from prama.db.dao.evidence import EvidenceDao, EvidenceRunDao, SampleDao
 from prama.db.dao.platform import (
     ApiKeyDao,
     AuditDao,
@@ -49,10 +50,13 @@ __all__ = [
     "Dao",
     "DatasetDao",
     "DomainDao",
+    "EvidenceDao",
+    "EvidenceRunDao",
     "JourneyDao",
     "PrincipalDao",
     "RelationshipDao",
     "RoleDao",
+    "SampleDao",
     "SettingDao",
     "TenantDao",
     "TenantScopedDao",

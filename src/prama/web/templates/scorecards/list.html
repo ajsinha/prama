@@ -3,26 +3,61 @@
 {% block heading %}Scorecards{% endblock %}
 {% block content %}
 {% include "_observation.html" %}
+
 {% if scores %}
-<div class="row g-3 mt-1">
+{% if not decomposed %}
+{# Stated, not omitted. The evidence record carries what was checked and what
+   was found; it does not yet carry which dimension the control belonged to.
+   Rendering the six-dimension breakdown by putting everything in one bucket
+   would look exactly like the real thing and be an invention. #}
+<div class="uncalibrated mb-3">
+  These are totals, not a six-dimension breakdown. An evidence record does not yet
+  carry the dimension of the control that produced it, so Prama can say how much
+  passed and cannot yet say <em>which kind</em> of quality it was.
+</div>
+{% endif %}
+
+<div class="row g-3">
   {% for score in scores %}
-  <div class="col-md-4">
+  <div class="col-md-6 col-xl-4">
     <div class="card h-100">
       <div class="card-body">
         <h2 class="h6">{{ score.subject }}</h2>
         <div class="fs-2 fw-semibold">{{ '%.1f%%' | format(score.value * 100) }}</div>
-        {# Derived, and shown decomposed. A score whose components are hidden is
-           a number nobody will act on, because nobody can argue with it. #}
-        <ul class="small mb-0 ps-3">
-          {% for part in score.components %}
-          <li><span class="dim dim-{{ part.dimension }}">{{ part.dimension }}</span>
-              {{ '%.1f%%' | format(part.value * 100) }}</li>
+
+        {% if score.not_run %}
+        {# The number beside the number. A dataset scoring 100% because half its
+           controls were skipped is the most misleading output this product
+           could produce. #}
+        <div class="verdict verdict-stale small mb-2">
+          {{ score.not_run }} of {{ score.controls }} controls did not run — this
+          describes {{ '%.0f%%' | format(score.coverage * 100) }} of what was meant
+          to be checked
+        </div>
+        {% endif %}
+
+        {% if score.methods_disagree %}
+        {# Surfaced rather than resolved: the mean saying 98% and the minimum
+           saying 62% is not a contradiction, it is the finding. #}
+        <div class="small mb-2">
+          <strong>The composites disagree.</strong>
+          {% for name, value in score.composites.items() %}
+          <div><code>{{ name }}</code> {{ '%.1f%%' | format(value * 100) }}</div>
           {% endfor %}
-        </ul>
+          Most of the dataset is fine and something in it is not.
+        </div>
+        {% endif %}
+
+        <details class="small">
+          <summary>How this was derived</summary>
+          <p class="mb-0 mt-1">{{ score.explanation }}</p>
+        </details>
       </div>
     </div>
   </div>
   {% endfor %}
 </div>
+{% elif observation.state == 'observed' %}
+<p class="text-muted">Controls have run, but none produced a scoreable measurement.</p>
 {% endif %}
 {% endblock %}

@@ -721,3 +721,157 @@ class TestReportPacks:
         body = (await ui.get("/reports/declarations")).text
         assert "<style>" in body
         assert "/static/" not in body
+
+
+async def _record(database: Database, tenant_id: str, **overrides: object) -> None:
+    from prama.evidence.record import EvidenceRecord
+
+    fields: dict[str, object] = {
+        "plan_id": "ir:sha256:abc",
+        "control_id": "c1",
+        "dataset": "positions_eod",
+        "verdict": "pass",
+        "metrics": {"scanned_rows": 1000.0, "violating_rows": 0.0},
+        "finished_at": "2026-09-08T06:00:00Z",
+    }
+    fields.update(overrides)
+    async with database.unit_of_work() as uow:
+        await uow.evidence.append(EvidenceRecord(**fields), tenant_id=tenant_id)  # type: ignore[arg-type]
+
+
+class TestScreensBackedByTheLedger:
+    async def test_a_failing_control_appears_as_an_incident(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        await _record(
+            started_database,
+            tenant_id,
+            verdict="fail",
+            metrics={"scanned_rows": 1000.0, "violating_rows": 12.0},
+        )
+        body = " ".join((await ui.get("/incidents")).text.split())
+        assert "positions_eod" in body
+        assert "12 of 1,000 rows" in body
+        assert "Nothing has been examined" not in body
+
+    async def test_one_row_per_control_not_per_run(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """A control failing every hour for a week is one problem. Listing it
+        168 times is how a triage queue becomes something nobody opens."""
+        for _ in range(10):
+            await _record(started_database, tenant_id, verdict="fail")
+        body = (await ui.get("/incidents")).text
+        assert body.count("ir:sha256:abc") + body.count(">c1<") <= 2
+
+    async def test_an_incremental_verdict_is_not_stated_as_a_full_one(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """ "Passed" after a full scan says the dataset is sound; after an
+        incremental run it says only that the rows examined were."""
+        await _record(started_database, tenant_id, verdict="fail", coverage="incremental")
+        body = (await ui.get("/incidents")).text
+        assert "over the rows examined" in body
+        assert "incremental scan" in body
+
+    async def test_a_control_that_could_not_run_is_not_omitted(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """A list of problems that quietly dropped it would report the controls
+        that did run as though they were all of them."""
+        await _record(
+            started_database, tenant_id, verdict="error", detail="the warehouse refused the query"
+        )
+        body = (await ui.get("/incidents")).text
+        assert "the warehouse refused the query" in body
+
+    async def test_a_clean_estate_says_how_many_controls_ran(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """A green tick with no denominator means nothing."""
+        await _record(started_database, tenant_id, verdict="pass")
+        body = (await ui.get("/incidents")).text
+        assert "1 control(s) ran and passed" in body
+
+    async def test_an_unfinished_run_is_declared_before_the_numbers(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """Its controls have no verdict, so everything below is quietly
+        missing them."""
+        async with started_database.unit_of_work() as uow:
+            await uow.evidence_runs.start(tenant_id=tenant_id, started_at="2026-09-08T06:00:00Z")
+        await _record(started_database, tenant_id)
+        for path in ("/incidents", "/scorecards", "/reconciliation"):
+            body = (await ui.get(path)).text
+            assert "started and have not reported" in body, path
+
+    async def test_a_skipped_control_lowers_coverage_not_the_score(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """A dataset scoring 100% because half its controls were skipped is the
+        most misleading number this product could produce."""
+        await _record(started_database, tenant_id, control_id="a", verdict="pass")
+        await _record(started_database, tenant_id, control_id="b", verdict="skipped")
+        body = (await ui.get("/scorecards")).text
+        assert "1 of 2 controls did not run" in body
+        assert "describes 50% of what was meant to be checked" in body
+
+    async def test_the_scorecard_does_not_invent_a_dimension_breakdown(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """The record does not yet carry the control's dimension. Bucketing
+        everything into one and drawing six chips would look exactly like the
+        real thing and be an invention."""
+        await _record(started_database, tenant_id)
+        body = (await ui.get("/scorecards")).text
+        assert "not a six-dimension breakdown" in body
+        assert "cannot yet say" in body
+
+    async def test_a_reconciliation_over_no_rows_is_not_zero_per_cent(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """Scored as a total failure it is a false alarm; it is not a
+        measurement at all."""
+        await _record(
+            started_database,
+            tenant_id,
+            metrics={"scanned_rows": 0.0, "matched_rows": 0.0},
+        )
+        body = (await ui.get("/reconciliation")).text
+        assert "nothing compared" in body
+        assert "0.00%" not in body
+
+
+class TestEvidenceScreen:
+    async def test_it_reports_the_chain_as_intact(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """On a screen, not only in a CLI: "is our audit trail intact?" is a
+        question an owner should answer without asking an engineer."""
+        await _record(started_database, tenant_id)
+        body = (await ui.get("/evidence")).text
+        assert "chain verified" in body
+        assert "Merkle root" in body
+
+    async def test_tampering_is_reported_on_the_screen(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        from sqlalchemy import text
+
+        await _record(started_database, tenant_id, verdict="fail")
+        with started_database.sync_engine().begin() as connection:
+            connection.execute(text("UPDATE ev_record SET verdict = 'pass'"))
+        body = (await ui.get("/evidence")).text
+        assert "does not verify" in body
+
+    async def test_an_erased_record_is_shown_as_erased(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """Visible as a tombstone rather than as a hole nobody can account
+        for — and the chain still verifies across it."""
+        await _record(started_database, tenant_id)
+        async with started_database.unit_of_work() as uow:
+            await uow.evidence.erase(tenant_id, 0, by="dpo@acme", authority="DSAR-1")
+        body = (await ui.get("/evidence")).text
+        assert "erased" in body
+        assert "chain verified" in body
