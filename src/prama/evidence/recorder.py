@@ -126,6 +126,7 @@ class Recorder:
         control_id: str = "",
         control_version: int = 1,
         coverage: str = "full",
+        criticality: int = 4,
     ) -> EvidenceRecord:
         finished = self._clock.now()
         started = started_at or finished
@@ -150,6 +151,15 @@ class Recorder:
                 duration_ms=max(0, int((finished - started).total_seconds() * 1000)),
                 triggered_by=triggered_by,
                 tenant_id=self._tenant,
+                # From the plan, not from the caller: the dimensions are a
+                # property of the control that ran, and a run that could label
+                # its own results would let two records of the same control
+                # score against different dimensions.
+                dimensions=tuple(plan.dimensions),
+                # The tier the control ran *under*. Carried rather than looked
+                # up later, because re-tiering a dataset next year must not
+                # silently re-weight last year's score.
+                criticality=criticality,
             )
         )
 

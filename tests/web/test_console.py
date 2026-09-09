@@ -818,16 +818,54 @@ class TestScreensBackedByTheLedger:
         assert "1 of 2 controls did not run" in body
         assert "describes 50% of what was meant to be checked" in body
 
-    async def test_the_scorecard_does_not_invent_a_dimension_breakdown(
+    async def test_a_record_without_a_dimension_is_bucketed_and_counted(
         self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
     ) -> None:
-        """The record does not yet carry the control's dimension. Bucketing
-        everything into one and drawing six chips would look exactly like the
-        real thing and be an invention."""
-        await _record(started_database, tenant_id)
+        """Records written before evidence format 1.1 carry no dimension.
+        Spreading them across the six by guesswork would make the scorecard's
+        most legible feature its least trustworthy one."""
+        await _record(started_database, tenant_id, evidence_version="1.0")
+        body = " ".join((await ui.get("/scorecards")).text.split())
+        assert "before the evidence format carried a dimension" in body
+        assert "incomplete rather than invented" in body
+
+    async def test_a_dimension_carrying_record_is_decomposed(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        await _record(
+            started_database,
+            tenant_id,
+            control_id="a",
+            dimensions=("uniqueness",),
+            metrics={"scanned_rows": 100.0, "violating_rows": 10.0},
+        )
+        await _record(
+            started_database,
+            tenant_id,
+            control_id="b",
+            dimensions=("completeness",),
+            metrics={"scanned_rows": 100.0, "violating_rows": 0.0},
+        )
         body = (await ui.get("/scorecards")).text
-        assert "not a six-dimension breakdown" in body
-        assert "cannot yet say" in body
+        assert "dim-uniqueness" in body
+        assert "dim-completeness" in body
+        assert "90.0%" in body
+        assert "before the evidence format carried a dimension" not in " ".join(body.split())
+
+    async def test_a_control_covering_two_dimensions_counts_in_both(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """A control can be about completeness *and* validity, and giving it to
+        whichever was listed first would understate one of them."""
+        await _record(
+            started_database,
+            tenant_id,
+            dimensions=("completeness", "validity"),
+            metrics={"scanned_rows": 100.0, "violating_rows": 5.0},
+        )
+        body = (await ui.get("/scorecards")).text
+        assert "dim-completeness" in body
+        assert "dim-validity" in body
 
     async def test_a_reconciliation_over_no_rows_is_not_zero_per_cent(
         self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str

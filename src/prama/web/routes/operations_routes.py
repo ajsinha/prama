@@ -33,6 +33,12 @@ from prama.web.routes.base import UiRoutes
 #: though they were all of them.
 UNRESOLVED = ("fail", "warn", "error", "skipped", "unknown")
 
+#: Where a record with no dimension of its own goes — one written before
+#: evidence format 1.1. Deliberately a real dimension rather than a synthetic
+#: "other": the score still has to add up, and the screen says how many landed
+#: here rather than letting the bucket pass for a finding.
+UNCLASSIFIED = "conformity"
+
 
 class OperationsRoutes(UiRoutes):
     """The run-backed screens."""
@@ -145,7 +151,7 @@ class OperationsRoutes(UiRoutes):
 
         scores = []
         for dataset, records in sorted(by_dataset.items()):
-            result = score(dataset, [_measurement(record) for record in records])
+            result = score(dataset, _measurements(records))
             scores.append(
                 {
                     "subject": dataset,
@@ -159,6 +165,14 @@ class OperationsRoutes(UiRoutes):
                         method.value: value for method, value in result.composites.items()
                     },
                     "explanation": result.describe(),
+                    "components": [
+                        {
+                            "dimension": part.dimension.value,
+                            "value": part.score,
+                            "description": part.describe(),
+                        }
+                        for part in result.dimensions
+                    ],
                 }
             )
         return render(
@@ -166,13 +180,17 @@ class OperationsRoutes(UiRoutes):
             "scorecards/list.html",
             observation=await self._observation(caller, uow),
             scores=scores,
-            # Stated on the screen, not omitted. The evidence record carries
-            # what was checked and what was found; it does not yet carry which
-            # dimension the control belonged to, so these scores are honest
-            # totals and not a six-dimension breakdown. Rendering a breakdown
-            # by bucketing everything into one dimension would look like the
-            # real thing and be an invention.
-            decomposed=False,
+            # True when every record scored carries its own dimension. A chain
+            # written before evidence format 1.1 does not, and those records
+            # land in the unclassified bucket rather than being spread across
+            # the six by guesswork — so the screen can say which it is showing
+            # instead of implying a breakdown it does not have.
+            decomposed=all(
+                record.dimensions for records in by_dataset.values() for record in records
+            ),
+            undecomposed=sum(
+                1 for records in by_dataset.values() for record in records if not record.dimensions
+            ),
         )
 
     async def evidence_chain(self, request: Request, caller: Caller, uow: Uow) -> Any:
@@ -209,7 +227,22 @@ def _match_rate(metrics: dict[str, float]) -> float | None:
     return float(metrics.get("matched_rows", 0)) / scanned
 
 
-def _measurement(record: Any) -> Measurement:
+def _measurements(records: list[Any]) -> list[Measurement]:
+    """Every record for one dataset, as scoreable measurements.
+
+    A record may name more than one dimension — a control can be about
+    completeness *and* validity — and each gets its own measurement, so a
+    control that covers two dimensions contributes to both rather than to
+    whichever one happened to be listed first.
+    """
+    out: list[Measurement] = []
+    for record in records:
+        for dimension in record.dimensions or (UNCLASSIFIED,):
+            out.append(_measurement(record, dimension))
+    return out
+
+
+def _measurement(record: Any, dimension: str) -> Measurement:
     """One evidence record as a scoreable measurement.
 
     A record that could not produce a verdict is passed through with
@@ -225,12 +258,22 @@ def _measurement(record: Any) -> Measurement:
     ran = record.verdict not in ("error", "skipped", "unknown") and scanned > 0
     return Measurement(
         control=record.control_id or record.plan_id,
-        # Every record in one bucket until the record carries its control's
-        # dimension. Spreading them across the six by guesswork would make the
-        # scorecard's most legible feature its least trustworthy one.
-        dimension=Dimension.CONFORMITY,
+        dimension=_dimension(dimension),
         scanned=scanned,
         violations=int(record.metrics.get("violating_rows", 0)),
-        criticality=Criticality(int(record.metrics.get("criticality", 4))),
+        criticality=Criticality(record.criticality),
         ran=ran,
     )
+
+
+def _dimension(name: str) -> Dimension:
+    """A stored dimension name as the enum, or the unclassified bucket.
+
+    A name this build does not recognise lands in ``conformity`` rather than
+    raising: a record from a future build is a reason to score it less
+    precisely, not a reason to fail the whole scorecard.
+    """
+    try:
+        return Dimension(name)
+    except ValueError:
+        return Dimension.CONFORMITY

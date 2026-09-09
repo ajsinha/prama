@@ -101,6 +101,11 @@ class EvRecord(EvidenceBase, UlidPrimaryKey):
     duration_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     triggered_by: Mapped[str] = mapped_column(String(32), nullable=False, default="schedule")
     detail: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    #: Added with evidence format 1.1. A row written under 1.0 keeps its
+    #: defaults and still hashes as 1.0, because content() emits these only for
+    #: records whose own version has them.
+    dimensions_json: Mapped[list[str]] = mapped_column(JsonText, nullable=False, default=list)
+    criticality: Mapped[int] = mapped_column(Integer, nullable=False, default=4)
     tombstone_json: Mapped[dict[str, Any] | None] = mapped_column(JsonText, nullable=True)
 
     previous_hash: Mapped[str] = mapped_column(String(64), nullable=False)

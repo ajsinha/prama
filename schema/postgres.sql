@@ -752,6 +752,12 @@ CREATE TABLE IF NOT EXISTS ev_record (
     duration_ms      INTEGER       NOT NULL DEFAULT 0,
     triggered_by     VARCHAR(32)   NOT NULL DEFAULT 'schedule',
     detail           TEXT          NOT NULL DEFAULT '',
+    -- Added with evidence format 1.1. Nullable and defaulted, so a row written
+    -- under 1.0 reads back as 1.0 and still hashes to the value stored beside
+    -- it: EvidenceRecord.content() emits these only for records whose own
+    -- evidence_version has them.
+    dimensions_json  TEXT          NOT NULL DEFAULT '[]',
+    criticality      INTEGER       NOT NULL DEFAULT 4,
     tombstone_json   TEXT,
     previous_hash    VARCHAR(64)   NOT NULL,
     content_hash     VARCHAR(64)   NOT NULL,

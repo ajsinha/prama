@@ -6,14 +6,15 @@
 
 {% if scores %}
 {% if not decomposed %}
-{# Stated, not omitted. The evidence record carries what was checked and what
-   was found; it does not yet carry which dimension the control belonged to.
-   Rendering the six-dimension breakdown by putting everything in one bucket
-   would look exactly like the real thing and be an invention. #}
+{# Said, not implied. Records written before evidence format 1.1 do not carry
+   the dimension of the control that produced them; they land in one bucket
+   rather than being spread across the six by guesswork, and the reader is told
+   how many so the breakdown is not mistaken for a complete one. #}
 <div class="uncalibrated mb-3">
-  These are totals, not a six-dimension breakdown. An evidence record does not yet
-  carry the dimension of the control that produced it, so Prama can say how much
-  passed and cannot yet say <em>which kind</em> of quality it was.
+  {{ undecomposed }} measurement(s) come from records written before the evidence
+  format carried a dimension. They are counted in the totals and grouped under
+  <em>conformity</em> rather than spread across the six by guesswork, so the
+  breakdown below is incomplete rather than invented.
 </div>
 {% endif %}
 
@@ -48,9 +49,27 @@
         </div>
         {% endif %}
 
+        {% if score.components %}
+        {# Decomposed, because a score that cannot be explained is a score
+           nobody will act on. Each chip carries its dimension's name as well
+           as its hue: the palette is deuteranopia-safe and it is still never
+           the only signal. #}
+        <ul class="list-unstyled small mb-2">
+          {% for part in score.components %}
+          <li class="d-flex justify-content-between align-items-center gap-2">
+            <span class="dim dim-{{ part.dimension }}">{{ part.dimension }}</span>
+            <span>{{ '%.1f%%' | format(part.value * 100) }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+
         <details class="small">
           <summary>How this was derived</summary>
           <p class="mb-0 mt-1">{{ score.explanation }}</p>
+          {% if score.worst %}
+          <p class="mb-0 mt-1"><strong>Weakest:</strong> {{ score.worst.describe() }}</p>
+          {% endif %}
         </details>
       </div>
     </div>
