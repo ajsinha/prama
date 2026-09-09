@@ -211,3 +211,30 @@ class TaskSupervisor:
         """Re-raise the first recorded failure, if any."""
         if self._failures:
             raise self._failures[0]
+
+
+def run_sync(awaitable: Any) -> Any:
+    """Run a coroutine from synchronous code, whatever loop state we are in.
+
+    Lives here rather than beside its caller because it owns a thread, and a
+    thread anywhere else is the beginning of a codebase with four different
+    ways of doing this — which is what the architecture rule about bare threads
+    exists to prevent.
+
+    ``asyncio.run`` is correct when nothing is running and fatal when something
+    is: a synchronous callback invoked from inside a request or a task raises
+    "cannot be called from a running event loop" at the moment it is used,
+    which is the worst place to find out. When a loop is already turning the
+    coroutine goes to a thread of its own and the caller blocks — blocking is
+    the point, because the caller's contract is synchronous and quietly making
+    it otherwise would change that contract for everyone above it.
+    """
+    import asyncio
+    import concurrent.futures
+
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(awaitable)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(asyncio.run, awaitable).result()

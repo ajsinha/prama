@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Callable, Sequence
+from datetime import UTC, datetime
 from typing import Any
 
 from prama.backend import compile_for, judge
@@ -41,6 +42,7 @@ from prama.core.log import get_logger
 from prama.evidence.record import EvidenceRecord, SnapshotRef
 from prama.ir import lower
 from prama.pql import parse_control
+from prama.schedule import Schedule
 
 _log = get_logger(__name__)
 
@@ -76,6 +78,10 @@ class RunReport:
 
     run_id: str
     outcomes: tuple[Outcome, ...] = ()
+    #: Live controls the schedule left out, with the reason for each. Reported
+    #: because a control that silently stops being scheduled is
+    #: indistinguishable from one that is passing.
+    skipped: tuple[Any, ...] = ()
 
     @property
     def executed(self) -> int:
@@ -92,18 +98,38 @@ class RunReport:
             counts[outcome.record.verdict] = counts.get(outcome.record.verdict, 0) + 1
         return counts
 
+    @property
+    def unschedulable(self) -> tuple[Any, ...]:
+        """Controls whose schedule cannot be read.
+
+        They will never run again and have no verdict to say so, which is the
+        one skip reason that is a defect rather than the scheduler working.
+        """
+        return tuple(item for item in self.skipped if getattr(item, "is_a_defect", False))
+
     def describe(self) -> str:
         """A sentence naming what did *not* happen as well as what did.
 
         A run summary that reports only verdicts reads as complete whatever
-        proportion of the estate refused to execute.
+        proportion of the estate refused to execute — or was never asked.
         """
-        if not self.outcomes:
+        parts: list[str] = []
+        if self.outcomes:
+            parts.append(f"{len(self.outcomes)} control(s)")
+            parts += [f"{count} {verdict}" for verdict, count in sorted(self.verdicts.items())]
+            if self.failed_to_run:
+                parts.append(f"{self.failed_to_run} could not be executed at all")
+        elif not self.skipped:
             return "no controls were live, so nothing ran"
-        parts = [f"{len(self.outcomes)} control(s)"]
-        parts += [f"{count} {verdict}" for verdict, count in sorted(self.verdicts.items())]
-        if self.failed_to_run:
-            parts.append(f"{self.failed_to_run} could not be executed at all")
+        else:
+            parts.append("nothing was due")
+        if self.skipped:
+            parts.append(f"{len(self.skipped)} not due")
+        if self.unschedulable:
+            parts.append(
+                f"{len(self.unschedulable)} with a schedule that cannot be read, "
+                "which will never run until it is fixed"
+            )
         return ", ".join(parts)
 
 
@@ -128,6 +154,7 @@ class ControlRun:
         triggered_by: str = "schedule",
         actor_id: str | None = None,
         validators: ValidatorRegistry | None = None,
+        respect_schedule: bool = False,
     ) -> None:
         self._uow = uow
         self._tenant = tenant_id
@@ -138,6 +165,10 @@ class ControlRun:
         self._triggered_by = triggered_by
         self._actor = actor_id
         self._validators = validators or default_registry()
+        #: Off by default, so ``prama control run`` means "run them now" —
+        #: which is what somebody typing it at a terminal means. A timer sets
+        #: it, and then only what is due runs.
+        self._respect_schedule = respect_schedule
 
     async def execute_all(self) -> RunReport:
         """Run every live control, recording each outcome as it goes."""
@@ -151,14 +182,16 @@ class ControlRun:
         )
         run_id = str(run.id)
 
-        controls = await self._uow.controls.live(self._tenant)
-        _log.info("run %s: %d live control(s)", run_id, len(controls))
+        live = await self._uow.controls.live(self._tenant)
+        controls, skipped = await self._select(live)
+        _log.info("run %s: %d of %d live control(s) selected", run_id, len(controls), len(live))
 
         outcomes: list[Outcome] = []
         for version in controls:
             outcome = await self._run_one(version, run_id)
             outcomes.append(outcome)
 
+        report = RunReport(run_id=run_id, outcomes=tuple(outcomes), skipped=skipped)
         finished = self._clock.now()
         await self._uow.evidence_runs.finish(
             run_id,
@@ -168,9 +201,27 @@ class ControlRun:
             # verdicts say what happened, and conflating the two would hide a
             # total outage behind a green run.
             status="complete",
-            detail=RunReport(run_id=run_id, outcomes=tuple(outcomes)).describe(),
+            detail=report.describe(),
         )
-        return RunReport(run_id=run_id, outcomes=tuple(outcomes))
+        return report
+
+    async def _select(self, live: list[Any]) -> tuple[list[Any], tuple[Any, ...]]:
+        """Which of the live controls this pass will run.
+
+        When the schedule is not being respected — somebody typed the command —
+        everything live runs and nothing is skipped, because a person asking
+        for a run means now.
+        """
+        if not self._respect_schedule:
+            return live, ()
+        history = await self._uow.evidence.last_run_at(self._tenant)
+        plan = Schedule().plan(
+            live,
+            now=self._clock.now(),
+            last_run={control_id: _parse_instant(stamp) for control_id, stamp in history.items()},
+        )
+        selected = {item.control_id for item in plan.due}
+        return [c for c in live if str(c.control_id) in selected], plan.skipped
 
     async def _run_one(self, version: Any, run_id: str) -> Outcome:
         started = self._clock.now()
@@ -316,3 +367,14 @@ def _metrics_from(rows: Sequence[dict[str, Any]]) -> dict[str, float]:
         for key, value in rows[0].items()
         if isinstance(value, (int, float)) and not isinstance(value, bool)
     }
+
+
+def _parse_instant(stamp: str) -> datetime:
+    """An ISO-8601 timestamp from the ledger, as an aware datetime.
+
+    Aware, always. A naive one compared against an aware ``now`` raises, and it
+    would raise inside the scheduler — where the failure is a run that does
+    nothing rather than an obvious error.
+    """
+    parsed = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)

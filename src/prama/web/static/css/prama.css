@@ -15,41 +15,18 @@
  * Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
  */
 
-:root, [data-theme="light"] {
-    /* -- brand ---------------------------------------------------------- */
+/* Theme tokens — every colour — are generated into themes.css from
+   prama/report/themes.py. They are deliberately not here: a second copy is a
+   copy nobody checks against a contrast threshold. What remains in this file
+   is layout and component styling, which no theme changes.
+
+   Two tokens are still defined here because they are structural rather than
+   chromatic. */
+
+:root {
     --prama-indigo: #0E1A46;
     --refract-blue: #2B3FA8;
-    --unverified-grey: #8A93AD;
-    /* The word, not the mark. 3.06:1 is enough for a dashed ring and not
-       for the sentence beside it — and this is the one place where being
-       too faint would be dishonest, since the whole point of the reserved
-       colour is that unexamined data is visible. Generated; see above. */
-    --unverified-grey-text: #6E768A;
     --slate: #5A6480;
-
-    /* -- the six dimensions --------------------------------------------- */
-    --dim-accuracy: #00B3A4;
-    --dim-completeness: #2FB673;
-    --dim-consistency: #8CBF3F;
-    --dim-timeliness: #E8B33A;
-    --dim-uniqueness: #E8823A;
-    --dim-validity: #D9534F;
-
-    /* The same six hues, darkened until a *word* in them is legible on a card.
-       Two tokens per dimension because they are two jobs: a fill needs 3:1
-       against its surroundings and a word needs 4.5:1, and the brand spectrum
-       clears the first and not the second — Accuracy Teal on white is 2.63:1.
-       These are computed from the brand hues by prama.report.palette, and a
-       test asserts this block still agrees with the arithmetic. Do not
-       hand-edit them. */
-    --dim-accuracy-text: #008479;
-    --dim-completeness-text: #228554;
-    --dim-consistency-text: #5E802A;
-    --dim-timeliness-text: #927125;
-    --dim-uniqueness-text: #AE622C;
-    --dim-validity-text: #C84C49;
-    --dim-integrity-text: #2B3FA8;
-    --dim-conformity-text: #5A6480;
 
     /* Status reuses the spectrum ends, so a verdict and a dimension never
        disagree about what teal means. */
@@ -58,21 +35,11 @@
     --status-fail: var(--dim-validity);
     --status-stale: var(--unverified-grey);
 
-    /* -- surfaces ------------------------------------------------------- */
-    --bg-body: #f6f7fb;
-    --bg-card: #ffffff;
-    --bg-raised: #eef0f7;
-    --bg-code: #11162e;
-    --bg-header: linear-gradient(135deg, #0e1a46 0%, #1b2a63 50%, #0e1a46 100%);
-
-    --text-primary: #14182e;
-    --text-secondary: #4f5878;
-    --text-muted: #6b7391;
-    --text-on-primary: #eef0f8;
-    --text-link: var(--refract-blue);
-
-    --border-color: #dfe3ef;
-    --border-light: #eef0f7;
+    --bg-raised: rgba(127, 127, 127, .08);
+    --bg-code: #11162E;
+    --text-secondary: var(--text-muted);
+    --text-on-primary: #EEF0F8;
+    --border-light: var(--border-color);
     --card-shadow: 0 4px 16px -6px rgba(14, 26, 70, .18),
                    0 2px 4px -1px rgba(14, 26, 70, .08);
 
@@ -81,46 +48,6 @@
     --row-pad-x: .75rem;
     --card-pad: 1.25rem;
     --font-size-base: 0.95rem;
-}
-
-[data-theme="dark"] {
-    --bg-body: #0b0f21;
-    --bg-card: #141a33;
-    --bg-raised: #1c2342;
-    --bg-code: #080b18;
-    --bg-header: linear-gradient(135deg, #080d20 0%, #141c3f 50%, #080d20 100%);
-
-    --text-primary: #e8ebf5;
-    --text-secondary: #b3bad2;
-    --text-muted: #8891ad;
-    --text-on-primary: #eef0f8;
-    --text-link: #7d8fe0;
-
-    --border-color: #262e50;
-    --border-light: #1c2342;
-    --card-shadow: 0 4px 16px -6px rgba(0, 0, 0, .5);
-
-    /* The dimension hues are lifted for contrast on a dark ground and keep
-       their identity: a shifted teal is still accuracy. Re-hueing them here
-       would break the one promise the palette makes. */
-    --dim-accuracy: #2ad4c5;
-    --dim-completeness: #4fd693;
-    --dim-consistency: #a8db5f;
-    --dim-timeliness: #f2c65c;
-    --dim-uniqueness: #f29a5c;
-    --dim-validity: #ea726e;
-    --unverified-grey: #9aa3bd;
-    --unverified-grey-text: #9AA3BD;
-
-    /* Derived for the dark surface. Generated; see the note above. */
-    --dim-accuracy-text: #2AD4C5;
-    --dim-completeness-text: #4FD693;
-    --dim-consistency-text: #A8DB5F;
-    --dim-timeliness-text: #F2C65C;
-    --dim-uniqueness-text: #F29A5C;
-    --dim-validity-text: #EA726E;
-    --dim-integrity-text: #7D8FE0;
-    --dim-conformity-text: #9AA3BD;
 }
 
 /* Compact density, for the evidence and break tables where a screenful of
@@ -224,13 +151,19 @@ a { color: var(--text-link); }
 .verdict-warn  { color: var(--dim-timeliness-text); }
 .verdict-fail  { color: var(--dim-validity-text); }
 
-/* The reserved state. Struck through and greyed, because "we have not looked"
-   should never be mistakable for "we looked and it was fine" at a glance. */
+/* The reserved state. Greyed and italic, because "we have not looked" should
+   never be mistakable for "we looked and it was fine" at a glance.
+
+   The " · not examined" suffix is deliberately NOT on this class. It reads as
+   a verdict, and this class is also used to tint counts and labels — where the
+   suffix turns "0 proposed controls" into "0 proposed controls · not
+   examined", which is nonsense in the reserved vocabulary and therefore
+   corrodes it everywhere. Say it with .verdict-unexamined where it is true. */
 .verdict-stale {
     color: var(--unverified-grey-text);
     font-style: italic;
 }
-.verdict-stale::after {
+.verdict-unexamined::after {
     content: " · not examined";
     font-weight: 400;
     font-size: .8em;
@@ -287,3 +220,42 @@ a { color: var(--text-link); }
 @media (prefers-reduced-motion: reduce) {
     * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+
+/* -- the Bootstrap bridge ---------------------------------------------- */
+
+/* Bootstrap 5.3 themes itself through --bs-* tokens. Without this, everything
+   Prama does not style directly — dropdowns, form controls, close buttons,
+   the table striping — stays on Bootstrap's own light or dark palette and the
+   page reads as two designs stitched together. The base (light or dark) is set
+   by the switcher; these carry the *theme's* actual colours over it. */
+[data-theme] {
+    --bs-body-bg: var(--bg-body);
+    --bs-body-color: var(--text-primary);
+    --bs-emphasis-color: var(--text-primary);
+    --bs-secondary-color: var(--text-muted);
+    --bs-secondary-bg: var(--bg-card);
+    --bs-tertiary-bg: var(--bg-raised);
+    --bs-tertiary-color: var(--text-muted);
+    --bs-border-color: var(--border-color);
+    --bs-heading-color: var(--text-primary);
+    --bs-link-color: var(--text-link);
+    --bs-link-hover-color: var(--text-link);
+    --bs-code-color: var(--dim-uniqueness-text);
+}
+
+/* The theme picker itself has to be readable on the masthead of every theme,
+   including the amber-on-black one where a default select is invisible. */
+#theme-select {
+    background: rgba(255, 255, 255, .1);
+    color: var(--text-on-primary);
+    border-color: rgba(255, 255, 255, .25);
+    /* Allowed to shrink, unlike the buttons. With eleven navigation items the
+       masthead is genuinely tight, and a select that refused to give way
+       simply hung off the right edge. */
+    width: auto;
+    min-width: 6rem;
+    max-width: 9.5rem;
+    flex-shrink: 1;
+}
+#theme-select option { color: #14182E; background: #FFFFFF; }

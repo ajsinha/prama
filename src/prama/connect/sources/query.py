@@ -21,6 +21,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from prama.core.concurrency.supervisor import run_sync
 from prama.core.errors import ValidationError
 
 #: Read-only, always. A control is a *check*: it has no business being able to
@@ -95,3 +96,87 @@ def _sqlite(path: Path) -> tuple[Callable[[str], list[dict[str, Any]]], Callable
 
 BUILDERS["duckdb"] = _duckdb
 BUILDERS["sqlite"] = _sqlite
+
+
+def executor_from(connector: Any) -> Callable[[str], list[dict[str, Any]]]:
+    """The runner's executor, backed by a connector.
+
+    Synchronous because that is the runner's contract, and the runner's
+    contract is synchronous because the same callable has to serve a warehouse,
+    a test with a dictionary, and an agent forwarding into a zone. The bridge
+    is here rather than in the runner, which should not know that some sources
+    are reached over a network and others are a file.
+
+    Refuses up front for a source with no query engine of its own. Discovering
+    that halfway through a run would leave a partial ledger and an error record
+    that blames the source for something Prama should have known before it
+    started.
+    """
+    from prama.connect.spi import ConnectorError
+
+    if not connector.can_run_controls:
+        raise ConnectorError(
+            f"{type(connector).__name__} cannot evaluate a control at the source",
+            remedy=(
+                "This source has no query engine, so its controls are evaluated "
+                "locally over the rows `read` yields. Asking for an executor here "
+                "would fail on the first control rather than now."
+            ),
+            context={"connector": type(connector).__name__},
+        )
+
+    def execute(sql: str) -> list[dict[str, Any]]:
+        rows: list[dict[str, Any]] = run_sync(connector.run_metric_query(sql))
+        return rows
+
+    return execute
+
+
+#: Statements a control may run. A control is a check, and everything else is
+#: either a mistake or an attack.
+READ_PREFIXES = ("select", "with")
+
+
+def sole_read_statement(sql: str) -> str:
+    """The one read-only statement in *sql*, or a refusal naming why not.
+
+    Two guards, both because the statement was written by a compiler rather
+    than a person, and defence in depth is cheap where the thing executing is
+    generated:
+
+    * **Read-only.** A control is a check. It has no business writing, and
+      refusing anything that is not a SELECT or a WITH means a defect in the
+      compiler cannot damage the data it was meant to examine.
+    * **One statement.** A trailing semicolon and a second statement is the
+      shape of every SQL injection there has ever been, and a metric query has
+      no legitimate reason to be two.
+    """
+    from prama.connect.spi import ConnectorError
+
+    stripped = sql.strip().rstrip(";").strip()
+    if not stripped:
+        raise ConnectorError(
+            "an empty query cannot be run",
+            remedy="This is a compiler defect; the control produced no SQL.",
+        )
+    if ";" in stripped:
+        raise ConnectorError(
+            "a control's query must be a single statement",
+            remedy=(
+                "Two statements separated by a semicolon is the shape of every SQL "
+                "injection there has ever been, and a metric query has no legitimate "
+                "reason to be two."
+            ),
+            context={"sql": stripped[:120]},
+        )
+    if not stripped.lower().startswith(READ_PREFIXES):
+        raise ConnectorError(
+            "a control may only run a read-only query",
+            remedy=(
+                "A control is a check; it has no business writing. Permitted: "
+                + ", ".join(prefix.upper() for prefix in READ_PREFIXES)
+                + "."
+            ),
+            context={"sql": stripped[:120]},
+        )
+    return stripped

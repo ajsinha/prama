@@ -26,24 +26,48 @@
   function applyPreference(attribute, value) {
     document.documentElement.setAttribute(attribute, value);
     if (attribute === "data-theme") {
-      document.documentElement.setAttribute("data-bs-theme", value);
+      var bases = window.pramaThemeBases || {};
+      document.documentElement.setAttribute("data-bs-theme", bases[value] || "light");
     }
     try { STORE.setItem("prama:" + attribute, value); } catch (e) { /* private mode */ }
+    /* A cookie as well as local storage, because the *server* renders the
+       theme into the markup — that is what stops the page flashing light and
+       being repainted. Local storage cannot be read server-side; a cookie can.
+       SameSite=Lax and a year, since this is a display preference and nothing
+       more. */
+    var name = attribute === "data-theme" ? "prama_theme" : "prama_density";
+    document.cookie = name + "=" + encodeURIComponent(value) +
+      ";path=/;max-age=31536000;samesite=lax";
   }
 
   $(function () {
-    ["data-theme", "data-density"].forEach(function (attribute) {
-      var saved = null;
-      try { saved = STORE.getItem("prama:" + attribute); } catch (e) { saved = null; }
-      if (saved) { applyPreference(attribute, saved); }
-    });
+    /* The server has already rendered the stored preference into <html>. This
+       only re-applies what local storage holds when there is no cookie yet —
+       a first visit after the cookie was cleared — and never fights the
+       server-rendered value on an ordinary load. */
+    if (document.cookie.indexOf("prama_theme=") < 0) {
+      ["data-theme", "data-density"].forEach(function (attribute) {
+        var saved = null;
+        try { saved = STORE.getItem("prama:" + attribute); } catch (e) { saved = null; }
+        if (saved) { applyPreference(attribute, saved); }
+      });
+    }
 
-    $("#theme-toggle").on("click", function () {
-      var next = document.documentElement.getAttribute("data-theme") === "dark"
-        ? "light" : "dark";
-      applyPreference("data-theme", next);
-      announce(next === "dark" ? "Dark theme" : "Light theme");
-    });
+    /* The theme picker. The Bootstrap base for each theme comes from the
+       server rather than being re-derived here: a second opinion about whether
+       "crimson" is a light theme would show up as one unreadable dropdown on
+       one page, which is the hardest kind of bug to find. */
+    var bases = window.pramaThemeBases || {};
+    var select = $("#theme-select");
+    if (select.length) {
+      select.val(document.documentElement.getAttribute("data-theme") || "light");
+      select.on("change", function () {
+        var chosen = $(this).val();
+        document.documentElement.setAttribute("data-bs-theme", bases[chosen] || "light");
+        applyPreference("data-theme", chosen);
+        announce($(this).find("option:selected").text() + " theme");
+      });
+    }
 
     $("#density-toggle").on("click", function () {
       var next = document.documentElement.getAttribute("data-density") === "compact"

@@ -324,6 +324,26 @@ class EvidenceDao(Dao[EvRecord]):
         stmt = select(func.count()).select_from(EvRecord).where(EvRecord.tenant_id == tenant_id)
         return int((await self._session.execute(stmt)).scalar_one())
 
+    async def last_run_at(self, tenant_id: str) -> dict[str, str]:
+        """When each control last produced a record, by control id.
+
+        Every record counts, including errors: a control that has been failing
+        to execute every hour has *run* every hour, and treating it as never
+        run would make the scheduler retry it continuously while the source is
+        down — turning one broken control into a load problem.
+        """
+        await self._session.flush()
+        stmt = (
+            select(EvRecord.control_id, func.max(EvRecord.finished_at))
+            .where(EvRecord.tenant_id == tenant_id, EvRecord.control_id != "")
+            .group_by(EvRecord.control_id)
+        )
+        return {
+            str(control_id): str(finished)
+            for control_id, finished in (await self._session.execute(stmt)).all()
+            if finished
+        }
+
     async def latest_per_control(self, tenant_id: str) -> dict[str, EvidenceRecord]:
         """The current state of each control, and only the current one.
 

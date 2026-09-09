@@ -1,0 +1,194 @@
+/* Prama themes. GENERATED — do not edit.
+ *
+ * Written by scripts/generate_themes.py from prama/report/themes.py, where the
+ * dimension colours are *derived* rather than picked: each theme declares its
+ * surfaces, and every hue is moved only as far as the contrast threshold for
+ * its job requires — 3:1 for a mark, 4.5:1 for a word.
+ *
+ * That is why a theme here is five colours and a gradient rather than forty
+ * hex codes. Hand-editing one would produce exactly the token nobody checked,
+ * which is why tests/web/test_accessibility.py regenerates this file and
+ * compares it byte for byte.
+ *
+ * Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
+ */
+
+/* Prama light — The default. Prama Indigo on a cool white ground. */
+:root, [data-theme="light"] {
+    --bg-body: #F6F7FB;
+    --bg-card: #FFFFFF;
+    --bg-header: linear-gradient(135deg, #0E1A46 0%, #1B2A63 50%, #0E1A46 100%);
+    --text-primary: #14182E;
+    --text-muted: #6B7391;
+    --text-link: #2B3FA8;
+    --accent: #2B3FA8;
+    --border-color: #DFE3EF;
+
+    /* Marks: bars, rings, dots. 3:1 against this theme's card. */
+    --dim-accuracy: #00A699;
+    --dim-completeness: #2CA96B;
+    --dim-consistency: #76A035;
+    --dim-timeliness: #B78D2E;
+    --dim-uniqueness: #DC7C37;
+    --dim-validity: #D9534F;
+    --dim-integrity: #2B3FA8;
+    --dim-conformity: #5A6480;
+
+    /* Words: dimension names, verdicts. 4.5:1 against the same. */
+    --dim-accuracy-text: #008479;
+    --dim-completeness-text: #228554;
+    --dim-consistency-text: #5E802A;
+    --dim-timeliness-text: #927125;
+    --dim-uniqueness-text: #AE622C;
+    --dim-validity-text: #C84C49;
+    --dim-integrity-text: #2B3FA8;
+    --dim-conformity-text: #5A6480;
+
+    /* Reserved for 'stale or not yet examined'. Nothing else may use it. */
+    --unverified-grey: #8A93AD;
+    --unverified-grey-text: #6E768A;
+}
+
+/* Prama dark — The same palette on a night ground, for long sessions. */
+[data-theme="dark"] {
+    --bg-body: #0B0F21;
+    --bg-card: #141A33;
+    --bg-header: linear-gradient(135deg, #080D20 0%, #141C3F 50%, #080D20 100%);
+    --text-primary: #E8EBF5;
+    --text-muted: #8891AD;
+    --text-link: #7D8FE0;
+    --accent: #7D8FE0;
+    --border-color: #262E50;
+
+    /* Marks: bars, rings, dots. 3:1 against this theme's card. */
+    --dim-accuracy: #2AD4C5;
+    --dim-completeness: #4FD693;
+    --dim-consistency: #A8DB5F;
+    --dim-timeliness: #F2C65C;
+    --dim-uniqueness: #F29A5C;
+    --dim-validity: #EA726E;
+    --dim-integrity: #7D8FE0;
+    --dim-conformity: #9AA3BD;
+
+    /* Words: dimension names, verdicts. 4.5:1 against the same. */
+    --dim-accuracy-text: #2AD4C5;
+    --dim-completeness-text: #4FD693;
+    --dim-consistency-text: #A8DB5F;
+    --dim-timeliness-text: #F2C65C;
+    --dim-uniqueness-text: #F29A5C;
+    --dim-validity-text: #EA726E;
+    --dim-integrity-text: #7D8FE0;
+    --dim-conformity-text: #9AA3BD;
+
+    /* Reserved for 'stale or not yet examined'. Nothing else may use it. */
+    --unverified-grey: #9AA3BD;
+    --unverified-grey-text: #9AA3BD;
+}
+
+/* Harvard crimson — Harvard Crimson on warm paper. An academic, print-like register. */
+[data-theme="crimson"] {
+    --bg-body: #F7F4F4;
+    --bg-card: #FFFFFF;
+    --bg-header: linear-gradient(135deg, #6B1220 0%, #A51C30 55%, #6B1220 100%);
+    --text-primary: #1C1416;
+    --text-muted: #6E5C60;
+    --text-link: #8C1727;
+    --accent: #A51C30;
+    --border-color: #E7DDDF;
+
+    /* Marks: bars, rings, dots. 3:1 against this theme's card. */
+    --dim-accuracy: #00A699;
+    --dim-completeness: #2CA96B;
+    --dim-consistency: #76A035;
+    --dim-timeliness: #B78D2E;
+    --dim-uniqueness: #DC7C37;
+    --dim-validity: #D9534F;
+    --dim-integrity: #2B3FA8;
+    --dim-conformity: #5A6480;
+
+    /* Words: dimension names, verdicts. 4.5:1 against the same. */
+    --dim-accuracy-text: #008479;
+    --dim-completeness-text: #228554;
+    --dim-consistency-text: #5E802A;
+    --dim-timeliness-text: #927125;
+    --dim-uniqueness-text: #AE622C;
+    --dim-validity-text: #C84C49;
+    --dim-integrity-text: #2B3FA8;
+    --dim-conformity-text: #5A6480;
+
+    /* Reserved for 'stale or not yet examined'. Nothing else may use it. */
+    --unverified-grey: #8A93AD;
+    --unverified-grey-text: #6E768A;
+}
+
+/* BMO blue — BMO Blue on cool grey. A retail-banking register. */
+[data-theme="bmo"] {
+    --bg-body: #F1F5F9;
+    --bg-card: #FFFFFF;
+    --bg-header: linear-gradient(135deg, #0B2545 0%, #0A4D86 55%, #0079C0 100%);
+    --text-primary: #0B2545;
+    --text-muted: #5A6E85;
+    --text-link: #0A4D86;
+    --accent: #E11B22;
+    --border-color: #D8E3EE;
+
+    /* Marks: bars, rings, dots. 3:1 against this theme's card. */
+    --dim-accuracy: #00A699;
+    --dim-completeness: #2CA96B;
+    --dim-consistency: #76A035;
+    --dim-timeliness: #B78D2E;
+    --dim-uniqueness: #DC7C37;
+    --dim-validity: #D9534F;
+    --dim-integrity: #2B3FA8;
+    --dim-conformity: #5A6480;
+
+    /* Words: dimension names, verdicts. 4.5:1 against the same. */
+    --dim-accuracy-text: #008479;
+    --dim-completeness-text: #228554;
+    --dim-consistency-text: #5E802A;
+    --dim-timeliness-text: #927125;
+    --dim-uniqueness-text: #AE622C;
+    --dim-validity-text: #C84C49;
+    --dim-integrity-text: #2B3FA8;
+    --dim-conformity-text: #5A6480;
+
+    /* Reserved for 'stale or not yet examined'. Nothing else may use it. */
+    --unverified-grey: #8A93AD;
+    --unverified-grey-text: #6E768A;
+}
+
+/* Wall Street — Amber on black, as a terminal. For a desk that lives in one. */
+[data-theme="wallstreet"] {
+    --bg-body: #0A0A0A;
+    --bg-card: #141210;
+    --bg-header: linear-gradient(135deg, #000000 0%, #14120C 50%, #000000 100%);
+    --text-primary: #FFB43D;
+    --text-muted: #9A835A;
+    --text-link: #FFCF80;
+    --accent: #FFA028;
+    --border-color: #332D20;
+
+    /* Marks: bars, rings, dots. 3:1 against this theme's card. */
+    --dim-accuracy: #2AD4C5;
+    --dim-completeness: #4FD693;
+    --dim-consistency: #A8DB5F;
+    --dim-timeliness: #F2C65C;
+    --dim-uniqueness: #F29A5C;
+    --dim-validity: #EA726E;
+    --dim-integrity: #7D8FE0;
+    --dim-conformity: #9AA3BD;
+
+    /* Words: dimension names, verdicts. 4.5:1 against the same. */
+    --dim-accuracy-text: #2AD4C5;
+    --dim-completeness-text: #4FD693;
+    --dim-consistency-text: #A8DB5F;
+    --dim-timeliness-text: #F2C65C;
+    --dim-uniqueness-text: #F29A5C;
+    --dim-validity-text: #EA726E;
+    --dim-integrity-text: #7D8FE0;
+    --dim-conformity-text: #9AA3BD;
+
+    /* Reserved for 'stale or not yet examined'. Nothing else may use it. */
+    --unverified-grey: #9AA3BD;
+    --unverified-grey-text: #9AA3BD;
+}

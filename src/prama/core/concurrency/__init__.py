@@ -26,7 +26,7 @@ from prama.core.concurrency.leases import (
     MemoryLeaseProvider,
 )
 from prama.core.concurrency.limits import ConcurrencyLimiter, RateLimiter
-from prama.core.concurrency.supervisor import TaskHandle, TaskSupervisor
+from prama.core.concurrency.supervisor import TaskHandle, TaskSupervisor, run_sync
 
 __all__ = [
     "BoundedQueue",
@@ -40,4 +40,5 @@ __all__ = [
     "RateLimiter",
     "TaskHandle",
     "TaskSupervisor",
+    "run_sync",
 ]

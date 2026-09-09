@@ -410,3 +410,113 @@ class TestRunLifecycle:
                 uow, tenant_id, execute=rows_for(scanned_rows=1)
             ).execute_all()
         assert "no controls were live" in report.describe()
+
+
+class TestOnlyWhatIsDue:
+    async def test_by_default_everything_live_runs(
+        self, started_database: Database, tenant_id: str
+    ) -> None:
+        """Somebody typing 'prama control run' means now."""
+        await _control(started_database, tenant_id, CLEAN)
+        async with started_database.unit_of_work() as uow:
+            report = await ControlRun(
+                uow, tenant_id, execute=rows_for(scanned_rows=10, violating_rows=0)
+            ).execute_all()
+        assert len(report.outcomes) == 1
+        assert report.skipped == ()
+
+    async def test_a_control_that_just_ran_is_not_due_again(
+        self, started_database: Database, tenant_id: str
+    ) -> None:
+        await _control(started_database, tenant_id, CLEAN)
+        async with started_database.unit_of_work() as uow:
+            first = await ControlRun(
+                uow,
+                tenant_id,
+                execute=rows_for(scanned_rows=10, violating_rows=0),
+                respect_schedule=True,
+            ).execute_all()
+            second = await ControlRun(
+                uow,
+                tenant_id,
+                execute=rows_for(scanned_rows=10, violating_rows=0),
+                respect_schedule=True,
+            ).execute_all()
+
+        # First pass: never run, so due immediately. Second: daily, so not.
+        assert len(first.outcomes) == 1
+        assert second.outcomes == ()
+        assert [item.reason for item in second.skipped] == ["not_due"]
+
+    async def test_a_failing_control_still_counts_as_having_run(
+        self, started_database: Database, tenant_id: str
+    ) -> None:
+        """A control failing to execute every hour has *run* every hour.
+        Treating it as never-run would make the scheduler retry continuously
+        while the source is down — one broken control becoming a load
+        problem."""
+        await _control(started_database, tenant_id, CLEAN)
+        async with started_database.unit_of_work() as uow:
+            await ControlRun(
+                uow, tenant_id, execute=exploding(), respect_schedule=True
+            ).execute_all()
+            again = await ControlRun(
+                uow, tenant_id, execute=exploding(), respect_schedule=True
+            ).execute_all()
+        assert again.outcomes == ()
+
+    async def test_an_unreadable_schedule_is_reported_not_defaulted(
+        self, started_database: Database, tenant_id: str
+    ) -> None:
+        """It will never run again and has no verdict to say so."""
+        async with started_database.unit_of_work() as uow:
+            control, _ = await uow.controls.declare(
+                tenant_id=tenant_id, identity="i1", pql=CLEAN, schedule="30 6 * * 1-5"
+            )
+            await uow.controls.activate(str(control.id), approved_by="alice")
+
+        async with started_database.unit_of_work() as uow:
+            report = await ControlRun(
+                uow,
+                tenant_id,
+                execute=rows_for(scanned_rows=10, violating_rows=0),
+                respect_schedule=True,
+            ).execute_all()
+
+        assert report.outcomes == ()
+        assert len(report.unschedulable) == 1
+        assert "never run until it is fixed" in report.describe()
+
+    async def test_a_manual_control_is_not_run_by_a_timer(
+        self, started_database: Database, tenant_id: str
+    ) -> None:
+        async with started_database.unit_of_work() as uow:
+            control, _ = await uow.controls.declare(
+                tenant_id=tenant_id, identity="i1", pql=CLEAN, schedule="manual"
+            )
+            await uow.controls.activate(str(control.id), approved_by="alice")
+            report = await ControlRun(
+                uow,
+                tenant_id,
+                execute=rows_for(scanned_rows=10, violating_rows=0),
+                respect_schedule=True,
+            ).execute_all()
+
+        assert report.outcomes == ()
+        assert [item.reason for item in report.skipped] == ["manual"]
+        assert report.unschedulable == ()
+
+    async def test_a_manual_control_still_runs_when_asked(
+        self, started_database: Database, tenant_id: str
+    ) -> None:
+        """That is what 'manual' means, and a runner that refused it would
+        leave the control unrunnable by any route."""
+        async with started_database.unit_of_work() as uow:
+            control, _ = await uow.controls.declare(
+                tenant_id=tenant_id, identity="i1", pql=CLEAN, schedule="manual"
+            )
+            await uow.controls.activate(str(control.id), approved_by="alice")
+            report = await ControlRun(
+                uow, tenant_id, execute=rows_for(scanned_rows=10, violating_rows=0)
+            ).execute_all()
+        assert len(report.outcomes) == 1

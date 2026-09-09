@@ -26,6 +26,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from prama.core.log import get_logger
+from prama.report.themes import BASES, THEMES
 from prama.version import PRODUCT_TAGLINE, VERSION
 
 _log = get_logger(__name__)
@@ -100,6 +101,36 @@ def url_for(request: Request, name: str, **params: Any) -> str:
     return f"{url}?{urlencode(in_query)}" if in_query else url
 
 
+def _preference(request: Request, cookie: str, allowed: tuple[str, ...]) -> str:
+    """A display preference from a cookie, validated against a closed set.
+
+    Validated, always. The value is written into an HTML attribute, and a
+    cookie is user-supplied — an unchecked one is an attribute injection with
+    extra steps. An unknown value falls back to the first permitted rather than
+    raising: a stale cookie from an older build should render the default page,
+    not an error.
+    """
+    value = request.cookies.get(cookie, "")
+    return value if value in allowed else allowed[0]
+
+
+def chosen_theme(request: Request) -> str:
+    """Which theme to render, before any JavaScript runs.
+
+    Server-side because the alternative flashes. A page that renders light and
+    is repainted by a script on load is unpleasant on every theme and genuinely
+    unusable on the amber-on-black one, where the flash is a white screen.
+
+    ``?theme=`` overrides the cookie, so a theme can be linked and previewed
+    without changing anybody's preference.
+    """
+    names = tuple(theme.name for theme in THEMES)
+    preview = request.query_params.get("theme", "")
+    if preview in names:
+        return preview
+    return _preference(request, "prama_theme", names)
+
+
 def flash(request: Request, message: str, category: str = "success") -> None:
     """Queue a message for the next rendered page."""
     if category not in CATEGORIES:
@@ -130,6 +161,12 @@ def render(request: Request, template: str, status_code: int = 200, **context: A
             }
             for item in NAVIGATION
         ],
+    )
+    context.setdefault("theme", chosen_theme(request))
+    context.setdefault("density", _preference(request, "prama_density", ("comfortable", "compact")))
+    context.setdefault(
+        "themes",
+        [{"name": theme.name, "label": theme.label, "note": theme.note} for theme in THEMES],
     )
     context.setdefault("app_version", VERSION)
     context.setdefault("app_tagline", PRODUCT_TAGLINE)
@@ -162,6 +199,18 @@ def flash_error_and_log(request: Request, user_message: str, exc: Exception) -> 
     flash(request, f"{user_message}: {exc}", "error")
 
 
+def _rate(value: float | None, decimals: int = 1) -> Any:
+    """A rate as a percentage that never rounds towards good news."""
+    from markupsafe import Markup
+
+    from prama.report.rate import percent
+
+    if value is None:
+        # Not "0%". An unmeasured rate and a measured zero are opposite facts.
+        return Markup("&mdash;")
+    return Markup(percent(float(value), decimals=decimals))
+
+
 def install_globals() -> None:
     """Make the helpers callable from inside a template.
 
@@ -180,7 +229,17 @@ def install_globals() -> None:
     def _flashed(context: Any, with_categories: bool = False) -> list[Any]:
         return get_flashed_messages(context["request"], with_categories=with_categories)
 
+    # A filter rather than a helper each template remembers to call: the one
+    # place a percentage is formatted, so no screen can round a real defect
+    # away by using the wrong one.
+    templates.env.filters["rate"] = _rate
+
     templates.env.globals["url_for"] = _url_for
     templates.env.globals["get_flashed_messages"] = _flashed
     templates.env.globals["app_version"] = VERSION
+    # The switcher needs to know which Bootstrap base each theme sits on, and
+    # it is one mapping rather than a rule the JavaScript re-derives — a second
+    # opinion about whether "crimson" is a light theme would show up as one
+    # unreadable dropdown.
+    templates.env.globals["theme_bases"] = BASES
     templates.env.globals["app_tagline"] = PRODUCT_TAGLINE

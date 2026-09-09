@@ -44,8 +44,16 @@
           <span class="dim dim-{{ dimension }}">{{ dimension }}</span>
           {% endfor %}
         </td>
-        <td class="small text-muted">{{ version.origin }}{% if version.rule %} ·
-          <code>{{ version.rule }}</code>{% endif %}</td>
+        <td class="small text-muted">
+          {{ version.origin }}{% if version.rule %} · <code>{{ version.rule }}</code>{% endif %}
+          {% if version.control_id in unreadable %}
+          {# A control whose schedule cannot be read will never run again, and
+             nothing else in the system says so. #}
+          <div class="verdict verdict-fail">{{ schedules[version.control_id] }}</div>
+          {% else %}
+          <div>{{ schedules[version.control_id] }}</div>
+          {% endif %}
+        </td>
         <td class="text-end">
           {% if 'activate' in actions %}
           <form method="post" class="d-inline"
@@ -132,6 +140,14 @@
   </div>
   {% endfor %}
 </div>
+
+{% if unreadable %}
+<div class="uncalibrated mb-3">
+  <strong>{{ unreadable | length }} control(s) have a schedule Prama cannot read.</strong>
+  They will never run again, and no verdict anywhere will say so — a control that
+  silently stops being scheduled is indistinguishable from one that is passing.
+</div>
+{% endif %}
 
 {% if overdue %}
 <div class="uncalibrated mb-3">

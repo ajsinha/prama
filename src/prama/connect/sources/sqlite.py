@@ -167,6 +167,33 @@ class SqliteConnector(Connector):
 
     # -- internals (all synchronous, all run in a worker thread) -----------
 
+    # -- running a control -------------------------------------------------
+
+    @property
+    def can_run_controls(self) -> bool:
+        """SQLite is a query engine, so a control can be pushed down to it.
+
+        Worth claiming rather than leaving to the relational base class, which
+        this connector does not inherit: a SQLite file is read here through the
+        stdlib driver, and a source that could evaluate a control locally and
+        did not would drag every row across for no reason.
+        """
+        return True
+
+    async def run_metric_query(self, sql: str) -> list[dict[str, Any]]:
+        """Evaluate a compiled control's metric query."""
+        import asyncio
+
+        from prama.connect.sources.query import sole_read_statement
+
+        statement = sole_read_statement(sql)
+        return await asyncio.to_thread(self._query, statement)
+
+    def _query(self, statement: str) -> list[dict[str, Any]]:
+        with self._connect() as connection:
+            connection.row_factory = sqlite3.Row
+            return [dict(row) for row in connection.execute(statement).fetchall()]
+
     def _connect(self) -> sqlite3.Connection:
         # Read-only URI: pointing at a production extract cannot alter it, and
         # the guarantee is enforced by the driver rather than by our discipline.

@@ -1,5 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light" data-bs-theme="light" data-density="comfortable">
+{# Rendered server-side from the cookie. The alternative — light markup that a
+   script repaints on load — flashes on every theme and is genuinely unusable
+   on the amber-on-black one, where the flash is a white screen. #}
+<html lang="en" data-theme="{{ theme }}" data-bs-theme="{{ theme_bases[theme] }}"
+      data-density="{{ density }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,6 +15,8 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap/css/bootstrap.min.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fonts/inter.css') }}">
+  {# themes.css first: it defines the tokens prama.css consumes. #}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/themes.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/prama.css') }}">
   {% block head %}{% endblock %}
 </head>
@@ -40,16 +46,26 @@
           </li>
           {% endfor %}
         </ul>
-        <div class="d-flex align-items-center gap-2">
-          <span class="navbar-text small opacity-75 d-none d-xl-inline">{{ app_tagline }}</span>
-          <button class="btn btn-sm btn-outline-light" id="density-toggle"
+        <div class="d-flex align-items-center gap-2 flex-nowrap ms-auto">
+          {# The tagline used to sit here and printed itself over the theme
+             controls at 1440px. With eleven navigation items there is honestly
+             no room for it, and the fix is to remove it rather than to keep
+             finding a width where it just fits: the footer carries the product
+             line, and a navbar's job is navigation. #}
+          <button class="btn btn-sm btn-outline-light flex-shrink-0" id="density-toggle"
                   aria-label="Toggle table density" title="Row density">
             <i class="bi bi-list" aria-hidden="true"></i>
           </button>
-          <button class="btn btn-sm btn-outline-light" id="theme-toggle"
-                  aria-label="Toggle light and dark theme" title="Theme">
-            <i class="bi bi-circle-half" aria-hidden="true"></i>
-          </button>
+          {# A picker rather than a light/dark toggle. Five themes is more than
+             a toggle can express, and each exists for a different reading
+             register — an academic print look, a retail-banking one, a trading
+             terminal — so the names matter as much as the colours. #}
+          <label class="visually-hidden" for="theme-select">Theme</label>
+          <select class="form-select form-select-sm" id="theme-select">
+            {% for theme in themes %}
+            <option value="{{ theme.name }}" title="{{ theme.note }}">{{ theme.label }}</option>
+            {% endfor %}
+          </select>
         </div>
       </div>
     </div>
@@ -78,6 +94,7 @@
      an otherwise-accessible app becomes unusable. #}
   <div id="announcer" class="visually-hidden" role="status" aria-live="polite"></div>
 
+  <script>window.pramaThemeBases = {{ theme_bases | tojson }};</script>
   <script src="{{ url_for('static', filename='vendor/jquery/jquery.min.js') }}"></script>
   <script src="{{ url_for('static', filename='vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/prama.js') }}"></script>

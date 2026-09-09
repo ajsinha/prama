@@ -32,6 +32,7 @@ from prama.pql import parse
 from prama.pql.errors import PqlError
 from prama.pql.lint import Linter
 from prama.pql.types import Catalogue, Column, DatasetSchema, TypeChecker
+from prama.schedule import describe as describe_schedule
 from prama.web import builder
 from prama.web.deps import Caller, Uow
 from prama.web.rendering import flash_error_and_log, redirect_to, render
@@ -114,12 +115,25 @@ class ControlRoutes(UiRoutes):
         proposed = await uow.controls.of_status(caller.tenant_id, "proposed")
         suppressed = await uow.controls.of_status(caller.tenant_id, "suppressed")
         overdue = await uow.controls.silenced_past_expiry(caller.tenant_id, utc_now().isoformat())
+        # Rendered through the parser rather than printed raw, so a schedule
+        # that cannot be read shows as unreadable on the page instead of
+        # looking fine and never firing.
+        schedules = {
+            str(version.control_id): describe_schedule(version.schedule)
+            for version in (*live, *proposed, *suppressed)
+        }
         return render(
             request,
             "controls/list.html",
             live=live,
             proposed=proposed,
             suppressed=suppressed,
+            schedules=schedules,
+            unreadable={
+                control_id
+                for control_id, text in schedules.items()
+                if text.startswith("unreadable")
+            },
             overdue={str(version.control_id) for version in overdue},
             retired=len(await uow.controls.of_status(caller.tenant_id, "retired")),
         )

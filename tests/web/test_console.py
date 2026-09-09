@@ -1118,3 +1118,43 @@ class TestControlEstate:
         body = (await ui.get("/controls")).text
         assert "still silent past the date" in body
         assert "nobody turned it back on" in body
+
+    async def test_an_unreadable_schedule_is_visible_on_the_page(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """A control that silently stops being scheduled is indistinguishable
+        from one that is passing."""
+        async with started_database.unit_of_work() as uow:
+            control, _ = await uow.controls.declare(
+                tenant_id=tenant_id,
+                identity="i1",
+                pql=(
+                    "CHECK positions_eod.a IS NOT NULL SEVERITY major "
+                    "DIMENSION completeness BECAUSE 'why'"
+                ),
+                schedule="30 6 * * 1-5",
+            )
+            await uow.controls.activate(str(control.id), approved_by="alice")
+
+        body = " ".join((await ui.get("/controls")).text.split())
+        assert "schedule Prama cannot read" in body
+        assert "They will never run again" in body
+
+    async def test_a_readable_schedule_is_shown_as_a_sentence(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        async with started_database.unit_of_work() as uow:
+            control, _ = await uow.controls.declare(
+                tenant_id=tenant_id,
+                identity="i1",
+                pql=(
+                    "CHECK positions_eod.a IS NOT NULL SEVERITY major "
+                    "DIMENSION completeness BECAUSE 'why'"
+                ),
+                schedule="every 4 hours",
+            )
+            await uow.controls.activate(str(control.id), approved_by="alice")
+
+        body = (await ui.get("/controls")).text
+        assert "every 4 hour(s)" in body
+        assert "cannot read" not in body

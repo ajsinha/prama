@@ -286,6 +286,14 @@ class ControlRunCommand(Command):
             action="store_true",
             help="keep failing rows as evidence (they become personal data on a clock)",
         )
+        parser.add_argument(
+            "--due-only",
+            action="store_true",
+            help=(
+                "run only what each control's schedule says is due; without it "
+                "everything live runs, which is what typing this means"
+            ),
+        )
 
     def run(self, ctx: CommandContext) -> int:
         """Run every live control and write the results into the ledger.
@@ -323,7 +331,8 @@ class ControlRunCommand(Command):
                         execute=execute,
                         sample=execute if ctx.args.samples else None,
                         engine=ctx.args.dialect,
-                        triggered_by="manual",
+                        triggered_by="schedule" if ctx.args.due_only else "manual",
+                        respect_schedule=ctx.args.due_only,
                     ).execute_all()
             finally:
                 await database.stop()
@@ -338,6 +347,11 @@ class ControlRunCommand(Command):
                     "executed": report.executed,
                     "failed_to_run": report.failed_to_run,
                     "verdicts": report.verdicts,
+                    "skipped": len(report.skipped),
+                    "unschedulable": [
+                        {"control_id": s.control_id, "dataset": s.dataset, "detail": s.detail}
+                        for s in report.unschedulable
+                    ],
                     "summary": report.describe(),
                 }
             )
@@ -348,7 +362,11 @@ class ControlRunCommand(Command):
         for outcome in report.outcomes:
             if not outcome.ran:
                 ctx.emit(f"  ! {outcome.record.dataset}: {outcome.error}")
-        # Non-zero when something did not run, so a scheduled invocation fails
-        # loudly rather than logging a green line over an estate that went
-        # unchecked.
-        return EXIT_ERROR if report.failed_to_run else EXIT_OK
+        for skipped in report.unschedulable:
+            # Listed even though nothing failed: these will never run again,
+            # and no verdict anywhere will say so.
+            ctx.emit(f"  ! {skipped.dataset}: {skipped.detail}")
+        # Non-zero when something did not run *or* can never run. A schedule
+        # nobody can read is as much a gap in coverage as a source that is
+        # down, and it is the quieter of the two.
+        return EXIT_ERROR if (report.failed_to_run or report.unschedulable) else EXIT_OK

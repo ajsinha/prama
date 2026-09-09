@@ -16,6 +16,8 @@ from prama.schedule.cadence import (
     Decision,
     Observation,
 )
+from prama.schedule.due import NEVER, Due, Plan, Schedule, Skipped
+from prama.schedule.spec import DEFAULT, describe, parse
 from prama.schedule.trigger import (
     ArrivalTrigger,
     CalendarTrigger,
@@ -28,6 +30,8 @@ from prama.schedule.trigger import (
 )
 
 __all__ = [
+    "DEFAULT",
+    "NEVER",
     "AdaptiveCadence",
     "Allocation",
     "ArrivalTrigger",
@@ -38,11 +42,17 @@ __all__ = [
     "Decision",
     "Deferral",
     "DependencyTrigger",
+    "Due",
     "IntervalTrigger",
     "ManualTrigger",
     "Observation",
+    "Plan",
     "Priority",
+    "Schedule",
+    "Skipped",
     "Trigger",
     "TriggerKind",
+    "describe",
     "next_due",
+    "parse",
 ]

@@ -403,6 +403,36 @@ class Connector(Plugin, ABC):
         so a connector never has to know which engine will consume its output.
         """
 
+    # -- running a control -------------------------------------------------
+
+    @property
+    def can_run_controls(self) -> bool:
+        """Whether this source can evaluate a compiled control itself.
+
+        False by default and correct for most connectors: a CSV on a share and
+        an object-store parquet file cannot run SQL, and their controls are
+        evaluated locally over the Arrow that ``read`` yields. A connector
+        claims this only when the source has a query engine of its own.
+        """
+        return False
+
+    async def run_metric_query(self, sql: str) -> list[dict[str, Any]]:  # noqa: ARG002
+        """Evaluate a compiled control's metric query and return its rows.
+
+        The default refuses, and refuses with the alternative rather than with
+        a bare error: a caller that lands here is not doing something wrong,
+        it is talking to a source whose controls run a different way.
+        """
+        raise ConnectorError(
+            f"{type(self).__name__} cannot run a query against its source",
+            remedy=(
+                "This source has no query engine of its own, so its controls are "
+                "evaluated locally over the rows `read` yields. Check "
+                "`can_run_controls` before asking."
+            ),
+            context={"connector": type(self).__name__},
+        )
+
     def pushdown_capabilities(self) -> tuple[Capability, ...]:
         """What the compiler may rely on. Default: nothing.
 

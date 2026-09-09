@@ -21,7 +21,7 @@
              a false alarm; it is not a measurement at all. #}
           <span class="verdict verdict-stale">nothing compared</span>
           {% else %}
-          {{ '%.2f%%' | format(run.match_rate * 100) }}
+          {{ run.match_rate | rate(2) }}
           {% endif %}
         </td>
         <td>{{ '{:,}'.format(run.breaks) }}</td>

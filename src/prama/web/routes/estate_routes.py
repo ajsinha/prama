@@ -73,7 +73,11 @@ class EstateRoutes(UiRoutes):
                     "key": d.id,
                     "attributes": {
                         "label": d.name,
-                        "size": 12 - 2 * d.criticality,
+                        # 14 down to 8, not 10 down to 4. Criticality should be
+                        # legible at a glance and a Tier 4 node still has to be
+                        # big enough to click: a map whose least important
+                        # nodes cannot be hit is a map that hides them.
+                        "size": 16 - 2 * d.criticality,
                         "tier": d.criticality,
                         "bound": d.is_bound,
                         "complete": d.is_complete,

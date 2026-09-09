@@ -158,7 +158,7 @@
                  has not been examined, which is a different thing from being
                  healthy and must never look like it. */
               : "#8A93AD",
-            size: Math.max(3, node.attributes.size || 4)
+            size: Math.max(6, node.attributes.size || 8)
           }));
         });
         payload.edges.forEach(function (edge) {

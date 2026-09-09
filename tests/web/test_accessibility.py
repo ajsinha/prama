@@ -42,7 +42,6 @@ from prama.report.palette import (
     DIMENSION_HEX,
     DIMENSION_TEXT_DARK_HEX,
     DIMENSION_TEXT_HEX,
-    GRID_HEX,
     INK_HEX,
     LIGHT_SURFACE,
     MUTED_HEX,
@@ -51,6 +50,7 @@ from prama.report.palette import (
     UNVERIFIED_TEXT_DARK_HEX,
     UNVERIFIED_TEXT_HEX,
 )
+from prama.report.themes import THEMES, Theme
 
 pytestmark = pytest.mark.anyio
 
@@ -186,33 +186,129 @@ class TestPaletteContrast:
         assert accessible_on(INK_HEX, LIGHT_SURFACE) == INK_HEX
 
 
-class TestStylesheetAgreesWithTheArithmetic:
-    """Derive, never restate. The CSS holds a copy of these values because a
-    stylesheet cannot call Python; this is what keeps the copy honest."""
+class TestEveryThemeIsLegible:
+    """The check that makes five themes safe to ship.
 
-    def test_the_light_text_tokens_match_what_is_computed(self) -> None:
+    A theme declares surfaces; every dimension colour is derived against them.
+    So this is not a spot check of colours somebody chose — it is the assertion
+    that the derivation actually cleared the threshold for every hue, in every
+    theme, for both of the jobs a colour does here.
+    """
+
+    @pytest.mark.parametrize("theme", THEMES, ids=lambda t: t.name)
+    def test_every_mark_meets_the_non_text_threshold(self, theme: Theme) -> None:
+        """WCAG 1.4.11. A bar, a ring or a status dot carries meaning, and it
+        has to be distinguishable from the card behind it."""
+        for name, colour in theme.fills().items():
+            assert ratio(colour, theme.surface) >= NON_TEXT, f"{theme.name}/{name}: " + report(
+                colour, theme.surface, threshold=NON_TEXT
+            )
+
+    @pytest.mark.parametrize("theme", THEMES, ids=lambda t: t.name)
+    def test_every_dimension_name_meets_the_body_threshold(self, theme: Theme) -> None:
+        for name, colour in theme.texts().items():
+            assert ratio(colour, theme.surface) >= BODY_TEXT, f"{theme.name}/{name}: " + report(
+                colour, theme.surface
+            )
+
+    @pytest.mark.parametrize("theme", THEMES, ids=lambda t: t.name)
+    def test_the_words_not_examined_are_readable(self, theme: Theme) -> None:
+        """The one place under-contrast would be actively dishonest: the point
+        of the reserved colour is that unexamined data is *visible*."""
+        assert ratio(theme.unverified_text(), theme.surface) >= BODY_TEXT, report(
+            theme.unverified_text(), theme.surface
+        )
+
+    @pytest.mark.parametrize("theme", THEMES, ids=lambda t: t.name)
+    def test_ink_and_muted_text_are_legible(self, theme: Theme) -> None:
+        assert ratio(theme.ink, theme.surface) >= BODY_TEXT, report(theme.ink, theme.surface)
+        assert ratio(theme.muted, theme.surface) >= BODY_TEXT, report(theme.muted, theme.surface)
+
+    @pytest.mark.parametrize("theme", THEMES, ids=lambda t: t.name)
+    def test_a_dimension_keeps_its_hue_family(self, theme: Theme) -> None:
+        """The palette's one promise: the same colour means the same dimension
+        everywhere. A theme that re-ordered a hue's channels would break the
+        language on that theme alone, which is worse than not having it."""
+        for name, source in theme.source_hues.items():
+            for derived in (theme.fills()[name], theme.texts()[name]):
+                assert _channel_order(source) == _channel_order(derived), (
+                    f"{theme.name}/{name}: {source} -> {derived}"
+                )
+
+    #: The six spectrum hues. ``integrity`` and ``conformity`` are excluded
+    #: because they have no spectrum hue of their own and take the brand blues
+    #: by design (docs/brand.md §4) — so on the default theme the accent
+    #: legitimately *is* the integrity colour.
+    SPECTRUM = ("accuracy", "completeness", "consistency", "timeliness", "uniqueness", "validity")
+
+    def test_no_theme_borrows_a_spectrum_hue_for_its_brand(self) -> None:
+        """A brand colour that reads as one of the six corrupts the language.
+
+        Harvard Crimson sits between validity red and uniqueness orange, which
+        is exactly why it is the masthead and never a dimension. The rule is
+        about the six, not about integrity and conformity, which take the brand
+        blues deliberately.
+        """
+        for theme in THEMES:
+            for name in self.SPECTRUM:
+                assert theme.fills()[name].upper() != theme.accent.upper(), (
+                    f"{theme.name}/{name} is the same colour as the brand accent"
+                )
+
+    def test_a_brand_accent_is_distinguishable_from_every_spectrum_hue(self) -> None:
+        """Not merely different — far enough apart that a reader does not have
+        to decide whether the masthead red is the validity red."""
+        from prama.report.contrast import rgb
+
+        for theme in THEMES:
+            accent = rgb(theme.accent)
+            for name in self.SPECTRUM:
+                hue = rgb(theme.fills()[name])
+                distance = sum(abs(a - b) for a, b in zip(accent, hue, strict=True))
+                assert distance > 60, f"{theme.name}/{name} is too close to the accent"
+
+
+def _channel_order(colour: str) -> list[int]:
+    raw = colour.lstrip("#")
+    return sorted(range(3), key=lambda i: int(raw[i * 2 : i * 2 + 2], 16))
+
+
+class TestTheGeneratedStylesheetIsNotHandEdited:
+    """Derive, never restate. The stylesheet cannot call Python, so it holds a
+    copy — and this is what keeps the copy honest."""
+
+    def test_regenerating_produces_exactly_what_is_checked_in(self) -> None:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "generate_themes",
+            Path(__file__).resolve().parents[2] / "scripts" / "generate_themes.py",
+        )
+        assert spec and spec.loader
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        assert module.TARGET.read_text(encoding="utf-8") == module.render(), (
+            "themes.css is out of date or hand-edited. Run: python scripts/generate_themes.py"
+        )
+
+    def test_every_theme_has_a_block(self) -> None:
+        css = (
+            Path(__file__).resolve().parents[2] / "src/prama/web/static/css/themes.css"
+        ).read_text()
+        for theme in THEMES:
+            marker = (
+                ':root, [data-theme="light"]'
+                if theme.name == "light"
+                else f'[data-theme="{theme.name}"]'
+            )
+            assert marker in css, theme.name
+
+    def test_prama_css_holds_no_second_copy_of_a_dimension_colour(self) -> None:
+        """A copy in the hand-written stylesheet would be the one nobody
+        checked against a threshold."""
         css = CSS.read_text()
-        for name, value in DIMENSION_TEXT_HEX.items():
-            assert f"--dim-{name}-text: {value};" in css, name
-
-    def test_the_dark_text_tokens_match_what_is_computed(self) -> None:
-        css = CSS.read_text()
-        for name, value in DIMENSION_TEXT_DARK_HEX.items():
-            assert f"--dim-{name}-text: {value};" in css, name
-
-    def test_no_stray_dimension_text_token_exists(self) -> None:
-        """A token the arithmetic did not produce is a hand-edit, and a
-        hand-edited one is the one that will be wrong."""
-        found = set(re.findall(r"--dim-([a-z]+)-text:\s*(#[0-9A-Fa-f]{6});", CSS.read_text()))
-        expected = {(n, v) for n, v in DIMENSION_TEXT_HEX.items()} | {
-            (n, v) for n, v in DIMENSION_TEXT_DARK_HEX.items()
-        }
-        assert found <= expected, found - expected
-
-    def test_the_grid_colour_is_visible_against_the_card(self) -> None:
-        """A chart's empty track at 1.05:1 is an invisible chart with an
-        invisible axis, which reads as a rendering bug."""
-        assert ratio(GRID_HEX, LIGHT_SURFACE) > 1.1, report(GRID_HEX, LIGHT_SURFACE)
+        assert "--dim-accuracy:" not in css
+        assert "--dim-accuracy-text:" not in css
 
 
 class _Structure(HTMLParser):

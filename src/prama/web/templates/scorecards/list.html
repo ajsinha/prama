@@ -24,7 +24,7 @@
     <div class="card h-100">
       <div class="card-body">
         <h2 class="h6">{{ score.subject }}</h2>
-        <div class="fs-2 fw-semibold">{{ '%.1f%%' | format(score.value * 100) }}</div>
+        <div class="fs-2 fw-semibold">{{ score.value | rate }}</div>
 
         {% if score.not_run %}
         {# The number beside the number. A dataset scoring 100% because half its
@@ -32,7 +32,7 @@
            could produce. #}
         <div class="verdict verdict-stale small mb-2">
           {{ score.not_run }} of {{ score.controls }} controls did not run — this
-          describes {{ '%.0f%%' | format(score.coverage * 100) }} of what was meant
+          describes {{ score.coverage | rate(0) }} of what was meant
           to be checked
         </div>
         {% endif %}
@@ -43,7 +43,7 @@
         <div class="small mb-2">
           <strong>The composites disagree.</strong>
           {% for name, value in score.composites.items() %}
-          <div><code>{{ name }}</code> {{ '%.1f%%' | format(value * 100) }}</div>
+          <div><code>{{ name }}</code> {{ value | rate }}</div>
           {% endfor %}
           Most of the dataset is fine and something in it is not.
         </div>
@@ -58,7 +58,7 @@
           {% for part in score.components %}
           <li class="d-flex justify-content-between align-items-center gap-2">
             <span class="dim dim-{{ part.dimension }}">{{ part.dimension }}</span>
-            <span>{{ '%.1f%%' | format(part.value * 100) }}</span>
+            <span>{{ part.value | rate }}</span>
           </li>
           {% endfor %}
         </ul>
