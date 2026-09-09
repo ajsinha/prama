@@ -1,0 +1,48 @@
+{# The frame every pack shares: masthead, provenance, coverage, colophon.
+
+   Shared rather than copied so the coverage statement cannot be omitted from
+   one pack by accident — which is exactly the omission that turns an
+   attestation into a marketing document. #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ title }} — {{ product_name }}</title>
+  <style>{{ stylesheet }}</style>
+</head>
+<body>
+<div class="sheet">
+  <header class="masthead">
+    <div class="wordmark">{{ product_name | upper }}</div>
+    <div class="tagline">{{ tagline }}</div>
+    <h1 class="doc-title">{{ title }}</h1>
+    {# On the document, not in a filename. An artefact that cannot say which
+       build produced it, from which tenant, at which instant, is a screenshot
+       rather than evidence. #}
+    <dl class="provenance">
+      <dt>Generated</dt><dd>{{ provenance.stamp }}</dd>
+      <dt>Estate</dt><dd>{{ provenance.tenant_id }}</dd>
+      {% if provenance.generated_by %}
+      <dt>By</dt><dd>{{ provenance.generated_by }}</dd>
+      {% endif %}
+      <dt>Build</dt><dd>{{ product_name }} {{ provenance.version }}</dd>
+    </dl>
+  </header>
+
+  <section class="coverage {% if not coverage.is_complete %}partial{% endif %}">
+    <h2>What this document covers</h2>
+    <p>{{ coverage.describe() }}</p>
+    {% block coverage_detail %}{% endblock %}
+  </section>
+
+  {% block content %}{% endblock %}
+
+  <footer class="colophon">
+    {{ product_name }} {{ provenance.version }} · generated {{ provenance.stamp }} ·
+    estate {{ provenance.tenant_id }}<br>
+    Copyright © 2026 Ashutosh Sinha &lt;ajsinha@gmail.com&gt;. All rights reserved.
+    Proprietary and confidential. No licence is granted except by separate written agreement.
+  </footer>
+</div>
+</body>
+</html>

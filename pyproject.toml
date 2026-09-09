@@ -56,6 +56,10 @@ where = ["src"]
 # build output. Without this an installed wheel serves an application whose
 # every page 500s on a missing template — and it passes every test run from a
 # source checkout, where the files are simply there.
+"prama.report" = [
+    "templates/*.html",
+    "templates/*.css",
+]
 "prama.web" = [
     "templates/*.html",
     "templates/**/*.html",

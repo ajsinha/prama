@@ -71,6 +71,7 @@ NAVIGATION: tuple[NavItem, ...] = (
     NavItem("Incidents", "incident_list", "/incidents", "bi-exclamation-triangle"),
     NavItem("Reconciliation", "reconciliation_list", "/reconciliation", "bi-arrow-left-right"),
     NavItem("Scorecards", "scorecard_list", "/scorecards", "bi-clipboard-data"),
+    NavItem("Reports", "report_index", "/reports", "bi-file-earmark-pdf"),
 )
 
 

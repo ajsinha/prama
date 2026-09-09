@@ -649,3 +649,75 @@ class TestRuleBuilder:
         checkbox, not buried in documentation."""
         body = (await ui.get("/controls/build")).text
         assert "entirely empty will pass" in body
+
+
+class TestReportPacks:
+    async def test_the_index_states_there_is_no_pdf_engine(self, ui: httpx.AsyncClient) -> None:
+        """Stated rather than discovered. Bundling WeasyPrint would mean native
+        graphics libraries in every on-premises install for a job the browser
+        already does correctly, and that trade should be visible."""
+        body = (await ui.get("/reports")).text
+        assert "does not bundle a PDF engine" in body
+        assert "Save as PDF" in body
+
+    async def test_the_declaration_pack_renders_the_estate(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        await _declare(
+            started_database,
+            tenant_id,
+            name="Positions EOD",
+            slug="positions_eod",
+            shape="table",
+            criticality=1,
+            grain_json={
+                "attributes": ["account_id"],
+                "statement": "one position per account per day",
+            },
+        )
+        response = await ui.get("/reports/declarations")
+        assert response.status_code == 200
+        assert "Positions EOD" in response.text
+        assert "one position per account per day" in response.text
+        assert "Declaration pack" in response.text
+
+    async def test_a_retired_dataset_is_excluded_and_counted(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """Out of scope, and said so with a number. An auditor asking "is this
+        everything?" gets an answer rather than a shrug."""
+        await _declare(started_database, tenant_id, name="Live", slug="live")
+        await _declare(
+            started_database,
+            tenant_id,
+            name="Old",
+            slug="old",
+            lifecycle_state="retired",
+        )
+        body = (await ui.get("/reports/declarations")).text
+        assert "Live" in body
+        assert "1 of 2 covered" in body
+        assert "retired" in body
+
+    async def test_the_control_pack_counts_datasets_not_controls(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """ "220 controls" says nothing about how much of the estate they touch,
+        and a pack whose coverage number counts its own contents can never
+        report a gap."""
+        await _declare(
+            started_database,
+            tenant_id,
+            name="Described",
+            slug="described",
+            shape="table",
+            grain_json={"attributes": ["id"]},
+        )
+        await _declare(started_database, tenant_id, name="Bare", slug="bare")
+        body = (await ui.get("/reports/controls")).text
+        assert "1 of 2 covered" in body
+
+    async def test_the_pack_is_self_contained(self, ui: httpx.AsyncClient) -> None:
+        body = (await ui.get("/reports/declarations")).text
+        assert "<style>" in body
+        assert "/static/" not in body
