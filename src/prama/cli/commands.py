@@ -15,6 +15,7 @@ from prama.cli.base import EXIT_DRIFT, EXIT_OK, Command, CommandContext, Command
 from prama.cli.connect import ConnectCommand, ConnectorsCommand
 from prama.cli.control import ControlCommand
 from prama.cli.estate import EstateCommand
+from prama.cli.lsp import LspCommand
 from prama.cli.mcp import McpCommand
 from prama.core.errors import PramaError
 from prama.db import Database
@@ -226,6 +227,7 @@ def all_commands() -> list[Command]:
         ControlCommand(),
         DbCommand(),
         EstateCommand(),
+        LspCommand(),
         McpCommand(),
         ServeCommand(),
     ]

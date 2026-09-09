@@ -259,3 +259,15 @@ a { color: var(--text-link); }
     flex-shrink: 1;
 }
 #theme-select option { color: #14182E; background: #FFFFFF; }
+
+/* The editor's hover card.
+   Positioned fixed against the pointer, so it is not clipped by the editor's
+   own scroll container — a tooltip that appears half off the panel is one
+   people learn to ignore. */
+.pql-hover {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: .375rem;
+  pointer-events: none;
+}

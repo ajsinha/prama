@@ -50,23 +50,78 @@
       }
     });
 
-    /* Completion offers only what exists: the declared dataset slugs and the
-       keywords. It never invents a column name — a suggestion the estate
-       cannot satisfy is worse than no suggestion, because it gets accepted. */
-    CodeMirror.registerHelper("hint", "pql", function (cm) {
+    /* Completion and hover are answered by the server, from the same module
+       `prama lsp` calls. Nothing here decides whether a name is real: two
+       implementations of that question is how an editor comes to underline
+       something the compiler accepts, and the first time that happens people
+       stop reading the underlines.
+       
+       It never invents a name — a suggestion the estate cannot satisfy is worse
+       than none, because it gets accepted. After a dot the server answers with
+       that dataset's declared columns and, for a dataset nobody declared, with
+       nothing at all. */
+    function pqlHint(cm, callback) {
       var cursor = cm.getCursor();
       var line = cm.getLine(cursor.line);
       var start = cursor.ch;
-      while (start && /[\w.]/.test(line.charAt(start - 1))) { start -= 1; }
-      var word = line.slice(start, cursor.ch).toLowerCase();
-      var candidates = (endpoints.datasets || []).concat(KEYWORDS.split("|"));
-      return {
-        list: candidates.filter(function (c) {
-          return !word || c.toLowerCase().indexOf(word) === 0;
-        }),
-        from: CodeMirror.Pos(cursor.line, start),
-        to: cursor
-      };
+      while (start && /[\w]/.test(line.charAt(start - 1))) { start -= 1; }
+      $.post(endpoints.completions, {
+        source: cm.getValue(),
+        line: cursor.line + 1,
+        column: cursor.ch + 1
+      }).done(function (payload) {
+        callback({
+          list: (payload.items || []).map(function (item) {
+            return { text: item.label, displayText: item.label + (item.detail ? "  " + item.detail : "") };
+          }),
+          from: CodeMirror.Pos(cursor.line, start),
+          to: cursor
+        });
+      }).fail(function () {
+        /* No list, rather than a stale or locally-guessed one. An offer the
+           server did not make is exactly the offer the estate cannot honour. */
+        callback({ list: [], from: cursor, to: cursor });
+      });
+    }
+    /* On the function itself: CodeMirror 5 checks `hint.async` to decide whether
+       to pass a callback, and registerHelper returns nothing to set it on. */
+    pqlHint.async = true;
+    CodeMirror.registerHelper("hint", "pql", pqlHint);
+
+    /* Hover, debounced. The answer comes from the estate's own declarations,
+       never from a glossary maintained beside them: a tooltip describing a
+       column differently from the declaration would be the more readable of the
+       two answers and the wrong one. */
+    var hoverTimer = null;
+    var tooltip = null;
+
+    function clearTooltip() {
+      if (tooltip) { tooltip.remove(); tooltip = null; }
+    }
+
+    $(editor.getWrapperElement()).on("mousemove", function (event) {
+      window.clearTimeout(hoverTimer);
+      var target = { left: event.clientX, top: event.clientY };
+      hoverTimer = window.setTimeout(function () {
+        var position = editor.coordsChar(target, "window");
+        $.post(endpoints.hover, {
+          source: editor.getValue(),
+          line: position.line + 1,
+          column: position.ch + 1
+        }).done(function (payload) {
+          clearTooltip();
+          if (!payload.title) { return; }
+          tooltip = $('<div class="pql-hover card shadow-sm"></div>')
+            .css({ position: "fixed", left: target.left + 12, top: target.top + 16,
+                   maxWidth: "28rem", zIndex: 1080, padding: ".5rem .75rem" })
+            .append($("<strong></strong>").text(payload.title))
+            .append(payload.body ? $('<div class="small"></div>').text(payload.body) : "")
+            .appendTo("body");
+        });
+      }, 400);
+    }).on("mouseleave", function () {
+      window.clearTimeout(hoverTimer);
+      clearTooltip();
     });
 
     function post(url, target, busyMessage) {

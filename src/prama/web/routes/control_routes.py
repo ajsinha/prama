@@ -22,6 +22,7 @@ from __future__ import annotations
 from typing import Annotated, Any
 
 from fastapi import Form, Request
+from fastapi.responses import JSONResponse
 
 from prama.backend import DIALECTS, compile_for
 from prama.core.clock import utc_now
@@ -29,9 +30,9 @@ from prama.core.errors import PramaError
 from prama.core.provenance import content_hash
 from prama.ir.resolve import resolved
 from prama.pql import parse
+from prama.pql.analysis import LanguageService
 from prama.pql.errors import PqlError
-from prama.pql.lint import Linter
-from prama.pql.types import Catalogue, Column, DatasetSchema, TypeChecker
+from prama.pql.types import Catalogue, Column, DatasetSchema
 from prama.schedule import describe as describe_schedule
 from prama.web import builder
 from prama.web.deps import Caller, Uow
@@ -55,6 +56,13 @@ class ControlRoutes(UiRoutes):
         self.page("/controls/build", self.rule_builder, name="rule_builder")
         self.page("/controls/build", self.rule_build, name="rule_build", methods=["POST"])
         self.page("/controls/check", self.control_check, name="control_check", methods=["POST"])
+        self.page(
+            "/controls/completions",
+            self.control_completions,
+            name="control_completions",
+            methods=["POST"],
+        )
+        self.page("/controls/hover", self.control_hover, name="control_hover", methods=["POST"])
         self.page(
             "/controls/compile", self.control_compile, name="control_compile", methods=["POST"]
         )
@@ -284,52 +292,68 @@ class ControlRoutes(UiRoutes):
         uow: Uow,
         source: Annotated[str, Form()] = "",
     ) -> Any:
-        """Parse, type-check, lint and explain. Returns a fragment."""
-        catalogue = await self._catalogue(caller, uow)
-        try:
-            program = parse(source)
-        except PqlError as exc:
+        """Parse, type-check, lint and explain. Returns a fragment.
+
+        Every judgement comes from ``LanguageService``, which is the same module
+        ``prama lsp`` calls. Two implementations of "is this column real" is how
+        an editor comes to underline something the compiler accepts, and the
+        first time that happens people stop reading the underlines.
+        """
+        service = LanguageService(await self._catalogue(caller, uow))
+        diagnostics = service.diagnostics(source)
+        syntax = next((d for d in diagnostics if d.level == "error" and not d.control), None)
+        if syntax is not None:
+            # A text that will not parse has one finding and no controls; the
+            # panel says so rather than listing an empty result beside it.
             return render(
                 request,
                 "controls/_findings.html",
-                syntax_error=_position_of(exc),
+                syntax_error=syntax.to_dict(),
                 findings=[],
                 explanations=[],
                 error_count=1,
             )
-
-        checker = TypeChecker(catalogue)
-        linter = Linter()
-        findings: list[dict[str, Any]] = []
-        # An undeclared dataset is one fact about the estate, not one per
-        # control. Saying it once per control buries the findings that really
-        # are about a control.
-        already_said: set[str] = set()
-        for index, control in enumerate(program.controls):
-            label = control.name or f"control {index + 1}"
-            for finding in checker.check(control, source=source):
-                if finding.message in already_said:
-                    continue
-                already_said.add(finding.message)
-                findings.append({**finding.to_dict(), "control": label})
-            for lint_finding in linter.check(control):
-                findings.append(
-                    {
-                        "level": "warning",
-                        "message": lint_finding.message,
-                        "remedy": getattr(lint_finding, "remedy", ""),
-                        "control": label,
-                        "position": None,
-                    }
-                )
         return render(
             request,
             "controls/_findings.html",
             syntax_error=None,
-            findings=findings,
-            explanations=_explanations(program.controls),
-            error_count=sum(1 for f in findings if f["level"] == "error"),
+            findings=[d.to_dict() for d in diagnostics],
+            # Explained here rather than by the language service: explaining
+            # means lowering, and the language layer may not depend on the
+            # lowerer. The console already compiles a control on this screen.
+            explanations=_explanations(parse(source).controls),
+            error_count=sum(1 for d in diagnostics if d.level == "error"),
         )
+
+    async def control_completions(
+        self,
+        caller: Caller,
+        uow: Uow,
+        source: Annotated[str, Form()] = "",
+        line: Annotated[int, Form()] = 1,
+        column: Annotated[int, Form()] = 1,
+    ) -> Any:
+        """What may legitimately be typed here. JSON, for the editor.
+
+        Never a name the estate cannot satisfy: a suggestion nobody can honour
+        is worse than none, because it gets accepted.
+        """
+        service = LanguageService(await self._catalogue(caller, uow))
+        return JSONResponse(
+            {"items": [c.to_dict() for c in service.completions(source, line, column)]}
+        )
+
+    async def control_hover(
+        self,
+        caller: Caller,
+        uow: Uow,
+        source: Annotated[str, Form()] = "",
+        line: Annotated[int, Form()] = 1,
+        column: Annotated[int, Form()] = 1,
+    ) -> Any:
+        """What the name under the cursor means, from the estate's own words."""
+        service = LanguageService(await self._catalogue(caller, uow))
+        return JSONResponse(service.hover(source, line, column).to_dict())
 
     async def control_compile(
         self,

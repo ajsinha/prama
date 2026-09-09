@@ -115,6 +115,8 @@
   window.pramaPqlStudio({
     check: {{ url_for('control_check') | tojson }},
     compile: {{ url_for('control_compile') | tojson }},
+    completions: {{ url_for('control_completions') | tojson }},
+    hover: {{ url_for('control_hover') | tojson }},
     preview: {{ url_for('control_preview') | tojson }},
     backtest: {{ url_for('control_backtest') | tojson }},
     previewConfigured: {{ preview_configured | tojson }},
