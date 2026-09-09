@@ -21,6 +21,7 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
+from prama.classify.plugins import PLUGINS
 from prama.classify.validators import REGISTRY as VALIDATORS
 from prama.classify.validators import ValidatorRegistry
 from prama.core.errors import ValidationError
@@ -277,7 +278,17 @@ class Lowerer:
                     ),
                     context={"semantic_type": name},
                 )
-            self._residuals.append({"validator": name, "column": subject.name})
+            # The implementation's hash travels with the residual, so editing
+            # a validator changes the plan id of every control that uses it.
+            # Without this the code is part of the control's *meaning* and not
+            # part of its identity: somebody edits the check digit routine, and
+            # last month's evidence silently starts meaning something else
+            # while claiming to be the same control.
+            residual = {"validator": name, "column": subject.name}
+            provenance = PLUGINS.provenance(name)
+            if provenance is not None:
+                residual["implementation"] = provenance.implementation_hash
+            self._residuals.append(residual)
         return screen
 
     def _codelist(self, subject: Expr, argument: Expr | None) -> Expr:

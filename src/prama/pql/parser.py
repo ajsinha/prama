@@ -404,6 +404,8 @@ class Parser:
 
     def _satisfies(self) -> ast.Assertion:
         start = self._expect_keyword("SATISFIES").position
+        if self._match_keyword("EXCEL"):
+            return self._excel(start)
         first = self._expression()
         if self._match_keyword("DETERMINES"):
             determinant = _as_columns(first)
@@ -422,6 +424,36 @@ class Parser:
                 determinant=determinant, dependent=dependent, position=start
             )
         return ast.ExpressionAssertion(condition=first, position=start)
+
+    def _excel(self, start: Position) -> ast.Assertion:
+        """``SATISFIES EXCEL '=…'`` — a formula, in the syntax people write.
+
+        Marked explicitly rather than sniffed. The two syntaxes overlap: ``=``
+        is equality in a formula and nowhere in PQL, ``<>`` is inequality in one
+        and nothing in the other, and a parser guessing between them would
+        occasionally guess wrong on a control that then means something its
+        author did not write.
+
+        What it produces is an ordinary ``ExpressionAssertion`` over the *same*
+        AST. There is no Excel evaluator, no Excel IR and no Excel code path in
+        the compiler — which is what keeps one control meaning one thing.
+        """
+        from prama.pql.excel import parse_formula
+
+        token = self._peek
+        if token.kind is not TokenKind.STRING:
+            raise self._error(
+                "EXCEL must be followed by the formula in quotes",
+                remedy=(
+                    "For example: SATISFIES EXCEL "
+                    "'=AND([quantity] > 0, [notional] = [quantity] * [price])'"
+                ),
+            )
+        self._advance()
+        condition = parse_formula(str(token.value))
+        return ast.ExpressionAssertion(
+            condition=condition, position=start, source_syntax="excel", source=str(token.value)
+        )
 
     # -- modifiers ---------------------------------------------------------
 

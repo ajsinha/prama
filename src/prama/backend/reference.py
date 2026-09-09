@@ -36,6 +36,8 @@ from typing import Any
 from prama.backend.execute import ControlResult, judge, judge_segments
 from prama.classify.validators import REGISTRY as VALIDATORS
 from prama.ir.model import ControlPlan, Expr, Metric, MetricAggregate
+from prama.pql.functions import UNSET
+from prama.pql.library import FUNCTIONS
 
 #: A row, as the interpreter sees it.
 Row = Mapping[str, Any]
@@ -224,19 +226,22 @@ class ReferenceEvaluator:
     def _call(self, node: Expr, row: Row) -> Any:
         name = node.name.upper()
         arguments = [self.evaluate(a, row) for a in node.args]
-        if any(a is UNKNOWN for a in arguments):
+        declared = FUNCTIONS.find(name)
+        if declared is None:
+            # An unrecognised name. The compiler refuses these now, so reaching
+            # here means an aggregate or a drift — either way, undetermined is
+            # the only honest answer.
+            return UNKNOWN
+        if declared.strict_unknown and any(a is UNKNOWN for a in arguments):
             # A function of an unknown is unknown. Returning 0 for LENGTH(NULL)
             # would make a length check silently pass on every null.
+            #
+            # The exceptions declare themselves: ISBLANK's entire job is to
+            # answer a question *about* an unknown, and IF must choose between
+            # two values rather than propagate.
             return UNKNOWN
-        if name == "LENGTH":
-            return len(str(arguments[0]))
-        if name == "LOWER":
-            return str(arguments[0]).lower()
-        if name == "UPPER":
-            return str(arguments[0]).upper()
-        if name == "ABS":
-            return abs(float(arguments[0]))
-        return UNKNOWN
+        result = declared.evaluate(list(arguments))
+        return UNKNOWN if result is UNSET else result
 
     def _operation(self, node: Expr, row: Row) -> Any:
         operator = node.name

@@ -28,6 +28,7 @@ from typing import Any
 from prama.backend.dialect import SqlDialect, Unsupported, dialect
 from prama.ir.model import ControlPlan, Expr, Metric, MetricAggregate
 from prama.pql.errors import PqlUnsupportedError
+from prama.pql.library import FUNCTIONS
 
 #: Operators that map straight through to SQL with the same spelling.
 INFIX: frozenset[str] = frozenset(
@@ -251,11 +252,52 @@ class SqlCompiler:
         return self._operation(node)
 
     def _call(self, node: Expr) -> str:
+        """One function call, rendered from the catalogue.
+
+        This used to end in ``return f"{name}(...)"`` — anything at all passed
+        straight through to SQL. An unrecognised name failed at execution, or
+        succeeded on an engine that happened to have a function of that name
+        and meant something else, while the reference interpreter returned
+        UNKNOWN for the same expression. The compiler and the independent check
+        that exists to catch the compiler being wrong disagreed silently.
+        """
         name = node.name.upper()
         arguments = [self.expression(a) for a in node.args]
-        if name == "LENGTH":
-            return self.dialect.length(arguments[0])
-        return f"{name}({', '.join(arguments)})"
+        if name in _AGGREGATES:
+            # Aggregates belong to a metric, not to a row expression, and are
+            # rendered by the metric path rather than by the catalogue.
+            return f"{name}({', '.join(arguments)})"
+        declared = FUNCTIONS.find(name)
+        if declared is None:
+            raise PqlUnsupportedError(
+                f"there is no function called {name}",
+                remedy=(
+                    "Available: "
+                    + ", ".join(FUNCTIONS.names())
+                    + ". An unrecognised name used to compile straight through to "
+                    "SQL, which is how a typo became a control that ran and meant "
+                    "something nobody intended."
+                ),
+                context={"function": name, "dialect": self.dialect.name},
+            )
+        if not declared.supports(self.dialect.name):
+            raise PqlUnsupportedError(
+                f"{self.dialect.name} cannot run {name}",
+                remedy=(
+                    "Run this control on an engine that can. Prama will not "
+                    "substitute something close: the same control would then mean "
+                    "two different things on two engines, and nothing would notice."
+                ),
+                context={"function": name, "dialect": self.dialect.name},
+            )
+        missing = self.dialect.missing(declared.requires)
+        if missing:
+            raise PqlUnsupportedError(
+                f"{self.dialect.name} cannot run {name}: it needs {', '.join(missing)}",
+                remedy="Run it on an engine that has the capability.",
+                context={"function": name, "missing": sorted(missing)},
+            )
+        return declared.render(self.dialect.name, arguments)
 
     def _operation(self, node: Expr) -> str:
         operator = node.name
@@ -342,3 +384,9 @@ class SqlCompiler:
 
 def compile_for(plan: ControlPlan, target: str, *, table: str = "") -> CompiledControl:
     return SqlCompiler(target).compile(plan, table=table)
+
+
+#: Aggregates. Rendered by the metric path rather than the catalogue, because
+#: an aggregate is not a row expression and a catalogue entry would promise a
+#: per-row lowering it could not honour.
+_AGGREGATES = frozenset({"COUNT", "SUM", "AVG", "STDDEV", "APPROX_COUNT_DISTINCT"})

@@ -99,6 +99,10 @@ DEFAULTS: dict[str, Any] = {
             "prama.monitors",
             "prama.notifiers",
             "prama.scorers",
+            # Validators arrive here. A distribution advertising one is checked
+            # for purity before it is usable, and its implementation hash is
+            # folded into the plan id of every control that names it.
+            "prama.validators",
         ],
         "disabled": [],
     },

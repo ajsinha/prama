@@ -743,6 +743,89 @@ screen not on the list above is a screen not built.
 
 ---
 
+## Wave 11 — The expression layer
+
+**Objective.** A business owner writes the expression they would have written in a
+spreadsheet, and it compiles to pushed-down SQL that means exactly one thing on every engine.
+
+**Depends on** Wave 4 (PQL, IR, the conformance suite). **Enables** the controls that today get
+written as SQL by somebody else, or not at all.
+
+### Why this wave exists
+
+Two requests keep arriving and they are the same request: *"can I write a formula?"* and *"can I
+call my own code?"*. Both are asking for expressiveness the declarative core does not have, and
+both have an easy answer that would destroy the product's guarantees.
+
+The easy answer to the first is "we accept Excel formulas". Excel's syntax is a weekend of work;
+Excel's *semantics* contradict Prama at half a dozen points — `"1" + 1 = 2`, a blank is `0` in
+arithmetic and `""` in concatenation, `#DIV/0!` propagates differently from `NULL`, money is a
+float, dates are serial numbers with a 1900 leap-year bug, and `NOW()` makes a plan unreplayable.
+Adopting them wholesale would mean the same control giving two answers and nothing noticing.
+
+The easy answer to the second is a `PYTHON("…")` escape hatch. It breaks replay (arbitrary code can
+read a clock), breaks versioning (the code is part of the control's meaning and not part of its
+hash), removes the reference interpreter's ability to check the compiler, and becomes the place
+every hard control goes — so in two years the semantic layer is decoration around a pile of Python.
+
+So this wave does neither. It claims Excel **familiarity**, never Excel **compatibility**, and it
+widens the *validator catalogue* rather than the language.
+
+### The hole this closes first
+
+Today an unknown function name passes straight through to SQL. `NONSENSE_FN(b)` parses, lowers,
+receives a plan id, and compiles to `WHERE (NONSENSE_FN("b") > 1)`. Meanwhile the reference
+interpreter returns `UNKNOWN` for any function it does not recognise. **The compiler and its
+independent check silently disagree**, which is precisely the condition the conformance suite
+exists to make impossible. There is no function catalogue at all.
+
+### Deliverables
+
+| Module | Contents | Requirements |
+|---|---|---|
+| `prama.pql.functions` | The function catalogue: one declaration per function carrying its per-dialect lowering, its reference implementation, its unknown-propagation rule, its pushdown requirement and its stated divergence from Excel | `FR-RUL-*`, `CON-004` |
+| `prama.pql.excel` | Excel-familiar surface: a hand-written precedence-climbing parser producing the **same** `ast.Expression` tree. No second IR, no second evaluator | `FR-UIX-002` |
+| `prama.classify.plugins` | Third-party `SemanticValidator` registration by entry point, with purity enforced by import scanning and the implementation's content hash folded into the plan id | `FR-EXT-*`, `NFR-SEC-*` |
+| `bench/expressions` | Pushdown coverage and throughput: which functions compile to SQL and which fall back | `NFR-PER-*` |
+
+### Tasks
+
+W11.1 function catalogue and registry · W11.2 type-check function calls, refusing unknown names ·
+W11.3 lowering refuses what the catalogue does not hold · W11.4 per-dialect rendering from the
+catalogue · W11.5 reference implementation for **every** function, no exceptions ·
+W11.6 **function conformance corpus** — every function's SQL and its reference implementation give
+the same answer on the same inputs, on every engine · W11.7 Excel front end (Pratt parser) ·
+W11.8 `SATISFIES EXCEL '…'` surface · W11.9 divergence notes rendered by `control explain` ·
+W11.10 volatile functions refused by name · W11.11 validator plugin registry ·
+W11.12 purity enforcement and implementation hashing · W11.13 pushdown coverage benchmark.
+
+### Acceptance criteria
+
+- [ ] **No function exists without both a lowering and a reference implementation.** Enforced by
+      test, not convention.
+- [ ] Every catalogued function agrees between SQL and the reference interpreter on the conformance
+      corpus, on every engine that claims it.
+- [ ] An unknown function name is refused at type-check time, naming the ones that exist.
+- [ ] A function an engine cannot express is **refused**, never approximated.
+- [ ] Every divergence from Excel is declared on the function and printed by `control explain`.
+- [ ] A volatile function (`NOW`, `RAND`, `INDIRECT`) is refused with the reason: a control must
+      replay.
+- [ ] A validator plugin's implementation hash is part of the plan id: editing the code changes the
+      control's identity rather than silently changing what past evidence meant.
+- [ ] A plugin that imports a clock, a socket or a model is refused at registration.
+- [ ] ≥ 90% of the catalogue pushes down on PostgreSQL and DuckDB.
+
+**Demo.** A business owner writes `SATISFIES EXCEL '=AND([quantity]>0, [notional]=[quantity]*[price])'`,
+sees the SQL it becomes, and sees the one place it differs from what Excel would do — stated on the
+control rather than discovered in production.
+
+**Wave risks.** The temptation to add "just one more" Excel function without a reference
+implementation, which is how the compiler and its independent check drift apart. The mitigation is
+structural: the catalogue makes the reference implementation a required field, so a function
+without one does not exist.
+
+---
+
 ## Wave 10 — Enterprise and GA
 
 **Objective.** A Tier-2 bank can buy it, deploy it on-premises, and pass an audit with it.

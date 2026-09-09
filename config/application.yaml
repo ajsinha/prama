@@ -93,4 +93,5 @@ plugins:
     - prama.monitors
     - prama.notifiers
     - prama.scorers
+    - prama.validators
   disabled: []
