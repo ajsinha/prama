@@ -1,0 +1,3 @@
+# Every study rebuilds its workspace from scratch, seeded. Nothing in here is
+# an input: the data is generated, and Prama's own store is recreated each run.
+*/workspace/

@@ -27,7 +27,7 @@ from prama.backend import DIALECTS, compile_for
 from prama.core.clock import utc_now
 from prama.core.errors import PramaError
 from prama.core.provenance import content_hash
-from prama.ir import lower
+from prama.ir.resolve import resolved
 from prama.pql import parse
 from prama.pql.errors import PqlError
 from prama.pql.lint import Linter
@@ -266,7 +266,7 @@ class ControlRoutes(UiRoutes):
             "controls/_built.html",
             error=None,
             pql=pql,
-            sentence=lower(control).description,
+            sentence=resolved(control).description,
         )
 
     async def control_check(
@@ -349,7 +349,7 @@ class ControlRoutes(UiRoutes):
         for index, control in enumerate(program.controls):
             label = control.name or f"control {index + 1}"
             try:
-                plan = lower(control)
+                plan = resolved(control)
                 compiled = compile_for(plan, target)
             except PramaError as exc:
                 # Named, not swallowed. "This dialect cannot express this
@@ -409,7 +409,7 @@ def _explanations(controls: Any) -> list[dict[str, str]]:
     for index, control in enumerate(controls):
         label = control.name or f"control {index + 1}"
         try:
-            out.append({"name": label, "sentence": lower(control).description})
+            out.append({"name": label, "sentence": resolved(control).description})
         except PramaError as exc:
             out.append({"name": label, "sentence": f"cannot be explained: {exc}"})
     return out

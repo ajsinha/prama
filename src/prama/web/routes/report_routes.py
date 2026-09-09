@@ -19,7 +19,7 @@ from prama.backend import compile_for
 from prama.core.errors import PramaError
 from prama.derive import ControlGenerator
 from prama.derive.persisted import dataset_declaration_of
-from prama.ir import lower
+from prama.ir.resolve import resolved
 from prama.report.render import Coverage, Provenance, control_pack, declaration_pack
 from prama.semantic.services import EstateService
 from prama.web.deps import Caller, Uow
@@ -146,7 +146,7 @@ def _describe(derived: Any, dataset_name: str) -> dict[str, Any]:
         "residual_validators": [],
     }
     try:
-        plan = lower(derived.control)
+        plan = resolved(derived.control)
         compiled = compile_for(plan, "postgresql")
     except PramaError as exc:
         entry["description"] = f"{entry['description']} (not compiled: {exc})"

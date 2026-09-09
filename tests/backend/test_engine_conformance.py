@@ -47,14 +47,41 @@ class TestTheEnginesAgree:
 
 
 class TestRefusalIsConformance:
-    def test_sqlite_refuses_a_pattern_rather_than_approximating_it(
+    def test_sqlite_refuses_what_it_genuinely_cannot_do(
         self, sqlite_runner: Any, conformance: ConformanceRun
     ) -> None:
-        # Substituting LIKE would make the same control mean two different
-        # things on two engines, and nothing would ever notice.
+        """The refusal path is the promise, and it needs a live exemplar.
+
+        It used to be the regular-expression case. SQLite now has regex,
+        because it reserves the REGEXP operator for a function the host
+        registers and Prama's executor registers one — so the capability is
+        real rather than approximated, and substituting LIKE was never the
+        alternative.
+
+        What SQLite still cannot do is approximate distinct counts and
+        sampling, and those are what this asserts now. A test asserting a
+        refusal that no longer happens would pass by accident on the day the
+        engine gained the feature and stop testing anything.
+        """
+        from prama.backend.dialect import APPROX_DISTINCT, SAMPLING, dialect
+
+        sqlite = dialect("sqlite")
+        assert APPROX_DISTINCT not in sqlite.capabilities
+        assert SAMPLING not in sqlite.capabilities
+
+    def test_sqlite_does_regex_through_a_registered_function(
+        self, sqlite_runner: Any, conformance: ConformanceRun
+    ) -> None:
+        """And gets the same answer as every other engine.
+
+        The whole point of claiming a capability rather than approximating one:
+        if this disagreed with DuckDB the conformance run would say so, which
+        is what ``test_every_case_gives_the_same_answer_everywhere`` is for.
+        """
         outcome = conformance.run_case(case("regex"), "sqlite", sqlite_runner)
-        assert outcome.status == "refused"
-        assert "regular expression" in outcome.detail or "pushdown.regex" in outcome.detail
+        assert outcome.status == "ran"
+        assert outcome.result is not None
+        assert outcome.result.verdict is Verdict.FAIL
 
     def test_an_engine_that_can_do_it_does(
         self, duckdb_runner: Any, conformance: ConformanceRun

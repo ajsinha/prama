@@ -40,7 +40,7 @@ from prama.core.clock import Clock, SystemClock
 from prama.core.errors import PramaError
 from prama.core.log import get_logger
 from prama.evidence.record import EvidenceRecord, SnapshotRef
-from prama.ir import lower
+from prama.ir.resolve import resolved
 from prama.pql import parse_control
 from prama.schedule import Schedule
 
@@ -57,6 +57,26 @@ Executor = Callable[[str], Sequence[dict[str, Any]]]
 #: deployment that must not move rows supplies no sampler and still gets
 #: verdicts.
 Sampler = Callable[[str], Sequence[dict[str, Any]]]
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class _Elsewhere:
+    """A control this pass could not reach, because its data is elsewhere.
+
+    Shaped like a scheduler skip so the report has one list of "not run" rather
+    than two the reader has to add up. It is not a defect: an estate with four
+    sources runs four passes, and each one legitimately leaves the other three
+    alone.
+    """
+
+    control_id: str
+    dataset: str
+    reason: str = "another_source"
+    detail: str = ""
+
+    @property
+    def is_a_defect(self) -> bool:
+        return False
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -155,6 +175,7 @@ class ControlRun:
         actor_id: str | None = None,
         validators: ValidatorRegistry | None = None,
         respect_schedule: bool = False,
+        datasets: set[str] | None = None,
     ) -> None:
         self._uow = uow
         self._tenant = tenant_id
@@ -169,6 +190,15 @@ class ControlRun:
         #: which is what somebody typing it at a terminal means. A timer sets
         #: it, and then only what is due runs.
         self._respect_schedule = respect_schedule
+        #: Which datasets this pass can reach. A real estate has more than one
+        #: source — a warehouse, a landing zone, a file share — and one
+        #: executor speaks to one of them. Running every control against every
+        #: source would produce a table-not-found error for each control that
+        #: lives somewhere else, and bury the real findings under them.
+        #:
+        #: ``None`` means "everything", which is right for a single-source
+        #: estate and for somebody running by hand.
+        self._datasets = datasets
 
     async def execute_all(self) -> RunReport:
         """Run every live control, recording each outcome as it goes."""
@@ -183,7 +213,21 @@ class ControlRun:
         run_id = str(run.id)
 
         live = await self._uow.controls.live(self._tenant)
+        elsewhere: list[Any] = []
+        if self._datasets is not None:
+            reachable = [c for c in live if c.dataset in self._datasets]
+            # Counted, not silently dropped. "This pass covered 12 of the
+            # estate's 40 controls" is a fact the reader needs; a run that
+            # reported 12 controls and said nothing about the other 28 reads
+            # as an estate of 12.
+            elsewhere = [
+                _Elsewhere(control_id=str(c.control_id), dataset=c.dataset)
+                for c in live
+                if c.dataset not in self._datasets
+            ]
+            live = reachable
         controls, skipped = await self._select(live)
+        skipped = (*skipped, *elsewhere)
         _log.info("run %s: %d of %d live control(s) selected", run_id, len(controls), len(live))
 
         outcomes: list[Outcome] = []
@@ -229,7 +273,7 @@ class ControlRun:
 
         try:
             control = parse_control(version.pql)
-            plan = lower(control)
+            plan = resolved(control)
             compiled = compile_for(plan, self._engine, table=plan.scope.dataset)
         except (PramaError, Exception) as exc:
             # A control that will not compile today is a finding about the

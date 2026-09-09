@@ -27,7 +27,7 @@ from prama.db.dao.base import Dao
 from prama.db.dao.versioned import VersionedDao
 from prama.db.models.control import CtlControl, CtlControlVersion, CtlRejection
 from prama.db.temporal import Provenance, TemporalQuery
-from prama.ir import lower
+from prama.ir.resolve import resolved
 from prama.pql import parse_control
 from prama.pql.errors import PqlError
 
@@ -61,7 +61,7 @@ def derived_fields(pql: str) -> dict[str, Any]:
         "plan_id": "",
     }
     try:
-        fields["plan_id"] = lower(control).plan_id
+        fields["plan_id"] = resolved(control).plan_id
     except Exception:
         # A control that parses but cannot be lowered for this build is stored
         # without a plan id rather than refused. The text is still the

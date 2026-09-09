@@ -18,6 +18,7 @@ import pytest
 
 from prama.backend.conformance import REFERENCE, ConformanceRun
 from prama.backend.corpus import COLUMNS, ROWS, create_table, insert_rows
+from prama.connect.sources.query import register_regexp
 
 DSN = os.environ.get("PRAMA_TEST_POSTGRES_DSN", "")
 
@@ -42,6 +43,12 @@ def duckdb_runner() -> Iterator[Any]:
 @pytest.fixture(scope="session")
 def sqlite_runner() -> Iterator[Any]:
     connection = sqlite3.connect(":memory:")
+    # The same registration Prama's own SQLite executor performs. The dialect
+    # declares the regex capability on the strength of it, so a conformance
+    # harness that opened a bare connection would be testing a configuration
+    # Prama never ships — and would report a disagreement between engines that
+    # does not exist in the product.
+    register_regexp(connection)
     connection.execute(create_table(dialect="sqlite"))
     connection.executemany(insert_rows(), [list(row) for row in ROWS])
     connection.commit()

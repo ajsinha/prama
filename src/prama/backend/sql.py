@@ -326,7 +326,11 @@ class SqlCompiler:
 
     def _regex(self, node: Expr, arguments: list[str], *, negated: bool) -> str:
         pattern = node.args[1].value
-        rendered = self.dialect.regex_match(arguments[0], str(pattern))
+        # Cast first: a regular expression is a test on characters, and a
+        # strict engine will not bind one against a DATE or a NUMERIC. Without
+        # this, a perfectly ordinary "the trade date looks like a date" control
+        # is a control that cannot run.
+        rendered = self.dialect.regex_match(self.dialect.as_text(arguments[0]), str(pattern))
         if isinstance(rendered, Unsupported):
             raise PqlUnsupportedError(
                 rendered.detail,

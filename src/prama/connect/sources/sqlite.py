@@ -190,8 +190,14 @@ class SqliteConnector(Connector):
         return await asyncio.to_thread(self._query, statement)
 
     def _query(self, statement: str) -> list[dict[str, Any]]:
+        from prama.connect.sources.query import register_regexp
+
         with self._connect() as connection:
             connection.row_factory = sqlite3.Row
+            # The SQLite dialect declares the regex capability on the strength
+            # of this registration. Without it every validity control compiled
+            # for SQLite fails with "no such function: REGEXP".
+            register_regexp(connection)
             return [dict(row) for row in connection.execute(statement).fetchall()]
 
     def _connect(self) -> sqlite3.Connection:

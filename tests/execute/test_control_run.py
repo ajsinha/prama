@@ -520,3 +520,94 @@ class TestOnlyWhatIsDue:
                 uow, tenant_id, execute=rows_for(scanned_rows=10, violating_rows=0)
             ).execute_all()
         assert len(report.outcomes) == 1
+
+
+class TestAnEstateWithMoreThanOneSource:
+    async def test_a_pass_runs_only_what_its_source_holds(
+        self, started_database: Database, tenant_id: str
+    ) -> None:
+        """One executor speaks to one source. Running every control against
+        every source would produce a table-not-found error for each control
+        that lives elsewhere, and bury the real findings under them."""
+        await _control(started_database, tenant_id, CLEAN, identity="here")
+        async with started_database.unit_of_work() as uow:
+            control, _ = await uow.controls.declare(
+                tenant_id=tenant_id,
+                identity="there",
+                pql=(
+                    "CHECK ledger_feed.amount IS NOT NULL SEVERITY major "
+                    "DIMENSION completeness BECAUSE 'why'"
+                ),
+            )
+            await uow.controls.activate(str(control.id), approved_by="alice")
+
+        async with started_database.unit_of_work() as uow:
+            report = await ControlRun(
+                uow,
+                tenant_id,
+                execute=rows_for(scanned_rows=10, violating_rows=0),
+                datasets={"positions_eod"},
+            ).execute_all()
+
+        assert [o.record.dataset for o in report.outcomes] == ["positions_eod"]
+
+    async def test_what_the_pass_could_not_reach_is_counted(
+        self, started_database: Database, tenant_id: str
+    ) -> None:
+        """ "This pass covered 1 of the estate's 2 controls" is a fact the
+        reader needs. A run that reported one and said nothing about the other
+        reads as an estate of one."""
+        await _control(started_database, tenant_id, CLEAN, identity="here")
+        async with started_database.unit_of_work() as uow:
+            control, _ = await uow.controls.declare(
+                tenant_id=tenant_id,
+                identity="there",
+                pql=(
+                    "CHECK ledger_feed.amount IS NOT NULL SEVERITY major "
+                    "DIMENSION completeness BECAUSE 'why'"
+                ),
+            )
+            await uow.controls.activate(str(control.id), approved_by="alice")
+
+        async with started_database.unit_of_work() as uow:
+            report = await ControlRun(
+                uow,
+                tenant_id,
+                execute=rows_for(scanned_rows=10, violating_rows=0),
+                datasets={"positions_eod"},
+            ).execute_all()
+
+        elsewhere = [s for s in report.skipped if s.reason == "another_source"]
+        assert [s.dataset for s in elsewhere] == ["ledger_feed"]
+        assert "1 not due" in report.describe()
+
+    async def test_being_on_another_source_is_not_a_defect(
+        self, started_database: Database, tenant_id: str
+    ) -> None:
+        """An estate with four sources runs four passes, and each legitimately
+        leaves the other three alone. Only an unreadable schedule is a defect."""
+        async with started_database.unit_of_work() as uow:
+            control, _ = await uow.controls.declare(
+                tenant_id=tenant_id, identity="there", pql=CLEAN
+            )
+            await uow.controls.activate(str(control.id), approved_by="alice")
+            report = await ControlRun(
+                uow,
+                tenant_id,
+                execute=rows_for(scanned_rows=1),
+                datasets={"somewhere_else"},
+            ).execute_all()
+
+        assert report.unschedulable == ()
+        assert report.outcomes == ()
+
+    async def test_no_filter_means_everything(
+        self, started_database: Database, tenant_id: str
+    ) -> None:
+        """Right for a single-source estate and for somebody running by hand."""
+        await _control(started_database, tenant_id, CLEAN)
+        async with started_database.unit_of_work() as uow:
+            report = await ControlRun(
+                uow, tenant_id, execute=rows_for(scanned_rows=10, violating_rows=0)
+            ).execute_all()
+        assert len(report.outcomes) == 1

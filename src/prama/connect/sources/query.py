@@ -82,11 +82,38 @@ def _duckdb(path: Path) -> tuple[Callable[[str], list[dict[str, Any]]], Callable
     return execute, connection.close
 
 
+def register_regexp(connection: Any) -> None:
+    """Give a SQLite connection the REGEXP operator.
+
+    SQLite ships no regular-expression engine. It *reserves* the ``REGEXP``
+    operator and dispatches it to a two-argument function of that name if the
+    host has registered one — a documented hook, and the only way SQLite ever
+    does regex. Prama's SQLite dialect declares the capability on the strength
+    of this function, so every SQLite connection Prama opens must call it.
+
+    A ``None`` value matches nothing rather than raising: SQL's three-valued
+    logic makes a null neither matching nor non-matching, and the control's
+    ``TREAT UNKNOWN`` policy — not this function — decides what that means.
+    """
+    import re
+
+    def regexp(pattern: str, value: Any) -> bool:
+        # SQLite calls REGEXP with the pattern first: `x REGEXP y` is
+        # `regexp(y, x)`. Getting this backwards matches nothing, silently, and
+        # every validity control passes.
+        if value is None:
+            return False
+        return re.search(pattern, str(value)) is not None
+
+    connection.create_function("regexp", 2, regexp)
+
+
 def _sqlite(path: Path) -> tuple[Callable[[str], list[dict[str, Any]]], Callable[[], None]]:
     import sqlite3
 
     connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
     connection.row_factory = sqlite3.Row
+    register_regexp(connection)
 
     def execute(sql: str) -> list[dict[str, Any]]:
         return [dict(row) for row in connection.execute(sql).fetchall()]

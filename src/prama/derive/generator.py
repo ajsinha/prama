@@ -812,6 +812,24 @@ class ControlGenerator:
                 on_fail=fail_action_for(attribute),
                 owner=attribute.owner_id or declaration.owner_id,
             )
+        elif not domain.pattern:
+            # A pattern domain with no pattern. Generating one anyway produces
+            # ``MATCHES /None/`` — a control that parses, compiles, runs and
+            # fails every row, which is the exact class of artefact this
+            # codebase exists to refuse. It is a gap in the declaration, and it
+            # is reported as one.
+            return Unsatisfiable(
+                rule="attribute.value_domain",
+                declared=f"{attribute.name} has a pattern domain",
+                reason=(
+                    f"{attribute.name} is declared to be constrained by a pattern and "
+                    "no pattern was given, so there is nothing to check against"
+                ),
+                remedy=(
+                    "Give the pattern, choose a semantic type that carries one "
+                    "(isin, lei, iban), or leave the domain free text."
+                ),
+            )
         else:  # PATTERN
             control = ast.Control(
                 target=declaration.name,

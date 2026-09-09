@@ -27,6 +27,7 @@ from prama.semantic.values import (
     Sensitivity,
     Temporality,
     ValueDomain,
+    ValueDomainKind,
 )
 
 
@@ -44,8 +45,28 @@ def _enum(cls: Any, value: Any, fallback: Any) -> Any:
         return fallback
 
 
+def _value_domain(payload: dict[str, Any]) -> ValueDomain:
+    """A stored value domain as the value object.
+
+    ``ValueDomain(**payload)`` looks right and is wrong: ``kind`` comes back
+    from JSON as a string, and ``ValueDomain.kind`` is an enum. The dataclass
+    accepts it without complaint, and then ``is_constrained`` — which asks
+    ``self.kind is not ValueDomainKind.FREE_TEXT`` — is True for *every*
+    attribute, because a string is never that enum member.
+
+    The result was a control on every free-text column asserting it matches the
+    literal pattern ``None``, which failed every row of every dataset. It
+    parsed, it compiled, it ran, and it was nonsense.
+    """
+    if not payload:
+        return ValueDomain()
+    fields = dict(payload)
+    fields["kind"] = _enum(ValueDomainKind, fields.get("kind"), ValueDomainKind.FREE_TEXT)
+    fields["allowed_values"] = tuple(fields.get("allowed_values") or ())
+    return ValueDomain(**fields)
+
+
 def attribute_declaration_of(version: Any) -> AttributeDeclaration:
-    domain_json = version.value_domain_json or {}
     return AttributeDeclaration(
         name=version.name,
         definition=version.definition or "",
@@ -55,7 +76,7 @@ def attribute_declaration_of(version: Any) -> AttributeDeclaration:
         currency_attribute=version.currency_attribute or "",
         numeric_scale=version.numeric_scale,
         numeric_precision=version.numeric_precision,
-        value_domain=ValueDomain(**domain_json) if domain_json else ValueDomain(),
+        value_domain=_value_domain(version.value_domain_json or {}),
         optionality=_enum(Optionality, version.optionality, Optionality.OPTIONAL),
         optionality_condition=version.optionality_condition or "",
         is_cde=bool(version.is_cde),
