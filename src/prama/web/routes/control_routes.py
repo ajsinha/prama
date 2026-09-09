@@ -37,6 +37,7 @@ from prama.web import builder
 from prama.web.deps import Caller, Uow
 from prama.web.rendering import flash_error_and_log, redirect_to, render
 from prama.web.routes.base import UiRoutes
+from prama.web.routes.preview_routes import MAX_PERIODS
 
 STARTER = """CHECK positions_eod HAS UNIQUE KEY (account_id, instrument_id, as_of_date)
   SEVERITY critical
@@ -94,12 +95,19 @@ class ControlRoutes(UiRoutes):
 
     async def control_studio(self, request: Request, caller: Caller, uow: Uow) -> Any:
         datasets = await uow.datasets.list_current(caller.tenant_id, limit=5000)
+        config = request.app.state.config
         return render(
             request,
             "controls/studio.html",
             starter=STARTER,
             dataset_slugs=sorted(v.slug for v in datasets),
             dialects=sorted(DIALECTS),
+            # Whether this deployment can run a control at all. The backtest
+            # panel is hidden rather than shown-and-broken when it cannot: a
+            # button that always fails teaches people the screen is unreliable.
+            preview_configured=bool(config.get_str("web.preview.source", "")),
+            backtest_days=config.get_int("web.preview.backtest_days", 30),
+            max_periods=MAX_PERIODS,
         )
 
     async def control_list(self, request: Request, caller: Caller, uow: Uow) -> Any:

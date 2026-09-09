@@ -1,0 +1,93 @@
+{# What the control finds in real data, right now.
+
+   The panel says three things in order of how easily they are misread: that a
+   preview is not evidence, whether the counts are complete, and only then the
+   numbers. A reader who takes a preview for a run has been told something
+   false by the screen, not by themselves. #}
+
+{% if unconfigured %}
+<div class="uncalibrated mb-0">
+  <strong>Nothing to preview against.</strong>
+  This deployment has no preview source configured, so a control can be checked
+  and compiled here but not run. Set <code>web.preview.source</code> to a local
+  DuckDB or SQLite file. Until then the studio will tell you whether a control is
+  sound and cannot tell you what it will find.
+</div>
+
+{% elif error %}
+<div class="alert alert-danger mb-0">
+  <strong>The preview source could not be opened.</strong>
+  <div>{{ error }}</div>
+  {% if remedy %}<div class="small mt-1">{{ remedy }}</div>{% endif %}
+</div>
+
+{% elif trial is none %}
+<p class="text-muted mb-0">Run a preview to see what this control finds.</p>
+
+{% elif not trial.ran %}
+<div class="alert alert-warning mb-0">
+  {# Never rendered as a verdict. "We could not look" and "we looked and found
+     nothing" are different answers and only one of them is reassuring. #}
+  <strong>This control could not be run.</strong>
+  <div><code>{{ trial.error }}</code></div>
+  <div class="small mt-1">
+    Nothing was tested, so nothing here is a statement about the data.
+  </div>
+</div>
+
+{% else %}
+<div class="card mb-0">
+  <div class="card-body">
+    <div class="d-flex align-items-baseline gap-2 mb-2">
+      <h2 class="h6 mb-0">Preview</h2>
+      <span class="verdict-{{ trial.verdict }} badge">{{ trial.verdict }}</span>
+      <span class="ms-auto small text-muted">{{ trial.elapsed_ms }} ms</span>
+    </div>
+
+    <div class="uncalibrated small mb-3">
+      <strong>A preview is not evidence.</strong> Nothing here was written to the
+      ledger, and nothing here counts towards coverage or a scorecard. It is what
+      this control would find if it ran now.
+    </div>
+
+    {% if trial.verdict == 'no_data' %}
+    <p class="mb-0">
+      No rows were in scope, so the control tested nothing.
+      <span class="text-muted">Not a pass — an empty slice violates nothing.</span>
+    </p>
+    {% else %}
+    <p class="mb-2">
+      {% if trial.was_bounded or not trial.screen_is_complete %}at least {% endif %}
+      <strong>{{ '{:,.0f}'.format(trial.violating_rows) }}</strong>
+      of {{ '{:,.0f}'.format(trial.scanned_rows) }} rows
+      ({{ trial.rate | rate }})
+    </p>
+    {% endif %}
+
+    {% if not trial.screen_is_complete %}
+    <div class="uncalibrated small mb-2">
+      <strong>This count is a lower bound.</strong> The query applied a screen
+      rather than the exact test, so a pass cannot be reported from it. The
+      residual still has to run:
+      <ul class="mb-0 ps-3">
+        {% for validator, column in trial.residual_validators %}
+        <li><code>{{ validator }}</code> on <code>{{ column }}</code></li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if trial.was_bounded %}
+    <div class="uncalibrated small mb-2">
+      The scan stopped at the configured ceiling, so these counts are a floor
+      rather than a total.
+    </div>
+    {% endif %}
+
+    <details class="mt-2">
+      <summary class="small">The query that ran{% if source_path %}, against <code>{{ source_path }}</code>{% endif %}</summary>
+      <pre class="rounded small mt-2"><code class="language-sql">{{ trial.query }}</code></pre>
+    </details>
+  </div>
+</div>
+{% endif %}

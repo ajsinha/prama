@@ -44,6 +44,15 @@ DEFAULTS: dict[str, Any] = {
     },
     "web": {
         "enabled": True,
+        "preview": {
+            # Empty means the studio can check and compile a control but not
+            # run one, and it says so rather than showing an empty result that
+            # reads as clean.
+            "source": "",
+            "dialect": "duckdb",
+            "max_rows": 1_000_000,
+            "backtest_days": 30,
+        },
     },
     "database": {
         "dialect": "sqlite",

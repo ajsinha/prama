@@ -102,6 +102,47 @@ with a backtest before approval.
 All three converge on the same review screen: the PQL, the English rendering, the backtest, the
 estimated alert volume, the cost, and the approval workflow.
 
+#### 4.3.1 The backtest, and the three ways it lies
+
+The backtest is the number an author actually decides on: not "is this control sound" but "how
+often will it fire, and can we live with that". It is also the number easiest to make flattering,
+in three specific ways — each of which the implementation is built to prevent rather than to warn
+about.
+
+**A day with no rows in it is not a quiet day.** A control over an empty slice violates nothing and
+would be judged a pass. Averaged into thirty days, ten empty days cut the apparent alert rate by a
+third — and the empty days are usually a retention boundary, which means the backtest is most
+wrong precisely where the author trusts it most. Empty days are counted and reported separately,
+excluded from the rate rather than folded into it, and the count of excluded days is stated beside
+the answer.
+
+**A day that could not be read is not a quiet day either.** A source that refuses is a gap in the
+evidence, not evidence of calm. Errored days are excluded from the rate and named; a backtest in
+which nothing could be evaluated reports *no rate at all* rather than zero, because zero is the
+number that gets a control approved on the strength of an outage.
+
+**An incomplete screen makes the whole count a floor.** When the compiled SQL applies a necessary
+condition rather than the exact test, its violation count is a lower bound — so a backtest
+containing any screened day reports "at least *n* alerts" and says why. The same applies when a
+scan ceiling bound the query: a floor presented as a total is the single most dangerous number this
+system can emit.
+
+Two smaller honesty rules follow. A rate quoted from fewer than five evaluated days says so, since
+one noisy day dominates the answer. And the studio refuses to guess which column carries the
+business date: a backtest of the wrong slices is indistinguishable, on screen, from a backtest of
+the right ones.
+
+Each day streams as its own event over SSE, so the table fills as the answer is computed rather
+than after it. A stream that stops mid-way says so and states how many days it managed — "the
+result so far" and "the result" are different claims, and a progressive display that cannot tell
+them apart is worse than a spinner.
+
+**A preview is not evidence.** Running a control from the studio writes nothing to the ledger, does
+not count towards coverage, and does not appear on a scorecard. It runs an unapproved control,
+frequently over a bounded scan; evidence a regulator may read has to be the record of a control the
+estate agreed to, run in full. The two are separate types in separate modules, and the preview
+module imports nothing that can persist.
+
 ### 4.4 Review proposals
 A dedicated queue, designed for speed: each candidate shows the rule, why it was proposed
 (data evidence / declaration / document citation / pack), sample violations, what it would have
