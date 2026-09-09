@@ -28,6 +28,7 @@ from prama.db.dao.platform import (
     SettingDao,
     TenantDao,
 )
+from prama.db.dao.recon import BreakDao
 from prama.db.dao.semantic import (
     AttributeDao,
     BindingDao,
@@ -47,6 +48,7 @@ __all__ = [
     "AttributeDao",
     "AuditDao",
     "BindingDao",
+    "BreakDao",
     "ConceptDao",
     "ConceptPropertyDao",
     "ConnectionDao",

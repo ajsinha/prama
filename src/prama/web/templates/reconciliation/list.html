@@ -39,4 +39,24 @@
   datasets and one will be generated.
 </p>
 {% endif %}
+
+{% if queues %}
+{# A different thing from the verdicts above, and listed as one. A verdict says
+   whether the two sides agreed; a queue says what people are doing about the
+   ones that did not. Merging them would let an empty queue read as a clean
+   reconciliation. #}
+<h2 class="h6 text-uppercase text-muted mt-4">Break queues</h2>
+<p class="text-muted small">
+  Where breaks are worked. A queue exists once a reconciliation has been observed
+  into it; a reconciliation with no queue here has not been observed, which is not
+  the same as having no breaks.
+</p>
+<ul class="list-unstyled">
+  {% for definition in queues %}
+  <li class="mb-1">
+    <a href="{{ url_for('break_workbench', definition=definition) }}">{{ definition }}</a>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
 {% endblock %}

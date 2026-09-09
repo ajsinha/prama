@@ -32,6 +32,7 @@ if TYPE_CHECKING:
         AttributeDao,
         AuditDao,
         BindingDao,
+        BreakDao,
         ConceptDao,
         ConceptPropertyDao,
         ConnectionDao,
@@ -194,6 +195,12 @@ class UnitOfWork:
         from prama.db.dao import AttestationDao
 
         return self._dao("attestations", AttestationDao)  # type: ignore[no-any-return]
+
+    @property
+    def breaks(self) -> BreakDao:
+        from prama.db.dao import BreakDao
+
+        return self._dao("breaks", BreakDao)  # type: ignore[no-any-return]
 
     # -- controls -----------------------------------------------------------
 

@@ -972,3 +972,76 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_att_content ON att_attestation (content_has
 CREATE INDEX IF NOT EXISTS ix_att_tenant ON att_attestation (tenant_id, period_end);
 CREATE INDEX IF NOT EXISTS ix_att_scope ON att_attestation (tenant_id, scope, period_end);
 CREATE INDEX IF NOT EXISTS ix_att_attester ON att_attestation (attester_id);
+
+-- ---------------------------------------------------------------------------
+-- RECONCILIATION BREAKS  (Wave 9)
+--
+-- The break queue, persisted. Working state rather than evidence: the ledger
+-- records what a reconciliation concluded, and this records what people are
+-- doing about it. So this table is *mutable* where the ledger is not, and the
+-- three things that must not move are protected by the shape rather than by
+-- discipline.
+--
+-- first_seen never moves. A break re-detected for forty days is forty days
+-- old; a queue that stamps each detection with today reports it as new every
+-- morning and nothing ever ages.
+--
+-- Clearing is inferred, never announced. No reconciliation tells you a break
+-- has gone — it stops reporting it. A break open in the last run and absent
+-- from this one is cleared here, and a queue that waits to be told never
+-- closes anything.
+--
+-- A cleared break is not deleted. "We had four hundred breaks and they
+-- cleared" and "we had four hundred breaks" are the same sentence in a system
+-- that forgets, and only one of them is reassuring.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS rec_break (
+    id                VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id         VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    -- Which reconciliation produced it. A break key is only unique within its
+    -- own definition; two reconciliations over the same accounts would
+    -- otherwise collide and each would clear the other's breaks.
+    definition        VARCHAR(255)  NOT NULL,
+    break_key         VARCHAR(255)  NOT NULL,
+    -- prama.recon.classify.BreakKind. A test asserts the constraint and the
+    -- enum agree in both directions: a constraint listing a kind the enum does
+    -- not have accepts rows nothing can read, and one missing a kind the enum
+    -- has rejects an ordinary break at the worst moment.
+    kind              VARCHAR(32)   NOT NULL,
+    -- The two sides, as text rather than REAL: these are money, and summing
+    -- or storing them in binary floating point manufactures exactly the small
+    -- discrepancies a reconciliation exists to find. A queue that renders a
+    -- break as 0.30000000000000004 is not one anybody works.
+    left_value        VARCHAR(64)   NOT NULL DEFAULT '',
+    right_value       VARCHAR(64)   NOT NULL DEFAULT '',
+    difference        VARCHAR(64)   NOT NULL DEFAULT '0',
+    -- Why it was classified this way, in a sentence somebody can argue with.
+    because           TEXT          NOT NULL DEFAULT '',
+    -- What normalisation did to get here. The first question about any break
+    -- is whether it is real or a translation error, and this answers it.
+    normalisation_json TEXT         NOT NULL DEFAULT '[]',
+    aggregated        INTEGER       NOT NULL DEFAULT 0,
+    first_seen        VARCHAR(32)   NOT NULL,
+    last_seen         VARCHAR(32)   NOT NULL,
+    -- prama.recon.workflow.State, enforced the same way as kind.
+    state             VARCHAR(32)   NOT NULL DEFAULT 'open',
+    owner             VARCHAR(255)  NOT NULL DEFAULT '',
+    accepted_reason   TEXT          NOT NULL DEFAULT '',
+    -- Appended to, never rewritten. The disposition history is the reason a
+    -- carried break is defensible years later.
+    comments_json     TEXT          NOT NULL DEFAULT '[]',
+    cleared_at        VARCHAR(32),
+    CONSTRAINT ck_rec_break_kind CHECK (kind IN (
+        'timing', 'fx', 'rounding', 'missing', 'extra', 'duplicate', 'sign',
+        'genuine')),
+    CONSTRAINT ck_rec_break_state CHECK (state IN (
+        'open', 'assigned', 'explained', 'cleared', 'accepted')),
+    CONSTRAINT ck_rec_break_aggregated CHECK (aggregated IN (0, 1)),
+    CONSTRAINT ck_rec_break_seen CHECK (last_seen >= first_seen)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_rec_break_key
+    ON rec_break (tenant_id, definition, break_key);
+CREATE INDEX IF NOT EXISTS ix_rec_break_open
+    ON rec_break (tenant_id, definition, state, first_seen);
+CREATE INDEX IF NOT EXISTS ix_rec_break_owner ON rec_break (tenant_id, owner);

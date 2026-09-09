@@ -667,7 +667,7 @@ W9.3 ✅ drag-to-declare canvas ·
 W9.4 ◐ declaration flows with inferred-then-confirmed defaults · W9.5 ✅ no-code rule builder ·
 W9.6 ◐ CodeMirror PQL editor and LSP integration · W9.7 ✅ live preview and backtest over SSE ·
 W9.8 ✅ proposal review queue ·
-W9.9 ◐ incident triage workspace · W9.10 ◐ reconciliation workbench · W9.11 ◐ scorecards and drill-down ·
+W9.9 ✅ incident triage workspace · W9.10 ✅ reconciliation workbench · W9.11 ✅ scorecards and drill-down ·
 W9.12 ✅ attestation and e-signature · W9.13 ✅ **assistant with the full safety contract** · W9.14 ✅ MCP
 server · W9.15 ✅ print rendering · W9.16 ◐ accessibility audit · W9.17 usability study.
 
@@ -695,7 +695,9 @@ configuration or the error taxonomy.
 | Proposal queue with accept and reject, `Unsatisfiable` first, rejections recorded so nothing is re-proposed | Batch approve; backtest and expected alert volume beside each proposal |
 | **The evidence ledger, persisted** — hash-chained, append-only, erasure without breaking the chain, verification on a screen | Retention tiering and WORM export wired to the persisted store |
 | **Controls, persisted** — bitemporal, idempotent by identity, everything derived from the PQL, suppression that needs an expiry and a reason | A scheduler that runs them; nothing executes on its own yet |
-| Incidents, reconciliation and scorecards reading real evidence | Sample drill-down; the side-by-side break workbench |
+| Incidents, reconciliation and scorecards reading real evidence | Batch disposition across a whole incident queue |
+| **Sample drill-down** — the failing rows beside the count they are a sample of, with masked columns named and "never collected" told apart from "no longer held" | Re-querying the source for fresh rows, which needs the connector query path on the console |
+| **The break workbench, persisted** — breaks tracked across runs, ageing from first sighting, clearing inferred from absence, ordered by what needs a person rather than by size | The reconciliation certificate signed off from this screen |
 | **Attestation** — figures derived from the ledger, not typed; sealed with an HMAC over the content hash; append-only with supersession | An asymmetric signature, which would say something to a reader who does not hold the key |
 
 **The honest limit of this wave.** Controls are stored and evidence is stored, and *nothing runs

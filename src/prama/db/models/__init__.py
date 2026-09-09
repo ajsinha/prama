@@ -32,6 +32,7 @@ from prama.db.models.platform import (
     Setting,
     Tenant,
 )
+from prama.db.models.recon import RecBreak
 from prama.db.models.semantic import (
     SemAttribute,
     SemAttributeVersion,
@@ -72,6 +73,7 @@ __all__ = [
     "ModelMixin",
     "Principal",
     "PrincipalRole",
+    "RecBreak",
     "Role",
     "SchemaState",
     "SemAttribute",

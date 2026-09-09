@@ -95,6 +95,18 @@ class ControlDao(VersionedDao[CtlControl, CtlControlVersion]):
         )
         return (await self._session.execute(stmt)).scalars().one_or_none()
 
+    async def by_control_id(self, tenant_id: str, control_id: str) -> CtlControlVersion | None:
+        """The current version of one control, by its identifier.
+
+        Scoped by tenant, like every lookup that takes an identifier from a
+        URL. The version rather than the control row, because everything a
+        screen wants to show — the PQL, the severity, the dimensions — lives on
+        the version, and a caller handed the control row would have to go
+        looking for the current one and could get it wrong.
+        """
+        found = await self._current_where(tenant_id, CtlControl.id == control_id)
+        return found[0] if found else None
+
     async def declare(
         self,
         *,
