@@ -668,8 +668,8 @@ W9.4 ◐ declaration flows with inferred-then-confirmed defaults · W9.5 ✅ no-
 W9.6 ◐ CodeMirror PQL editor and LSP integration · W9.7 live preview and backtest over SSE ·
 W9.8 ◐ proposal review queue ·
 W9.9 incident triage workspace · W9.10 reconciliation workbench · W9.11 scorecards and drill-down ·
-W9.12 attestation and e-signature · W9.13 ✅ **assistant with the full safety contract** · W9.14 MCP
-server · W9.15 print/PDF rendering · W9.16 accessibility audit · W9.17 usability study.
+W9.12 attestation and e-signature · W9.13 ✅ **assistant with the full safety contract** · W9.14 ✅ MCP
+server · W9.15 ✅ print rendering · W9.16 ◐ accessibility audit · W9.17 usability study.
 
 ### Where the console stands
 
@@ -689,12 +689,24 @@ configuration or the error taxonomy.
 | Relationships end to end: declare, confirm, reject; pick-then-pick on the map | Attribute-level relationship editing |
 | Charts as server-rendered SVG (`prama.report`), one renderer for screen and print | Wiring them into scorecards, which have no measurements to draw |
 | Contrast measured, not eyeballed; text-safe dimension tokens derived from the brand hues | `axe-core` in a browser (W9.16) — computed contrast, focus order, ARIA validity |
+| Print artefacts: declaration pack and control pack, self-contained, coverage stated on every one | The attestation pack, which needs evidence and a signature |
+| `prama mcp` — the MCP server on the assistant's own registry, fenced and scanned | Streamable-HTTP transport; stdio only for now |
 | Proposal queue showing `Unsatisfiable` first | Accept/reject actions — there is nowhere to persist an accepted control yet |
 | Incidents, reconciliation and scorecards distinguishing "found nothing" from "nothing ran" | Their actual tables, which need a persistent evidence ledger |
 
 The three run-backed screens are the honest limit of this wave: the evidence ledger is in-memory,
 so there are no runs to read. What they do instead is refuse to render an empty list as a clean
 one — the single most dangerous screen a data quality product can ship.
+
+**No PDF engine, deliberately.** WeasyPrint and its relatives pull in cairo, pango and their system
+packages, which is a serious dependency to add to every on-premises install for a job the browser
+already does correctly. The packs are self-contained print-ready HTML and the console says so;
+Print → Save as PDF, or a headless Chrome in the deployment, produces the file.
+
+**No MCP SDK, deliberately.** `prama.mcp` implements JSON-RPC 2.0 over stdio directly, in about two
+hundred lines, because every transitive dependency is a question someone has to answer in an
+air-gapped estate. The cost: when MCP's schema moves, this moves by hand. The protocol version is a
+pinned constant, reported in the handshake.
 
 **A defect the console surfaced, recorded here because it is not a UI defect.**
 `Threshold.render()` drops the comparator for a rate — `BELOW 0.5%` — so a threshold built with
