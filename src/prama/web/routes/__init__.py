@@ -9,6 +9,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+from prama.web.routes.attestation_routes import AttestationRoutes
 from prama.web.routes.base import UiRoutes
 from prama.web.routes.control_routes import ControlRoutes
 from prama.web.routes.declaration_routes import DeclarationRoutes
@@ -25,11 +26,13 @@ ROUTE_CLASSES: tuple[type[UiRoutes], ...] = (
     RelationshipRoutes,
     ProposalRoutes,
     OperationsRoutes,
+    AttestationRoutes,
     ReportRoutes,
 )
 
 __all__ = [
     "ROUTE_CLASSES",
+    "AttestationRoutes",
     "ControlRoutes",
     "DeclarationRoutes",
     "EstateRoutes",

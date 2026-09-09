@@ -9,6 +9,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+from prama.db.models.attestation import AttAttestation
 from prama.db.models.base import (
     Base,
     CreatedAt,
@@ -56,6 +57,7 @@ from prama.db.models.semantic_graph import (
 
 __all__ = [
     "ApiKey",
+    "AttAttestation",
     "AuditEvent",
     "Base",
     "CreatedAt",

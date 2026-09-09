@@ -919,3 +919,56 @@ CREATE TABLE IF NOT EXISTS ctl_rejection (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_ctl_rejection_identity
     ON ctl_rejection (tenant_id, identity, content_hash);
+
+-- ---------------------------------------------------------------------------
+-- ATTESTATIONS  (Wave 9)
+--
+-- A named person's statement that they reviewed a scope for a period. Never
+-- edited: a signed attestation is immutable, and a correction is a *new* row
+-- naming the one it supersedes, because the fact that somebody signed the
+-- first one is itself part of the record.
+--
+-- The seal is an HMAC over content_hash. It says the content was sealed by a
+-- holder of the key and nothing to anybody else; the column is named `seal`
+-- rather than `signature` so the word cannot imply more than it delivers.
+--
+-- evidence_root ties the statement to the facts. Without it an attestation
+-- floats free of the records, and evidence written afterwards is
+-- indistinguishable from evidence written before.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS att_attestation (
+    id                 VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id          VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    attester_id        VARCHAR(26)   NOT NULL,
+    -- The name as it was at signing. Denormalised on purpose: an attestation
+    -- reprinted years later must say who signed it, not who happens to hold
+    -- that principal id now.
+    attester_name      VARCHAR(255)  NOT NULL,
+    statement          TEXT          NOT NULL,
+    scope              VARCHAR(255)  NOT NULL,
+    period_start       VARCHAR(32)   NOT NULL,
+    period_end         VARCHAR(32)   NOT NULL,
+    coverage_json      TEXT          NOT NULL DEFAULT '{}',
+    -- Every failure and every unestablished control in the period, in full.
+    -- Summarising them into a count would be asking somebody to sign for
+    -- things they were not shown.
+    exceptions_json    TEXT          NOT NULL DEFAULT '[]',
+    evidence_root      VARCHAR(64)   NOT NULL,
+    evidence_records   INTEGER       NOT NULL DEFAULT 0,
+    content_hash       VARCHAR(64)   NOT NULL,
+    seal               VARCHAR(64)   NOT NULL,
+    signed_at          VARCHAR(32)   NOT NULL,
+    -- Set on the *superseded* row when a correction arrives, so a reader
+    -- looking at an old attestation learns it was replaced rather than
+    -- having to search for a newer one.
+    superseded_by      VARCHAR(26),
+    supersedes         VARCHAR(26),
+    supersedes_because TEXT          NOT NULL DEFAULT '',
+    version            VARCHAR(16)   NOT NULL DEFAULT '1.0',
+    CONSTRAINT ck_att_period CHECK (period_end >= period_start)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_att_content ON att_attestation (content_hash);
+CREATE INDEX IF NOT EXISTS ix_att_tenant ON att_attestation (tenant_id, period_end);
+CREATE INDEX IF NOT EXISTS ix_att_scope ON att_attestation (tenant_id, scope, period_end);
+CREATE INDEX IF NOT EXISTS ix_att_attester ON att_attestation (attester_id);

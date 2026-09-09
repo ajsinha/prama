@@ -1,0 +1,103 @@
+{% extends "_shell.html" %}
+
+{% block coverage_detail %}
+{# The numbers an attester would rather not print, which is exactly why the
+   format requires them. A sign-off over an estate whose controls half failed
+   to execute is a sign-off over the half that ran. #}
+<p>{{ attestation.coverage.describe() }}.</p>
+{% if attestation.is_qualified %}
+<p><strong>This attestation is qualified.</strong> It carries exceptions or
+incomplete coverage, both listed below. A qualified attestation is still an
+attestation — presenting one as unqualified would be the misrepresentation.</p>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<h2 class="section">Is this record intact?</h2>
+{# Printed before the statement, deliberately. A pack that showed the signature
+   without saying whether the content still matches it would be handing
+   somebody a seal on an envelope nobody checked. #}
+<table>
+  <tbody>
+    <tr>
+      <th scope="row">Content</th>
+      <td>{% if intact %}unchanged since signing{% else %}
+        <strong>ALTERED — the stored content no longer hashes to its stored hash</strong>
+      {% endif %}</td>
+    </tr>
+    <tr>
+      <th scope="row">Seal</th>
+      <td>{% if sealed %}verifies against this deployment's key{% else %}
+        <strong>DOES NOT VERIFY</strong> — altered, or sealed by a different deployment
+      {% endif %}</td>
+    </tr>
+    <tr><th scope="row">Content hash</th><td>{{ attestation.content_hash }}</td></tr>
+    <tr><th scope="row">Seal</th><td>{{ seal }}</td></tr>
+    <tr><th scope="row">Evidence root</th><td>{{ attestation.evidence_root }}</td></tr>
+    <tr><th scope="row">Records covered</th><td>{{ attestation.evidence_records }}</td></tr>
+  </tbody>
+</table>
+<p>
+  The seal is an HMAC over the content hash. It says this content was sealed by a
+  holder of this deployment's key, and it says nothing to somebody who does not
+  hold that key — an asymmetric signature would say more, and this does not.
+</p>
+
+<h2 class="section">The statement</h2>
+<table>
+  <tbody>
+    <tr><th scope="row">Attester</th><td>{{ attestation.attester_name }}</td></tr>
+    <tr><th scope="row">Scope</th><td>{{ attestation.scope }}</td></tr>
+    <tr><th scope="row">Period</th>
+        <td>{{ attestation.period_start }} to {{ attestation.period_end }}</td></tr>
+    <tr><th scope="row">Signed</th><td>{{ attestation.signed_at }}</td></tr>
+    {% if attestation.supersedes %}
+    <tr><th scope="row">Supersedes</th>
+        <td>{{ attestation.supersedes }} — {{ attestation.supersedes_because }}</td></tr>
+    {% endif %}
+  </tbody>
+</table>
+<p class="because">“{{ attestation.statement }}”</p>
+
+<h2 class="section">Exceptions</h2>
+{% if attestation.exceptions %}
+<p>
+  Every control in the period that did not pass, in full. Summarising them into a
+  count would be asking somebody to sign for things they were not shown.
+</p>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Dataset</th><th scope="col">Control</th>
+      <th scope="col">Verdict</th><th scope="col">What was found</th>
+      <th scope="col">Disposition</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in attestation.exceptions %}
+    <tr>
+      <td>{{ item.dataset or '—' }}</td>
+      <td>{{ item.control_id }}</td>
+      <td class="{% if item.verdict == 'fail' %}tier-1{% else %}gap{% endif %}">
+        {{ item.verdict }}</td>
+      <td>{{ item.detail }}</td>
+      <td>{% if item.disposition %}{{ item.disposition }}{% else %}
+        <span class="stale">nothing recorded</span>
+      {% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>None. Every control that produced a verdict in the period passed.</p>
+{% endif %}
+
+{% if attestation.coverage.never_ran %}
+<h2 class="section">In scope, and never ran</h2>
+<p>
+  {{ attestation.coverage.never_ran }} live control(s) produced no verdict in this
+  period. They are not exceptions — there is no verdict to except from — and they
+  are the number that decides how much this attestation covers.
+</p>
+{% endif %}
+{% endblock %}

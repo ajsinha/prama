@@ -255,6 +255,38 @@ class EvidenceDao(Dao[EvRecord]):
         """Check the chain as stored. The question an auditor actually asks."""
         return verify(await self.as_stored(tenant_id))
 
+    async def in_period(self, tenant_id: str, start: str, end: str) -> list[EvidenceRecord]:
+        """Records finished within a period, in sequence order.
+
+        Sequence order rather than time order, because that is the order the
+        chain links in and therefore the order a Merkle root over them has to
+        be built in. Sorting by timestamp would give a different root for the
+        same set whenever two records finished in the same second.
+        """
+        await self._session.flush()
+        stmt = (
+            select(EvRecord)
+            .where(
+                EvRecord.tenant_id == tenant_id,
+                EvRecord.finished_at >= start,
+                EvRecord.finished_at <= end,
+            )
+            .order_by(EvRecord.sequence)
+        )
+        return [_to_record(row) for row in (await self._session.execute(stmt)).scalars()]
+
+    async def period_root(self, tenant_id: str, start: str, end: str) -> tuple[str, int]:
+        """One hash standing for a period's evidence, and how many records it covers.
+
+        The hash an attestation binds itself to. Published somewhere Prama
+        cannot reach, it turns "our records are internally consistent" into
+        "our records are what they were when this was signed".
+        """
+        from prama.evidence.ledger import merkle_root
+
+        records = await self.in_period(tenant_id, start, end)
+        return merkle_root([record.record_hash for record in records]), len(records)
+
     async def since(self, tenant_id: str, sequence: int) -> list[EvidenceRecord]:
         await self._session.flush()
         stmt = (

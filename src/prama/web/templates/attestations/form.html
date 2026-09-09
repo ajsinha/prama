@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Sign an attestation — Prama{% endblock %}
+{% block heading %}Sign an attestation{% endblock %}
+
+{% block content %}
+<p class="text-muted">
+  You are attesting that you have <em>reviewed</em> the controls on this scope for
+  this period. Not that the data was correct, and not that everything passed — an
+  attestation over an estate with failures is a perfectly valid attestation.
+</p>
+
+{# Nothing on this page is typed by the attester except the sentence, their name
+   and a word about each exception. Every figure is derived from the ledger,
+   because an attestation whose numbers were typed is a statement about what the
+   attester believed rather than about what happened. #}
+<div class="card mb-3">
+  <div class="card-body">
+    <h2 class="h6 text-uppercase text-muted">What the evidence says</h2>
+    <p class="mb-2">{{ draft.coverage.describe() }}.</p>
+    <dl class="row small mb-0">
+      <dt class="col-sm-3">Evidence root</dt>
+      <dd class="col-sm-9"><code>{{ draft.evidence_root }}</code></dd>
+      <dt class="col-sm-3">Records covered</dt>
+      <dd class="col-sm-9">{{ draft.evidence_records }}</dd>
+    </dl>
+    {% if draft.coverage.never_ran %}
+    <div class="uncalibrated mt-2">
+      <strong>{{ draft.coverage.never_ran }} live control(s) produced no verdict in this
+      period.</strong> They are not exceptions — there is no verdict to except from —
+      and they are the number that decides how much this attestation covers.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<form method="post" action="{{ url_for('attestation_sign') }}" class="row g-3">
+  <input type="hidden" name="scope" value="{{ scope }}">
+  <input type="hidden" name="period_start" value="{{ period_start }}">
+  <input type="hidden" name="period_end" value="{{ period_end }}">
+
+  {% if draft.exceptions %}
+  <div class="col-12">
+    <h2 class="h6 text-uppercase text-muted">
+      Exceptions <span class="badge text-bg-warning">{{ draft.exceptions | length }}</span>
+    </h2>
+    <p class="small text-muted">
+      Every control that did not pass, in full. Summarising them into a count would
+      be asking you to sign for things you were not shown. A word against each is
+      optional — and an exception signed without one is recorded as unexplained.
+    </p>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead><tr>
+          <th scope="col">Dataset</th><th scope="col">Verdict</th>
+          <th scope="col">What was found</th><th scope="col">Your disposition</th>
+        </tr></thead>
+        <tbody>
+          {% for item in draft.exceptions %}
+          <tr>
+            <td class="fw-semibold">{{ item.dataset or '—' }}</td>
+            <td><span class="verdict verdict-{{ 'fail' if item.verdict == 'fail' else 'warn' }}">
+              {{ item.verdict }}</span></td>
+            <td class="small">{{ item.detail }}</td>
+            <td>
+              <label class="visually-hidden" for="d-{{ loop.index }}">
+                Disposition for {{ item.control_id }}</label>
+              <input class="form-control form-control-sm" id="d-{{ loop.index }}"
+                     name="disposition:{{ item.control_id }}"
+                     placeholder="remediation raised, DQ-1187">
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="col-md-6">
+    <label class="form-label" for="attester_name">Who is signing?</label>
+    <input class="form-control" id="attester_name" name="attester_name" required
+           aria-describedby="who-help">
+    <div id="who-help" class="form-text">
+      A person, not a role. A control attested by "the team" is a control nobody
+      attested.
+    </div>
+  </div>
+
+  <div class="col-12">
+    <label class="form-label" for="statement">What are you attesting to?</label>
+    <textarea class="form-control" id="statement" name="statement" rows="3" required
+              aria-describedby="statement-help"
+              placeholder="I have reviewed the controls on the trading book for September, and the exceptions above are known and being remediated."></textarea>
+    <div id="statement-help" class="form-text">
+      In your own words. It is printed on the artefact and quoted back at review.
+    </div>
+  </div>
+
+  <div class="col-12">
+    {# The word "signed" is not allowed to imply more than it delivers. #}
+    <div class="uncalibrated">
+      <strong>What signing means here.</strong> The attestation is sealed with an HMAC
+      over its content using this deployment's key. That proves the content was sealed
+      by a holder of the key; it proves nothing to somebody who does not hold it. An
+      asymmetric signature would say more. Once signed it cannot be edited — a
+      correction is a new attestation that supersedes this one.
+    </div>
+  </div>
+
+  <div class="col-12">
+    <button class="btn btn-primary" type="submit">Sign it</button>
+    <a class="btn btn-link" href="{{ url_for('attestation_list') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

@@ -181,3 +181,31 @@ def control_pack(
         coverage=coverage,
         unsatisfiable=unsatisfiable or [],
     )
+
+
+def attestation_pack(
+    *,
+    provenance: Provenance,
+    attestation: Any,
+    seal: str,
+    intact: bool,
+    sealed: bool,
+    coverage: Coverage,
+) -> Artefact:
+    """A signed attestation, as the document an auditor is handed.
+
+    Carries the seal, the evidence root and — first, before the statement —
+    whether the record still verifies. An attestation pack that printed the
+    signature without saying whether the content still matches it would be
+    handing somebody a seal on an envelope nobody checked.
+    """
+    return _render(
+        "attestation_pack.html",
+        title="Attestation",
+        provenance=provenance,
+        attestation=attestation,
+        seal=seal,
+        intact=intact,
+        sealed=sealed,
+        coverage=coverage,
+    )

@@ -28,6 +28,7 @@ from prama.db.engine import EngineFactory
 if TYPE_CHECKING:
     from prama.db.dao import (
         ApiKeyDao,
+        AttestationDao,
         AttributeDao,
         AuditDao,
         BindingDao,
@@ -187,6 +188,12 @@ class UnitOfWork:
         from prama.db.dao import BindingDao
 
         return self._dao("bindings", BindingDao)  # type: ignore[no-any-return]
+
+    @property
+    def attestations(self) -> AttestationDao:
+        from prama.db.dao import AttestationDao
+
+        return self._dao("attestations", AttestationDao)  # type: ignore[no-any-return]
 
     # -- controls -----------------------------------------------------------
 

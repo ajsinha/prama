@@ -668,7 +668,7 @@ W9.4 ◐ declaration flows with inferred-then-confirmed defaults · W9.5 ✅ no-
 W9.6 ◐ CodeMirror PQL editor and LSP integration · W9.7 live preview and backtest over SSE ·
 W9.8 ✅ proposal review queue ·
 W9.9 ◐ incident triage workspace · W9.10 ◐ reconciliation workbench · W9.11 ◐ scorecards and drill-down ·
-W9.12 attestation and e-signature · W9.13 ✅ **assistant with the full safety contract** · W9.14 ✅ MCP
+W9.12 ✅ attestation and e-signature · W9.13 ✅ **assistant with the full safety contract** · W9.14 ✅ MCP
 server · W9.15 ✅ print rendering · W9.16 ◐ accessibility audit · W9.17 usability study.
 
 ### Where the console stands
@@ -689,12 +689,13 @@ configuration or the error taxonomy.
 | Relationships end to end: declare, confirm, reject; pick-then-pick on the map | Attribute-level relationship editing |
 | Charts as server-rendered SVG (`prama.report`), one renderer for screen and print | Wiring them into scorecards, which have no measurements to draw |
 | Contrast measured, not eyeballed; text-safe dimension tokens derived from the brand hues | `axe-core` in a browser (W9.16) — computed contrast, focus order, ARIA validity |
-| Print artefacts: declaration pack and control pack, self-contained, coverage stated on every one | The attestation pack, which needs evidence and a signature |
+| Print artefacts: declaration pack, control pack and **attestation pack**, self-contained, coverage stated on every one | Batch export of a period's packs as one bundle |
 | `prama mcp` — the MCP server on the assistant's own registry, fenced and scanned | Streamable-HTTP transport; stdio only for now |
 | Proposal queue with accept and reject, `Unsatisfiable` first, rejections recorded so nothing is re-proposed | Batch approve; backtest and expected alert volume beside each proposal |
 | **The evidence ledger, persisted** — hash-chained, append-only, erasure without breaking the chain, verification on a screen | Retention tiering and WORM export wired to the persisted store |
 | **Controls, persisted** — bitemporal, idempotent by identity, everything derived from the PQL, suppression that needs an expiry and a reason | A scheduler that runs them; nothing executes on its own yet |
 | Incidents, reconciliation and scorecards reading real evidence | Sample drill-down; the side-by-side break workbench |
+| **Attestation** — figures derived from the ledger, not typed; sealed with an HMAC over the content hash; append-only with supersession | An asymmetric signature, which would say something to a reader who does not hold the key |
 
 **The honest limit of this wave.** Controls are stored and evidence is stored, and *nothing runs
 them*. There is no scheduler wired to the persisted estate, so every screen above reads evidence
