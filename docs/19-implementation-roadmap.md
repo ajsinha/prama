@@ -664,7 +664,7 @@ semantic layer stops being a theory.
 
 W9.1 ✅ design tokens and the Jinja app shell · W9.2 ✅ estate map with Sigma.js WebGL rendering ·
 W9.3 ✅ drag-to-declare canvas ·
-W9.4 ◐ declaration flows with inferred-then-confirmed defaults · W9.5 ✅ no-code rule builder ·
+W9.4 ✅ declaration flows with inferred-then-confirmed defaults · W9.5 ✅ no-code rule builder ·
 W9.6 ◐ CodeMirror PQL editor and LSP integration · W9.7 ✅ live preview and backtest over SSE ·
 W9.8 ✅ proposal review queue ·
 W9.9 ✅ incident triage workspace · W9.10 ✅ reconciliation workbench · W9.11 ✅ scorecards and drill-down ·
@@ -683,7 +683,8 @@ configuration or the error taxonomy.
 | App shell: nav that marks where you are, skip link, live region, flash | Sign-in; the caller comes from `tenancy.default_tenant` until Wave 10 |
 | Estate map on Sigma/WebGL over graphology, with the same nodes in a keyboard-reachable table | Cytoscape drag-to-declare (W9.3) |
 | Dataset page naming the *control* each gap costs, not the null column | Attribute editing and relationship drawing |
-| Declaration list and form, organised around questions, approval requirement derived from `ApprovalPolicy` | Inferred-then-confirmed defaults from profiling (W9.4) |
+| Declaration list and form, organised around questions, approval requirement derived from `ApprovalPolicy` | Attribute-level suggestions — concepts, value domains, CDE marks |
+| **Inferred, never confirmed** — the form profiles a table and offers what it found with the evidence attached; a head sample pre-fills nothing, and warnings are kept apart from defaults | Profiling through a connector rather than the console's one local file |
 | Control studio: CodeMirror 5, check/explain/compile, residual disclosure on the SQL | LSP with hover and go-to-definition (W9.6) |
 | **Preview and backtest** — run an unapproved control against real data, one business day per SSE event; empty days counted apart from quiet ones; nothing written to the ledger | A preview against a warehouse rather than a local file, which needs the connector query path wired to the console |
 | The no-code builder: eight rules in business terms, always showing the PQL it wrote, refusing to emit anything that will not re-read | More rule shapes — functional dependency, cross-dataset comparison |

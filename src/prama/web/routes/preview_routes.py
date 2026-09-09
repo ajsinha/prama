@@ -39,10 +39,14 @@ from typing import Annotated, Any
 from fastapi import Form, Query, Request
 from fastapi.responses import StreamingResponse
 
+from prama.backend import DIALECTS
+from prama.connect.spi import SamplePlan, SamplingStrategy
 from prama.core.clock import utc_now
 from prama.core.errors import PramaError
 from prama.core.log import get_logger
-from prama.execute.preview import Backtest, Preview, Trial, business_dates
+from prama.derive.suggestions import Defaults, defaults_from
+from prama.execute.preview import Backtest, Preview, Trial, business_dates, plain_identifier
+from prama.profile.profiler import from_rows
 from prama.web.rendering import render
 from prama.web.routes.base import UiRoutes
 
@@ -66,6 +70,12 @@ class PreviewRoutes(UiRoutes):
             methods=["POST"],
         )
         self.page("/controls/backtest", self.control_backtest, name="control_backtest")
+        self.page(
+            "/declarations/suggest",
+            self.declaration_suggest,
+            name="declaration_suggest",
+            methods=["POST"],
+        )
 
     # -- the source of data -------------------------------------------------
 
@@ -239,6 +249,101 @@ class PreviewRoutes(UiRoutes):
         # on the paths that reach the end and the connection simply ends on the
         # path where the reader has already gone.
         yield _event("done", {"completed": len(trials)})
+
+    # -- profiling for the declaration form ---------------------------------
+
+    async def declaration_suggest(
+        self,
+        request: Request,
+        name: Annotated[str, Form()] = "",
+    ) -> Any:
+        """Profile a table and offer what it suggests. Returns a fragment.
+
+        Deliberately a *suggestion* endpoint and not an inference one: it hands
+        the form things a person confirms, and nothing here writes a
+        declaration. What the machine observed and what the business declared
+        are the two halves this product exists to keep apart, and a route that
+        did both would be where they merged.
+        """
+        path, _ = self._source(request)
+        if not path:
+            return render(
+                request,
+                "declarations/_suggestions.html",
+                defaults=None,
+                unconfigured=True,
+                error="",
+            )
+        try:
+            table = plain_identifier(name, kind="table")
+        except PramaError as exc:
+            return render(
+                request,
+                "declarations/_suggestions.html",
+                defaults=None,
+                unconfigured=False,
+                error=str(exc),
+            )
+
+        try:
+            execute, close, dialect = self._executor(request)
+        except PramaError as exc:
+            return render(
+                request,
+                "declarations/_suggestions.html",
+                defaults=None,
+                unconfigured=False,
+                error=str(exc),
+            )
+        try:
+            defaults = await asyncio.to_thread(_profile, execute, dialect, table)
+        except Exception as exc:
+            return render(
+                request,
+                "declarations/_suggestions.html",
+                defaults=None,
+                unconfigured=False,
+                error=f"{type(exc).__name__}: {exc}",
+            )
+        finally:
+            close()
+        return render(
+            request,
+            "declarations/_suggestions.html",
+            defaults=defaults,
+            unconfigured=False,
+            error="",
+        )
+
+
+#: How many rows a declaration profile reads. A ceiling rather than a sample
+#: size: under it the read is complete and its rates are exact, over it the
+#: read is the *first* rows and its rates are worth nothing — which is why the
+#: two produce different profiles rather than the same profile with a caveat.
+PROFILE_ROWS = 50_000
+
+
+def _profile(execute: Any, dialect: str, table: str) -> Defaults:
+    """Read a table and turn it into declaration defaults.
+
+    The sampling strategy is chosen from what came back, not asserted up front.
+    Fewer rows than the ceiling means the read saw everything and its rates are
+    exact; hitting the ceiling means these are the *first* rows, which show
+    shape and no rate at all — and nothing is pre-filled from them.
+    """
+    quoted = DIALECTS[dialect].qualify(table)
+    rows = list(execute(f"SELECT * FROM {quoted} LIMIT {PROFILE_ROWS}"))
+    complete = len(rows) < PROFILE_ROWS
+    profile = from_rows(
+        (table,),
+        rows,
+        plan=SamplePlan(
+            strategy=SamplingStrategy.FULL if complete else SamplingStrategy.HEAD,
+            rows=None if complete else PROFILE_ROWS,
+        ),
+        computed_at=utc_now(),
+    )
+    return defaults_from(profile)
 
 
 def _next_or_none(stream: Any) -> Trial | None:

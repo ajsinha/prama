@@ -1,0 +1,97 @@
+{# What the data suggests, which is not what the business has declared.
+
+   Everything on this panel is a proposal a person confirms. The wording is the
+   safeguard: a field described as "found" reads as settled, and a declaration
+   somebody clicked through carries an authority it never earned — which is
+   exactly the thing this product exists to keep apart. #}
+
+{% if unconfigured %}
+<div class="uncalibrated mb-0">
+  <strong>Nothing to profile against.</strong>
+  This deployment has no data source configured for the console, so the form
+  cannot suggest anything. Set <code>web.preview.source</code>. Declaring by hand
+  works and is what the form is for.
+</div>
+
+{% elif error %}
+<div class="alert alert-warning mb-0">
+  <strong>That table could not be profiled.</strong>
+  <div><code>{{ error }}</code></div>
+  <div class="small mt-1">
+    Nothing was read, so nothing here is a statement about the data. Declare by
+    hand.
+  </div>
+</div>
+
+{% elif defaults is none %}
+<p class="text-muted mb-0">
+  Name a table above and profile it to see what the data suggests.
+</p>
+
+{% else %}
+<div class="card mb-0">
+  <div class="card-body">
+    <h2 class="h6 mb-2">What the data suggests</h2>
+
+    <div class="uncalibrated small mb-3">
+      <strong>These are observations, not declarations.</strong>
+      Prama derives controls from what the business states, and a field accepted
+      without being read is a statement nobody made. Read each one, change what is
+      wrong, and what you submit is yours.
+      <div class="mt-1">{{ defaults.confidence }}.</div>
+    </div>
+
+    {% if not defaults.is_representative %}
+    {# The first rows of a table are the oldest rows. They show shape and no rate
+       at all, so nothing from such a profile arrives already selected — accepting
+       it has to be a deliberate act rather than an unchanged form. #}
+    <div class="uncalibrated small mb-3">
+      This profile read the first {{ '{:,}'.format(defaults.rows_examined) }} rows
+      only, which show the shape of the data and none of its rates. Nothing below
+      is pre-filled; take any of it deliberately or not at all.
+    </div>
+    {% endif %}
+
+    {% if defaults.suggestions %}
+    <ul class="list-unstyled mb-3">
+      {% for suggestion in defaults.suggestions %}
+      <li class="mb-2">
+        <div class="d-flex gap-2 align-items-baseline">
+          <span class="badge text-bg-light">{{ suggestion.field }}</span>
+          {% if suggestion.value %}<code>{{ suggestion.value }}</code>{% endif %}
+          {% if suggestion.prefill %}
+          <button type="button" class="btn btn-sm btn-outline-secondary ms-auto"
+                  data-suggest-field="{{ suggestion.field }}"
+                  data-suggest-value="{{ suggestion.value }}">Use it</button>
+          {% else %}
+          <span class="ms-auto small text-muted">not pre-filled</span>
+          {% endif %}
+        </div>
+        <div class="small text-muted">{{ suggestion.because }}.</div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="small text-muted">
+      The profile suggested nothing. That is a statement about the profile, not
+      about the dataset.
+    </p>
+    {% endif %}
+
+    {% if defaults.warnings %}
+    {# Separate from the suggestions on purpose. These are not defaults to accept
+       or dismiss — they are things to look at, and offering them as choices
+       would mean the reader does one of the two things they should not. #}
+    <h3 class="h6 mt-3 mb-2">Worth looking at before you declare</h3>
+    <ul class="small ps-3 mb-0">
+      {% for warning in defaults.warnings %}
+      <li class="mb-2">
+        <code>{{ warning.column }}</code> — {{ warning.message }}.
+        <div class="text-muted">{{ warning.consequence }}</div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+</div>
+{% endif %}

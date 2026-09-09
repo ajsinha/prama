@@ -323,7 +323,7 @@ class Preview:
                 yield Trial(label=str(period), error=f"{type(exc).__name__}: {exc}")
             return
 
-        column = _identifier(period_column)
+        column = plain_identifier(period_column)
         for period in periods:
             label = period.isoformat() if isinstance(period, date) else str(period)
             yield self._trial(_restricted(control, column, label), label=label)
@@ -454,22 +454,23 @@ def _restricted(control: Control, column: str, period: str) -> Control:
     return dataclasses.replace(control, where=combined)
 
 
-def _identifier(name: str) -> str:
-    """A plain column name, or a refusal that says what to type.
+def plain_identifier(name: str, *, kind: str = "column") -> str:
+    """A plain identifier, or a refusal that says what to type.
 
     See ``IDENTIFIER``: the dialect's quoting is what makes anything else
-    harmless, and this is what makes it legible.
+    harmless, and this is what makes it legible. Public because the console
+    validates a table name the same way and a second copy of the rule is how
+    one of them ends up looser.
     """
     candidate = name.strip()
     if not IDENTIFIER.match(candidate):
         raise ValidationError(
-            f"{name!r} is not a column name",
+            f"{name!r} is not a {kind} name",
             remedy=(
-                "A backtest needs the column carrying the business date — a plain "
-                "identifier such as as_of_date. Quoted or qualified names are not "
-                "accepted here."
+                f"Give a plain identifier such as as_of_date. Quoted, qualified "
+                f"and schema-prefixed {kind} names are not accepted here."
             ),
-            context={"period_column": name},
+            context={kind: name},
         )
     return candidate
 

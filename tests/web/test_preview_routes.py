@@ -320,3 +320,75 @@ class TestTheStudioScreen:
         assert 'id="backtest"' in body
         assert 'id="period-column"' in body
         assert "an empty day is not a passing day" in body
+
+
+class TestTheDeclarationSuggestions:
+    """Profiling for the declaration form.
+
+    The panel exists to make a form quicker to fill in. The tests are about the
+    line it must not cross while doing that: a form arriving already answered is
+    a declaration nobody made, and every control derived from it would inherit
+    an authority it never earned.
+    """
+
+    async def test_it_reports_what_the_table_looks_like(self, studio: httpx.AsyncClient) -> None:
+        body = " ".join(
+            (await studio.post("/declarations/suggest", data={"name": "positions"})).text.split()
+        )
+        assert "What the data suggests" in body
+        assert "measured over all 180 rows" in body
+
+    async def test_it_says_these_are_observations_not_declarations(
+        self, studio: httpx.AsyncClient
+    ) -> None:
+        body = " ".join(
+            (await studio.post("/declarations/suggest", data={"name": "positions"})).text.split()
+        )
+        assert "These are observations, not declarations." in body
+        assert "a field accepted without being read is a statement nobody made" in body
+
+    async def test_it_never_writes_a_declaration(
+        self, studio: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """The endpoint hands the form things a person confirms. What the
+        machine observed and what the business declared are the two halves this
+        product exists to keep apart."""
+        await studio.post("/declarations/suggest", data={"name": "positions"})
+        async with started_database.unit_of_work() as uow:
+            assert await uow.datasets.count_current(tenant_id) == 0
+
+    async def test_a_table_that_is_not_there_says_nothing_was_read(
+        self, studio: httpx.AsyncClient
+    ) -> None:
+        body = " ".join(
+            (await studio.post("/declarations/suggest", data={"name": "absent"})).text.split()
+        )
+        assert "could not be profiled" in body
+        assert "nothing here is a statement about the data" in body
+
+    async def test_an_injected_table_name_is_refused(
+        self, studio: httpx.AsyncClient, warehouse: Path
+    ) -> None:
+        body = (
+            await studio.post(
+                "/declarations/suggest",
+                data={"name": "positions; DROP TABLE positions --"},
+            )
+        ).text
+        assert "not a table name" in body
+        connection = duckdb.connect(str(warehouse), read_only=True)
+        assert connection.execute("SELECT COUNT(*) FROM positions").fetchone()[0] == 180
+        connection.close()
+
+    async def test_with_no_source_the_button_is_not_offered(
+        self, studio_without_data: httpx.AsyncClient
+    ) -> None:
+        body = (await studio_without_data.get("/declarations/new")).text
+        assert "See what the data suggests" not in body
+
+    async def test_it_is_offered_when_a_source_is_configured(
+        self, studio: httpx.AsyncClient
+    ) -> None:
+        body = " ".join((await studio.get("/declarations/new")).text.split())
+        assert "See what the data suggests" in body
+        assert "Nothing it finds is declared until you submit this form." in body
