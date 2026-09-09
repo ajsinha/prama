@@ -138,7 +138,8 @@ Two further rules specific to this codebase:
 ## Commands
 
 ```bash
-pip install -e ".[dev]"                  # editable install with the dev extras
+uv venv --python 3.13 && uv pip install -e ".[dev]"   # the interpreter is pinned in .python-version
+pip install -e ".[dev]"                  # or plain venv, if the interpreter is already right
 pytest -q                                # full suite
 pytest -q tests/architecture             # layering, file length, no-model-verdict guards
 prama config show                        # effective merged configuration, secrets redacted
@@ -155,3 +156,33 @@ pytest -q tests/web/test_axe.py           # axe-core in Chrome; needs pip instal
 ruff check src tests && ruff format --check src tests
 mypy src
 ```
+
+---
+
+## The interpreter is pinned, and not by the operating system
+
+`.python-version` says `3.13`, and the venv is built from a standalone CPython
+under `~/.local/share/uv/python/` rather than from `/usr/bin`.
+
+This is not a preference. An Ubuntu upgrade to 26.04 removed `/usr/bin/python3.12`
+while the project was mid-build: the venv's `python3` symlink followed
+`/usr/bin/python3` to 3.14, its `lib/python3.12/site-packages` was orphaned, and
+nothing ran. An interpreter the package manager owns is one the package manager
+can delete.
+
+```bash
+uv python install 3.13          # once; lands in ~/.local/share/uv/python, no sudo
+uv venv --python 3.13           # reads .python-version
+uv pip install -e ".[dev,serve,postgres,fast,audit]"
+```
+
+The suite passes on 3.13 and on 3.14 — both were run before choosing, and every
+dependency has wheels for both. The pin exists so that *which* one is in use is
+a decision recorded in the repository rather than a consequence of the last
+`apt upgrade`.
+
+**Dependency floors have no ceilings.** Every requirement in `pyproject.toml` is
+a `>=`, so a rebuild floats to the newest release of everything. Rebuilding on
+3.14 pulled mypy 2.3, pytest 9.1 and starlette 1.6 in one step and the gate
+stayed green — that was luck, not design. A lock file is the thing that would
+make it not luck.

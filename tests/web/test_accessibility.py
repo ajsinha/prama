@@ -260,23 +260,34 @@ class TestEveryThemeIsLegible:
                 )
 
     @pytest.mark.parametrize("theme", THEMES, ids=lambda t: t.name)
-    def test_muted_text_is_legible_on_the_page_ground_too(self, theme: Theme) -> None:
-        """Not only on a card.
+    def test_every_text_token_is_legible_on_every_ground(self, theme: Theme) -> None:
+        """The tokens the stylesheet actually emits, on all three grounds.
 
-        The gap axe found in a browser: `muted` was measured against `surface`
-        and passed at 4.68:1, while the footer and the map status line sit on
-        `body` where it was 4.37:1. A colour checked against the background the
-        test assumed and not the one it renders on is a colour nobody has
-        checked.
+        The gap axe found: `muted` was measured against `surface` and passed at
+        4.68:1, while the footer sits on `body` where it was 4.37:1 — and on a
+        striped row where it was 4.12:1. A colour checked against the background
+        the test assumed rather than the one it renders on is a colour nobody
+        has checked.
+
+        Asserted on the *derived* values, because those are what
+        ``generate_themes.py`` writes. Checking the declarations would pass
+        while the stylesheet shipped something else.
         """
-        assert ratio(theme.muted, theme.body) >= BODY_TEXT, (
-            f"{theme.name}: muted {theme.muted} on body {theme.body} is "
-            f"{ratio(theme.muted, theme.body):.2f}:1"
-        )
+        for name in ("legible_ink", "legible_muted", "legible_link"):
+            colour = getattr(theme, name)
+            for ground in theme.grounds:
+                assert ratio(colour, ground) >= BODY_TEXT, (
+                    f"{theme.name}: {name} {colour} on {ground} is {ratio(colour, ground):.2f}:1"
+                )
 
     @pytest.mark.parametrize("theme", THEMES, ids=lambda t: t.name)
-    def test_ink_is_legible_on_the_page_ground_too(self, theme: Theme) -> None:
-        assert ratio(theme.ink, theme.body) >= BODY_TEXT
+    def test_the_accent_is_a_mark_and_is_held_to_a_marks_threshold(self, theme: Theme) -> None:
+        """Three to one, not four and a half, and the reason is checkable:
+        nothing in the stylesheet reads ``color: var(--accent)``. If that ever
+        changes, this test is wrong and should start failing."""
+        assert "color: var(--accent)" not in CSS.read_text()
+        for ground in theme.grounds:
+            assert ratio(theme.legible_accent, ground) >= NON_TEXT
 
     @pytest.mark.parametrize("theme", THEMES, ids=lambda t: t.name)
     def test_ink_and_muted_text_are_legible(self, theme: Theme) -> None:

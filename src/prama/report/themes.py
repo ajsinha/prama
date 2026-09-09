@@ -125,6 +125,29 @@ class Theme:
             colour = accessible_on(colour, ground, threshold=threshold)
         return colour
 
+    @property
+    def legible_ink(self) -> str:
+        return self._legible(self.ink, BODY_TEXT)
+
+    @property
+    def legible_muted(self) -> str:
+        return self._legible(self.muted, BODY_TEXT)
+
+    @property
+    def legible_link(self) -> str:
+        return self._legible(self.link, BODY_TEXT)
+
+    @property
+    def legible_accent(self) -> str:
+        """The brand colour, at the non-text threshold.
+
+        Three to one rather than four and a half: ``--accent`` is never used for
+        words — nothing in the stylesheet reads ``color: var(--accent)`` — and
+        holding a brand mark to a text threshold would move it further from the
+        brand than the standard requires. A test asserts it stays a mark.
+        """
+        return self._legible(self.accent, NON_TEXT)
+
     def fills(self) -> dict[str, str]:
         """Dimension colours for marks, at the 3:1 non-text threshold."""
         return {name: self._legible(value, NON_TEXT) for name, value in self.source_hues.items()}
