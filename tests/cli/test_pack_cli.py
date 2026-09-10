@@ -299,3 +299,111 @@ class TestParse:
         _, text = run(["pack", "list"])
         for name in _PARSERS:
             assert name.upper()[:3] in text.upper().replace(" ", "")
+
+
+class TestConcepts:
+    def test_it_lists_the_ontology_with_what_identifies_each(self) -> None:
+        code, text = run(["pack", "concepts"])
+        assert code == EXIT_OK
+        assert "Exposure" in text
+        assert "identified by: counterparty_id, as_of_date" in text
+
+    def test_it_says_a_tenant_vocabulary_wins(self) -> None:
+        """A shipped ontology invites a reader to treat it as the definition."""
+        _, text = run(["pack", "concepts"])
+        assert "tenant's own wins" in text
+
+    def test_one_concept_shows_where_it_ends(self) -> None:
+        code, text = run(["pack", "concepts", "Exposure"])
+        assert code == EXIT_OK
+        assert "What it is not:" in text
+        assert "Gross notional is not exposure" in text
+
+    def test_it_distinguishes_identifying_from_defining(self) -> None:
+        """The distinction is the whole basis of recognition; a flat list of
+        properties would hide it."""
+        _, text = run(["pack", "concepts", "Exposure"])
+        assert "! counterparty_id" in text
+        assert "* net_notional" in text
+        assert "without it, the table is not this concept" in text
+
+    def test_it_names_the_semantic_type_a_property_carries(self) -> None:
+        _, text = run(["pack", "concepts", "Instrument"])
+        assert "isin [isin]" in text
+
+    def test_an_unknown_concept_is_an_error(self, capsys) -> None:
+        code, _ = run(["pack", "concepts", "Sprocket"])
+        assert code == EXIT_ERROR
+
+    def test_json_carries_the_boundary(self) -> None:
+        code, text = run(["--json", "pack", "concepts"])
+        payload = pjson.loads(text)
+        assert code == EXIT_OK
+        assert len(payload["concepts"]) == 17
+        exposure = next(c for c in payload["concepts"] if c["name"] == "Exposure")
+        assert exposure["boundary"]
+        assert exposure["identifying"] == ["counterparty_id", "as_of_date"]
+
+
+class TestRecognise:
+    def test_it_recognises_a_complete_table(self) -> None:
+        code, text = run(
+            ["pack", "recognise", "account_id", "balance_date", "bal_type", "balance", "ccy"]
+        )
+        assert code == EXIT_OK
+        assert "Balance — recognised" in text
+
+    def test_it_maps_each_column_to_the_property_it_spells(self) -> None:
+        _, text = run(["pack", "recognise", "deal_id", "execution_time", "venue_mic"])
+        assert "deal_id -> trade_id" in text
+
+    def test_it_declines_on_a_shared_shape(self) -> None:
+        """Position, Balance and Exposure all carry an amount, a currency and
+        an as-of date. Naming one would be a guess wearing the tool's
+        authority."""
+        code, text = run(["pack", "recognise", "as_of_date", "amount", "currency"])
+        assert code == EXIT_OK
+        assert "No concept recognised" in text
+        assert "Position" not in text
+
+    def test_a_refusal_says_what_such_a_table_usually_is(self) -> None:
+        """ "No" is not an answer somebody can act on."""
+        _, text = run(["pack", "recognise", "as_of_date", "amount", "currency"])
+        assert "references business objects rather than being" in text
+
+    def test_it_says_a_recognition_is_a_proposal(self) -> None:
+        """CON-007. The tool proposes; a steward confirms."""
+        _, text = run(["pack", "recognise", "account_id", "ccy", "status"])
+        assert "steward confirms" in text
+
+    def test_testing_against_one_concept_reports_the_refutation(self) -> None:
+        code, text = run(["pack", "recognise", "currency", "status", "--as", "Account"])
+        assert code == EXIT_OK
+        assert "not_recognised" in text
+        assert "account_id" in text
+
+    def test_it_names_the_columns_it_could_not_place(self) -> None:
+        _, text = run(["pack", "recognise", "account_id", "ccy", "status", "widget_flag"])
+        assert "unplaced: widget_flag" in text
+
+    def test_it_says_which_column_should_validate_as_what(self) -> None:
+        _, text = run(["pack", "recognise", "isin", "asset_class", "ccy"])
+        assert "expect: isin is isin" in text
+
+    def test_json_carries_every_candidate(self) -> None:
+        code, text = run(
+            [
+                "--json",
+                "pack",
+                "recognise",
+                "account_id",
+                "balance_date",
+                "bal_type",
+                "balance",
+                "ccy",
+            ]
+        )
+        payload = pjson.loads(text)
+        assert code == EXIT_OK
+        assert payload["candidates"][0]["concept"] == "Balance"
+        assert payload["candidates"][0]["standing"] == "recognised"

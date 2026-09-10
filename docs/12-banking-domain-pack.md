@@ -63,6 +63,35 @@ Shipped as a starter ontology, extensible and overridable per tenant (`FR-MET-04
 | **Regulatory Return** | return ID, reporting entity, reference date, schedule, submission status | Datasets can *be* returns |
 | **Reference Rate / FX Rate** | rate, currency pair, source, as-of | Normalisation for reconciliation |
 
+### 2.1 Recognition, and when it declines
+
+Shipped as `prama.packs.banking.concepts`; `prama pack concepts` prints it and
+`prama pack recognise <columns…>` runs it.
+
+Each property carries a **role**. *Identifying* properties are the ones without
+which a table is not that concept; *defining* properties carry its meaning, and
+their absence is a finding about the dataset rather than a refutation of the
+match. Recognition turns on the identifying ones, which is what keeps it from
+guessing: Position, Balance and Exposure all carry an amount, a currency and an
+as-of date, so a matcher that counts overlapping properties calls a table all
+three — and has moved the guessing from the analyst to the tool, where it is
+harder to see and carries an air of authority.
+
+The result is three-state. `not_recognised` and `possible` are different
+answers: the first is a dead end, the second is a question for whoever owns the
+data. `prama pack recognise as_of_date amount currency` names no concept at all
+and says what such a table usually is instead.
+
+A property that carries a semantic type **names a validator** in
+`prama.classify.validators` rather than repeating its pattern, and the name is
+checked when the module imports. That is where the concept model pays for
+itself: recognising a table as a Trade is what tells you which column ought to
+validate as an ISIN.
+
+A recognition is a proposal a steward confirms (`CON-007`). The ontology is a
+starter — extensible and overridable per tenant (`FR-MET-044`), and a bank's
+own vocabulary wins.
+
 ---
 
 ## 3. Semantic types and validators

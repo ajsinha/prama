@@ -156,6 +156,8 @@ prama pack list                          # what the banking pack ships
 prama pack claims                        # and what it does NOT claim to discharge
 prama pack calendar TARGET2 --year 2030  # closures, computed from rules
 prama pack parse order.fix               # FIX/ISO 8583/FpML, and what is wrong with it
+prama pack concepts Exposure             # a business concept, and where it ends
+prama pack recognise account_id ccy      # which concept these columns are, or why not
 prama pack soc2                          # Prama's own SOC 2 readiness, gaps first
 prama bundle seal ./offline              # manifest + SBOM, HMAC-sealed
 prama bundle verify ./offline            # exit 3 if it must not be installed

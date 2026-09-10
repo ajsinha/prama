@@ -382,6 +382,135 @@ _PARSERS = {
 }
 
 
+class PackConceptsCommand(Command):
+    name = "concepts"
+    help = "the business concept model, and where each concept ends"
+
+    def configure(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("concept", nargs="?", help="one concept, in full")
+
+    def run(self, ctx: CommandContext) -> int:
+        from prama.packs.banking import concepts
+
+        if ctx.args.concept:
+            return self._one(ctx, concepts.concept(ctx.args.concept))
+
+        if ctx.json_output:
+            ctx.emit_json(
+                {
+                    "concepts": [
+                        {
+                            "name": c.name,
+                            "description": c.description,
+                            "identifying": [p.name for p in c.identifying],
+                            "properties": len(c.properties),
+                            "semantic_types": list(c.semantic_types),
+                            "boundary": c.boundary,
+                        }
+                        for c in concepts.CONCEPTS
+                    ]
+                }
+            )
+            return EXIT_OK
+
+        ctx.emit(f"{len(concepts.CONCEPTS)} concepts. A starter ontology; a tenant's own wins.")
+        ctx.emit()
+        for entry in concepts.CONCEPTS:
+            identifying = ", ".join(p.name for p in entry.identifying)
+            ctx.emit(f"  {entry.name:20} {entry.description}")
+            ctx.emit(f"  {'':20} identified by: {identifying}")
+        ctx.emit()
+        ctx.emit("`prama pack concepts <name>` says where a concept ends.")
+        return EXIT_OK
+
+    def _one(self, ctx: CommandContext, entry: Any) -> int:
+        if ctx.json_output:
+            ctx.emit_json(
+                {
+                    "name": entry.name,
+                    "description": entry.description,
+                    "boundary": entry.boundary,
+                    "relevance": entry.relevance,
+                    "properties": [
+                        {
+                            "name": p.name,
+                            "role": p.role.value,
+                            "semantic_type": p.semantic_type,
+                            "aliases": list(p.aliases),
+                        }
+                        for p in entry.properties
+                    ],
+                }
+            )
+            return EXIT_OK
+
+        ctx.emit(f"{entry.name} — {entry.description}")
+        ctx.emit()
+        for prop in entry.properties:
+            marker = {"identifying": "!", "defining": "*", "descriptive": " "}[prop.role.value]
+            kind = f" [{prop.semantic_type}]" if prop.semantic_type else ""
+            ctx.emit(f"  {marker} {prop.name}{kind}")
+            if prop.aliases:
+                ctx.emit(f"      also: {', '.join(prop.aliases)}")
+        ctx.emit()
+        ctx.emit("  ! without it, the table is not this concept")
+        ctx.emit("  * carries the concept's meaning; absence is a finding")
+        if entry.boundary:
+            ctx.emit()
+            ctx.emit(f"What it is not: {entry.boundary}")
+        if entry.relevance:
+            ctx.emit(f"Why it matters: {entry.relevance}")
+        return EXIT_OK
+
+
+class PackRecogniseCommand(Command):
+    name = "recognise"
+    help = "which concept a set of columns is, or why that cannot be said"
+
+    def configure(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("columns", nargs="+", help="column names")
+        parser.add_argument("--as", dest="expected", help="test against one concept")
+
+    def run(self, ctx: CommandContext) -> int:
+        from prama.packs.banking import concepts
+
+        columns = list(ctx.args.columns)
+        if ctx.args.expected:
+            results = [concepts.recognise(ctx.args.expected, columns)]
+        else:
+            results = list(concepts.identify(columns))
+
+        if ctx.json_output:
+            ctx.emit_json({"columns": columns, "candidates": [r.to_dict() for r in results]})
+            return EXIT_OK
+
+        if not results:
+            # Deliberately not the closest match. Position, Balance and
+            # Exposure share a shape, and naming one of them here would be a
+            # guess wearing the tool's authority.
+            ctx.emit("No concept recognised.")
+            ctx.emit()
+            ctx.emit("These columns carry no concept's identifying properties. That is")
+            ctx.emit("usually a table that references business objects rather than being")
+            ctx.emit("one — a fact table, a log, an extract. `prama pack concepts` lists")
+            ctx.emit("what identifies each concept.")
+            return EXIT_OK
+
+        for result in results:
+            ctx.emit(f"{result.concept} — {result.standing.value}")
+            ctx.emit(f"  {result.reason}")
+            for column, prop in result.matched:
+                ctx.emit(f"    {column} -> {prop}")
+            if result.expected_types:
+                pairs = ", ".join(f"{c} is {t}" for c, t in result.expected_types)
+                ctx.emit(f"  expect: {pairs}")
+            if result.unmatched_columns:
+                ctx.emit(f"  unplaced: {', '.join(result.unmatched_columns)}")
+            ctx.emit()
+        ctx.emit("A recognition is a proposal. A steward confirms it.")
+        return EXIT_OK
+
+
 class PackCommand(CommandGroup):
     name = "pack"
     help = "what a domain pack ships, and what it does not claim"
@@ -394,6 +523,8 @@ class PackCommand(CommandGroup):
             PackReconciliationCommand(),
             PackSoc2Command(),
             PackParseCommand(),
+            PackConceptsCommand(),
+            PackRecogniseCommand(),
         ]
 
 
