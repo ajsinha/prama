@@ -17,6 +17,7 @@ from prama.cli.control import ControlCommand
 from prama.cli.estate import EstateCommand
 from prama.cli.lsp import LspCommand
 from prama.cli.mcp import McpCommand
+from prama.cli.tenant import TenantCommand
 from prama.core.errors import PramaError
 from prama.db import Database
 from prama.version import IR_VERSION, PRODUCT_NAME, PRODUCT_TAGLINE, SCHEMA_VERSION, VERSION
@@ -206,9 +207,26 @@ class ServeCommand(Command):
 
         from prama.api import create_app
 
+        base = f"http://{ctx.args.host}:{ctx.args.port}"
         ctx.emit(f"Prama {VERSION} — {PRODUCT_TAGLINE}")
-        ctx.emit(f"  API   http://{ctx.args.host}:{ctx.args.port}/api/v1")
-        ctx.emit(f"  Docs  http://{ctx.args.host}:{ctx.args.port}/api/v1/docs")
+        if ctx.config.get_bool("web.enabled", True):
+            # First, because it is the thing a person opens. The API and its
+            # documentation are what a program uses, and printing them alone
+            # left the console — the actual product — undiscoverable.
+            ctx.emit(f"  Console  {base}/estate")
+        ctx.emit(f"  API      {base}/api/v1")
+        ctx.emit(f"  Docs     {base}/api/v1/docs")
+        if ctx.config.get_bool("web.enabled", True) and not ctx.config.get_str(
+            "tenancy.default_tenant", ""
+        ):
+            # Said at startup rather than discovered by clicking. Without a
+            # tenant every console page redirects to a sign-in that does not
+            # exist yet, which reads as a broken build rather than as a missing
+            # setting.
+            ctx.emit()
+            ctx.emit("  No tenant is configured, so every console page will redirect to")
+            ctx.emit("  a sign-in that does not exist yet. Create one and name it:")
+            ctx.emit("      prama tenant create acme-bank --name 'Acme Bank'")
         uvicorn.run(
             create_app(ctx.config),
             host=ctx.args.host,
@@ -230,4 +248,5 @@ def all_commands() -> list[Command]:
         LspCommand(),
         McpCommand(),
         ServeCommand(),
+        TenantCommand(),
     ]
