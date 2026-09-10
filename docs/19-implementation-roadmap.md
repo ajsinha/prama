@@ -853,8 +853,8 @@ without one does not exist.
 
 ### Tasks
 
-W10.1 streaming backend and in-flight enforcement · W10.2 tenant isolation test suite ·
-W10.3 SSO/SCIM, vault, CMK · W10.4 residency enforcement and SIEM export · W10.5 Helm chart ·
+W10.1 streaming backend and in-flight enforcement · W10.2 ✅ tenant isolation test suite ·
+W10.3 ◐ SSO/SCIM, vault, CMK (local sign-in and RBAC done; SSO not started) · W10.4 residency enforcement and SIEM export · W10.5 Helm chart ·
 W10.6 Operator and CRDs · W10.7 all-in-one image · W10.8 **offline bundle and air-gapped update** ·
 W10.9 COBOL/EBCDIC reader · W10.10 financial message parsers · W10.11 banking concepts, validators
 and calendars · W10.12 regulatory control catalogue with citations · W10.13 reference reconciliation

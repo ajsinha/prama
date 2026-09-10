@@ -5,6 +5,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+import secrets
 from datetime import datetime
 from typing import Any
 
@@ -12,6 +13,7 @@ from sqlalchemy import delete, select, text
 
 from prama.core import pjson
 from prama.core.clock import utc_now
+from prama.core.errors import ValidationError
 from prama.db.dao.base import Dao, TenantScopedDao
 from prama.db.models import (
     ApiKey,
@@ -22,6 +24,7 @@ from prama.db.models import (
     Setting,
     Tenant,
 )
+from prama.db.security import PasswordHasher
 
 
 class TenantDao(Dao[Tenant]):
@@ -47,6 +50,18 @@ class TenantDao(Dao[Tenant]):
                 updated_at=now,
             )
         )
+
+
+#: Below this, a password is not worth hashing. Length is the only property
+#: that reliably helps; character-class rules demonstrably push people towards
+#: Password1! and away from anything longer.
+MINIMUM_PASSWORD = 12
+
+#: A well-formed hash of nothing anybody knows, verified against when the
+#: username does not exist so that both paths cost the same. Computed once at
+#: import rather than per call, because deriving it on every failed sign-in
+#: would double the cost of exactly the request an attacker floods.
+_DUMMY_HASH = PasswordHasher().hash(secrets.token_urlsafe(32))
 
 
 class PrincipalDao(TenantScopedDao[Principal]):
@@ -87,6 +102,78 @@ class PrincipalDao(TenantScopedDao[Principal]):
                 updated_at=now,
             )
         )
+
+    def set_password(self, principal: Principal, password: str, *, hasher: Any = None) -> None:
+        """Store a password, hashed. The plaintext is never persisted.
+
+        Beside the column that holds it, per the DAO convention: the algorithm
+        and the storage format are one decision, and separating them is how a
+        system ends up with a hasher that has moved on and a column that has
+        not.
+        """
+        if len(password) < MINIMUM_PASSWORD:
+            raise ValidationError(
+                f"a password must be at least {MINIMUM_PASSWORD} characters",
+                remedy=(
+                    "Length is the only property that reliably helps. Prama does not "
+                    "impose character-class rules: they demonstrably push people "
+                    "towards Password1! and away from anything longer."
+                ),
+                context={"principal": principal.username},
+            )
+        principal.password_hash = (hasher or PasswordHasher()).hash(password)
+        principal.updated_at = utc_now()
+
+    async def authenticate(
+        self, tenant_id: str, username: str, password: str, *, hasher: Any = None
+    ) -> Principal | None:
+        """The principal, if the credentials are right. ``None`` otherwise.
+
+        One answer for every kind of failure — unknown user, wrong password,
+        disabled account, an account with no password set at all. A caller that
+        could tell them apart could enumerate usernames, and "that account is
+        disabled" tells an attacker the account exists.
+
+        The work is done even when the username is unknown. Skipping the hash
+        for a missing user makes the *absence* measurable: an unknown username
+        would return in microseconds and a known one in a tenth of a second,
+        which is an enumeration oracle built out of timing rather than wording.
+        """
+        hasher = hasher or PasswordHasher()
+        principal = await self.by_username(tenant_id, username)
+        stored = principal.password_hash if principal is not None else ""
+
+        # Against a fixed hash when there is nothing real to check, so the two
+        # paths cost the same.
+        matched = hasher.verify(password, stored or _DUMMY_HASH)
+
+        if principal is None or not stored or not matched:
+            return None
+        if principal.status != "active":
+            return None
+
+        principal.last_login_at = utc_now()
+        if hasher.needs_rehash(stored):
+            # Raised cost applied on the one occasion the plaintext is legibly
+            # in hand. A rehash scheduled for "later" is one that never runs.
+            principal.password_hash = hasher.hash(password)
+        principal.updated_at = utc_now()
+        return principal
+
+    async def any_for(self, tenant_id: str) -> bool:
+        """Whether this tenant has a principal who could sign in.
+
+        Exists so a sign-in page can say "nobody has been created here yet"
+        rather than letting somebody try their password four more times before
+        suspecting the installation.
+        """
+        await self._session.flush()
+        found = await self._session.execute(
+            select(Principal.id)
+            .where(Principal.tenant_id == tenant_id, Principal.status == "active")
+            .limit(1)
+        )
+        return found.first() is not None
 
     async def roles_of(self, principal_id: str) -> list[Role]:
         """Roles granted to a principal.

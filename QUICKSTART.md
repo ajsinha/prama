@@ -112,6 +112,29 @@ disk:
 export PRAMA_SECURITY__SESSION_SECRET="$(python -c 'import secrets;print(secrets.token_urlsafe(48))')"
 ```
 
+### Signing in
+
+The console is readable without signing in when `tenancy.default_tenant` is
+set — that is how the case studies and a first evaluation run. To attribute
+approvals, suppressions and attestations to a person rather than to the
+deployment, create one:
+
+```bash
+prama principal roles                       # what each built-in role may do
+prama principal create alice --admin --name "Alice Chen"
+prama principal list
+```
+
+The password is prompted for, never passed as an argument: an argument lands in
+your shell history and in the process table, where every other user on the
+machine can read it. A provisioning script pipes it instead:
+
+```bash
+printf '%s' "$PASSWORD" | prama principal create svc-loader --role steward
+```
+
+Then sign in at `/sign-in`.
+
 ### Make the estate stick
 
 `--prepare` names its estate for that run only. To keep it, put the id the

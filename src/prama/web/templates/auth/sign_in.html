@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Sign in — Prama{% endblock %}
+{% block heading %}Sign in{% endblock %}
+
+{% block content %}
+<div style="max-width: 26rem">
+
+  {% if error %}
+  {# One message for every failure. "No such user" is a username oracle, and
+     "that account is disabled" confirms the account exists to exactly the
+     person who should not be told. #}
+  <div class="alert alert-danger" role="alert">{{ error }}</div>
+  {% endif %}
+
+  {% if no_principals %}
+  <div class="uncalibrated mb-3">
+    <strong>Nobody has been created on this installation yet.</strong>
+    This form cannot succeed until somebody exists to sign in as:
+    <pre class="rounded small mt-2 mb-0"><code>prama principal create alice --admin</code></pre>
+  </div>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('sign_in') }}" class="row g-3">
+    <input type="hidden" name="next" value="{{ next }}">
+
+    <div class="col-12">
+      <label class="form-label" for="username">Username</label>
+      <input class="form-control" id="username" name="username" required
+             autocomplete="username" autofocus value="{{ username }}">
+    </div>
+
+    <div class="col-12">
+      <label class="form-label" for="password">Password</label>
+      <input class="form-control" id="password" name="password" type="password"
+             required autocomplete="current-password">
+    </div>
+
+    <div class="col-12">
+      <button class="btn btn-primary" type="submit">Sign in</button>
+    </div>
+  </form>
+
+  {% if single_tenant %}
+  <div class="small text-muted mt-4">
+    <strong>This deployment names a default estate.</strong>
+    Pages are readable without signing in, which is how the case studies and a
+    first evaluation run. Signing in attributes what you do — an approval, a
+    suppression, an attestation — to a person rather than to the deployment.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
