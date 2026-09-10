@@ -149,6 +149,8 @@ prama control compile suite.pql --fuse   # the SQL that will run, grouped into s
 prama control import schema.yml --from dbt   # and what did not come across
 prama db init                            # apply schema/<dialect>.sql idempotently
 prama db verify                          # fail loudly if the live schema has drifted
+prama contract check c.json --data rows.json   # CI gate; exit 3 on breach, 1 on failure
+prama contract diff before.csv after.csv --key id   # what changed, not how many
 prama lsp catalogue --out cat.json       # export the estate's schemas for an editor
 prama lsp serve --catalogue cat.json     # PQL language server on stdio
 python scripts/check_file_length.py      # the 1500-line ceiling

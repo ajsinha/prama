@@ -13,6 +13,7 @@ import argparse
 
 from prama.cli.base import EXIT_DRIFT, EXIT_OK, Command, CommandContext, CommandGroup
 from prama.cli.connect import ConnectCommand, ConnectorsCommand
+from prama.cli.contract import ContractCommand
 from prama.cli.control import ControlCommand
 from prama.cli.estate import EstateCommand
 from prama.cli.lsp import LspCommand
@@ -243,6 +244,7 @@ def all_commands() -> list[Command]:
         ConfigCommand(),
         ConnectCommand(),
         ConnectorsCommand(),
+        ContractCommand(),
         ControlCommand(),
         DbCommand(),
         EstateCommand(),
