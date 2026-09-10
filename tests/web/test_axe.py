@@ -43,6 +43,10 @@ from prama.api import create_app
 from prama.core.config import Configuration, ConfigurationBuilder
 from prama.db import Database
 from prama.report.themes import BASES
+from prama.report.themes import THEMES as _THEMES
+
+#: Each theme's page ground, to wait for before measuring anything on it.
+BODY = {theme.name: theme.body for theme in _THEMES}
 
 AXE = Path(__file__).parent / "vendor" / "axe.min.js"
 
@@ -194,6 +198,22 @@ def _violations(browser, base: str, path: str, theme: str) -> list[dict]:
                 document.documentElement.setAttribute('data-bs-theme', base);
             }""",
             [theme, BASES[theme]],
+        )
+        # Wait for the theme to have actually taken effect, rather than assume
+        # setting the attribute repaints synchronously. Under load the page was
+        # occasionally measured before the new palette applied, which produced a
+        # contrast reading for a theme that was not on screen. Tied to the exact
+        # colour being waited for, so it cannot pass early.
+        page.wait_for_function(
+            """expected => {
+                const seen = getComputedStyle(document.body).backgroundColor;
+                const [r, g, b] = seen.match(/\\d+/g).map(Number);
+                const hex = '#' + [r, g, b]
+                    .map(v => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+                return hex === expected.toUpperCase();
+            }""",
+            arg=BODY[theme],
+            timeout=5000,
         )
         page.add_script_tag(path=str(AXE))
         result = page.evaluate(

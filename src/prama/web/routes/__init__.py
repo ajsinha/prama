@@ -10,6 +10,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 from prama.web.routes.attestation_routes import AttestationRoutes
+from prama.web.routes.auth_routes import AuthRoutes
 from prama.web.routes.base import UiRoutes
 from prama.web.routes.control_routes import ControlRoutes
 from prama.web.routes.declaration_routes import DeclarationRoutes
@@ -23,6 +24,7 @@ from prama.web.routes.report_routes import ReportRoutes
 from prama.web.routes.triage_routes import TriageRoutes
 
 ROUTE_CLASSES: tuple[type[UiRoutes], ...] = (
+    AuthRoutes,
     EstateRoutes,
     DeclarationRoutes,
     ControlRoutes,
@@ -39,6 +41,7 @@ ROUTE_CLASSES: tuple[type[UiRoutes], ...] = (
 __all__ = [
     "ROUTE_CLASSES",
     "AttestationRoutes",
+    "AuthRoutes",
     "ControlRoutes",
     "DeclarationRoutes",
     "EstateRoutes",

@@ -17,6 +17,7 @@ from prama.cli.control import ControlCommand
 from prama.cli.estate import EstateCommand
 from prama.cli.lsp import LspCommand
 from prama.cli.mcp import McpCommand
+from prama.cli.principal import PrincipalCommand
 from prama.cli.tenant import TenantCommand
 from prama.core.errors import PramaError
 from prama.db import Database
@@ -247,6 +248,7 @@ def all_commands() -> list[Command]:
         EstateCommand(),
         LspCommand(),
         McpCommand(),
+        PrincipalCommand(),
         ServeCommand(),
         TenantCommand(),
     ]
