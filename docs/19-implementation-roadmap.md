@@ -860,7 +860,7 @@ W10.9 ✅ COBOL/EBCDIC reader · W10.10 ◐ financial message parsers (SWIFT MT,
 and calendars · W10.12 ◐ regulatory control catalogue with citations (BCBS 239 P3-P5 and ISO 20022; the other regimes not started) · W10.13 ✅ reference reconciliation
 templates · W10.14 ✅ ODCS runtime and CI gates · W10.15 ✅ data diff · W10.16 catalog write-back ·
 W10.17 benchmarks published · W10.18 live-shadow harness · W10.19 SOC 2 readiness ·
-W10.20 **auditor RDARR validation** ([21 §3 Unlock 1](21-how-we-win.md)).
+W10.20 ◐ **auditor RDARR validation** (the pack generates; independent auditor script not run) ([21 §3 Unlock 1](21-how-we-win.md)).
 
 ### Acceptance criteria
 
