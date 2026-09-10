@@ -120,9 +120,33 @@ The worked example is in **[docs/07 §10](docs/07-rule-language-spec.md)**.
 
 ---
 
+## Run it
+
+```bash
+uv venv --python 3.13 && uv pip install -e ".[dev,serve]"
+python run_prama_web.py --init-secret --prepare
+```
+
+Then open **http://127.0.0.1:8080/estate**.
+
+That applies the schema, creates an estate, writes a session secret into the
+git-ignored local config, and starts the console and the API in one process. The
+full path — including what each refusal means and how to run the steps
+separately on a real deployment — is in **[QUICKSTART.md](QUICKSTART.md)**.
+
+An empty console is honest but not persuasive. To see Prama find real defects in
+a realistic banking estate:
+
+```bash
+cd case-studies/01-trading-book-sqlite && python run.py
+```
+
+---
+
 ## Documentation
 
-Start with **[docs/00 — Executive Summary](docs/00-executive-summary.md)**, then
+Start with **[QUICKSTART.md](QUICKSTART.md)** if you want to run it, or
+**[docs/00 — Executive Summary](docs/00-executive-summary.md)**, then
 **[docs/03 — The Business Semantic Layer](docs/03-business-semantic-layer.md)** (the conceptual heart).
 
 | # | Document | What it answers |

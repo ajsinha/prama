@@ -21,3 +21,6 @@ htmlcov/
 *.sqlite3
 data/
 logs/
+
+# JetBrains project files — local to one developer's machine.
+.idea/
