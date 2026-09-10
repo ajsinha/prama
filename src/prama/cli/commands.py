@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 
 from prama.cli.base import EXIT_DRIFT, EXIT_OK, Command, CommandContext, CommandGroup
+from prama.cli.bench import BenchCommand
 from prama.cli.bundle import BundleCommand
 from prama.cli.connect import ConnectCommand, ConnectorsCommand
 from prama.cli.contract import ContractCommand
@@ -254,6 +255,7 @@ def all_commands() -> list[Command]:
         LspCommand(),
         McpCommand(),
         PackCommand(),
+        BenchCommand(),
         PrincipalCommand(),
         ServeCommand(),
         TenantCommand(),

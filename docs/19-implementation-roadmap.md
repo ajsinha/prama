@@ -859,7 +859,7 @@ W10.6 ◐ Operator and CRDs (the CRD and the reconciliation decision, tested; th
 W10.9 ✅ COBOL/EBCDIC reader · W10.10 ✅ financial message parsers (SWIFT MT, pacs.008/camt.053, FIX 4.2-4.4, ISO 8583, FpML 5; `prama pack parse`) · W10.11 ✅ banking concepts, validators
 and calendars (17-concept ontology with three-state recognition, calendars as rules, cross-field checks) · W10.12 ✅ regulatory control catalogue with citations (20 obligations across 9 regimes — BCBS 239 P3-P5, ISO 20022, MiFIR, EMIR REFIT, AnaCredit, CRR large exposures, AML, SOX, GDPR; every citation marked unconfirmed until a compliance function checks it) · W10.13 ✅ reference reconciliation
 templates · W10.14 ✅ ODCS runtime and CI gates · W10.15 ✅ data diff · W10.16 ◐ catalog write-back (the SPI, badge semantics and a reference target; vendor adapters not written) ·
-W10.17 ◐ benchmarks published (scoring built to docs/15 §3.1; corpora and baselines not built) · W10.18 ✅ live-shadow harness (blinding, adjudication and burden metrics; the ninety-day runs are a customer engagement) · W10.19 ✅ SOC 2 readiness (the matrix, with its gaps; the audit itself is an engagement) ·
+W10.17 ✅ benchmarks (corpus of 28 defect classes across 6 families, bounds and three ablations, `prama bench`; external-tool baselines named as not run, and scale/real datasets still to come) · W10.18 ✅ live-shadow harness (blinding, adjudication and burden metrics; the ninety-day runs are a customer engagement) · W10.19 ✅ SOC 2 readiness (the matrix, with its gaps; the audit itself is an engagement) ·
 W10.20 ◐ **auditor RDARR validation** (the pack generates; independent auditor script not run) ([21 §3 Unlock 1](21-how-we-win.md)).
 
 ### Acceptance criteria
