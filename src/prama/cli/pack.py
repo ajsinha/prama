@@ -242,6 +242,14 @@ class PackSoc2Command(Command):
         ):
             found = result.of(group)
             if not found:
+                if group is Readiness.GAP:
+                    # Said rather than omitted. A section that silently vanishes
+                    # reads as "nothing needs work", and the partial ones below
+                    # still do.
+                    ctx.emit("Gaps in the product")
+                    ctx.emit("  none outright — see the partial criteria below, which")
+                    ctx.emit("  are not the same as covered")
+                    ctx.emit()
                 continue
             ctx.emit(heading)
             for criterion in found:

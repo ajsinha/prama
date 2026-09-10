@@ -33,12 +33,14 @@ class TestItDoesNotOverstate:
                 assert criterion.note, criterion.identity
                 assert len(criterion.note) > 40, criterion.identity
 
-    def test_a_gap_is_recorded_as_a_gap(self) -> None:
-        """CC6.8 — no SBOM, no signed image. A matrix that quietly omitted it
-        would be the overstatement this module exists to avoid."""
-        gap = next(c for c in CRITERIA if c.identity == "CC6.8")
-        assert gap.readiness is Readiness.GAP
-        assert "not signed" in gap.note
+    def test_a_half_closed_criterion_says_which_half(self) -> None:
+        """CC6.8 — the bundle is sealed and enumerated, and the *image* is
+        still unsigned, so provenance stops at the bundle boundary. Moving it
+        to evidenceable would be the overstatement this module avoids."""
+        criterion = next(c for c in CRITERIA if c.identity == "CC6.8")
+        assert criterion.readiness is Readiness.PARTIAL
+        assert "still unsigned" in criterion.note
+        assert "prama bundle seal" in criterion.mechanism
 
     def test_every_criterion_says_what_an_auditor_would_ask_for(self) -> None:
         """Including the gaps. A gap without this is a red cell rather than a
@@ -67,6 +69,7 @@ class TestTheGapsComeFirst:
     def test_the_gaps_are_named_in_the_summary(self) -> None:
         described = readout().describe()
         assert "CC6.8" in described
+        assert "need work in the product" in described
 
     def test_organisational_criteria_are_not_counted_as_gaps(self) -> None:
         """They are not gaps, they are somebody else's control — and mixing

@@ -223,13 +223,19 @@ CRITERIA: tuple[Criterion, ...] = (
         identity="CC6.8",
         category="Logical access",
         statement="Unauthorised or malicious software is prevented or detected.",
-        readiness=Readiness.GAP,
-        mechanism="",
+        readiness=Readiness.PARTIAL,
+        mechanism=(
+            "`prama bundle seal` produces a manifest of per-file hashes with an SBOM "
+            "of resolved versions, sealed with an HMAC; `prama bundle verify` refuses "
+            "an altered or unsigned bundle and distinguishes a modified file from a "
+            "missing one"
+        ),
         evidence_request="An SBOM, a signed image, and a dependency scan on each release",
         note=(
-            "A real gap in the product rather than an organisational one. The image "
-            "is not signed and no SBOM is produced, and W10.8's signed offline "
-            "bundle is where both would land."
+            "Half closed. The bundle is sealed and its contents are enumerated, and "
+            "the *container image* is still unsigned — so provenance stops at the "
+            "bundle boundary. Moving this to evidenceable needs image signing, and "
+            "claiming it now would be the overstatement an auditor is looking for."
         ),
     ),
 )
