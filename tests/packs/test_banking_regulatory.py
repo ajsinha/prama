@@ -18,6 +18,7 @@ import pytest
 
 from prama.core.errors import ValidationError
 from prama.packs.banking.obligations import (
+    ALL_OBLIGATIONS,
     BCBS_239,
     DISCHARGEABLE_PRINCIPLES,
     ISO_20022,
@@ -214,10 +215,49 @@ class TestTemplatesAreNotControls:
                 "measure": "notional",
                 "counterpart_measure": "gl_notional",
             },
+            # -- the reporting regimes ---------------------------------------
+            "mifir-isin-valid": {"dataset": "tx", "isin": "instrument_isin"},
+            "mifir-lei-valid": {"dataset": "tx", "lei": "buyer_lei"},
+            "mifir-venue-valid": {"dataset": "tx", "venue": "venue_mic"},
+            "mifir-t1-every-trade-reported": {
+                "trade_store": "trades",
+                "trade_id": "trade_id",
+                "dataset": "tx_report",
+                "report_trade_id": "trade_id",
+            },
+            "mifir-t1-report-arrives": {"dataset": "tx_report", "window": "1 day"},
+            "emir-uti-valid": {"dataset": "derivatives", "uti": "uti"},
+            "emir-uti-unique": {"dataset": "derivatives", "uti": "uti"},
+            "emir-notional-sign": {
+                "dataset": "derivatives",
+                "notional": "notional",
+                "side": "side",
+            },
+            "anacredit-counterparty-lei": {"dataset": "counterparties", "lei": "lei"},
+            "anacredit-counterparty-complete": {
+                "dataset": "instruments",
+                "counterparty_id": "cpty_id",
+            },
+            "anacredit-link-resolves": {
+                "dataset": "instruments",
+                "counterparty_id": "cpty_id",
+                "counterparty_dataset": "counterparties",
+                "counterparty_key": "id",
+            },
+            "crr-netting-set-present": {"dataset": "exposures", "netting_set": "netting_set_id"},
+            "aml-screening-inputs": {"dataset": "parties", "party_name": "name"},
+            "aml-feed-continuity": {"dataset": "monitoring_feed", "window": "1 day"},
+            "sox-posting-complete": {"dataset": "subledger", "gl_account": "gl_account"},
+            "gdpr-contact-well-formed": {"dataset": "customers", "email": "email"},
+            "gdpr-retention-floor": {
+                "dataset": "customers",
+                "created_date": "created_date",
+                "retention_days": "2555",
+            },
         }
         unbound = [
             template.identity
-            for obligation in OBLIGATIONS
+            for obligation in ALL_OBLIGATIONS
             for template in obligation.templates
             if template.identity not in bindings
         ]
@@ -225,7 +265,7 @@ class TestTemplatesAreNotControls:
             f"no binding here for {unbound}, so they would go unchecked. Add one "
             "rather than letting the exemption grow."
         )
-        for obligation in OBLIGATIONS:
+        for obligation in ALL_OBLIGATIONS:
             for template in obligation.templates:
                 text = template.bind(bindings[template.identity])
                 try:
@@ -263,9 +303,12 @@ class TestTheAuditorsQuestion:
         assert all(o.principle == "P4" for o in p4)
 
     def test_coverage_is_reportable_per_regime(self, book) -> None:
-        assert set(book.regimes()) == {BCBS_239, ISO_20022}
-        payments = book.coverage(ISO_20022, controls_by_template={})
-        assert len(payments.standings) == len(book.of_regime(ISO_20022))
+        from prama.packs.banking.regimes import REGIME_SCOPE
+
+        assert set(book.regimes()) == {BCBS_239, ISO_20022, *REGIME_SCOPE}
+        for regime in book.regimes():
+            coverage = book.coverage(regime, controls_by_template={})
+            assert len(coverage.standings) == len(book.of_regime(regime))
 
     def test_a_standing_names_the_controls_behind_it(self, book) -> None:
         """An examiner asked which controls address an obligation needs their

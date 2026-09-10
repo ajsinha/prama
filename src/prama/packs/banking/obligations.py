@@ -21,6 +21,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+from prama.packs.banking.regimes import REGIME_OBLIGATIONS
 from prama.packs.banking.regulatory import Catalogue, Citation, Obligation, Template
 
 BCBS_239 = "BCBS 239"
@@ -276,15 +277,28 @@ SUPPORTED_NOT_DISCHARGED = {
 }
 
 
+#: The anchor plus the reporting regimes. One catalogue, because a coverage
+#: report that answered only for BCBS 239 would leave a reader to assume the
+#: rest of the estate's obligations are elsewhere and equally covered.
+ALL_OBLIGATIONS: tuple[Obligation, ...] = OBLIGATIONS + REGIME_OBLIGATIONS
+
+
 def catalogue() -> Catalogue:
+    return Catalogue(ALL_OBLIGATIONS)
+
+
+def anchor_catalogue() -> Catalogue:
+    """BCBS 239 and the payment-message regimes alone."""
     return Catalogue(OBLIGATIONS)
 
 
 __all__ = [
+    "ALL_OBLIGATIONS",
     "BCBS_239",
     "DISCHARGEABLE_PRINCIPLES",
     "ISO_20022",
     "OBLIGATIONS",
     "SUPPORTED_NOT_DISCHARGED",
+    "anchor_catalogue",
     "catalogue",
 ]

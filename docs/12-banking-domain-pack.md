@@ -222,6 +222,48 @@ for the period, exceptions with justifications, and sign-off — generated, not 
 | **SOX / ICFR** | US | Financial-reporting control evidence, sub-ledger↔GL reconciliation, sign-off |
 | **GDPR / CCPA / DPDP** | Privacy | PII discovery, classification, masking, residency enforcement, erasure with audit integrity |
 
+### 5.4 What ships today, and what its citations rest on
+
+Twenty obligations across nine regimes: BCBS 239 P3–P5, ISO 20022 payments,
+MiFIR transaction reporting, EMIR REFIT, AnaCredit, large exposures (CRR),
+AML customer due diligence, SOX ICFR, and GDPR. `prama pack claims` prints
+them; `--json` gives the machine-readable form.
+
+Three properties of the catalogue matter more than its size.
+
+**Every citation records whether anybody has checked it.** They are cited at
+article or section level — the level at which a reference is stable — and none
+is marked `confirmed`, because nobody has verified them against the published
+texts. `prama pack claims` prints the count (currently *0 of 20*) rather than
+leaving a reader to assume. An examiner's next question after any finding is
+where it comes from, and a wrong article number costs more credibility than an
+absent one; a bank's compliance function confirms them, and the flag exists so
+that work is visible.
+
+**Every template parses.** `tests/packs/test_banking_regulatory.py` binds each
+one and runs it through the PQL parser, with no exemption list. Writing this
+module found four templates using syntax the language does not have —
+`RECONCILES_WITH`, `TOGETHER_COMPLETE` and `ARRIVES BY` as *control* syntax.
+They are relationship kinds, not predicates on a row.
+
+**Set-level obligations are declared, not faked.** Whether a set of feeds covers
+the book, or whether a sub-ledger agrees with the GL, is a statement about two
+populations. Those ship as `RelationshipRequirement`s naming a real
+`RelationshipKind`, from which the generator derives controls (`docs/03 §2.4`).
+An obligation that ships neither a template, nor a relationship, nor a written
+statement of what is missing is refused at import — such an entry looks covered.
+
+`REGIME_SCOPE` records, per regime, what the entries deliberately leave alone:
+MiFIR without the RTS 22 field set or over-reporting detection; EMIR without
+dual-sided pairing; AnaCredit without the ECB's full validation set; large
+exposures without the limit calculation; AML without judging whether an alert
+should have been raised (`CON-007`); GDPR without lawfulness or consent.
+
+The regimes in §5.2 not listed above are absent because no control discharges
+them yet, not because they were overlooked.
+
+---
+
 ### 5.3 Control catalogue structure
 
 Each catalogue entry: obligation ID and citation → control objective in business language →

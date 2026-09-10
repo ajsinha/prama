@@ -41,11 +41,11 @@ class PackListCommand(Command):
             "ISO 8583 (bitmap-driven, PAN masked)",
             "FpML 5 (both legs, direction kept)",
         ]
-        regimes = sorted({o.regime for o in obligations.OBLIGATIONS})
+        regimes = sorted({o.regime for o in obligations.ALL_OBLIGATIONS})
         payload: dict[str, Any] = {
             "calendars": [spec.name for spec in calendars.SPECS],
             "cross_field_functions": [fn.name for fn in BANKING_FUNCTIONS],
-            "obligations": len(obligations.OBLIGATIONS),
+            "obligations": len(obligations.ALL_OBLIGATIONS),
             "regimes": regimes,
             "reconciliations": list(reconciliations.identities()),
             "message_formats": formats,
@@ -66,9 +66,9 @@ class PackListCommand(Command):
         for entry in formats:
             ctx.emit(f"  {entry}")
         ctx.emit()
-        ctx.emit(
-            f"Obligations: {len(obligations.OBLIGATIONS)} across {', '.join(payload['regimes'])}"
-        )
+        ctx.emit(f"Obligations: {len(obligations.ALL_OBLIGATIONS)} across {len(regimes)} regimes")
+        for regime in regimes:
+            ctx.emit(f"  {regime}")
         ctx.emit(f"Reconciliation templates: {len(reconciliations.TEMPLATES)}")
         ctx.emit()
         ctx.emit("`prama pack claims` says what this pack does NOT discharge.")
@@ -89,31 +89,64 @@ class PackClaimsCommand(Command):
         rest. Naming the boundary is what makes the covered part believable.
         """
         from prama.packs.banking.obligations import (
+            ALL_OBLIGATIONS,
             DISCHARGEABLE_PRINCIPLES,
-            OBLIGATIONS,
             SUPPORTED_NOT_DISCHARGED,
         )
+        from prama.packs.banking.regimes import REGIME_SCOPE
+
+        partial = [o for o in ALL_OBLIGATIONS if not o.is_fully_discharged]
+        unconfirmed = [o for o in ALL_OBLIGATIONS if not o.citation.confirmed]
 
         if ctx.json_output:
             ctx.emit_json(
                 {
                     "discharged": list(DISCHARGEABLE_PRINCIPLES),
                     "supported_not_discharged": SUPPORTED_NOT_DISCHARGED,
-                    "obligations": [o.to_dict() for o in OBLIGATIONS],
+                    "regime_scope": REGIME_SCOPE,
+                    "partly_discharged": [o.identity for o in partial],
+                    "unconfirmed_citations": [o.identity for o in unconfirmed],
+                    "obligations": [o.to_dict() for o in ALL_OBLIGATIONS],
                 }
             )
             return EXIT_OK
 
         ctx.emit("Discharged by controls — testable properties of data:")
         for principle in DISCHARGEABLE_PRINCIPLES:
-            covered = [o for o in OBLIGATIONS if o.principle == principle]
+            covered = [o for o in ALL_OBLIGATIONS if o.principle == principle]
             ctx.emit(f"  {principle}  {len(covered)} obligation(s)")
             for obligation in covered:
-                ctx.emit(f"        {obligation.identity}  ({obligation.citation.render()})")
+                ctx.emit(f"        {obligation.identity}")
+                for line in _wrap(obligation.citation.render_with_standing(), 60):
+                    ctx.emit(f"            {line}")
         ctx.emit()
         ctx.emit("Supported but NOT discharged by a control:")
         for principle, how in sorted(SUPPORTED_NOT_DISCHARGED.items()):
             ctx.emit(f"  {principle}  {how}")
+        ctx.emit()
+        ctx.emit("Each reporting regime, and what it leaves alone:")
+        for regime, scope in sorted(REGIME_SCOPE.items()):
+            ctx.emit(f"  {regime}")
+            for line in _wrap(scope, 68):
+                ctx.emit(f"      {line}")
+        ctx.emit()
+        if partial:
+            # Printed even when the list is short. An obligation catalogued but
+            # only partly discharged reads as handled, and the reader who
+            # assumes that finds out in the examination room.
+            ctx.emit("Catalogued but only partly discharged:")
+            for obligation in partial:
+                ctx.emit(f"  {obligation.identity}")
+                for line in _wrap(obligation.not_discharged, 68):
+                    ctx.emit(f"      {line}")
+            ctx.emit()
+        ctx.emit(
+            f"Citations checked against the published text: "
+            f"{len(ALL_OBLIGATIONS) - len(unconfirmed)} of {len(ALL_OBLIGATIONS)}."
+        )
+        if unconfirmed:
+            ctx.emit("The rest are cited at article or section level and are unverified.")
+            ctx.emit("Your compliance function confirms them; `--json` lists which.")
         ctx.emit()
         ctx.emit("Shipping templates for the second group that checked nothing would")
         ctx.emit("be a claim this product cannot defend at an examination.")
@@ -318,6 +351,17 @@ class PackParseCommand(Command):
             for defect in defects:
                 ctx.emit(f"  {defect}")
         return EXIT_OK
+
+
+def _wrap(text: str, width: int) -> list[str]:
+    """Wrap a caveat to the terminal.
+
+    Caveats are sentences, and a sentence printed as one long line is a
+    sentence a reader skips — which for this command defeats the point of it.
+    """
+    import textwrap
+
+    return textwrap.wrap(text, width=width) or [""]
 
 
 def _infer(raw: str) -> str | None:

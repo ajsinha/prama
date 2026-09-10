@@ -39,7 +39,7 @@ class TestList:
         payload = pjson.loads(text)
         assert code == EXIT_OK
         assert len(payload["calendars"]) == 4
-        assert payload["obligations"] == 9
+        assert payload["obligations"] == 20
         assert len(payload["reconciliations"]) == 9
 
 
@@ -407,3 +407,49 @@ class TestRecognise:
         assert code == EXIT_OK
         assert payload["candidates"][0]["concept"] == "Balance"
         assert payload["candidates"][0]["standing"] == "recognised"
+
+
+class TestClaimsCarriesTheRegimes:
+    def test_every_regime_says_what_it_leaves_alone(self) -> None:
+        """A regime named in a catalogue reads as a regime handled."""
+        code, text = run(["pack", "claims"])
+        assert code == EXIT_OK
+        flat = " ".join(text.split())
+        assert "MiFIR transaction reporting" in flat
+        assert "Not the RTS 22 field-level rule set" in flat
+
+    def test_it_counts_the_citations_nobody_has_checked(self) -> None:
+        """These are article numbers an examiner will look up. Shipping them
+        without saying whether anybody verified them is the claim this pack
+        exists to avoid making."""
+        _, text = run(["pack", "claims"])
+        assert "Citations checked against the published text: 0 of 20." in text
+        assert "unverified" in text
+
+    def test_a_partly_discharged_obligation_is_named(self) -> None:
+        """Catalogued and partly discharged reads as handled."""
+        flat = " ".join(run(["pack", "claims"])[1].split())
+        assert "Catalogued but only partly discharged" in flat
+        assert "MIFIR-ART26-T1-COMPLETE" in flat
+
+    def test_caveats_are_wrapped_rather_than_run_off_the_terminal(self) -> None:
+        """A sentence printed as one long line is a sentence a reader skips,
+        which for this command defeats the point of it."""
+        _, text = run(["pack", "claims"])
+        assert max(len(line) for line in text.splitlines()) < 100
+
+    def test_json_lists_which_citations_are_unconfirmed(self) -> None:
+        code, text = run(["--json", "pack", "claims"])
+        payload = pjson.loads(text)
+        assert code == EXIT_OK
+        assert len(payload["unconfirmed_citations"]) == 20
+        assert payload["partly_discharged"] == ["MIFIR-ART26-T1-COMPLETE"]
+        assert payload["regime_scope"]["GDPR"]
+
+    def test_json_obligations_carry_their_relationships(self) -> None:
+        """An obligation discharged by a declaration rather than a control must
+        not read as an obligation with nothing behind it."""
+        payload = pjson.loads(run(["--json", "pack", "claims"])[1])
+        sox = next(o for o in payload["obligations"] if o["identity"] == "SOX-404-SUBLEDGER-GL")
+        assert sox["relationships"]
+        assert "reconciles_with" in sox["relationships"][0]
