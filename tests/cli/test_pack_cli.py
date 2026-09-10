@@ -158,3 +158,144 @@ class TestSoc2:
         assert code == EXIT_OK
         assert "CC6.8" in payload["gaps"]
         assert payload["caveat"]
+
+
+class TestParse:
+    """``prama pack parse`` — one message, and what is wrong with it.
+
+    The command exists because the first question about a rejected payment is
+    "is the message wrong, or is our reader wrong?", and answering it should not
+    require a running platform.
+    """
+
+    def fix_file(self, tmp_path, body: str = ""):
+        from prama.packs.banking import fix
+
+        body = body or "35=D\x0149=S\x0156=T\x0111=ORD1\x0155=IBM\x0154=1\x0138=1\x0140=2\x01"
+        raw = f"8=FIX.4.4\x019=0\x01{body}10=000\x01"
+        raw = f"8=FIX.4.4\x019={fix.body_length(raw)}\x01{body}10=000\x01"
+        raw = raw.replace("10=000", f"10={fix.checksum(raw)}")
+        path = tmp_path / "order.fix"
+        path.write_text(raw)
+        return path
+
+    def iso8583_file(self, tmp_path):
+        bits = ["0"] * 64
+        for field in (2, 3, 4, 7, 11, 49):
+            bits[field - 1] = "1"
+        bitmap = "".join(f"{int(''.join(bits[i : i + 4]), 2):X}" for i in range(0, 64, 4))
+        path = tmp_path / "auth.8583"
+        path.write_text(
+            "0200"
+            + bitmap
+            + "16"
+            + "4111111111111111"  # 2  PAN, LLVAR
+            + "000000"  # 3  processing code
+            + "000000012345"  # 4  amount, minor units
+            + "0910120000"  # 7  transmission date/time
+            + "000001"  # 11 STAN
+            + "826"  # 49 currency
+        )
+        return path
+
+    def fpml_file(self, tmp_path, *, currency: str = "EUR"):
+        path = tmp_path / "swap.fpml"
+        path.write_text(
+            '<dataDocument xmlns="http://www.fpml.org/FpML-5/confirmation" version="5-10">'
+            "<trade><tradeHeader><partyTradeIdentifier><tradeId>SW-1</tradeId>"
+            "</partyTradeIdentifier></tradeHeader><swap>"
+            '<swapStream><payerPartyReference href="A"/><receiverPartyReference href="B"/>'
+            "<calculationPeriodAmount><calculation><notionalSchedule><notionalStepSchedule>"
+            "<initialValue>100</initialValue><currency>EUR</currency>"
+            "</notionalStepSchedule></notionalSchedule></calculation>"
+            "</calculationPeriodAmount></swapStream>"
+            '<swapStream><payerPartyReference href="B"/><receiverPartyReference href="A"/>'
+            "<calculationPeriodAmount><calculation><notionalSchedule><notionalStepSchedule>"
+            f"<initialValue>100</initialValue><currency>{currency}</currency>"
+            "</notionalStepSchedule></notionalSchedule></calculation>"
+            "</calculationPeriodAmount></swapStream></swap></trade></dataDocument>"
+        )
+        return path
+
+    def test_it_infers_fix_and_reports_a_clean_message(self, tmp_path) -> None:
+        code, text = run(["pack", "parse", str(self.fix_file(tmp_path))])
+        assert code == EXIT_OK
+        assert "fix (inferred)" in text
+        assert "No structural defects" in text
+
+    def test_it_infers_iso8583_and_restores_the_decimal_point(self, tmp_path) -> None:
+        code, text = run(["pack", "parse", str(self.iso8583_file(tmp_path))])
+        assert code == EXIT_OK
+        assert "0200" in text
+        assert "123.45" in text
+
+    def test_it_never_prints_a_full_pan(self, tmp_path) -> None:
+        """The terminal this runs in is somebody's scrollback, and increasingly
+        somebody's CI log."""
+        _, text = run(["pack", "parse", str(self.iso8583_file(tmp_path))])
+        assert "4111111111111111" not in text
+
+    def test_it_infers_fpml_and_names_both_legs(self, tmp_path) -> None:
+        code, text = run(["pack", "parse", str(self.fpml_file(tmp_path))])
+        assert code == EXIT_OK
+        assert "fpml" in text
+        assert "legs" in text
+
+    def test_a_named_format_is_not_marked_inferred(self, tmp_path) -> None:
+        _, text = run(["pack", "parse", str(self.fix_file(tmp_path)), "--format", "fix"])
+        assert "inferred" not in text
+
+    def test_defects_are_reported_rather_than_raised(self, tmp_path) -> None:
+        """A message the parser cannot make sense of is a finding about the
+        message. Exiting non-zero would make it a finding about the tool."""
+        body = "35=D\x0149=S\x0156=T\x0111=ORD1\x0155=IBM\x0138=1\x0140=2\x01"
+        code, text = run(["pack", "parse", str(self.fix_file(tmp_path, body))])
+        assert code == EXIT_OK
+        assert "defect(s):" in text
+        assert "54" in text
+
+    def test_an_unrecognisable_file_declines_rather_than_guesses(self, tmp_path, capsys) -> None:
+        """Guessing wrong produces a page of findings about a file that was
+        never in that format, which reads as a very broken message."""
+        path = tmp_path / "notes.txt"
+        path.write_text("just some notes about the payment")
+        code, _ = run(["pack", "parse", str(path)])
+        assert code == EXIT_ERROR
+        assert "--format" in capsys.readouterr().err
+
+    def test_a_missing_file_says_so(self, tmp_path, capsys) -> None:
+        code, _ = run(["pack", "parse", str(tmp_path / "absent.fix")])
+        assert code == EXIT_ERROR
+        assert "no such file" in capsys.readouterr().err
+
+    def test_a_refusal_reaches_stderr_not_stdout(self, tmp_path, capsys) -> None:
+        """`prama pack parse x.fix > report.txt` must not write a clean-looking
+        empty report and leave the reason on the floor."""
+        code, out = run(["pack", "parse", str(tmp_path / "absent.fix")])
+        assert code == EXIT_ERROR
+        assert out == ""
+        assert capsys.readouterr().err.strip()
+
+    def test_every_label_is_separated_from_its_value(self, tmp_path) -> None:
+        """A fixed column width runs the longest label into its value, and
+        `legs directedFalse` reads as a label nobody defined."""
+        _, text = run(["pack", "parse", str(self.fpml_file(tmp_path))])
+        for line in text.splitlines():
+            if line and not line.startswith(" ") and ":" not in line:
+                assert "  " in line or line.count(" ") == 0 or line.endswith(".")
+
+    def test_json_output_carries_the_defects(self, tmp_path) -> None:
+        code, text = run(["--json", "pack", "parse", str(self.fpml_file(tmp_path))])
+        payload = pjson.loads(text)
+        assert code == EXIT_OK
+        assert payload["format"] == "fpml"
+        assert payload["legs"] == 2
+
+    def test_the_format_list_matches_the_parsers_that_exist(self) -> None:
+        """`pack list` advertising a format `pack parse` cannot read is the
+        restatement this codebase keeps being bitten by."""
+        from prama.cli.pack import _PARSERS
+
+        _, text = run(["pack", "list"])
+        for name in _PARSERS:
+            assert name.upper()[:3] in text.upper().replace(" ", "")

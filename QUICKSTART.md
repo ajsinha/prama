@@ -253,6 +253,7 @@ prama pack list          # calendars, cross-field checks, message formats, oblig
 prama pack claims        # and what it deliberately does NOT claim to discharge
 prama pack calendar TARGET2 --year 2030      # closures, computed from rules
 prama pack reconciliation cashbook-to-statement   # keys, tolerance, expected breaks
+prama pack parse order.fix   # one FIX/ISO 8583/FpML message, and its defects
 ```
 
 `claims` is the one worth reading first. It separates the BCBS 239 principles

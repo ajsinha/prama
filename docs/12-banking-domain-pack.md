@@ -121,6 +121,28 @@ FpML 5.x; FINOS/ISDA **CDM** with its prescribed validation logic and Rosetta sy
 XBRL/iXBRL (FINREP, COREP, ESEF) with calculation and dimensional consistency; SDMX; ISO 8583;
 NACHA/ACH, SEPA, BACS, CHAPS, Fedwire, CHIPS; BAI2/MT940/camt.053.
 
+### 4.1 What ships today
+
+The list above is the design target. What is implemented in
+`src/prama/packs/banking/` at this version is narrower, and a reader who takes
+the target for the state of the code will size a migration wrongly:
+
+| Format | Module | What it reads | What it deliberately does not do |
+|---|---|---|---|
+| SWIFT MT | `swift.py` | MT103, MT940 block/tag structure, balances, entries | Network-validated rules; the other categories |
+| ISO 20022 | `iso20022.py` | pacs.008, camt.053, matched on local name | CBPR+/HVPS+ usage guidelines; XSD validation |
+| COBOL | `cobol.py` | Copybooks, COMP-3, EBCDIC codepages, `REDEFINES` | `OCCURS DEPENDING ON` |
+| FIX | `fix.py` | 4.2–4.4 tag=value, repeating groups, body length and checksum | FIXML; Orchestra; session-layer sequencing |
+| ISO 8583 | `iso8583.py` | MTI, primary and secondary bitmaps, LLVAR/LLLVAR, PAN masked by default | Network dialects (Visa/Mastercard field meanings differ) |
+| FpML | `fpml.py` | 5.x swap streams: payer, receiver, notional, currency, rate or index | Product-specific validation rules; CDM |
+
+Every parser returns *defects* rather than raising, because one bad message in
+a file of four thousand must not stop the rest being checked — that turns a
+data defect into an outage, and the outage is what gets the control disabled.
+`prama pack parse <file>` runs any of them from a terminal without a database.
+
+Not started: FIXML, CDM, XBRL, SDMX, NACHA/SEPA/BACS/CHAPS/Fedwire/CHIPS, BAI2.
+
 **Note on the ISO 20022 transition.** Swift completed migration of cross-border interbank payment
 instructions to ISO 20022 in November 2025. Banks now run MT and MX in parallel across their
 estates, with translation layers between them — a high-yield source of quality defects, and a

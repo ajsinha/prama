@@ -37,6 +37,9 @@ class PackListCommand(Command):
             "SWIFT MT (MT940, MT103)",
             "ISO 20022 (pacs.008, camt.053)",
             "COBOL copybook over EBCDIC",
+            "FIX 4.2-4.4 (tag=value, repeating groups kept)",
+            "ISO 8583 (bitmap-driven, PAN masked)",
+            "FpML 5 (both legs, direction kept)",
         ]
         regimes = sorted({o.regime for o in obligations.OBLIGATIONS})
         payload: dict[str, Any] = {
@@ -45,11 +48,7 @@ class PackListCommand(Command):
             "obligations": len(obligations.OBLIGATIONS),
             "regimes": regimes,
             "reconciliations": list(reconciliations.identities()),
-            "message_formats": [
-                "SWIFT MT (MT940, MT103)",
-                "ISO 20022 (pacs.008, camt.053)",
-                "COBOL copybook over EBCDIC",
-            ],
+            "message_formats": formats,
         }
         if ctx.json_output:
             ctx.emit_json(payload)
@@ -264,6 +263,125 @@ class PackSoc2Command(Command):
         return EXIT_OK
 
 
+class PackParseCommand(Command):
+    name = "parse"
+    help = "parse one financial message and report what is wrong with it"
+
+    def configure(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("path", help="file holding a single message")
+        parser.add_argument(
+            "--format",
+            choices=sorted(_PARSERS),
+            help="format; inferred from the content when omitted",
+        )
+
+    def run(self, ctx: CommandContext) -> int:
+        from pathlib import Path
+
+        source = Path(ctx.args.path)
+        if not source.is_file():
+            raise ValidationError(
+                f"no such file: {source}",
+                remedy="Pass the path to a file holding one message.",
+            )
+        raw = source.read_text(encoding="utf-8", errors="replace")
+
+        chosen = ctx.args.format or _infer(raw)
+        if chosen is None:
+            raise ValidationError(
+                "could not tell which format this is",
+                remedy=(f"Pass --format explicitly; one of {', '.join(sorted(_PARSERS))}."),
+            )
+
+        summary = _PARSERS[chosen](raw)
+        if ctx.json_output:
+            ctx.emit_json({"format": chosen, **summary})
+            return EXIT_OK
+
+        # Width from the labels themselves: a fixed one silently runs the
+        # longest label into its value, which reads as a different label.
+        labels = ["Format", *(k for k in summary if k != "defects")]
+        width = max(len(label) for label in labels) + 2
+        ctx.emit(f"{'Format':{width}}{chosen}{'' if ctx.args.format else ' (inferred)'}")
+        for label, value in summary.items():
+            if label == "defects":
+                continue
+            ctx.emit(f"{label:{width}}{value}")
+        defects = summary["defects"]
+        ctx.emit()
+        if not defects:
+            # Deliberately not "valid": these parsers check structure and
+            # self-consistency, not whether the trade should have been booked.
+            ctx.emit("No structural defects found.")
+        else:
+            ctx.emit(f"{len(defects)} defect(s):")
+            for defect in defects:
+                ctx.emit(f"  {defect}")
+        return EXIT_OK
+
+
+def _infer(raw: str) -> str | None:
+    """Which format this is, or nothing.
+
+    Guessing wrong is worse than declining: every one of these parsers reports
+    defects, so a misidentified message comes back as a page of findings about
+    a file that was never in that format.
+    """
+    stripped = raw.lstrip()
+    if stripped.startswith("<") and "fpml" in raw[:400].lower():
+        return "fpml"
+    if stripped.startswith("8=FIX"):
+        return "fix"
+    if stripped[:4].isdigit() and len(stripped) > 20:
+        return "iso8583"
+    return None
+
+
+def _fix_summary(raw: str) -> dict[str, Any]:
+    from prama.packs.banking import fix
+
+    message = fix.parse(raw)
+    return {
+        "type": message.msg_type,
+        "fields": len(message.tags),
+        "groups": len(message.groups),
+        "delimiter": "display" if message.arrived_display_delimited else "SOH",
+        "defects": [d.render() for d in message.defects],
+    }
+
+
+def _iso8583_summary(raw: str) -> dict[str, Any]:
+    from prama.packs.banking import iso8583
+
+    message = iso8583.parse(raw.strip())
+    return {
+        "mti": message.mti,
+        "fields": len(message.present),
+        "amount": str(message.amount()) if message.amount() is not None else "-",
+        "defects": [d.problem for d in message.defects],
+    }
+
+
+def _fpml_summary(raw: str) -> dict[str, Any]:
+    from prama.packs.banking import fpml
+
+    trade = fpml.parse(raw)
+    return {
+        "trade": trade.trade_id or "-",
+        "version": trade.version or "-",
+        "legs": len(trade.legs),
+        "legs directed": trade.is_two_sided,
+        "defects": list(trade.defects),
+    }
+
+
+_PARSERS = {
+    "fix": _fix_summary,
+    "iso8583": _iso8583_summary,
+    "fpml": _fpml_summary,
+}
+
+
 class PackCommand(CommandGroup):
     name = "pack"
     help = "what a domain pack ships, and what it does not claim"
@@ -275,6 +393,7 @@ class PackCommand(CommandGroup):
             PackCalendarCommand(),
             PackReconciliationCommand(),
             PackSoc2Command(),
+            PackParseCommand(),
         ]
 
 
