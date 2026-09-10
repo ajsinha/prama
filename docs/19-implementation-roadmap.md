@@ -857,7 +857,7 @@ W10.1 streaming backend and in-flight enforcement · W10.2 ✅ tenant isolation 
 W10.3 ◐ SSO/SCIM, vault, CMK (local sign-in and RBAC done; SSO not started) · W10.4 residency enforcement and SIEM export · W10.5 Helm chart ·
 W10.6 Operator and CRDs · W10.7 all-in-one image · W10.8 **offline bundle and air-gapped update** ·
 W10.9 ✅ COBOL/EBCDIC reader · W10.10 ◐ financial message parsers (SWIFT MT, pacs.008 and camt.053; FIX, FpML, ISO 8583 not started) · W10.11 ◐ banking concepts, validators
-and calendars · W10.12 regulatory control catalogue with citations · W10.13 reference reconciliation
+and calendars · W10.12 ◐ regulatory control catalogue with citations (BCBS 239 P3-P5 and ISO 20022; the other regimes not started) · W10.13 reference reconciliation
 templates · W10.14 ODCS runtime and CI gates · W10.15 data diff · W10.16 catalog write-back ·
 W10.17 benchmarks published · W10.18 live-shadow harness · W10.19 SOC 2 readiness ·
 W10.20 **auditor RDARR validation** ([21 §3 Unlock 1](21-how-we-win.md)).
