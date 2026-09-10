@@ -797,14 +797,14 @@ exists to make impossible. There is no function catalogue at all.
 
 ### Tasks
 
-W11.1 function catalogue and registry · W11.2 type-check function calls, refusing unknown names ·
-W11.3 lowering refuses what the catalogue does not hold · W11.4 per-dialect rendering from the
-catalogue · W11.5 reference implementation for **every** function, no exceptions ·
-W11.6 **function conformance corpus** — every function's SQL and its reference implementation give
-the same answer on the same inputs, on every engine · W11.7 Excel front end (Pratt parser) ·
-W11.8 `SATISFIES EXCEL '…'` surface · W11.9 divergence notes rendered by `control explain` ·
-W11.10 volatile functions refused by name · W11.11 validator plugin registry ·
-W11.12 purity enforcement and implementation hashing · W11.13 pushdown coverage benchmark.
+W11.1 ✅ function catalogue and registry · W11.2 ✅ type-check function calls, refusing unknown names ·
+W11.3 ✅ lowering refuses what the catalogue does not hold · W11.4 ✅ per-dialect rendering from the
+catalogue · W11.5 ✅ reference implementation for **every** function, no exceptions ·
+W11.6 ✅ **function conformance corpus** — every function's SQL and its reference implementation give
+the same answer on the same inputs, on every engine · W11.7 ✅ Excel front end (Pratt parser) ·
+W11.8 ✅ `SATISFIES EXCEL '…'` surface · W11.9 ✅ divergence notes rendered by `control explain` ·
+W11.10 ✅ volatile functions refused by name · W11.11 ✅ validator plugin registry ·
+W11.12 ✅ purity enforcement and implementation hashing · W11.13 ✅ pushdown coverage benchmark.
 
 ### Acceptance criteria
 
