@@ -1,0 +1,86 @@
+{{- include "prama.validate" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "prama.fullname" . }}
+  labels: {{- include "prama.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels: {{- include "prama.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "prama.selectorLabels" . | nindent 8 }}
+    spec:
+      securityContext: {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: prama
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext: {{- toYaml .Values.securityContext | nindent 12 }}
+          args: ["serve", "--host", "0.0.0.0", "--port", "8080"]
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: PRAMA_SECURITY__SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecret | default (printf "%s-session" (include "prama.fullname" .)) }}
+                  key: session-secret
+            - name: PRAMA_DATABASE__DIALECT
+              value: {{ .Values.database.dialect | quote }}
+            - name: PRAMA_WEB__ENABLED
+              value: {{ .Values.web.enabled | quote }}
+            {{- if .Values.tenancy.defaultTenant }}
+            - name: PRAMA_TENANCY__DEFAULT_TENANT
+              value: {{ .Values.tenancy.defaultTenant | quote }}
+            {{- end }}
+            {{- if eq .Values.database.dialect "postgres" }}
+            - name: PRAMA_DATABASE__POSTGRES__HOST
+              value: {{ .Values.database.postgres.host | quote }}
+            - name: PRAMA_DATABASE__POSTGRES__PORT
+              value: {{ .Values.database.postgres.port | quote }}
+            - name: PRAMA_DATABASE__POSTGRES__DATABASE
+              value: {{ .Values.database.postgres.database | quote }}
+            - name: PRAMA_DATABASE__POSTGRES__USER
+              value: {{ .Values.database.postgres.user | quote }}
+            {{- if .Values.database.postgres.existingSecret }}
+            - name: PRAMA_DATABASE__POSTGRES__PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.postgres.existingSecret }}
+                  key: password
+            {{- end }}
+            {{- end }}
+          # Liveness and readiness are the SAME endpoint deliberately, because
+          # Prama has no state that makes it live-but-not-ready: it either
+          # reaches its database or it does not. Two probes with different
+          # meanings invites one of them to be wrong.
+          readinessProbe:
+            httpGet: {path: /api/v1/health, port: http}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /api/v1/health, port: http}
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            # readOnlyRootFilesystem is on, so anything that writes needs a
+            # mount. A chart that turned the flag off to avoid this trades a
+            # real security property for one line of YAML.
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity: {{- toYaml . | nindent 8 }}
+      {{- end }}

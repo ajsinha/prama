@@ -1,0 +1,18 @@
+apiVersion: v2
+name: prama
+description: Prama — a business-owned, evidence-first data quality control plane
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/ajsinha/prama
+sources:
+  - https://github.com/ajsinha/prama
+maintainers:
+  - name: Ashutosh Sinha
+    email: ajsinha@gmail.com
+annotations:
+  # Stated because the chart cannot enforce it: Prama has no migrations, so an
+  # upgrade that changes the schema needs `prama db verify` run against the
+  # live database first. A chart that upgraded silently would leave a drifted
+  # schema nobody was told about.
+  prama.io/upgrade-requires: "prama db verify"

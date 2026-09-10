@@ -1,0 +1,11 @@
+# Keep the build context small and free of anything that could carry a secret.
+.git
+.venv
+**/__pycache__
+**/*.pyc
+case-studies/*/workspace
+config/*.local.yaml
+data
+docs
+tests
+*.db
