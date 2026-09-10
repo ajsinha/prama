@@ -859,7 +859,7 @@ W10.6 Operator and CRDs · W10.7 ✅ all-in-one image (builds, runs, serves; ver
 W10.9 ✅ COBOL/EBCDIC reader · W10.10 ◐ financial message parsers (SWIFT MT, pacs.008 and camt.053; FIX, FpML, ISO 8583 not started) · W10.11 ◐ banking concepts, validators
 and calendars (calendars as rules, cross-field checks; the business concept model not started) · W10.12 ◐ regulatory control catalogue with citations (BCBS 239 P3-P5 and ISO 20022; the other regimes not started) · W10.13 ✅ reference reconciliation
 templates · W10.14 ✅ ODCS runtime and CI gates · W10.15 ✅ data diff · W10.16 ◐ catalog write-back (the SPI, badge semantics and a reference target; vendor adapters not written) ·
-W10.17 ◐ benchmarks published (scoring built to docs/15 §3.1; corpora and baselines not built) · W10.18 ✅ live-shadow harness (blinding, adjudication and burden metrics; the ninety-day runs are a customer engagement) · W10.19 SOC 2 readiness ·
+W10.17 ◐ benchmarks published (scoring built to docs/15 §3.1; corpora and baselines not built) · W10.18 ✅ live-shadow harness (blinding, adjudication and burden metrics; the ninety-day runs are a customer engagement) · W10.19 ✅ SOC 2 readiness (the matrix, with its gaps; the audit itself is an engagement) ·
 W10.20 ◐ **auditor RDARR validation** (the pack generates; independent auditor script not run) ([21 §3 Unlock 1](21-how-we-win.md)).
 
 ### Acceptance criteria

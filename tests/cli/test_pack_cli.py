@@ -123,3 +123,29 @@ class TestReconciliation:
         payload = pjson.loads(text)
         assert code == EXIT_OK
         assert payload["key_roles"] == ["payment_reference"]
+
+
+class TestSoc2:
+    def test_it_leads_with_the_gaps(self) -> None:
+        """A readiness matrix leading with what is covered is one whose gaps are
+        read last or not at all."""
+        code, text = run(["pack", "soc2"])
+        assert code == EXIT_OK
+        assert text.index("Gaps in the product") < text.index("Evidenceable today")
+
+    def test_it_says_readiness_is_not_compliance(self) -> None:
+        """This is exactly the artefact somebody would use to mislead an
+        auditor."""
+        _, text = run(["pack", "soc2"])
+        assert "Readiness is not compliance" in text
+
+    def test_every_criterion_says_what_an_auditor_asks_for(self) -> None:
+        _, text = run(["pack", "soc2"])
+        assert text.count("auditor asks for:") >= 10
+
+    def test_json_output_carries_the_gaps(self) -> None:
+        code, text = run(["--json", "pack", "soc2"])
+        payload = pjson.loads(text)
+        assert code == EXIT_OK
+        assert "CC6.8" in payload["gaps"]
+        assert payload["caveat"]
