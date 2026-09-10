@@ -243,6 +243,57 @@ prama lsp serve --catalogue cat.json    # language server on stdio
 
 ---
 
+## 5a. The banking pack
+
+Prama ships a domain pack for banking. It is inspectable from a terminal without
+a database, because a pack nobody can audit is a pack nobody should trust:
+
+```bash
+prama pack list          # calendars, cross-field checks, message formats, obligations
+prama pack claims        # and what it deliberately does NOT claim to discharge
+prama pack calendar TARGET2 --year 2030      # closures, computed from rules
+prama pack reconciliation cashbook-to-statement   # keys, tolerance, expected breaks
+```
+
+`claims` is the one worth reading first. It separates the BCBS 239 principles
+the pack discharges *with controls* from the ones it merely supports — because a
+pack that listed only what it covers invites you to assume the rest.
+
+The pack gives PQL the cross-field checks a column-by-column tool cannot reach:
+
+```pql
+CHECK pacs008 SATISFIES IBAN_BIC_CONSISTENT(creditor_iban, creditor_bic)
+CHECK ledger  SATISFIES MINOR_UNITS_OK(amount, currency)
+CHECK trades  SATISFIES SETTLES_AFTER_TRADE(trade_date, settlement_date)
+```
+
+Every one of those passes every single-field validator in the product, which is
+exactly why they are worth having.
+
+---
+
+## 5b. Data contracts and CI
+
+```bash
+prama contract import contract.yaml            # ODCS in, saying what did not come across
+prama contract check contract.yaml --data rows.json   # gate a build
+prama contract diff before.csv after.csv --key id     # what changed, not how many
+```
+
+`check` is built for a pipeline and the exit code is the interface:
+
+| Code | Meaning |
+|---|---|
+| `0` | the contract holds |
+| `3` | the contract is breached |
+| `1` | the check could not be made |
+
+Three rather than two, so a build can tell *"your change broke the contract"*
+from *"the checker fell over"*. An empty data file is a **breach**, not a pass —
+a check over no rows passes every test it can run and has established nothing.
+
+---
+
 ## 6. Configuration
 
 Three layers, later winning: built-in defaults → `config/application.yaml`
