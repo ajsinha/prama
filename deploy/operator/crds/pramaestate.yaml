@@ -1,0 +1,117 @@
+# PramaEstate — a declared estate as a Kubernetes resource (W10.6).
+# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
+#
+# The CRD carries what a *business* declares, not what a cluster configures.
+# Replica counts and image tags belong to the Helm release; grain, criticality
+# and CDEs belong here — because those are the statements controls derive from,
+# and an estate defined half in a chart and half in a database is an estate that
+# disagrees with itself.
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: pramaestates.prama.io
+spec:
+  group: prama.io
+  scope: Namespaced
+  names:
+    kind: PramaEstate
+    plural: pramaestates
+    singular: pramaestate
+    shortNames: [estate]
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Tenant
+          type: string
+          jsonPath: .spec.tenant
+        - name: Datasets
+          type: integer
+          jsonPath: .status.datasetsDeclared
+        - name: Drifted
+          type: integer
+          jsonPath: .status.datasetsDrifted
+        - name: Ready
+          type: string
+          jsonPath: .status.conditions[?(@.type=="Ready")].status
+      schema:
+        openAPIV3Schema:
+          type: object
+          required: [spec]
+          properties:
+            spec:
+              type: object
+              required: [tenant, datasets]
+              properties:
+                tenant:
+                  type: string
+                  description: The estate this declares. Required — a declaration with
+                    no owner is one nobody can be asked about.
+                  minLength: 1
+                datasets:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [name]
+                    properties:
+                      name:
+                        type: string
+                        minLength: 1
+                      description:
+                        type: string
+                      criticality:
+                        type: integer
+                        minimum: 1
+                        maximum: 4
+                        description: Tier 1 is the most critical. Absent means tier 4,
+                          which is a default and not a statement.
+                      grain:
+                        type: array
+                        items: {type: string}
+                        description: The attributes one row is unique by.
+                      grainStatement:
+                        type: string
+                        description: What one row represents, in the business's words.
+                          Carried verbatim into the generated control's BECAUSE clause.
+                      attributes:
+                        type: array
+                        items:
+                          type: object
+                          required: [name]
+                          properties:
+                            name: {type: string, minLength: 1}
+                            definition: {type: string}
+                            semanticType: {type: string}
+                            mandatory: {type: boolean}
+                            criticalDataElement: {type: boolean}
+                # Deliberately absent: any field that would let a manifest set a
+                # control's verdict, suppress one, or approve one. A cluster
+                # admin with kubectl must not be able to make a control pass —
+                # that is the one thing an estate's approval workflow exists to
+                # prevent, and a CRD field would route around it entirely.
+            status:
+              type: object
+              properties:
+                observedGeneration: {type: integer}
+                datasetsDeclared: {type: integer}
+                datasetsDrifted:
+                  type: integer
+                  description: Declared in the cluster and different in the store.
+                    Reported, never silently reconciled away — see the operator's
+                    own README.
+                lastReconciled: {type: string}
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    required: [type, status]
+                    properties:
+                      type: {type: string}
+                      status: {type: string, enum: ["True", "False", "Unknown"]}
+                      reason: {type: string}
+                      message: {type: string}
+                      lastTransitionTime: {type: string}

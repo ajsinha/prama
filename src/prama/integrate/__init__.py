@@ -11,12 +11,17 @@ from prama.integrate.catalog import (
     WriteReport,
     badges_from,
 )
+from prama.integrate.operator import Plan, Step, Verb, plan
 
 __all__ = [
     "Badge",
     "CatalogTarget",
+    "Plan",
     "RecordingTarget",
     "Standing",
+    "Step",
+    "Verb",
     "WriteReport",
     "badges_from",
+    "plan",
 ]

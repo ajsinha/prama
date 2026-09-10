@@ -30,8 +30,10 @@ mistaken for "it works".
 | The chart **refuses** a missing secret, and SQLite with more than one replica | ✅ verified |
 | The rendered pod keeps non-root, read-only root filesystem, all capabilities dropped | ✅ verified, by `tests/deploy/` |
 | The chart **installed on a real cluster** | ❌ **not verified** — no cluster was available |
-| The Operator | ❌ **not built** |
-| The signed offline bundle | ❌ **not built** |
+| The Operator's **CRD and reconciliation decision** | ✅ built and tested — see `deploy/operator/README.md` |
+| The Operator's **control loop** | ❌ not built — needs a cluster |
+| The offline bundle: seal, verify, SBOM | ✅ verified — `prama bundle` |
+| An air-gapped install run end to end | ❌ not verified — this machine has a network |
 
 `tests/deploy/test_helm_chart.py` renders the chart on every test run and
 asserts the security properties, because a `securityContext` block deleted to
