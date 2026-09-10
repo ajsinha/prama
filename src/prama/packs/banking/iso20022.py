@@ -298,4 +298,228 @@ def _agent(node: Any, name: str) -> str:
     return _text(institution, "BICFI") or _text(institution, "BIC")
 
 
-__all__ = ["Pacs008", "Transaction", "parse_pacs008"]
+# -- camt.053: bank-to-customer statement ----------------------------------
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class Entry:
+    """One statement entry, with its sign resolved.
+
+    ``CRDT``/``DBIT`` in ISO 20022 is what ``C``/``D`` is in field 61, and the
+    amount is positive in both. Resolving it here rather than carrying the
+    indicator means no consumer can forget to apply it — and the consumer that
+    forgets produces a statement whose entries only ever add up.
+    """
+
+    amount: Decimal | None
+    currency: str
+    is_credit: bool
+    booking_date: str
+    value_date: str
+    reference: str = ""
+    additional_information: str = ""
+
+    @property
+    def signed(self) -> Decimal | None:
+        if self.amount is None:
+            return None
+        return self.amount if self.is_credit else -self.amount
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "amount": None if self.amount is None else str(self.amount),
+            "signed_amount": None if self.signed is None else str(self.signed),
+            "currency": self.currency,
+            "is_credit": self.is_credit,
+            "booking_date": self.booking_date,
+            "value_date": self.value_date,
+            "reference": self.reference,
+            "additional_information": self.additional_information,
+        }
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class Camt053:
+    """A bank-to-customer statement, in the vocabulary ``swift.Statement`` uses.
+
+    Same field names as MT940 for the same facts, so a bank running both can
+    reconcile the two representations of one account-day rather than mapping
+    between them by hand.
+    """
+
+    message_id: str
+    version: str
+    account: str
+    currency: str
+    statement_number: str
+    opening_balance: Decimal | None
+    closing_balance: Decimal | None
+    opening_date: str
+    closing_date: str
+    entries: tuple[Entry, ...] = ()
+    defects: tuple[str, ...] = ()
+
+    @property
+    def movement(self) -> Decimal:
+        return sum(
+            (entry.signed for entry in self.entries if entry.signed is not None),
+            Decimal(0),
+        )
+
+    @property
+    def balances(self) -> bool | None:
+        """Opening plus movement against closing, or ``None`` when unstated."""
+        if self.opening_balance is None or self.closing_balance is None:
+            return None
+        return self.opening_balance + self.movement == self.closing_balance
+
+    @property
+    def discrepancy(self) -> Decimal | None:
+        if self.opening_balance is None or self.closing_balance is None:
+            return None
+        return self.closing_balance - (self.opening_balance + self.movement)
+
+    @property
+    def unreadable_entries(self) -> int:
+        return sum(1 for entry in self.entries if entry.amount is None)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "message_id": self.message_id,
+            "version": self.version,
+            "account": self.account,
+            "currency": self.currency,
+            "statement_number": self.statement_number,
+            "opening_balance": None if self.opening_balance is None else str(self.opening_balance),
+            "closing_balance": None if self.closing_balance is None else str(self.closing_balance),
+            "opening_date": self.opening_date,
+            "closing_date": self.closing_date,
+            "entry_count": len(self.entries),
+            "movement": str(self.movement),
+            "balances": self.balances,
+            "discrepancy": None if self.discrepancy is None else str(self.discrepancy),
+            "unreadable_entries": self.unreadable_entries,
+            "defect_count": len(self.defects),
+        }
+
+
+#: Balance type codes. OPBD/PRCD open a statement and CLBD closes it; ITBD is
+#: an interim figure and CLAV is *available* rather than booked, which is a
+#: different number and the one a naive reader picks up by accident.
+_OPENING_CODES = ("OPBD", "PRCD")
+_CLOSING_CODES = ("CLBD",)
+
+
+def parse_camt053(xml: str) -> Camt053:
+    """A camt.053 statement. Never raises on malformed XML."""
+    try:
+        root = ElementTree.fromstring(xml)
+    except ElementTree.ParseError as exc:
+        return Camt053(
+            message_id="",
+            version="",
+            account="",
+            currency="",
+            statement_number="",
+            opening_balance=None,
+            closing_balance=None,
+            opening_date="",
+            closing_date="",
+            defects=(f"the document is not well-formed XML: {exc}",),
+        )
+
+    matched = _VERSION.search(root.tag)
+    version = matched.group(1) if matched else ""
+
+    body = _find(root, "BkToCstmrStmt")
+    if body is None:
+        body = root
+    header = _find(body, "GrpHdr")
+    statement_node = _find(body, "Stmt")
+    defects: list[str] = []
+    if statement_node is None:
+        return Camt053(
+            message_id=_text(header, "MsgId"),
+            version=version,
+            account="",
+            currency="",
+            statement_number="",
+            opening_balance=None,
+            closing_balance=None,
+            opening_date="",
+            closing_date="",
+            defects=("the document carries no statement",),
+        )
+
+    opening, opening_date, opening_ccy = _balance_of(statement_node, _OPENING_CODES)
+    closing, closing_date, closing_ccy = _balance_of(statement_node, _CLOSING_CODES)
+    if opening is None:
+        defects.append("no opening balance (OPBD or PRCD) is stated")
+    if closing is None:
+        defects.append("no closing balance (CLBD) is stated")
+    if opening_ccy and closing_ccy and opening_ccy != closing_ccy:
+        defects.append(f"opens in {opening_ccy} and closes in {closing_ccy}")
+
+    entries = tuple(_entry(node) for node in _children(statement_node, "Ntry"))
+
+    return Camt053(
+        message_id=_text(header, "MsgId"),
+        version=version,
+        account=_text(_find(statement_node, "Acct", "Id"), "IBAN")
+        or _text(_find(statement_node, "Acct", "Id", "Othr"), "Id"),
+        currency=opening_ccy or closing_ccy,
+        statement_number=_text(statement_node, "LglSeqNb") or _text(statement_node, "ElctrncSeqNb"),
+        opening_balance=opening,
+        closing_balance=closing,
+        opening_date=opening_date,
+        closing_date=closing_date,
+        entries=entries,
+        defects=tuple(defects),
+    )
+
+
+def _balance_of(statement_node: Any, codes: tuple[str, ...]) -> tuple[Decimal | None, str, str]:
+    """The balance carrying one of *codes*, signed by its indicator.
+
+    Matched on code rather than on position. A statement may carry five
+    balances, and taking the first is how a reader ends up reporting the
+    *available* balance as the closing one — a different number that usually
+    happens to be close.
+    """
+    for node in _children(statement_node, "Bal"):
+        code = _text(_find(node, "Tp", "CdOrPrtry"), "Cd")
+        if code not in codes:
+            continue
+        amount_node = _find(node, "Amt")
+        value = _decimal(_text(amount_node)) if amount_node is not None else None
+        currency = amount_node.get("Ccy", "") if amount_node is not None else ""
+        indicator = _text(node, "CdtDbtInd")
+        date_text = _text(_find(node, "Dt"), "Dt") or _text(_find(node, "Dt"), "DtTm")
+        if value is not None and indicator == "DBIT":
+            value = -value
+        return value, date_text[:10], currency
+    return None, "", ""
+
+
+def _entry(node: Any) -> Entry:
+    amount_node = _find(node, "Amt")
+    return Entry(
+        amount=_decimal(_text(amount_node)) if amount_node is not None else None,
+        currency=amount_node.get("Ccy", "") if amount_node is not None else "",
+        is_credit=_text(node, "CdtDbtInd") == "CRDT",
+        booking_date=_text(_find(node, "BookgDt"), "Dt")[:10],
+        value_date=_text(_find(node, "ValDt"), "Dt")[:10],
+        reference=_text(node, "AcctSvcrRef")
+        or _text(_find(node, "NtryDtls", "TxDtls", "Refs"), "EndToEndId"),
+        additional_information=_text(node, "AddtlNtryInf"),
+    )
+
+
+__all__ = [
+    "Camt053",
+    "Entry",
+    "Pacs008",
+    "Transaction",
+    "parse_camt053",
+    "parse_pacs008",
+]

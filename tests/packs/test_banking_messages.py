@@ -385,3 +385,132 @@ class TestTranslationFidelityEndToEnd:
         assert len(report.pairs) == 1
         assert not report.unmatched_left
         assert not report.unmatched_right
+
+
+CAMT053 = """<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.08">
+<BkToCstmrStmt><GrpHdr><MsgId>CAMT-001</MsgId></GrpHdr>
+<Stmt><Id>STMT-2026-09-09</Id><LglSeqNb>251</LglSeqNb>
+<Acct><Id><IBAN>GB33BUKB20201555555555</IBAN></Id></Acct>
+<Bal><Tp><CdOrPrtry><Cd>OPBD</Cd></CdOrPrtry></Tp>
+  <Amt Ccy="EUR">10000.00</Amt><CdtDbtInd>CRDT</CdtDbtInd><Dt><Dt>2026-09-08</Dt></Dt></Bal>
+<Bal><Tp><CdOrPrtry><Cd>CLAV</Cd></CdOrPrtry></Tp>
+  <Amt Ccy="EUR">99999.99</Amt><CdtDbtInd>CRDT</CdtDbtInd><Dt><Dt>2026-09-09</Dt></Dt></Bal>
+<Bal><Tp><CdOrPrtry><Cd>CLBD</Cd></CdOrPrtry></Tp>
+  <Amt Ccy="EUR">11250.25</Amt><CdtDbtInd>CRDT</CdtDbtInd><Dt><Dt>2026-09-09</Dt></Dt></Bal>
+<Ntry><Amt Ccy="EUR">1500.50</Amt><CdtDbtInd>CRDT</CdtDbtInd>
+  <BookgDt><Dt>2026-09-09</Dt></BookgDt><ValDt><Dt>2026-09-09</Dt></ValDt>
+  <AcctSvcrRef>BANKREF1</AcctSvcrRef><AddtlNtryInf>Incoming</AddtlNtryInf></Ntry>
+<Ntry><Amt Ccy="EUR">250.25</Amt><CdtDbtInd>DBIT</CdtDbtInd>
+  <BookgDt><Dt>2026-09-09</Dt></BookgDt><ValDt><Dt>2026-09-09</Dt></ValDt>
+  <AcctSvcrRef>BANKREF2</AcctSvcrRef></Ntry>
+</Stmt></BkToCstmrStmt></Document>"""
+
+
+class TestCamt053:
+    def test_the_closing_balance_is_matched_on_its_code(self) -> None:
+        """A statement may carry five balances. Taking the first — or the last —
+        is how a reader reports the *available* balance as the closing one: a
+        different number that usually happens to be close.
+        """
+        parsed = iso20022.parse_camt053(CAMT053)
+        assert parsed.closing_balance == Decimal("11250.25")
+        assert parsed.closing_balance != Decimal("99999.99")
+
+    def test_a_debit_entry_is_negative(self) -> None:
+        """CRDT/DBIT is what C/D is in field 61, and the amount is positive in
+        both. Resolving it in the parser means no consumer can forget."""
+        parsed = iso20022.parse_camt053(CAMT053)
+        assert parsed.entries[0].signed == Decimal("1500.50")
+        assert parsed.entries[1].signed == Decimal("-250.25")
+
+    def test_a_debit_balance_is_negative(self) -> None:
+        overdrawn = CAMT053.replace(
+            '<Amt Ccy="EUR">10000.00</Amt><CdtDbtInd>CRDT</CdtDbtInd>',
+            '<Amt Ccy="EUR">10000.00</Amt><CdtDbtInd>DBIT</CdtDbtInd>',
+        )
+        assert iso20022.parse_camt053(overdrawn).opening_balance == Decimal("-10000.00")
+
+    def test_it_balances(self) -> None:
+        parsed = iso20022.parse_camt053(CAMT053)
+        assert parsed.movement == Decimal("1250.25")
+        assert parsed.balances is True
+        assert parsed.discrepancy == Decimal("0.00")
+
+    def test_a_dropped_entry_is_caught(self) -> None:
+        truncated = CAMT053[: CAMT053.index('<Ntry><Amt Ccy="EUR">250.25')] + (
+            "</Stmt></BkToCstmrStmt></Document>"
+        )
+        parsed = iso20022.parse_camt053(truncated)
+        assert parsed.balances is False
+        assert parsed.discrepancy == Decimal("-250.25")
+
+    def test_an_absent_closing_balance_is_unknown_and_named(self) -> None:
+        without = CAMT053.replace("<Cd>CLBD</Cd>", "<Cd>ITBD</Cd>")
+        parsed = iso20022.parse_camt053(without)
+        assert parsed.balances is None
+        assert any("CLBD" in defect for defect in parsed.defects)
+
+    def test_a_prior_balance_opens_a_statement_too(self) -> None:
+        """PRCD is what a continuation statement carries instead of OPBD."""
+        continuation = CAMT053.replace("<Cd>OPBD</Cd>", "<Cd>PRCD</Cd>")
+        assert iso20022.parse_camt053(continuation).opening_balance == Decimal("10000.00")
+
+    def test_malformed_xml_is_a_defect_not_an_exception(self) -> None:
+        parsed = iso20022.parse_camt053("<Document><unclosed>")
+        assert parsed.defects
+        assert parsed.entries == ()
+
+    def test_a_document_with_no_statement_says_so(self) -> None:
+        empty = """<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.08">
+        <BkToCstmrStmt><GrpHdr><MsgId>X</MsgId></GrpHdr></BkToCstmrStmt></Document>"""
+        parsed = iso20022.parse_camt053(empty)
+        assert "carries no statement" in parsed.defects[0]
+
+
+class TestTheStatementPair:
+    """MT940 and camt.053 as two representations of one account-day.
+
+    Same field names for the same facts, so a bank running both reconciles them
+    rather than mapping between them by hand — the same argument as MT103
+    against pacs.008, on the statement side.
+    """
+
+    def test_both_report_the_same_account_day(self) -> None:
+        mt = swift.statement(swift.parse(MT940))
+        mx = iso20022.parse_camt053(CAMT053)
+
+        assert mt.account == mx.account
+        assert mt.opening_balance == mx.opening_balance
+        assert mt.closing_balance == mx.closing_balance
+        assert mt.movement == mx.movement
+        assert len(mt.lines) == len(mx.entries)
+
+    def test_a_statement_missing_from_one_side_is_visible(self) -> None:
+        """What a RECONCILES_WITH between the two would catch: the MX file was
+        truncated and every figure remaining in it is perfectly valid."""
+        mt = swift.statement(swift.parse(MT940))
+        truncated = CAMT053[: CAMT053.index('<Ntry><Amt Ccy="EUR">250.25')] + (
+            "</Stmt></BkToCstmrStmt></Document>"
+        )
+        mx = iso20022.parse_camt053(truncated)
+
+        assert mt.balances is True
+        assert mx.balances is False
+        assert mt.movement != mx.movement
+
+    def test_both_expose_the_same_dictionary_keys_for_the_shared_facts(self) -> None:
+        mt = swift.statement(swift.parse(MT940)).to_dict()
+        mx = iso20022.parse_camt053(CAMT053).to_dict()
+        shared = {
+            "account",
+            "opening_balance",
+            "closing_balance",
+            "movement",
+            "balances",
+            "discrepancy",
+            "entry_count",
+        }
+        assert shared <= set(mt)
+        assert shared <= set(mx)
+        for field in shared:
+            assert mt[field] == mx[field], field
