@@ -1,0 +1,73 @@
+# Prama — Helm values.
+# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
+
+image:
+  repository: prama
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+# The session secret is NOT here and there is no default.
+#
+# A chart shipping a default secret means every installation that did not read
+# the documentation runs on a key that is public in a git repository, and
+# sessions are then forgeable by anybody who can read the chart. The deployment
+# refuses to render without one, so this fails at `helm install` rather than
+# quietly at the first sign-in.
+existingSecret: ""          # a Secret holding key `session-secret`
+createSecretFrom: ""        # or a literal, for a non-production install only
+
+database:
+  # sqlite is single-replica by construction: two pods writing one file is
+  # corruption, and the deployment refuses that combination rather than
+  # producing it.
+  dialect: postgres
+  postgres:
+    host: ""
+    port: 5432
+    database: prama
+    user: prama
+    existingSecret: ""      # a Secret holding key `password`
+
+tenancy:
+  defaultTenant: ""         # single-tenant convenience; empty requires sign-in
+
+web:
+  enabled: true
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  host: ""
+  tls: false
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    memory: 2Gi
+
+# Defaults that a container review asks for, set here rather than left to the
+# cluster's admission policy — a chart that relies on one is a chart that runs
+# privileged on a cluster without one.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

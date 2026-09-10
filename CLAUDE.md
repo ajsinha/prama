@@ -155,6 +155,9 @@ prama db verify                          # fail loudly if the live schema has dr
 prama pack list                          # what the banking pack ships
 prama pack claims                        # and what it does NOT claim to discharge
 prama pack calendar TARGET2 --year 2030  # closures, computed from rules
+prama pack soc2                          # Prama's own SOC 2 readiness, gaps first
+prama bundle seal ./offline              # manifest + SBOM, HMAC-sealed
+prama bundle verify ./offline            # exit 3 if it must not be installed
 prama contract check c.json --data rows.json   # CI gate; exit 3 on breach, 1 on failure
 prama contract diff before.csv after.csv --key id   # what changed, not how many
 prama lsp catalogue --out cat.json       # export the estate's schemas for an editor

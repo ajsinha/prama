@@ -211,6 +211,59 @@ class PackReconciliationCommand(Command):
         return EXIT_OK
 
 
+class PackSoc2Command(Command):
+    name = "soc2"
+    help = "which Trust Services Criteria this product itself can evidence"
+
+    def configure(self, parser: argparse.ArgumentParser) -> None:
+        pass
+
+    def run(self, ctx: CommandContext) -> int:
+        """Prama's own readiness, not the bank's.
+
+        Answerable before an audit rather than during, and leading with the
+        gaps: a readiness matrix that led with what is covered is one whose
+        gaps are read last or not at all.
+        """
+        from prama.security.soc2 import Readiness, readout
+
+        result = readout()
+        if ctx.json_output:
+            ctx.emit_json(result.to_dict())
+            return EXIT_OK
+
+        ctx.emit(result.describe())
+        ctx.emit()
+        for group, heading in (
+            (Readiness.GAP, "Gaps in the product"),
+            (Readiness.PARTIAL, "Partial — a mechanism exists, its evidence is incomplete"),
+            (Readiness.EVIDENCEABLE, "Evidenceable today"),
+            (Readiness.ORGANISATIONAL, "Not a product control"),
+        ):
+            found = result.of(group)
+            if not found:
+                if group is Readiness.GAP:
+                    # Said rather than omitted. A section that silently vanishes
+                    # reads as "nothing needs work", and the partial ones below
+                    # still do.
+                    ctx.emit("Gaps in the product")
+                    ctx.emit("  none outright — see the partial criteria below, which")
+                    ctx.emit("  are not the same as covered")
+                    ctx.emit()
+                continue
+            ctx.emit(heading)
+            for criterion in found:
+                ctx.emit(f"  {criterion.identity:<8} {criterion.statement}")
+                if criterion.mechanism:
+                    ctx.emit(f"           via: {criterion.mechanism}")
+                ctx.emit(f"           auditor asks for: {criterion.evidence_request}")
+                if criterion.note:
+                    ctx.emit(f"           note: {criterion.note}")
+            ctx.emit()
+        ctx.emit(result.to_dict()["caveat"])
+        return EXIT_OK
+
+
 class PackCommand(CommandGroup):
     name = "pack"
     help = "what a domain pack ships, and what it does not claim"
@@ -221,6 +274,7 @@ class PackCommand(CommandGroup):
             PackClaimsCommand(),
             PackCalendarCommand(),
             PackReconciliationCommand(),
+            PackSoc2Command(),
         ]
 
 

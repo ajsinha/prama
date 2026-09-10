@@ -20,6 +20,7 @@ from prama.execute.claim import (
     claim_unit,
     release_claim,
 )
+from prama.execute.inflight import DeadLetterFull, Pipeline, Report, Throughput
 from prama.execute.run import ControlRun, Executor, Outcome, RunReport, Sampler
 from prama.execute.stream import (
     Lag,
@@ -45,6 +46,7 @@ __all__ = [
     "Consequence",
     "ControlRun",
     "Coverage",
+    "DeadLetterFull",
     "Disposition",
     "Enforcer",
     "Executor",
@@ -56,12 +58,15 @@ __all__ = [
     "MessageVerdict",
     "Outcome",
     "Override",
+    "Pipeline",
     "Quarantine",
+    "Report",
     "RunReport",
     "Sampler",
     "StaleWriteError",
     "StreamAssertion",
     "StreamSuite",
+    "Throughput",
     "Watermark",
     "WatermarkPlanner",
     "Window",

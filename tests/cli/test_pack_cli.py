@@ -123,3 +123,38 @@ class TestReconciliation:
         payload = pjson.loads(text)
         assert code == EXIT_OK
         assert payload["key_roles"] == ["payment_reference"]
+
+
+class TestSoc2:
+    def test_it_leads_with_what_needs_work(self) -> None:
+        """A readiness matrix leading with what is covered is one whose gaps are
+        read last or not at all."""
+        code, text = run(["pack", "soc2"])
+        assert code == EXIT_OK
+        assert text.index("Gaps in the product") < text.index("Evidenceable today")
+        assert text.index("Partial") < text.index("Evidenceable today")
+
+    def test_an_empty_gap_section_still_appears(self) -> None:
+        """A section that silently vanishes reads as "nothing needs work", and
+        the partial criteria still do."""
+        _, text = run(["pack", "soc2"])
+        assert "Gaps in the product" in text
+        if "none outright" in text:
+            assert "not the same as covered" in text
+
+    def test_it_says_readiness_is_not_compliance(self) -> None:
+        """This is exactly the artefact somebody would use to mislead an
+        auditor."""
+        _, text = run(["pack", "soc2"])
+        assert "Readiness is not compliance" in text
+
+    def test_every_criterion_says_what_an_auditor_asks_for(self) -> None:
+        _, text = run(["pack", "soc2"])
+        assert text.count("auditor asks for:") >= 10
+
+    def test_json_output_carries_the_gaps(self) -> None:
+        code, text = run(["--json", "pack", "soc2"])
+        payload = pjson.loads(text)
+        assert code == EXIT_OK
+        assert "CC6.8" in payload["gaps"]
+        assert payload["caveat"]
