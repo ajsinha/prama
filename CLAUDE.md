@@ -149,6 +149,9 @@ prama control compile suite.pql --fuse   # the SQL that will run, grouped into s
 prama control import schema.yml --from dbt   # and what did not come across
 prama db init                            # apply schema/<dialect>.sql idempotently
 prama db verify                          # fail loudly if the live schema has drifted
+prama pack list                          # what the banking pack ships
+prama pack claims                        # and what it does NOT claim to discharge
+prama pack calendar TARGET2 --year 2030  # closures, computed from rules
 prama contract check c.json --data rows.json   # CI gate; exit 3 on breach, 1 on failure
 prama contract diff before.csv after.csv --key id   # what changed, not how many
 prama lsp catalogue --out cat.json       # export the estate's schemas for an editor
