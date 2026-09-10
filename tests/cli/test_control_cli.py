@@ -224,3 +224,114 @@ class TestImport:
         payload = json.loads(output)
         assert payload["source_format"] == "dbt"
         assert payload["unmapped"]
+
+
+class TestExplainRendersDivergences:
+    """W11.9 — how a formula differs from what a spreadsheet would do.
+
+    A divergence discovered in production is worth less than one stated on the
+    control the day it is written, and the author of an Excel formula has a
+    spreadsheet open beside them.
+    """
+
+    def _explain(self, tmp_path, pql: str):
+        path = tmp_path / "d.pql"
+        path.write_text(pql)
+        return run(["control", "explain", str(path)])
+
+    def test_a_semantic_divergence_is_printed(self, tmp_path) -> None:
+        code, text = self._explain(
+            tmp_path,
+            "CHECK positions SATISFIES EXCEL '=ROUND(notional, 2) > 0'\n"
+            "  SEVERITY major DIMENSION accuracy BECAUSE 'rounded exposure'\n",
+        )
+        assert code == EXIT_OK
+        assert "ROUND differs from Excel" in text
+        assert "half away from zero" in text
+
+    def test_an_engine_that_cannot_run_it_is_named(self, tmp_path) -> None:
+        """As much a divergence as a semantic one: an author writing a formula
+        the estate's own engine will refuse should learn it now rather than at
+        the first execution."""
+        _, text = self._explain(
+            tmp_path,
+            "CHECK positions SATISFIES EXCEL '=ROUND(notional, 2) > 0'\n"
+            "  SEVERITY major DIMENSION accuracy BECAUSE 'rounded exposure'\n",
+        )
+        assert "cannot run on sqlite" in text
+        assert "rather than approximated" in text
+
+    def test_a_control_with_no_divergent_function_prints_none(self, tmp_path) -> None:
+        """Silence has to mean something. A note appended to every control is a
+        note nobody reads."""
+        _, text = self._explain(
+            tmp_path,
+            "CHECK positions.notional IS NOT NULL\n"
+            "  SEVERITY major DIMENSION completeness BECAUSE 'CDE'\n",
+        )
+        assert "differs from Excel" not in text
+        assert "cannot run on" not in text
+
+    def test_a_nested_call_is_still_found(self, tmp_path) -> None:
+        """The functions that diverge are rarely at the top level of a formula."""
+        _, text = self._explain(
+            tmp_path,
+            "CHECK positions SATISFIES EXCEL '=IF(notional > 0, ROUND(notional, 2), 0) > 1'\n"
+            "  SEVERITY major DIMENSION accuracy BECAUSE 'nested'\n",
+        )
+        assert "ROUND differs from Excel" in text
+
+    def test_json_output_carries_them_as_a_list(self, tmp_path) -> None:
+        path = tmp_path / "d.pql"
+        path.write_text(
+            "CHECK positions SATISFIES EXCEL '=ROUND(notional, 2) > 0'\n"
+            "  SEVERITY major DIMENSION accuracy BECAUSE 'rounded exposure'\n"
+        )
+        code, text = run(["--json", "control", "explain", str(path)])
+        assert code == EXIT_OK
+        [entry] = json.loads(text)
+        assert any("differs from Excel" in note for note in entry["divergences"])
+
+
+class TestPushdownCoverage:
+    """W11.13 — how much of the language each engine can actually run.
+
+    The number a deployment needs before it picks a warehouse. A function that
+    cannot be pushed down is not merely slower: it is refused, because
+    approximating it would make the same control mean two things on two engines
+    and nothing would notice.
+    """
+
+    def test_it_reports_a_share_per_engine(self) -> None:
+        code, text = run(["control", "functions"])
+        assert code == EXIT_OK
+        assert "duckdb" in text
+        assert "sqlite" in text
+        assert "%" in text
+
+    def test_a_refused_function_is_named_not_counted(self) -> None:
+        """ "24 of 25" tells a reader something is missing and not whether it is
+        the one they need."""
+        _, text = run(["control", "functions", "--engine", "sqlite"])
+        assert "refused: ROUND" in text
+
+    def test_an_engine_that_runs_everything_lists_nothing_refused(self) -> None:
+        _, text = run(["control", "functions", "--engine", "duckdb"])
+        assert "refused:" not in text
+
+    def test_it_says_refusal_is_not_approximation(self) -> None:
+        _, text = run(["control", "functions"])
+        assert "never approximated" in text
+
+    def test_an_unknown_engine_is_refused_with_the_list(self) -> None:
+        code, _ = run(["control", "functions", "--engine", "oracle"])
+        assert code == EXIT_ERROR
+
+    def test_json_output_carries_the_shares(self) -> None:
+        code, text = run(["--json", "control", "functions"])
+        payload = json.loads(text)
+        assert code == EXIT_OK
+        assert payload["functions"]
+        by_engine = {row["engine"]: row for row in payload["coverage"]}
+        assert by_engine["sqlite"]["refused"] == ["ROUND"]
+        assert by_engine["duckdb"]["share"] == 1.0

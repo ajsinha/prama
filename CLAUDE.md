@@ -146,7 +146,10 @@ prama config show                        # effective merged configuration, secre
 prama control check suite.pql            # parse, type-check and lint; non-zero on error
 prama control explain suite.pql          # each control as a sentence a data owner reads
 prama control compile suite.pql --fuse   # the SQL that will run, grouped into shared scans
+prama control functions                  # pushdown coverage: what runs on which engine
 prama control import schema.yml --from dbt   # and what did not come across
+prama tenant create acme-bank            # the estate; prints the id to configure
+prama principal create alice --admin     # somebody who can sign in (password prompted)
 prama db init                            # apply schema/<dialect>.sql idempotently
 prama db verify                          # fail loudly if the live schema has drifted
 prama pack list                          # what the banking pack ships
