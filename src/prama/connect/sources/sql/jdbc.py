@@ -79,11 +79,23 @@ def _dialects() -> dict[str, SqlDialect]:
     Built from the dialects Prama already has rather than from a list typed
     here — a second list would name a dialect that had been renamed.
     """
+    from prama.connect.sources.sql.dialects import (
+        Db2Dialect,
+        MySqlDialect,
+        OracleDialect,
+        SqlServerDialect,
+        TeradataDialect,
+    )
     from prama.connect.sources.sql.postgres import PostgresDialect
 
     known: dict[str, SqlDialect] = {
         "generic": GenericSqlDialect(),
         "postgresql": PostgresDialect(),
+        "mysql": MySqlDialect(),
+        "oracle": OracleDialect(),
+        "sqlserver": SqlServerDialect(),
+        "db2": Db2Dialect(),
+        "teradata": TeradataDialect(),
     }
     return known
 
@@ -299,6 +311,32 @@ def _as_jdbc(dialect: SqlDialect) -> SqlDialect:
     return wrapped
 
 
+def _exact_integer_converter() -> Any:
+    """Read a whole number as a Python int, whatever Java object carries it.
+
+    MySQL's unsigned BIGINT arrives as ``java.math.BigInteger``, which is not a
+    Python number and not a string — so anything that treats it as either
+    raises. Going through the object's own decimal string keeps values beyond
+    64 bits intact, which is the case BigInteger exists for.
+    """
+
+    def to_py(rs: Any, col: Any) -> Any:
+        value = rs.getObject(col)
+        if value is None:
+            return None
+        try:
+            return int(str(value.toString()))
+        except (AttributeError, ValueError):
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                # Better to hand back what arrived than to invent a number from
+                # something that is not one.
+                return value
+
+    return to_py
+
+
 def _detach_from_jvm() -> None:
     """Let go of the JVM from this thread, if it ever took hold."""
     try:
@@ -354,13 +392,21 @@ def _use_exact_decimals(bridge: Any) -> None:
     converter = _exact_decimal_converter()
     for sql_type in ("NUMERIC", "DECIMAL"):
         bridge._DEFAULT_CONVERTERS[sql_type] = converter
+    # BIGINT has no converter in the bridge at all, so it falls through to a
+    # handler that returns the raw Java object. MySQL answers TABLE_ROWS as a
+    # BigInteger, and `int(that)` raises — which surfaced as *discovery
+    # failing on every MySQL table* rather than as anything about types.
+    whole = _exact_integer_converter()
+    for sql_type in ("BIGINT", "INTEGER", "SMALLINT", "TINYINT"):
+        bridge._DEFAULT_CONVERTERS[sql_type] = whole
 
     built = getattr(bridge, "_converters", None)
     if built:
         import jpype
 
-        for sql_type in ("NUMERIC", "DECIMAL"):
+        for sql_type in ("NUMERIC", "DECIMAL", "BIGINT", "INTEGER", "SMALLINT", "TINYINT"):
+            replacement = whole if sql_type not in ("NUMERIC", "DECIMAL") else converter
             constant = getattr(jpype.java.sql.Types, sql_type, None)
             if constant is not None and constant in built:
-                built[constant] = converter
+                built[constant] = replacement
     _CONVERTERS_REPLACED = True

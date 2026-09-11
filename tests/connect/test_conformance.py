@@ -94,6 +94,10 @@ COVERAGE: dict[str, str | None] = {
     # tests/connect/sql/test_jdbc.py — needs PRAMA_TEST_JDBC_URL, a driver jar
     # and a JRE. Verified against PostgreSQL over the pgjdbc driver.
     "jdbc": None,
+    # tests/connect/sql/test_snowflake.py — dialect, refusals and the
+    # unverified-warning guards. NOT run against a Snowflake account and not
+    # going to be; the connector says so and a test asserts it still does.
+    "snowflake": None,
 }
 
 LOCAL = [key for key, fixture in COVERAGE.items() if fixture is not None]

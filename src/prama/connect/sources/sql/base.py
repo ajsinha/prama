@@ -116,10 +116,25 @@ class SqlConnector(Connector):
         try:
             objects = await self.discover()
         except Exception as exc:
-            # Reachable but the catalogue is closed: a permissions problem, and
-            # a distinct one from being unable to connect at all. Conflating
-            # them sends someone to the network team for a grant.
-            _, detail = self.classify_failure(exc)
+            # Reachable but the catalogue could not be read. Usually that is a
+            # permissions problem and a distinct one from being unable to
+            # connect at all — conflating them sends someone to the network team
+            # for a grant. But *assuming* it sends them to ask for a grant they
+            # already have: a driver returning a type this code cannot use
+            # failed here as UNAUTHORISED, which cost real time. So the
+            # classifier decides, and only a permissions answer claims one.
+            state, detail = self.classify_failure(exc)
+            if state is not HealthState.UNAUTHORISED:
+                return HealthReport(
+                    state=HealthState.DEGRADED,
+                    detail=(
+                        f"connected, and the catalogue could not be read: {detail}. "
+                        "This is not a permissions failure — the connection and "
+                        "the credential both worked."
+                    ),
+                    checked_at=checked,
+                    latency_ms=latency,
+                )
             return HealthReport(
                 state=HealthState.UNAUTHORISED,
                 detail=f"connected, but the catalogue could not be read: {detail}",
@@ -238,7 +253,7 @@ class SqlConnector(Connector):
             names = self._column_names()
             columns = list(zip(*chunk, strict=True))
             batch = pa.RecordBatch.from_arrays(
-                [pa.array(list(column)) for column in columns], names=list(names)
+                [_as_arrow(pa, list(column)) for column in columns], names=list(names)
             )
             budget.consume(batch.nbytes)
             rows_seen += batch.num_rows
@@ -366,6 +381,32 @@ class SqlConnector(Connector):
                 remedy=("Add it to the connection's allowed paths, or read a permitted object."),
                 context={"object": ".".join(path)},
             )
+
+
+def _as_arrow(pa: Any, values: list[Any]) -> Any:
+    """One column as an Arrow array, without losing a value to its type.
+
+    Arrow infers int64 for whole numbers, and MySQL's unsigned BIGINT goes past
+    it — 18446744073709551615 is a real identifier, and inference raised
+    `OverflowError` rather than producing anything. Three steps, in order of
+    how much they preserve:
+
+    1. Let Arrow infer, which is right almost always.
+    2. Try uint64, which covers the unsigned-integer case exactly.
+    3. Fall back to the values' own decimal strings.
+
+    The third is deliberately *not* float. A float would make the read succeed
+    and the number wrong, which is the failure this whole connector tree is
+    built to avoid; a string is visibly a string and the value survives intact.
+    """
+    try:
+        return pa.array(values)
+    except (pa.ArrowInvalid, OverflowError):
+        pass
+    try:
+        return pa.array(values, type=pa.uint64())
+    except (pa.ArrowInvalid, OverflowError, TypeError):
+        return pa.array([None if v is None else str(v) for v in values], type=pa.string())
 
 
 class _Budget:

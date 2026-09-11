@@ -66,6 +66,10 @@ rest = ["httpx>=0.27"]
 # packages, and the driver jar is supplied by the deployment — Prama does not
 # redistribute an Oracle or DB2 driver and will not fetch one.
 jdbc = ["JayDeBeApi>=1.2", "JPype1>=1.5"]
+# Snowflake. NOT YET VERIFIED against a real account — see the module docstring
+# in prama/connect/sources/sql/snowflake.py, which says so and is asserted by a
+# test so it cannot quietly become a claim.
+snowflake = ["snowflake-connector-python>=3.12"]
 
 [project.scripts]
 prama = "prama.cli.main:main"
@@ -150,4 +154,9 @@ ignore_missing_imports = true
 # through one function, so the untyped surface is small and contained.
 [[tool.mypy.overrides]]
 module = ["jaydebeapi.*", "jpype.*"]
+ignore_missing_imports = true
+
+# The Snowflake driver is an optional extra and is not installed here.
+[[tool.mypy.overrides]]
+module = ["snowflake.*"]
 ignore_missing_imports = true

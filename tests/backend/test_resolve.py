@@ -10,6 +10,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+import ast
 from datetime import date
 
 import pytest
@@ -66,8 +67,15 @@ class TestItDoesNotChangeAnythingElse:
 class TestEveryCallSiteUsesIt:
     def test_nothing_lowers_bare_outside_the_resolver(self) -> None:
         """Each caller remembering is how three of six call sites end up
-        subtly different — which is what happened before this existed."""
-        import re
+        subtly different — which is what happened before this existed.
+
+        Parsed rather than grepped. A line scan counted SQL's own ``lower()``
+        inside a dialect's query text as a Python call, so the first dialect to
+        lower-case a column name failed a guard about the IR. A guard that
+        cries wolf gets an exclusion list, and an exclusion list is how a real
+        violation eventually gets waved through.
+        """
+        import ast
         from pathlib import Path
 
         src = Path(__file__).resolve().parents[2] / "src" / "prama"
@@ -75,10 +83,43 @@ class TestEveryCallSiteUsesIt:
         for path in src.rglob("*.py"):
             if path.name in ("lower.py", "resolve.py"):
                 continue
-            for number, line in enumerate(path.read_text().splitlines(), 1):
-                if re.search(r"(?<![\w.])lower\(", line):
-                    offenders.append(f"{path.relative_to(src)}:{number}")
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                # A bare `lower(...)`, not `x.lower()` and not the word inside
+                # a string.
+                if (
+                    isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Name)
+                    and node.func.id == "lower"
+                ):
+                    offenders.append(f"{path.relative_to(src)}:{node.lineno}")
         assert offenders == [], (
             "these lower a control without its code lists; use "
             f"prama.ir.resolve.resolved: {offenders}"
         )
+
+    def test_the_guard_still_catches_a_bare_lower(self) -> None:
+        """The counterfactual, because narrowing a guard is exactly when it can
+        stop catching anything at all."""
+        import ast
+
+        offending = ast.parse("plan = lower(control)\n")
+        found = [
+            node
+            for node in ast.walk(offending)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "lower"
+        ]
+        assert found
+
+    def test_the_guard_ignores_sql_text_and_method_calls(self) -> None:
+        innocent = ast.parse('sql = "SELECT lower(data_type) FROM t"\nname = column.lower()\n')
+        found = [
+            node
+            for node in ast.walk(innocent)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "lower"
+        ]
+        assert not found

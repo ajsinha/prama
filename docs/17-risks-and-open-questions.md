@@ -26,10 +26,13 @@ Secret leakage into tracked configuration (refused by the pre-commit hook).
 **Still open, and unchanged.** Whether ≥95% of real controls express in the
 portable subset — needs design partners. Whether alert precision holds outside a
 synthetic corpus — needs the shadow study. Whether the connector breadth target
-is reachable at the quality bar this codebase holds; seven of eight GA
-connectors took the whole of Wave 3 and part of Wave 10, and the eighth needs a
-Snowflake account. ODBC was attempted and refused: unixODBC cannot be installed
-here, and a connector that has never reached a database is not one.
+is reachable at the quality bar this codebase holds. Eight of eight GA
+connectors are written and seven are verified; the eighth, Snowflake, is written
+against documented behaviour and has never met an account. That is the first
+connector here to ship unverified, and it is worth watching as a precedent — the
+guards that keep it labelled are the thing standing between "a reasonable
+starting point" and "a source somebody trusted by mistake". ODBC was attempted
+and refused: unixODBC cannot be installed here.
 
 **New, and now closed.** Dependency floors have no ceilings, so a rebuild
 floated to the newest release of everything and that had held by luck.
