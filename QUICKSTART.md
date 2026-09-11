@@ -237,7 +237,7 @@ count from a screen is a **lower bound**, never a pass.
 For an editor outside the console:
 
 ```bash
-prama lsp catalogue --out cat.json      # export the estate's schemas
+prama lsp catalogue --tenant acme-bank --out cat.json   # the estate's schemas
 prama lsp serve --catalogue cat.json    # language server on stdio
 ```
 

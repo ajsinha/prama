@@ -164,7 +164,7 @@ prama bundle seal ./offline              # manifest + SBOM, HMAC-sealed
 prama bundle verify ./offline            # exit 3 if it must not be installed
 prama contract check c.json --data rows.json   # CI gate; exit 3 on breach, 1 on failure
 prama contract diff before.csv after.csv --key id   # what changed, not how many
-prama lsp catalogue --out cat.json       # export the estate's schemas for an editor
+prama lsp catalogue --tenant acme --out cat.json   # the estate's schemas, for an editor
 prama lsp serve --catalogue cat.json     # PQL language server on stdio
 python scripts/check_file_length.py      # the 1500-line ceiling
 python3 scripts/verify_evidence.py bundle/   # check evidence without importing Prama

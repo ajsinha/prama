@@ -102,12 +102,15 @@ class TenantCreateCommand(Command):
         # The next step, spelled out. An identifier printed without saying what
         # to do with it is a step somebody has to guess, and the guess is
         # usually "paste it into the tracked config file".
-        ctx.emit("The console has no sign-in yet, so it reads its caller from")
-        ctx.emit("configuration. Put this in config/application.local.yaml, which is")
+        ctx.emit("Set this as the console's default estate, so a signed-in person")
+        ctx.emit("lands somewhere. Put it in config/application.local.yaml, which is")
         ctx.emit("git-ignored:")
         ctx.emit()
         ctx.emit("  tenancy:")
         ctx.emit(f"    default_tenant: {tenant_id}")
+        ctx.emit()
+        ctx.emit("Then create somebody who can sign in:")
+        ctx.emit(f"  prama principal create <username> --admin --tenant {slug}")
         return EXIT_OK
 
 

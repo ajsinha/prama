@@ -159,3 +159,22 @@ class TestItIsNotFoldedIntoDbInit:
         run(["--config", str(config), "db", "init"])
         _, text = run(["--config", str(config), "tenant", "list"])
         assert "No tenants" in text
+
+
+class TestTheNextStepIsSpelledOut:
+    """An identifier printed without saying what to do with it is a step
+    somebody has to guess, and the guess is usually "paste it into the tracked
+    config file".
+    """
+
+    def test_it_points_at_the_git_ignored_file(self, config: Path) -> None:
+        _, text = run(["--config", str(config), "tenant", "create", "acme-bank"])
+        assert "config/application.local.yaml" in text
+        assert "git-ignored" in text
+
+    def test_it_names_creating_somebody_who_can_sign_in(self, config: Path) -> None:
+        """The console *has* sign-in. This said it did not, which sent a reader
+        looking for a feature that is there."""
+        _, text = run(["--config", str(config), "tenant", "create", "acme-bank"])
+        assert "prama principal create" in text
+        assert "has no sign-in yet" not in text
