@@ -89,7 +89,7 @@ is meant to refuse to boot. The pre-commit hook refuses a non-empty secret in a 
 
 No code path may allow a model output to determine a pass/fail verdict on data (`CON-007`,
 `NFR-AI-002`). Models author, rank, explain, calibrate and summarise. A deterministic, versioned
-engine decides. `tests/architecture/test_no_model_verdicts.py` guards this.
+engine decides. `tests/architecture/test_layering.py` guards this.
 
 ---
 
