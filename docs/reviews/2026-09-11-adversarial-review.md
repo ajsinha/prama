@@ -72,7 +72,7 @@ boundary to exist.
 | T3 | Batch/stream equivalence compares the reference interpreter with itself | **High** | Open |
 | T4 | Conformance excuses an engine finding *zero* violations on a two-stage control | **High** | **Fixed** |
 | T5 | The tenant sweep is blind for 29 of the 49 methods it probes | **High** | Open |
-| T6 | Every HMAC seal is verified only by recomputing it with the function under test | **High** | Open |
+| T6 | Every HMAC seal is verified only by recomputing it with the function under test | **High** | **Fixed** |
 | T7 | `test_at_least_two_genuinely_different_engines_took_part` is `assert 3 >= 2` | **Medium** | Open |
 | T8 | `DriftReport.disagreement` has no coverage; its one test asserts nothing | **Medium** | Open |
 | T9 | "Mining finds a rule" passes while mining finds nothing | **Medium** | Open |
@@ -373,6 +373,34 @@ outcomes — building a genuinely half-broken engine to test it would be harder
 than the thing being tested and would prove less — and two of the five fail
 against the old code, while the positive control and the over-rejection case
 still pass, which is the direction the old rule did cover.
+
+**T6 — "sealed" was a word nothing checked.** `verify_signature(head, key, sig)`
+is `compare_digest(sign(head, key), sig)`, and every test of it was `sign`
+agreeing with `sign`. The same shape held for `Manifest.seal` and
+`Attestation.seal`. The string `hmac` appeared in exactly one test file in the
+whole suite, and in none of the evidence, bundle or attestation tests. Replacing
+all three with `sha256(key || message)` — the textbook length-extension-
+vulnerable prefix MAC — and swapping `hmac.compare_digest` for `==` produced
+zero new failures.
+
+`tests/security/test_seal_vectors.py` pins each seal to a known answer produced
+by an **independent** implementation: HMAC written out from RFC 2104 over
+`hashlib` alone, which does not import `hmac`. That is the move
+`scripts/verify_evidence.py` already makes for the hash chain — a second
+implementation that would have to be wrong in the same way to agree.
+
+The oracle is itself pinned, before anything is trusted to it, against RFC 4231
+§4.2 and §4.3. An independent implementation that is independently *wrong* is
+worse than no oracle at all, and those two constants are not something this
+repository gets to have an opinion about.
+
+Constant-time comparison is now asserted too, by reading the code rather than by
+timing — a timing test on a laptop measures the laptop. Running the reviewer's
+exact substitution now fails seven tests where it previously failed none.
+
+Worth keeping the reviewer's own calibration attached: the hash **chain** was
+already well pinned, by hand and by the stdlib-only verifier, and the Ed25519
+path in `test_bundle.py` is real. This was the HMAC half alone.
 
 ---
 
