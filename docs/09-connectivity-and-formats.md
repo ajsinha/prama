@@ -26,11 +26,22 @@ file feeds that arrive by SFTP at 04:00. Prama's differentiation in regulated in
 See §16.1 for catalogue write-back and §4.1 of `docs/12` for the message
 formats, each of which states its own position rather than being summarised here.
 
-Connectors: **six of eight** GA targets — filesystem, SQLite, PostgreSQL, object
-store, Kafka as a stream transport verified against a live broker, and REST
-verified against a real HTTP server. JDBC/ODBC and Snowflake are outstanding;
-each needs a driver stack and a live service, and shipping one unverified would
-be the kind of artefact this codebase is built to avoid.
+Connectors: **seven of eight** GA targets — filesystem, SQLite, PostgreSQL,
+object store, Kafka verified against a live broker, REST verified against a real
+HTTP server, and JDBC verified against PostgreSQL over the pgjdbc driver.
+
+**ODBC is deliberately not built.** It needs unixODBC, which cannot be installed
+here, and a connector shipped without ever having reached a database is the
+artefact this codebase is built to avoid. Snowflake needs an account.
+
+Two things the JDBC connector exists for, neither of which is the transport.
+**Exact numbers stay exact**: the usual Python JDBC bridge calls
+`BigDecimal.doubleValue()` on any scaled decimal, so `numeric(38,12)` arrives as
+a float — in a product whose job is to notice when money is wrong, that is
+disqualifying rather than a trade-off. And **JDBC is a transport, not a
+dialect**: the connector must be told which database is on the other end and
+refuses when it is not, because guessing would send one database's SQL to
+another and produce a control that compiles and then fails at the source.
 
 The ~45 and ~85 connector figures in §17 are **targets, not counts**.
 

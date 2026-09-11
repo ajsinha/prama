@@ -247,7 +247,7 @@ under thirty minutes, unattended, without writing anything — the zero-declarat
 | W3.8 | Profiler core and bounded-memory sketches | ✅ |
 | W3.9 | Segmented and incremental profiling | ✅ exact fold of mergeable sketches; settled segments never re-read |
 | W3.10 | Metric history store | ✅ Parquet and in-memory backends |
-| W3.11 | The eight GA connectors | ◑ 6 of 8: filesystem, SQLite, PostgreSQL, object store (S3/GCS/Azure), Kafka as a stream transport verified against a live broker, and REST verified against a real HTTP server. Remaining — JDBC/ODBC, Snowflake — each need an SDK and a live service to verify against, so they are deferred rather than written blind |
+| W3.11 | The eight GA connectors | ◑ 7 of 8: filesystem, SQLite, PostgreSQL, object store (S3/GCS/Azure), Kafka verified against a live broker, REST verified against a real HTTP server, and JDBC verified against PostgreSQL over the pgjdbc driver on Java 25. **ODBC is not built** — unixODBC cannot be installed on this machine and shipping it unverified would be the artefact this codebase refuses. Remaining — Snowflake — each need an SDK and a live service to verify against, so they are deferred rather than written blind |
 | W3.12 | Feed subsystem: arrival, manifests, trailers, duplicate delivery | ✅ calendar-aware arrival judgement, trailer and manifest integrity |
 | W3.13 | Read policy, budgets and source load ceiling | ✅ paths, hours, sampling, row and byte budgets, and a duty-cycle load ceiling |
 | W3.14 | Binding suggestions for declared-but-unbound datasets | ✅ |

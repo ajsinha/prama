@@ -31,9 +31,12 @@ Optional extras rather than hard dependencies, each refusing **by name** when
 absent rather than falling back to something weaker: `serve`, `postgres`,
 `fast`, `audit`, `sso`, `kafka`, `rest`.
 
-**Dependency floors have no ceilings.** Every requirement is a `>=`, so a
-rebuild floats to the newest release of everything. That has held so far and is
-luck rather than design; a lock file is the thing that would make it not luck.
+**Dependency floors have no ceilings, and `uv.lock` pins what they resolved
+to.** Every requirement is a `>=`, so the declaration floats to the newest
+release — and the lock file records the 62 packages that actually resolved,
+across every extra, so a rebuild is reproducible. The gate runs
+`uv lock --check`: a lock that has drifted from `pyproject.toml` is worse than
+none, because it looks like a reproducible build and is not one.
 
 §3.2's `sync_test_counts.py` — named here as DishtaYantra's discipline worth
 porting — now exists, and the gate runs it. Numbers in prose are derived from a

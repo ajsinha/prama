@@ -97,7 +97,12 @@ class PostgresDialect(SqlDialect):
         # pg_attribute rather than information_schema: it carries the column
         # comment, which is often the only business description that exists
         # anywhere, and picking it up turns a migration into a head start.
-        return """
+        # `self.placeholder(n)` rather than a literal `$1`: the placeholder
+        # style belongs to the *driver*, not the database. asyncpg wants `$1`
+        # and every JDBC driver wants `?`, and the same PostgreSQL is reachable
+        # through both. A literal here made a JDBC read bind nothing and report
+        # "column index out of range", a long way from the actual cause.
+        return f"""
             SELECT a.attname,
                    format_type(a.atttypid, a.atttypmod),
                    NOT a.attnotnull,
@@ -108,16 +113,16 @@ class PostgresDialect(SqlDialect):
             FROM pg_attribute a
             JOIN pg_class c ON c.oid = a.attrelid
             JOIN pg_namespace n ON n.oid = c.relnamespace
-            WHERE n.nspname = $1 AND c.relname = $2
+            WHERE n.nspname = {self.placeholder(1)} AND c.relname = {self.placeholder(2)}
               AND a.attnum > 0 AND NOT a.attisdropped
             ORDER BY a.attnum
         """
 
     def estimate_rows_sql(self) -> str:
-        return """
+        return f"""
             SELECT CASE WHEN c.reltuples < 0 THEN NULL ELSE c.reltuples::bigint END
             FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-            WHERE n.nspname = $1 AND c.relname = $2
+            WHERE n.nspname = {self.placeholder(1)} AND c.relname = {self.placeholder(2)}
         """
 
     def snapshot_sql(self) -> str:
