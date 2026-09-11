@@ -48,7 +48,7 @@ boundary to exist.
 | X3 | An agent deletes the record of gaps in its own evidence | **High** | Open |
 | C4 | Reference interpreter and SQL disagree on `%` and `/`; corpus has no case | **High** | Open |
 | H1 | Banking cross-field functions are advertised and never installed | **High** | Open |
-| C5 | A dataset that scanned zero rows scores 100% | **High** | Open |
+| C5 | A dataset that scanned zero rows scores 100% | **High** | **Fixed** |
 | X4 | A ledger failure strands a work unit and its lease permanently | **Medium** | Open |
 | X5 | `unfinished()` cannot see a run that died mid-flight | **Medium** | Open |
 | S5 | ClickHouse and BigQuery quoting escapes the backtick, not the backslash | **Medium** | Open |
@@ -259,6 +259,46 @@ Counterfactual, on the working version: regressing one write route to a bare
 `Caller` and one to `Reader` turns exactly two tests red. And in
 `tests/api/test_scopes.py`, five of seven fail against the unenforced code — a
 read-only key created a dataset and got a 201.
+
+**C5 — no evidence scored full marks.** `Measurement.rate` was
+`1.0 - (violations / scanned if scanned else 0.0)`, so a control that ran over
+zero rows returned a perfect rate. A Tier-1 dataset whose delivery never
+arrived reported **100%, at 100% coverage**:
+
+```
+positions: completeness 100.0% (0 of 0 rows across 1 control)
+```
+
+Three things make this the sharpest finding of the set. First, the module names
+the defect itself, three lines above the field the bug depends on: "A control
+that did not run contributes nothing and is not a pass. The distinction
+matters: a dataset scoring 100% because half its controls were skipped is the
+most misleading output this module could produce." A control that *ran* and
+scanned nothing is the same claim in a different hat — and it is the commoner
+one: a delivery that did not arrive, a partition filter that matched no rows, an
+extract that failed in a way the connector reported as success.
+
+Second, it inverts the product's own thesis. Two-stage validation exists to
+insist that **a lower bound of zero is not a pass**. A scorecard that turns no
+evidence into full marks says precisely the opposite, in the place a business
+owner actually looks.
+
+Third, it was silently dilutive rather than merely wrong on its own. Averaging a
+genuine 60% with a phantom 100% reports 80%: the dataset looked *better* for
+having been measured less.
+
+An empty scan is now excluded from the arithmetic and counted, exactly as a
+control that did not run is — `Score.scanned_nothing`, separate from `not_run`
+because the two need different remedies but make the same claim about the score,
+which is that it does not cover this control. `coverage` subtracts both.
+`rate` returns 0.0 rather than 1.0 for anything that reaches for it regardless.
+The `max(1, scanned)` guard in `_rows_weighted`, which gave an empty control
+weight 1 and rate 1.0, is gone with the case it existed for.
+
+The counterfactual includes the opposite error, which matters as much:
+a control that genuinely examined a million rows and found nothing wrong is
+still a pass. "No violations" and "no rows" must not be conflated in either
+direction.
 
 ---
 
