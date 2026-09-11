@@ -14,7 +14,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Query, Response, status
 
-from prama.api.deps import Caller, Uow
+from prama.api.deps import Reader, Uow, Writer
 from prama.api.mapping import attribute_out, dataset_out, relationship_out
 from prama.api.schemas import (
     AttributeIn,
@@ -49,7 +49,7 @@ router = APIRouter(tags=["semantic"])
 
 
 @router.post("/datasets", response_model=DatasetOut, status_code=status.HTTP_201_CREATED)
-async def declare_dataset(body: DatasetIn, caller: Caller, uow: Uow) -> DatasetOut:
+async def declare_dataset(body: DatasetIn, caller: Writer, uow: Uow) -> DatasetOut:
     """Declare a dataset. It may be unbound — that is a first-class state."""
     _, version = await DatasetService(uow).declare(
         tenant_id=caller.tenant_id,
@@ -76,7 +76,7 @@ async def declare_dataset(body: DatasetIn, caller: Caller, uow: Uow) -> DatasetO
 
 @router.get("/datasets", response_model=DatasetPage)
 async def list_datasets(
-    caller: Caller,
+    caller: Reader,
     uow: Uow,
     limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
@@ -100,7 +100,7 @@ async def list_datasets(
 @router.get("/datasets/{dataset_id}", response_model=DatasetOut)
 async def get_dataset(
     dataset_id: str,
-    caller: Caller,
+    caller: Reader,
     uow: Uow,
     valid_at: datetime | None = Query(
         default=None, description="What we believe today was true at this instant."
@@ -131,7 +131,7 @@ async def get_dataset(
 
 
 @router.get("/datasets/{dataset_id}/history", response_model=list[DatasetOut])
-async def dataset_history(dataset_id: str, caller: Caller, uow: Uow) -> list[DatasetOut]:
+async def dataset_history(dataset_id: str, caller: Reader, uow: Uow) -> list[DatasetOut]:
     """Every version, oldest first — the audit view of a declaration."""
     return [
         dataset_out(v) for v in await uow.datasets.history(dataset_id, tenant_id=caller.tenant_id)
@@ -140,7 +140,7 @@ async def dataset_history(dataset_id: str, caller: Caller, uow: Uow) -> list[Dat
 
 @router.post("/datasets/{dataset_id}/amend", response_model=DatasetOut)
 async def amend_dataset(
-    dataset_id: str, body: DatasetAmendIn, caller: Caller, uow: Uow
+    dataset_id: str, body: DatasetAmendIn, caller: Writer, uow: Uow
 ) -> DatasetOut:
     """The world changed: close one validity period and open the next."""
     version = await DatasetService(uow).amend(
@@ -157,7 +157,7 @@ async def amend_dataset(
 
 @router.post("/datasets/{dataset_id}/correct", response_model=DatasetOut)
 async def correct_dataset(
-    dataset_id: str, body: DatasetCorrectIn, caller: Caller, uow: Uow
+    dataset_id: str, body: DatasetCorrectIn, caller: Writer, uow: Uow
 ) -> DatasetOut:
     """We were wrong: supersede the belief, leave validity untouched."""
     version = await DatasetService(uow).correct(
@@ -171,7 +171,7 @@ async def correct_dataset(
 
 
 @router.delete("/datasets/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def retire_dataset(dataset_id: str, caller: Caller, uow: Uow) -> Response:
+async def retire_dataset(dataset_id: str, caller: Writer, uow: Uow) -> Response:
     """Retire, never delete: history is needed to interpret past evidence."""
     # A 204 for an id that was never retired tells the caller the opposite of
     # what happened — and, before the tenant scope existed, told a caller of
@@ -196,7 +196,7 @@ async def retire_dataset(dataset_id: str, caller: Caller, uow: Uow) -> Response:
     status_code=status.HTTP_201_CREATED,
 )
 async def declare_attribute(
-    dataset_id: str, body: AttributeIn, caller: Caller, uow: Uow
+    dataset_id: str, body: AttributeIn, caller: Writer, uow: Uow
 ) -> AttributeOut:
     _, version = await DatasetService(uow).declare_attribute(
         tenant_id=caller.tenant_id,
@@ -219,7 +219,7 @@ async def declare_attribute(
 
 
 @router.get("/datasets/{dataset_id}/attributes", response_model=list[AttributeOut])
-async def list_attributes(dataset_id: str, caller: Caller, uow: Uow) -> list[AttributeOut]:
+async def list_attributes(dataset_id: str, caller: Reader, uow: Uow) -> list[AttributeOut]:
     return [
         attribute_out(v, dataset_id=dataset_id)
         for v in await uow.attributes.for_dataset(dataset_id)
@@ -227,7 +227,7 @@ async def list_attributes(dataset_id: str, caller: Caller, uow: Uow) -> list[Att
 
 
 @router.get("/critical-data-elements", response_model=list[AttributeOut])
-async def list_cdes(caller: Caller, uow: Uow) -> list[AttributeOut]:
+async def list_cdes(caller: Reader, uow: Uow) -> list[AttributeOut]:
     """Every CDE in the tenant: the population attracting the strictest controls."""
     return [
         attribute_out(v, dataset_id="")
@@ -247,7 +247,7 @@ async def list_relationship_kinds() -> list[RelationshipKindOut]:
 
 
 @router.post("/relationships", response_model=RelationshipOut, status_code=status.HTTP_201_CREATED)
-async def declare_relationship(body: RelationshipIn, caller: Caller, uow: Uow) -> RelationshipOut:
+async def declare_relationship(body: RelationshipIn, caller: Writer, uow: Uow) -> RelationshipOut:
     """Declare a relationship. Validation happens before anything is stored."""
     declaration = RelationshipDeclaration(
         kind=body.kind,
@@ -276,7 +276,7 @@ async def declare_relationship(body: RelationshipIn, caller: Caller, uow: Uow) -
 
 @router.get("/relationships", response_model=list[RelationshipOut])
 async def list_relationships(
-    caller: Caller,
+    caller: Reader,
     uow: Uow,
     dataset_id: str | None = Query(default=None, description="Either side of the relationship."),
     kind: str | None = Query(default=None),
@@ -295,7 +295,7 @@ async def list_relationships(
 
 @router.post("/relationships/{relationship_id}/confirm", response_model=RelationshipOut)
 async def confirm_relationship(
-    relationship_id: str, body: RelationshipDecisionIn, caller: Caller, uow: Uow
+    relationship_id: str, body: RelationshipDecisionIn, caller: Writer, uow: Uow
 ) -> RelationshipOut:
     """Confirm a proposal. Until this, derived controls stay proposals too."""
     version = await RelationshipService(uow).confirm(
@@ -309,7 +309,7 @@ async def confirm_relationship(
 
 @router.post("/relationships/{relationship_id}/reject", response_model=RelationshipOut)
 async def reject_relationship(
-    relationship_id: str, body: RelationshipDecisionIn, caller: Caller, uow: Uow
+    relationship_id: str, body: RelationshipDecisionIn, caller: Writer, uow: Uow
 ) -> RelationshipOut:
     """Reject a proposal. Recorded, not deleted: it is a training signal."""
     version = await RelationshipService(uow).reject(

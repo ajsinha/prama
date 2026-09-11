@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Query, status
 
-from prama.api.deps import Caller, Uow
+from prama.api.deps import Reader, Uow, Writer
 from prama.api.mapping import (
     attribute_out,
     binding_out,
@@ -50,7 +50,7 @@ router = APIRouter(tags=["graph"])
 
 
 @router.post("/concepts", response_model=ConceptOut, status_code=status.HTTP_201_CREATED)
-async def declare_concept(body: ConceptIn, caller: Caller, uow: Uow) -> ConceptOut:
+async def declare_concept(body: ConceptIn, caller: Writer, uow: Uow) -> ConceptOut:
     """Declare a canonical business concept: Party, Instrument, Position."""
     _, version = await ConceptService(uow).declare_concept(
         tenant_id=caller.tenant_id,
@@ -64,7 +64,7 @@ async def declare_concept(body: ConceptIn, caller: Caller, uow: Uow) -> ConceptO
 
 
 @router.get("/concepts", response_model=list[ConceptOut])
-async def list_concepts(caller: Caller, uow: Uow) -> list[ConceptOut]:
+async def list_concepts(caller: Reader, uow: Uow) -> list[ConceptOut]:
     return [concept_out(v) for v in await uow.concepts.list_current(caller.tenant_id, limit=500)]
 
 
@@ -74,7 +74,7 @@ async def list_concepts(caller: Caller, uow: Uow) -> list[ConceptOut]:
     status_code=status.HTTP_201_CREATED,
 )
 async def declare_property(
-    concept_id: str, body: ConceptPropertyIn, caller: Caller, uow: Uow
+    concept_id: str, body: ConceptPropertyIn, caller: Writer, uow: Uow
 ) -> ConceptPropertyOut:
     """Declare a property. A control authored here reaches every mapped attribute."""
     _, version = await ConceptService(uow).declare_property(
@@ -92,7 +92,7 @@ async def declare_property(
 
 
 @router.get("/concepts/{concept_id}/properties", response_model=list[ConceptPropertyOut])
-async def list_properties(concept_id: str, caller: Caller, uow: Uow) -> list[ConceptPropertyOut]:
+async def list_properties(concept_id: str, caller: Reader, uow: Uow) -> list[ConceptPropertyOut]:
     out: list[ConceptPropertyOut] = []
     for version in await uow.concept_properties.for_concept(concept_id):
         mapped = await uow.attributes.mapped_to_property(version.property_id)
@@ -102,7 +102,7 @@ async def list_properties(concept_id: str, caller: Caller, uow: Uow) -> list[Con
 
 @router.post("/attributes/{attribute_id}/mapping", response_model=AttributeOut)
 async def map_attribute(
-    attribute_id: str, body: AttributeMappingIn, caller: Caller, uow: Uow
+    attribute_id: str, body: AttributeMappingIn, caller: Writer, uow: Uow
 ) -> AttributeOut:
     """Claim that an attribute *is* a canonical property.
 
@@ -124,7 +124,7 @@ async def map_attribute(
 
 
 @router.post("/journeys", response_model=JourneyOut, status_code=status.HTTP_201_CREATED)
-async def declare_journey(body: JourneyIn, caller: Caller, uow: Uow) -> JourneyOut:
+async def declare_journey(body: JourneyIn, caller: Writer, uow: Uow) -> JourneyOut:
     """Declare a business process as an ordered chain of datasets.
 
     Steps may be black boxes: a mainframe job or a manual upload that Prama
@@ -148,7 +148,7 @@ async def declare_journey(body: JourneyIn, caller: Caller, uow: Uow) -> JourneyO
 
 @router.get("/journeys", response_model=list[JourneyOut])
 async def list_journeys(
-    caller: Caller,
+    caller: Reader,
     uow: Uow,
     dataset_id: str | None = Query(
         default=None, description="Journeys a dataset appears in — its blast radius."
@@ -162,7 +162,7 @@ async def list_journeys(
 
 
 @router.get("/journeys/{journey_id}", response_model=JourneyOut)
-async def get_journey(journey_id: str, caller: Caller, uow: Uow) -> JourneyOut:
+async def get_journey(journey_id: str, caller: Reader, uow: Uow) -> JourneyOut:
     version = await uow.journeys.current(journey_id, tenant_id=caller.tenant_id)
     if version is None:
         raise NotFoundError(
@@ -175,7 +175,7 @@ async def get_journey(journey_id: str, caller: Caller, uow: Uow) -> JourneyOut:
 
 @router.put("/journeys/{journey_id}/steps", response_model=JourneyOut)
 async def set_journey_steps(
-    journey_id: str, body: JourneyStepsIn, caller: Caller, uow: Uow
+    journey_id: str, body: JourneyStepsIn, caller: Writer, uow: Uow
 ) -> JourneyOut:
     """Replace the chain wholesale: reordering touches every step."""
     version = await JourneyService(uow).set_steps(
@@ -194,7 +194,7 @@ async def set_journey_steps(
 
 
 @router.post("/connections", response_model=ConnectionOut, status_code=status.HTTP_201_CREATED)
-async def configure_connection(body: ConnectionIn, caller: Caller, uow: Uow) -> ConnectionOut:
+async def configure_connection(body: ConnectionIn, caller: Writer, uow: Uow) -> ConnectionOut:
     """Configure a route to a source. Never stores a secret."""
     _, version = await ConnectionService(uow).configure(
         tenant_id=caller.tenant_id,
@@ -213,7 +213,7 @@ async def configure_connection(body: ConnectionIn, caller: Caller, uow: Uow) -> 
 
 @router.get("/connections", response_model=list[ConnectionOut])
 async def list_connections(
-    caller: Caller,
+    caller: Reader,
     uow: Uow,
     unhealthy_only: bool = Query(default=False),
 ) -> list[ConnectionOut]:
@@ -235,7 +235,7 @@ async def list_connections(
     response_model=BindingOut,
     status_code=status.HTTP_201_CREATED,
 )
-async def bind(dataset_id: str, body: BindingIn, caller: Caller, uow: Uow) -> BindingOut:
+async def bind(dataset_id: str, body: BindingIn, caller: Writer, uow: Uow) -> BindingOut:
     """Bind a declared object to where it actually lives."""
     service = BindingService(uow)
     if body.attribute_id:
@@ -263,12 +263,12 @@ async def bind(dataset_id: str, body: BindingIn, caller: Caller, uow: Uow) -> Bi
 
 
 @router.get("/datasets/{dataset_id}/bindings", response_model=list[BindingOut])
-async def list_bindings(dataset_id: str, caller: Caller, uow: Uow) -> list[BindingOut]:
+async def list_bindings(dataset_id: str, caller: Reader, uow: Uow) -> list[BindingOut]:
     return [binding_out(v) for v in await uow.bindings.for_dataset(dataset_id)]
 
 
 @router.get("/bindings/drifted", response_model=list[BindingOut])
-async def list_drifted(caller: Caller, uow: Uow) -> list[BindingOut]:
+async def list_drifted(caller: Reader, uow: Uow) -> list[BindingOut]:
     """Bindings whose physical target has moved beneath the declaration.
 
     Each is an incident for the business owner of the declaration, not for an

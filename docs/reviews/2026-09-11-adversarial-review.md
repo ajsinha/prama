@@ -44,7 +44,7 @@ boundary to exist.
 | X1 | `DedicatedThread.call` took no keywords, so Snowflake `open()` could never run | **High** | **Fixed** |
 | X2 | A failed `open()` leaked a thread and a JVM attachment | **High** | **Fixed** |
 | S3 | The prompt-injection fence can be broken by interleaving the marker | **High** | Open |
-| S4 | RBAC scopes are computed, stored, and never enforced | **High** | Open |
+| S4 | RBAC scopes are computed, stored, and never enforced | **High** | **Fixed** |
 | X3 | An agent deletes the record of gaps in its own evidence | **High** | Open |
 | C4 | Reference interpreter and SQL disagree on `%` and `/`; corpus has no case | **High** | Open |
 | H1 | Banking cross-field functions are advertised and never installed | **High** | Open |
@@ -213,6 +213,52 @@ deleting the `require(...)` call from `connect/sources/rest.py` while leaving
 every comment about it intact turns `source-read` red. Against the old matcher
 it stayed green — which is the failure the guard exists to prevent, committed
 by the guard.
+
+---
+
+**S4 — scopes were recorded everywhere and read nowhere.** Every API key
+carried a scope list. `get_caller` put it on `CallerIdentity.scopes`. Nothing
+ever looked at it. `Principal.has_permission` existed, implemented wildcard
+matching, and was called by no code and no test in the repository. A key issued
+read-only could retire a declaration, while the key record, the admin screen and
+the audit log all read as though an authorisation decision were being made —
+which is worse than no permission model, because it invites people to rely on
+one.
+
+Now `ask`-side: `CallerIdentity.require_scope` refuses, and each route declares
+what it needs *in its signature* (`caller: Reader` / `caller: Writer`) rather
+than in its body, so the requirement appears in the generated OpenAPI document
+and can be checked by walking the routing table. `Principal.has_permission` and
+the key scopes now share one matcher in `prama.security.scopes`, because the
+rule had been written once and was about to be written twice.
+
+Two decisions worth stating:
+
+- **An empty scope list permits nothing.** A credential minted before scopes
+  were enforced has no scopes recorded, and if that meant "unrestricted" every
+  such key would become a superuser on the day the control was switched on.
+  `tests/api/test_scopes.py::TestNoScopesMeansNothing` pins it.
+- **The console is out of scope, and says so.** It authenticates a session, not
+  a key, and carries no scope list. A console route is authorised today by the
+  caller being signed in, which is coarser than what the API now does. That is a
+  real remaining gap; the architecture guard names it rather than absorbing the
+  console into an exemption list.
+
+**The guard found nothing, twice, before it worked.** FastAPI does not copy an
+included router's routes onto the application — it wraps the router in an
+`_IncludedRouter` holding the original and the prefix separately. A scan over
+`app.routes` therefore sees the console, which registers with `@app.get`
+directly, and **none of the API**. The first version of
+`tests/architecture/test_scopes.py` walked that collection, found zero API
+routes, and passed every assertion. It is the same shape as finding T5 — a
+sweep whose emptiness comes from looking in the wrong place rather than from
+there being nothing to find — and the anti-vacuity assertion in that file exists
+because of it, not as a formality.
+
+Counterfactual, on the working version: regressing one write route to a bare
+`Caller` and one to `Reader` turns exactly two tests red. And in
+`tests/api/test_scopes.py`, five of seven fail against the unenforced code — a
+read-only key created a dataset and got a 201.
 
 ---
 

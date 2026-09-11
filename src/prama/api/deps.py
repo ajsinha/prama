@@ -11,19 +11,20 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import AsyncIterator
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import Depends, Header, Request
 
 from prama.core.clock import utc_now
 from prama.core.config import Configuration
-from prama.core.errors import UnauthorisedError, ValidationError
+from prama.core.errors import ForbiddenError, UnauthorisedError, ValidationError
 from prama.core.ids import new_ulid
 from prama.core.log import correlation_id
 from prama.core.log import tenant_id as tenant_context
 from prama.db import Database
 from prama.db.security import ApiKeyIssuer
 from prama.db.session import UnitOfWork
+from prama.security.scopes import SCOPES, permits
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -39,6 +40,26 @@ class CallerIdentity:
     tenant_id: str
     principal_id: str | None = None
     scopes: tuple[str, ...] = ()
+
+    def require_scope(self, scope: str) -> None:
+        """Refuse unless this credential carries *scope*.
+
+        Separate from authentication: S1 established *who* is calling, and this
+        establishes *what they may do*. Before it existed, the scopes on a key
+        were recorded, carried on this object and consulted nowhere, so a
+        read-only key could retire a declaration.
+        """
+        if not permits(self.scopes, scope):
+            raise ForbiddenError(
+                f"this credential does not carry the {scope!r} scope",
+                remedy=(
+                    f"Issue a key with {scope!r} — it may {SCOPES.get(scope, 'do this')}. "
+                    "An empty scope list permits nothing, deliberately: a credential "
+                    "created before scopes existed must not become a superuser the day "
+                    "they are enforced."
+                ),
+                context={"scope": scope, "held": ",".join(self.scopes) or "(none)"},
+            )
 
     def require_principal(self) -> str:
         if not self.principal_id:
@@ -134,7 +155,34 @@ def new_correlation_id(request: Request) -> str:
     return cid
 
 
+def scoped(scope: str) -> Any:
+    """A caller who additionally holds *scope*.
+
+    Used as a route's `caller` annotation, so the permission a route needs is
+    stated in its signature rather than in its body — which means it is visible
+    in the generated OpenAPI document and, more usefully, checkable by a test
+    that walks the routing table. See
+    `tests/architecture/test_scopes.py::TestEveryMutatingRouteDeclaresAScope`.
+    """
+    if scope not in SCOPES:
+        raise ValueError(f"{scope!r} is not a declared scope; add it to SCOPES first")
+
+    async def guard(caller: Caller) -> CallerIdentity:
+        caller.require_scope(scope)
+        return caller
+
+    guard.__name__ = f"requires_{scope.replace(':', '_')}"
+    #: Read by the architecture test to tell a guarded route from a bare one.
+    guard.prama_scope = scope  # type: ignore[attr-defined]
+    return Annotated[CallerIdentity, Depends(guard)]
+
+
 Caller = Annotated[CallerIdentity, Depends(get_caller)]
+#: An authenticated caller, with no authorisation check. Reserved for the
+#: routes that genuinely need none; a route using this instead of `Reader` or
+#: `Writer` is what `tests/architecture/test_scopes.py` looks for.
+Reader = scoped("semantic:read")
+Writer = scoped("semantic:write")
 Uow = Annotated[UnitOfWork, Depends(get_uow)]
 Config = Annotated[Configuration, Depends(get_config)]
 Db = Annotated[Database, Depends(get_database)]
