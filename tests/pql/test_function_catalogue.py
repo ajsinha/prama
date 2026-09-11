@@ -16,6 +16,8 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+import functools
+import os
 import sqlite3
 from decimal import Decimal
 from typing import Any
@@ -78,7 +80,32 @@ def _cases(function: Function) -> list[list[Any]]:
     return rows
 
 
+@functools.lru_cache(maxsize=1)
+def _postgres() -> Any:
+    """One connection for the whole module.
+
+    Per-call would be several hundred connections for twenty-five functions
+    across their cases, which is slow enough that somebody would stop running
+    it with a DSN set — and a conformance test nobody runs is not one.
+    """
+    import psycopg
+
+    return psycopg.connect(POSTGRES_DSN)
+
+
 def _run(engine: str, sql: str) -> Any:
+    if engine == "postgresql":
+        connection = _postgres()
+        with connection.cursor() as cursor:
+            try:
+                cursor.execute(f"SELECT {sql}")
+                return cursor.fetchone()[0]
+            finally:
+                # A failed statement aborts the transaction, and every
+                # subsequent case in this connection would then fail with
+                # "current transaction is aborted" — reporting one broken
+                # lowering as twenty-five.
+                connection.rollback()
     if engine == "duckdb":
         with duckdb.connect(":memory:") as connection:
             return connection.execute(f"SELECT {sql}").fetchone()[0]
@@ -108,10 +135,16 @@ def _comparable(value: Any) -> Any:
     return str(value)
 
 
-#: Engines a test can actually reach here. PostgreSQL needs a server, so its
-#: lowerings are checked for *renderability* rather than executed — and the
-#: corpus in tests/backend runs the real thing when a DSN is set.
+#: Engines a test can actually reach. DuckDB and SQLite are in-process and
+#: always run. PostgreSQL joins when PRAMA_TEST_POSTGRES_DSN names a server, and
+#: when it does this stops being a check that the SQL *renders* and becomes a
+#: check that it *means the same thing* — which is the only version of this test
+#: worth the name. Without a server the PostgreSQL lowerings are still rendered,
+#: so a template with a hole in it fails either way; what a server adds is
+#: everything a renderer cannot see, which is most of it.
+POSTGRES_DSN = os.environ.get("PRAMA_TEST_POSTGRES_DSN", "")
 LOCAL_ENGINES = ("duckdb", "sqlite")
+EXECUTED_ENGINES = (*LOCAL_ENGINES, "postgresql") if POSTGRES_DSN else LOCAL_ENGINES
 
 
 class TestTheCatalogueIsComplete:
@@ -159,7 +192,7 @@ class TestEveryFunctionAgreesWithItsSql:
     substring — fails here rather than in somebody's evidence six months later.
     """
 
-    @pytest.mark.parametrize("engine", LOCAL_ENGINES)
+    @pytest.mark.parametrize("engine", EXECUTED_ENGINES)
     @pytest.mark.parametrize("name", FUNCTIONS.names())
     def test_each_function(self, name: str, engine: str) -> None:
         function = FUNCTIONS.get(name)

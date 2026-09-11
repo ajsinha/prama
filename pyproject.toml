@@ -53,6 +53,11 @@ audit = ["playwright>=1.44"]
 # signatures get accepted. A clone without this extra refuses SSO loudly rather
 # than falling back to something weaker.
 sso = ["cryptography>=43"]
+# The Kafka transport. Separate because the broker client is a compiled
+# dependency and most deployments validate in batch before they validate in
+# flight — and because prama.execute.transport must stay importable without it,
+# which is what lets the commit ordering be tested with no broker at all.
+kafka = ["confluent-kafka>=2.5"]
 
 [project.scripts]
 prama = "prama.cli.main:main"

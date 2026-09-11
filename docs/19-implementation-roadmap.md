@@ -223,7 +223,7 @@ under thirty minutes, unattended, without writing anything — the zero-declarat
 | W3.8 | Profiler core and bounded-memory sketches | ✅ |
 | W3.9 | Segmented and incremental profiling | ✅ exact fold of mergeable sketches; settled segments never re-read |
 | W3.10 | Metric history store | ✅ Parquet and in-memory backends |
-| W3.11 | The eight GA connectors | ◑ 4 of 8: filesystem, SQLite, PostgreSQL, object store (S3/GCS/Azure). Remaining — Kafka, REST, JDBC/ODBC, Snowflake — each need an SDK and a live service to verify against, so they are deferred rather than written blind |
+| W3.11 | The eight GA connectors | ◑ 5 of 8: filesystem, SQLite, PostgreSQL, object store (S3/GCS/Azure), and Kafka as a stream transport verified against a live broker. Remaining — REST, JDBC/ODBC, Snowflake — each need an SDK and a live service to verify against, so they are deferred rather than written blind |
 | W3.12 | Feed subsystem: arrival, manifests, trailers, duplicate delivery | ✅ calendar-aware arrival judgement, trailer and manifest integrity |
 | W3.13 | Read policy, budgets and source load ceiling | ✅ paths, hours, sampling, row and byte budgets, and a duty-cycle load ceiling |
 | W3.14 | Binding suggestions for declared-but-unbound datasets | ✅ |
@@ -808,19 +808,19 @@ W11.12 ✅ purity enforcement and implementation hashing · W11.13 ✅ pushdown 
 
 ### Acceptance criteria
 
-- [ ] **No function exists without both a lowering and a reference implementation.** Enforced by
+- [x] **No function exists without both a lowering and a reference implementation.** Enforced by
       test, not convention.
-- [ ] Every catalogued function agrees between SQL and the reference interpreter on the conformance
+- [x] Every catalogued function agrees between SQL and the reference interpreter on the conformance
       corpus, on every engine that claims it.
-- [ ] An unknown function name is refused at type-check time, naming the ones that exist.
-- [ ] A function an engine cannot express is **refused**, never approximated.
-- [ ] Every divergence from Excel is declared on the function and printed by `control explain`.
-- [ ] A volatile function (`NOW`, `RAND`, `INDIRECT`) is refused with the reason: a control must
+- [x] An unknown function name is refused at type-check time, naming the ones that exist.
+- [x] A function an engine cannot express is **refused**, never approximated.
+- [x] Every divergence from Excel is declared on the function and printed by `control explain`.
+- [x] A volatile function (`NOW`, `RAND`, `INDIRECT`) is refused with the reason: a control must
       replay.
-- [ ] A validator plugin's implementation hash is part of the plan id: editing the code changes the
+- [x] A validator plugin's implementation hash is part of the plan id: editing the code changes the
       control's identity rather than silently changing what past evidence meant.
-- [ ] A plugin that imports a clock, a socket or a model is refused at registration.
-- [ ] ≥ 90% of the catalogue pushes down on PostgreSQL and DuckDB.
+- [x] A plugin that imports a clock, a socket or a model is refused at registration.
+- [x] ≥ 90% of the catalogue pushes down on PostgreSQL and DuckDB.
 
 **Demo.** A business owner writes `SATISFIES EXCEL '=AND([quantity]>0, [notional]=[quantity]*[price])'`,
 sees the SQL it becomes, and sees the one place it differs from what Excel would do — stated on the
@@ -853,7 +853,7 @@ without one does not exist.
 
 ### Tasks
 
-W10.1 ✅ streaming backend and in-flight enforcement (per-message enforcement with dead-lettering, and a broker seam whose commit-after-enforce ordering is refuted by test; no broker client ships and the loop has not been run against a real broker) · W10.2 ✅ tenant isolation test suite ·
+W10.1 ✅ streaming backend and in-flight enforcement (per-message enforcement with dead-lettering, a broker seam whose commit-after-enforce ordering is refuted by test, and a Kafka transport verified against a live broker — offset+1 semantics proven by reconnecting with the same group) · W10.2 ✅ tenant isolation test suite ·
 W10.3 ✅ SSO/SCIM, vault, CMK (local sign-in, RBAC, OIDC ID-token verification refusing eight forgery classes, SCIM reconciliation that never deletes and cannot strand the last admin, a Vault KV v2 provider, and CMK envelope encryption with authenticated context — the SCIM wire endpoints are not written, and neither Vault nor a cloud KMS has been exercised live) · W10.4 ✅ residency enforcement and SIEM export (five registered egress points, each gated and each refuted by test; the network-reaching module list derived from imports so an unregistered egress fails the build) · W10.5 ✅ Helm chart (lints, renders, refusals tested; not installed on a cluster) ·
 W10.6 ◐ Operator and CRDs (the CRD, the reconciliation decision, and the control loop — status on every path, stop-and-report on a failed write, terminating resources left alone, all tested against an in-memory cluster; not run against a real API server) · W10.7 ✅ all-in-one image (builds, runs, serves; verified end to end) · W10.8 ◐ **offline bundle and air-gapped update** (seal, verify, SBOM, and Ed25519 publisher signing verified end to end against a simulated air-gapped host that holds only the public key — OCI image signing needs cosign and a registry, and a genuinely disconnected run needs a host with no route out) ·
 W10.9 ✅ COBOL/EBCDIC reader · W10.10 ✅ financial message parsers (SWIFT MT, pacs.008/camt.053, FIX 4.2-4.4, ISO 8583, FpML 5; `prama pack parse`) · W10.11 ✅ banking concepts, validators
