@@ -69,6 +69,13 @@ class Case:
     #: Capabilities without which an engine may legitimately refuse this case.
     requires: frozenset[str] = frozenset()
     catches: str = ""
+    #: For a two-stage control, how many violations the **SQL screen alone**
+    #: must find. Declared as a number rather than left in the prose of
+    #: `catches`, because the conformance suite previously required only that an
+    #: engine find no *more* than the exact check — so a screen that rejected
+    #: nothing at all was excused, and a neutered screen was indistinguishable
+    #: from a working one. See finding T4.
+    screen_violations: float | None = None
 
 
 CASES: tuple[Case, ...] = (
@@ -113,6 +120,7 @@ CASES: tuple[Case, ...] = (
     Case(
         name="semantic_type_two_stage",
         pql="CHECK corpus.lei IS VALID 'lei'",
+        screen_violations=2.0,
         catches=(
             "the row every engine gets wrong on its own: AAAAAAAAAAAAAAAAAA00 has an "
             "LEI's exact shape and check characters that do not verify. SQL applies the "

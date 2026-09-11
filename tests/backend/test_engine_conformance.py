@@ -11,8 +11,9 @@ from typing import Any
 
 import pytest
 
-from prama.backend.conformance import ConformanceRun
+from prama.backend.conformance import ConformanceRun, EngineOutcome
 from prama.backend.corpus import CASES, Case
+from prama.backend.execute import ControlResult
 from prama.ir.model import Verdict
 
 
@@ -155,3 +156,77 @@ class TestTheCorpusDiscriminates:
         report = conformance.summarise(engines)
         verdicts = {row["duckdb"] for row in report["rows"]}
         assert "pass" in verdicts and "fail" in verdicts
+
+
+class TestAScreenThatScreensNothingIsCaught:
+    """Finding T4. `_compare_two_stage` required only that an engine find no
+    *more* violations than the exact check, which is true and is not enough.
+
+    "Fewer" includes **none**. A screen that rejects nothing produced the same
+    green report as one that works, so the release gate for the product's
+    central claim — the two-stage verdict, executed on a real engine — could not
+    tell a working predicate from a deleted one. The reviewer proved it by
+    neutering the `FILTER (WHERE …)` of every two-stage plan: DuckDB reported
+    PASS on data the reference reports three violations for, and all 119
+    backend tests stayed green.
+
+    The case now declares what the screen alone must find and it is required
+    exactly. These exercise the comparison directly, with synthetic outcomes,
+    because building a genuinely half-broken engine to test it is harder than
+    the thing being tested and would prove less.
+    """
+
+    CASE_NAME = "semantic_type_two_stage"
+
+    def outcome(self, engine: str, violations: float) -> EngineOutcome:
+        return EngineOutcome(
+            engine=engine,
+            case=self.CASE_NAME,
+            status="ran",
+            result=ControlResult(
+                plan_id=self.CASE_NAME,
+                verdict=Verdict.FAIL if violations else Verdict.PASS,
+                metrics={"scanned_rows": 8.0, "violating_rows": violations},
+                engine=engine,
+            ),
+        )
+
+    def compare(self, engine_violations: float) -> list[Any]:
+        subject = case(self.CASE_NAME)
+        assert subject.screen_violations is not None, "the corpus must declare the screen count"
+        return ConformanceRun._compare_two_stage(
+            subject,
+            {
+                "reference": self.outcome("reference", 3.0),
+                "duckdb": self.outcome("duckdb", engine_violations),
+            },
+        )
+
+    def test_a_correct_screen_agrees(self) -> None:
+        """The positive control. Without it this class would pass by rejecting
+        everything, which proves nothing about the comparison."""
+        assert self.compare(2.0) == []
+
+    def test_a_screen_that_finds_nothing_is_a_disagreement(self) -> None:
+        """The defect, exactly: a neutered predicate used to be excused."""
+        found = self.compare(0.0)
+        assert found, "a screen finding zero violations was excused"
+        assert "expected 2" in found[0].render()
+
+    def test_a_screen_that_finds_too_few_is_a_disagreement(self) -> None:
+        assert self.compare(1.0)
+
+    def test_a_screen_that_over_rejects_is_still_a_disagreement(self) -> None:
+        """The direction the original check did catch, kept."""
+        assert self.compare(4.0)
+
+    def test_every_two_stage_case_declares_its_screen_count(self) -> None:
+        """Without the declaration the comparison has no floor, so a new
+        two-stage case added without one would silently reopen the hole. The
+        suite reports that as a disagreement rather than passing."""
+        run = ConformanceRun()
+        for subject in CASES:
+            if run.plan_for(subject).is_two_stage:
+                assert subject.screen_violations is not None, (
+                    f"{subject.name} is two-stage and declares no screen_violations"
+                )

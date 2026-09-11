@@ -70,7 +70,7 @@ boundary to exist.
 | T1 | The egress guard passes on prose; `llm/providers` never consults the gate | **High** | **Fixed** |
 | T2 | `test_every_tenant_scoped_dao_is_covered` covers 3 of 25 DAOs and cannot fail | **High** | Open |
 | T3 | Batch/stream equivalence compares the reference interpreter with itself | **High** | Open |
-| T4 | Conformance excuses an engine finding *zero* violations on a two-stage control | **High** | Open |
+| T4 | Conformance excuses an engine finding *zero* violations on a two-stage control | **High** | **Fixed** |
 | T5 | The tenant sweep is blind for 29 of the 49 methods it probes | **High** | Open |
 | T6 | Every HMAC seal is verified only by recomputing it with the function under test | **High** | Open |
 | T7 | `test_at_least_two_genuinely_different_engines_took_part` is `assert 3 >= 2` | **Medium** | Open |
@@ -341,6 +341,38 @@ that mutates, so the attack above could not have approved anything; the
 capability boundary held, as the module says it is meant to. What failed was the
 second line of defence, in the specific way its author had anticipated and
 written down.
+
+**T4 — the release gate for the central claim could not tell a working screen
+from a deleted one.** `_compare_two_stage` required only that an engine find no
+*more* violations than the exact check. The reasoning behind that is correct and
+carefully written out in the docstring: a two-stage control's SQL predicate is a
+*screen*, a necessary condition, so a value with the right shape and a wrong
+check digit legitimately passes it. What the rule omits is a floor. **"Fewer"
+includes none.** A screen that rejects nothing is excused unconditionally.
+
+The reviewer proved it by neutering the `FILTER (WHERE …)` clause of every
+two-stage plan: DuckDB reported `PASS / 0.0` where the reference reports
+`FAIL / 3.0`, `compare()` returned `[]`, and all 119 backend tests stayed green.
+Nothing anywhere pinned the *executed* two-stage verdict on a real SQL engine —
+`test_two_stage.py` asserts the regex appears in the PostgreSQL query string,
+and asserts counts on the reference interpreter only. That is the "assert the
+rendered artefact, not the intent" rule in `CLAUDE.md` unmet at the one place it
+was written for.
+
+The number was not even unknown. The corpus entry's `catches` prose already said
+it: "SQL applies the screen and finds **two** violations; the exact check finds
+**three**." Measured, that is exactly right — DuckDB 2, SQLite 2, reference 3.
+It was stated in English beside the case and asserted nowhere.
+
+`Case.screen_violations` now declares it as data and the comparison requires it
+exactly: too low and the screen is not screening, too high and it rejects values
+the standard accepts. A two-stage case that declares no screen count is itself
+reported as a disagreement, so adding one without the floor cannot silently
+reopen the hole. The new tests exercise the comparison directly with synthetic
+outcomes — building a genuinely half-broken engine to test it would be harder
+than the thing being tested and would prove less — and two of the five fail
+against the old code, while the positive control and the over-rejection case
+still pass, which is the direction the old rule did cover.
 
 ---
 
