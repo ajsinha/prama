@@ -58,6 +58,10 @@ sso = ["cryptography>=43"]
 # flight — and because prama.execute.transport must stay importable without it,
 # which is what lets the commit ordering be tested with no broker at all.
 kafka = ["confluent-kafka>=2.5"]
+# The REST connector. httpx is already a dev dependency for the test client and
+# is what prama.llm.providers uses; this makes it a runtime one for deployments
+# that read an API.
+rest = ["httpx>=0.27"]
 
 [project.scripts]
 prama = "prama.cli.main:main"

@@ -21,6 +21,8 @@ from prama.connect.sources.filesystem import CAPABILITIES as FILESYSTEM_CAPABILI
 from prama.connect.sources.filesystem import FilesystemConnector
 from prama.connect.sources.objectstore import CAPABILITIES as OBJECTSTORE_CAPABILITIES
 from prama.connect.sources.objectstore import ObjectStoreConnector
+from prama.connect.sources.rest import CAPABILITIES as REST_CAPABILITIES
+from prama.connect.sources.rest import RestConnector
 from prama.connect.sources.sql.postgres import CAPABILITIES as POSTGRES_CAPABILITIES
 from prama.connect.sources.sql.postgres import PostgresConnector
 from prama.connect.sources.sqlite import CAPABILITIES as SQLITE_CAPABILITIES
@@ -234,11 +236,73 @@ OBJECTSTORE_OVERLAY: dict[str, FieldPresentation] = {
     ),
 }
 
+REST_OVERLAY: dict[str, FieldPresentation] = {
+    "base_url": FieldPresentation(
+        label="Base URL",
+        help="The API's root, e.g. https://api.example.com/v2. Endpoints hang off it.",
+        input_kind=InputKind.TEXT,
+        required=True,
+        order=10,
+    ),
+    "endpoints": FieldPresentation(
+        label="Endpoints",
+        help=(
+            "Which paths are datasets. An API does not enumerate itself, so Prama "
+            "reads what you name here and guesses nothing."
+        ),
+        required=True,
+        order=20,
+    ),
+    "records_path": FieldPresentation(
+        label="Records field",
+        help=(
+            "Where the rows sit inside the response, e.g. data.items. Leave blank "
+            "if the endpoint returns a bare array."
+        ),
+        order=30,
+    ),
+    "next_path": FieldPresentation(
+        label="Next-page field",
+        help=(
+            "Where the link to the next page sits, e.g. links.next. Without this or "
+            "a page parameter, Prama reads one page and one page is not a "
+            "population."
+        ),
+        order=40,
+    ),
+    "page_param": FieldPresentation(
+        label="Page parameter",
+        help="For APIs that page by number rather than by link, e.g. page.",
+        order=50,
+    ),
+    "page_limit": FieldPresentation(
+        label="Page ceiling",
+        help=(
+            "How many pages one read will follow before stopping. A bound, not a "
+            "preference: an endpoint whose next link cycles would otherwise read "
+            "forever. A read stopped by it says so."
+        ),
+        order=60,
+    ),
+    "token": FieldPresentation(
+        label="Credential",
+        help=(
+            "A secret reference, never the token itself — env://ACME_API_TOKEN. It "
+            "is sent as a header, because a token in a URL is a token in every "
+            "access log between here and the server."
+        ),
+        input_kind=InputKind.PASSWORD,
+        order=70,
+    ),
+}
+
+
 BUILTIN: tuple[tuple[type, CapabilityMatrix, dict[str, FieldPresentation]], ...] = (
     (FilesystemConnector, FILESYSTEM_CAPABILITIES, FILESYSTEM_OVERLAY),
     (SqliteConnector, SQLITE_CAPABILITIES, SQLITE_OVERLAY),
     (PostgresConnector, POSTGRES_CAPABILITIES, POSTGRES_OVERLAY),
     (ObjectStoreConnector, OBJECTSTORE_CAPABILITIES, OBJECTSTORE_OVERLAY),
+    (RestConnector, REST_CAPABILITIES, REST_OVERLAY),
 )
 
 
