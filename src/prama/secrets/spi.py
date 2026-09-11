@@ -51,6 +51,15 @@ class SecretProvider(ABC):
         """Whether this provider can be used in this deployment at all."""
         return True
 
+    def unavailable_remedy(self) -> str:
+        """What to do about being unavailable, in this provider's own terms.
+
+        The resolver knows a provider said no; only the provider knows which
+        setting is missing. A generic "check its configuration" sends somebody
+        looking for a plugin that is already installed.
+        """
+        return "Check its configuration, or reference a secret from another provider."
+
     def describe(self) -> dict[str, str]:
         return {
             "scheme": self.scheme,

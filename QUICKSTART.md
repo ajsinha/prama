@@ -237,7 +237,7 @@ count from a screen is a **lower bound**, never a pass.
 For an editor outside the console:
 
 ```bash
-prama lsp catalogue --out cat.json      # export the estate's schemas
+prama lsp catalogue --tenant acme-bank --out cat.json   # the estate's schemas
 prama lsp serve --catalogue cat.json    # language server on stdio
 ```
 
@@ -253,6 +253,9 @@ prama pack list          # calendars, cross-field checks, message formats, oblig
 prama pack claims        # and what it deliberately does NOT claim to discharge
 prama pack calendar TARGET2 --year 2030      # closures, computed from rules
 prama pack reconciliation cashbook-to-statement   # keys, tolerance, expected breaks
+prama pack parse order.fix   # one FIX/ISO 8583/FpML message, and its defects
+prama pack concepts          # the banking business concept model
+prama pack recognise account_id balance_date bal_type balance ccy   # -> Balance
 ```
 
 `claims` is the one worth reading first. It separates the BCBS 239 principles

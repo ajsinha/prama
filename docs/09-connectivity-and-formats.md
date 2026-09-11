@@ -219,6 +219,45 @@ the March GLEIF snapshot replays identically in November (`§9` of [07](07-rule-
 
 **Catalogs/governance:** Collibra, Alation, Atlan, OpenMetadata, DataHub, Purview, Unity Catalog,
 data.world, Informatica IDMC.
+### 16.1 Catalogue write-back, as built
+
+Three adapters ship behind the SPI in `prama.integrate.catalog`: **Collibra**
+(an attribute on an asset), **Alation** (a custom field on a data object) and
+**DataHub** (an aspect on a dataset URN). The rest of the list above is the
+target, not the state.
+
+The three disagree about what a quality state is, and the honest adapter is the
+one that says what it had to drop rather than the one that maps everything onto
+something. Alation has nowhere to put an **evidence reference** — no field means
+"this is the run behind the verdict", and free text makes it look like a comment
+somebody typed — so it declares that field unsupported and every write report
+names it as dropped. Nobody then reads an absent link as "there was no
+evidence".
+
+Shared behaviour, decided once in the base class:
+
+- **An undated badge cannot be constructed at all.** "Trusted" on a table nobody
+  has checked since March reads as current, and a reader has no way to tell.
+- **A missing asset is refused, never created.** An adapter that created it would
+  define the estate in the catalogue, and an estate defined in two places
+  disagrees with itself.
+- **One bad table does not stop the other thirty-nine.** They would otherwise
+  show yesterday's verdict with today's confidence.
+- **Every write is residency-checked**, per badge, as a registered egress point.
+
+Two vendor-specific traps, each with a test. Collibra assets are addressed by
+**id and never by name**: two systems in one estate can have a table with the
+same name, and a name-keyed write puts a trading badge on a finance table.
+DataHub URNs carry an **environment segment**, and a URN that differs by it
+creates a second, empty dataset rather than failing — the badge lands somewhere
+nobody looks.
+
+The transport is injected, so a deployment substitutes a client with its own
+mTLS, proxy, retry and rate-limit policy applied — and so all three can be
+tested. **None has been run against a live server.** The request shapes are from
+each vendor's documented API; what the suite verifies is the adapter's own
+behaviour, not that a real Collibra accepts it.
+
 **Orchestration:** Airflow, Dagster, Prefect, dbt Cloud/Core, Databricks Workflows, ADF,
 Control-M, Autosys, Step Functions, Argo, Tidal.
 **Ticketing/ITSM:** Jira, ServiceNow, Azure DevOps, Zendesk, Remedy.

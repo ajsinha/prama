@@ -32,11 +32,33 @@ from prama.security.bundle import (
 
 MANIFEST = "manifest.json"
 SIGNATURE = "manifest.sig"
+#: The Ed25519 signature, kept in its own file. Two signatures in one file would
+#: make a verifier that reads the wrong line report a valid bundle as forged.
+PUBLISHER_SIGNATURE = "manifest.ed25519"
 
 
 def _key(ctx: CommandContext) -> bytes:
     secret: str = ctx.config.require_secret("security.session_secret")
     return secret.encode()
+
+
+def _private_key(path: str) -> object:
+    """A signing key from a PEM file.
+
+    Read here rather than taken as a hex string on the command line: a private
+    key on an argv is a private key in the shell history and in every process
+    listing on the machine while the command runs.
+    """
+    from cryptography.hazmat.primitives.serialization import load_pem_private_key
+
+    data = Path(path).read_bytes()
+    return load_pem_private_key(data, password=None)
+
+
+def _public_key(path: str) -> object:
+    from cryptography.hazmat.primitives.serialization import load_pem_public_key
+
+    return load_pem_public_key(Path(path).read_bytes())
 
 
 def _load(root: Path) -> Manifest:
@@ -79,6 +101,14 @@ class BundleSealCommand(Command):
     def configure(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("root", help="the directory holding images, chart and wheels")
         parser.add_argument(
+            "--sign-with",
+            metavar="KEY.pem",
+            help=(
+                "an Ed25519 private key in PEM. Produces a signature an "
+                "air-gapped customer can check with the public half alone"
+            ),
+        )
+        parser.add_argument(
             "--no-sbom",
             action="store_true",
             help="omit the dependency list. Rarely right: it is the first thing a "
@@ -100,6 +130,11 @@ class BundleSealCommand(Command):
         (root / MANIFEST).write_text(json.dumps(manifest.to_dict(), indent=2) + "\n")
         (root / SIGNATURE).write_text(seal + "\n")
 
+        signed = ""
+        if ctx.args.sign_with:
+            signed = manifest.sign(_private_key(ctx.args.sign_with))
+            (root / PUBLISHER_SIGNATURE).write_text(signed + "\n")
+
         if ctx.json_output:
             ctx.emit_json(
                 {
@@ -108,6 +143,7 @@ class BundleSealCommand(Command):
                     "bytes": manifest.total_bytes,
                     "content_hash": manifest.content_hash,
                     "sbom": len(manifest.sbom),
+                    "publisher_signature": bool(signed),
                 }
             )
             return EXIT_OK
@@ -119,9 +155,21 @@ class BundleSealCommand(Command):
         ctx.emit()
         # Said here rather than left to a README, because this is the moment
         # somebody decides how much the signature is worth.
-        ctx.emit("The signature is an HMAC over the manifest hash. It says the bundle")
-        ctx.emit("was sealed by a holder of this deployment's key, and nothing to")
-        ctx.emit("anybody who does not hold it.")
+        ctx.emit("The seal is an HMAC over the manifest hash. It says the bundle was")
+        ctx.emit("sealed by a holder of this deployment's key, and nothing to anybody")
+        ctx.emit("who does not hold it.")
+        if signed:
+            ctx.emit()
+            ctx.emit("An Ed25519 signature is also written. That one a customer can check")
+            ctx.emit("with the public half alone, which is what an auditor asks about an")
+            ctx.emit("artefact that arrived on a disk.")
+        else:
+            # Said on the success path, because this is the moment somebody
+            # decides how much the signature is worth.
+            ctx.emit()
+            ctx.emit("No publisher signature: --sign-with was not given. An air-gapped")
+            ctx.emit("customer cannot check an HMAC without the key, so this bundle")
+            ctx.emit("carries no provenance they can verify.")
         return EXIT_OK
 
 
@@ -131,14 +179,28 @@ class BundleVerifyCommand(Command):
 
     def configure(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("root")
+        parser.add_argument(
+            "--publisher-key",
+            metavar="KEY.pem",
+            help="the publisher's Ed25519 public key, to check provenance",
+        )
 
     def run(self, ctx: CommandContext) -> int:
         root = Path(ctx.args.root)
         manifest = _load(root)
         signature = root / SIGNATURE
         seal = signature.read_text().strip() if signature.exists() else ""
+        publisher = root / PUBLISHER_SIGNATURE
+        signed = publisher.read_text().strip() if publisher.exists() else ""
 
-        result = verify(root, manifest, key=_key(ctx), seal=seal)
+        result = verify(
+            root,
+            manifest,
+            key=_key(ctx),
+            seal=seal,
+            public_key=_public_key(ctx.args.publisher_key) if ctx.args.publisher_key else None,
+            signature=signed,
+        )
 
         if ctx.json_output:
             ctx.emit_json({**result.to_dict(), "version": manifest.version})
@@ -146,6 +208,13 @@ class BundleVerifyCommand(Command):
 
         ctx.emit(f"{manifest.product} {manifest.version}, sealed {manifest.created_at}")
         ctx.emit(result.describe())
+        if signed and not ctx.args.publisher_key:
+            # Not silence: an unverifiable signature reported as nothing reads
+            # as an unsigned bundle, which is a different and lesser problem.
+            ctx.emit()
+            ctx.emit("This bundle carries a publisher signature and no key was given to")
+            ctx.emit("check it against. Pass --publisher-key to establish where it came")
+            ctx.emit("from; the hashes alone say only that it is internally consistent.")
         if not result.is_trustworthy:
             ctx.emit()
             ctx.emit("Do not install this bundle.")

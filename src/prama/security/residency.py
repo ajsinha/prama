@@ -66,6 +66,22 @@ class Decision:
     def may_proceed(self) -> bool:
         return self.verdict.may_proceed
 
+    @property
+    def is_undeclared(self) -> bool:
+        """Refused because the data did not say where it belongs.
+
+        A property rather than a comparison a caller makes against the enum:
+        the remedy for this refusal is different from every other one — declare
+        the jurisdiction, rather than change the destination — and a caller
+        that has to reach into the enum to tell them apart usually does not.
+        """
+        return self.verdict is Verdict.UNDECLARED
+
+    @property
+    def destination_unstated(self) -> bool:
+        """Refused because no destination was given at all."""
+        return not self.may_proceed and self.destination == "(unstated)"
+
     def describe(self) -> str:
         """The sentence an operator reads when something is blocked.
 

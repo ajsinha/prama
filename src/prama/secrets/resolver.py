@@ -131,7 +131,7 @@ class SecretResolver:
             self._record(ref, purpose, principal, "provider-unavailable")
             raise SecretResolutionError(
                 f"the {ref.scheme} secret provider is not usable in this deployment",
-                remedy="Check its configuration, or reference a secret from another provider.",
+                remedy=provider.unavailable_remedy(),
                 context={"scheme": ref.scheme},
             )
         try:
@@ -238,11 +238,22 @@ def default_resolver(
 
     ``memory`` is deliberately absent: a provider that manufactures secrets is
     fine in a test and dangerous in a default.
+
+    ``vault`` is present but unconfigured, which is not the same as absent. A
+    reference to it then fails with "Vault is referenced but not configured"
+    and what to set, rather than with "no provider for scheme 'vault'" — and
+    the second message sends somebody to look for a plugin that is already
+    installed.
     """
     from prama.secrets.providers import EnvironmentSecretProvider, FileSecretProvider
+    from prama.secrets.vault import VaultSecretProvider
 
     return SecretResolver(
-        [EnvironmentSecretProvider(), FileSecretProvider(root=file_root)],
+        [
+            EnvironmentSecretProvider(),
+            FileSecretProvider(root=file_root),
+            VaultSecretProvider(),
+        ],
         clock=clock,
         audit_sink=audit_sink,
     )

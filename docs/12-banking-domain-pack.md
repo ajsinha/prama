@@ -63,6 +63,35 @@ Shipped as a starter ontology, extensible and overridable per tenant (`FR-MET-04
 | **Regulatory Return** | return ID, reporting entity, reference date, schedule, submission status | Datasets can *be* returns |
 | **Reference Rate / FX Rate** | rate, currency pair, source, as-of | Normalisation for reconciliation |
 
+### 2.1 Recognition, and when it declines
+
+Shipped as `prama.packs.banking.concepts`; `prama pack concepts` prints it and
+`prama pack recognise <columns…>` runs it.
+
+Each property carries a **role**. *Identifying* properties are the ones without
+which a table is not that concept; *defining* properties carry its meaning, and
+their absence is a finding about the dataset rather than a refutation of the
+match. Recognition turns on the identifying ones, which is what keeps it from
+guessing: Position, Balance and Exposure all carry an amount, a currency and an
+as-of date, so a matcher that counts overlapping properties calls a table all
+three — and has moved the guessing from the analyst to the tool, where it is
+harder to see and carries an air of authority.
+
+The result is three-state. `not_recognised` and `possible` are different
+answers: the first is a dead end, the second is a question for whoever owns the
+data. `prama pack recognise as_of_date amount currency` names no concept at all
+and says what such a table usually is instead.
+
+A property that carries a semantic type **names a validator** in
+`prama.classify.validators` rather than repeating its pattern, and the name is
+checked when the module imports. That is where the concept model pays for
+itself: recognising a table as a Trade is what tells you which column ought to
+validate as an ISIN.
+
+A recognition is a proposal a steward confirms (`CON-007`). The ontology is a
+starter — extensible and overridable per tenant (`FR-MET-044`), and a bank's
+own vocabulary wins.
+
 ---
 
 ## 3. Semantic types and validators
@@ -121,6 +150,28 @@ FpML 5.x; FINOS/ISDA **CDM** with its prescribed validation logic and Rosetta sy
 XBRL/iXBRL (FINREP, COREP, ESEF) with calculation and dimensional consistency; SDMX; ISO 8583;
 NACHA/ACH, SEPA, BACS, CHAPS, Fedwire, CHIPS; BAI2/MT940/camt.053.
 
+### 4.1 What ships today
+
+The list above is the design target. What is implemented in
+`src/prama/packs/banking/` at this version is narrower, and a reader who takes
+the target for the state of the code will size a migration wrongly:
+
+| Format | Module | What it reads | What it deliberately does not do |
+|---|---|---|---|
+| SWIFT MT | `swift.py` | MT103, MT940 block/tag structure, balances, entries | Network-validated rules; the other categories |
+| ISO 20022 | `iso20022.py` | pacs.008, camt.053, matched on local name | CBPR+/HVPS+ usage guidelines; XSD validation |
+| COBOL | `cobol.py` | Copybooks, COMP-3, EBCDIC codepages, `REDEFINES` | `OCCURS DEPENDING ON` |
+| FIX | `fix.py` | 4.2–4.4 tag=value, repeating groups, body length and checksum | FIXML; Orchestra; session-layer sequencing |
+| ISO 8583 | `iso8583.py` | MTI, primary and secondary bitmaps, LLVAR/LLLVAR, PAN masked by default | Network dialects (Visa/Mastercard field meanings differ) |
+| FpML | `fpml.py` | 5.x swap streams: payer, receiver, notional, currency, rate or index | Product-specific validation rules; CDM |
+
+Every parser returns *defects* rather than raising, because one bad message in
+a file of four thousand must not stop the rest being checked — that turns a
+data defect into an outage, and the outage is what gets the control disabled.
+`prama pack parse <file>` runs any of them from a terminal without a database.
+
+Not started: FIXML, CDM, XBRL, SDMX, NACHA/SEPA/BACS/CHAPS/Fedwire/CHIPS, BAI2.
+
 **Note on the ISO 20022 transition.** Swift completed migration of cross-border interbank payment
 instructions to ISO 20022 in November 2025. Banks now run MT and MX in parallel across their
 estates, with translation layers between them — a high-yield source of quality defects, and a
@@ -170,6 +221,48 @@ for the period, exceptions with justifications, and sign-off — generated, not 
 | **SR 11-7 / model risk** | US | Model input data quality controls, documented validation, versioning, audit trail |
 | **SOX / ICFR** | US | Financial-reporting control evidence, sub-ledger↔GL reconciliation, sign-off |
 | **GDPR / CCPA / DPDP** | Privacy | PII discovery, classification, masking, residency enforcement, erasure with audit integrity |
+
+### 5.4 What ships today, and what its citations rest on
+
+Twenty obligations across nine regimes: BCBS 239 P3–P5, ISO 20022 payments,
+MiFIR transaction reporting, EMIR REFIT, AnaCredit, large exposures (CRR),
+AML customer due diligence, SOX ICFR, and GDPR. `prama pack claims` prints
+them; `--json` gives the machine-readable form.
+
+Three properties of the catalogue matter more than its size.
+
+**Every citation records whether anybody has checked it.** They are cited at
+article or section level — the level at which a reference is stable — and none
+is marked `confirmed`, because nobody has verified them against the published
+texts. `prama pack claims` prints the count (currently *0 of 20*) rather than
+leaving a reader to assume. An examiner's next question after any finding is
+where it comes from, and a wrong article number costs more credibility than an
+absent one; a bank's compliance function confirms them, and the flag exists so
+that work is visible.
+
+**Every template parses.** `tests/packs/test_banking_regulatory.py` binds each
+one and runs it through the PQL parser, with no exemption list. Writing this
+module found four templates using syntax the language does not have —
+`RECONCILES_WITH`, `TOGETHER_COMPLETE` and `ARRIVES BY` as *control* syntax.
+They are relationship kinds, not predicates on a row.
+
+**Set-level obligations are declared, not faked.** Whether a set of feeds covers
+the book, or whether a sub-ledger agrees with the GL, is a statement about two
+populations. Those ship as `RelationshipRequirement`s naming a real
+`RelationshipKind`, from which the generator derives controls (`docs/03 §2.4`).
+An obligation that ships neither a template, nor a relationship, nor a written
+statement of what is missing is refused at import — such an entry looks covered.
+
+`REGIME_SCOPE` records, per regime, what the entries deliberately leave alone:
+MiFIR without the RTS 22 field set or over-reporting detection; EMIR without
+dual-sided pairing; AnaCredit without the ECB's full validation set; large
+exposures without the limit calculation; AML without judging whether an alert
+should have been raised (`CON-007`); GDPR without lawfulness or consent.
+
+The regimes in §5.2 not listed above are absent because no control discharges
+them yet, not because they were overlooked.
+
+---
 
 ### 5.3 Control catalogue structure
 

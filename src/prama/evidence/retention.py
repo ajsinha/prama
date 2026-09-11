@@ -38,6 +38,7 @@ from prama.core.errors import ValidationError
 from prama.core.pjson import dumps
 from prama.evidence.ledger import Ledger, merkle_root, verify
 from prama.evidence.record import EVIDENCE_VERSION, EvidenceRecord
+from prama.security.egress import Gate
 
 #: The version of the verification procedure a bundle was written under, so a
 #: bundle opened in ten years names the algorithm that checks it.
@@ -255,8 +256,30 @@ class Archivist:
             tiers[self.tier_of(record).value].append(record)
         return tiers
 
-    def bundle(self, records: list[EvidenceRecord], *, tenant_id: str = "") -> Bundle:
-        """Package records for WORM storage."""
+    def bundle(
+        self,
+        records: list[EvidenceRecord],
+        *,
+        tenant_id: str = "",
+        gate: Gate | None = None,
+        archive_region: str = "",
+        jurisdiction: str = "",
+    ) -> Bundle:
+        """Package records for WORM storage.
+
+        ``gate`` is the residency check, applied here rather than at whatever
+        writes the archive: this is the last point that knows whose evidence
+        this is and what period it covers. Refused wholesale — a bundle missing
+        the records that could not cross would verify perfectly and be missing
+        records, which is the one failure the manifest's count exists to catch.
+        """
+        if gate is not None:
+            gate.require(
+                "evidence-export",
+                destination=archive_region,
+                jurisdiction=jurisdiction,
+                subject=f"the evidence bundle for {tenant_id or 'this tenant'}",
+            )
         if not records:
             raise ValidationError(
                 "there is nothing to bundle",

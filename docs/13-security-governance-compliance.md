@@ -46,6 +46,127 @@ Requirements: [`NFR-SEC`](05-requirements-nonfunctional.md#d-security-nfr-sec),
 
 ---
 
+### 2.1 Single sign-on
+
+`prama.security.oidc` verifies an OIDC ID token and maps its claims to a
+principal. It needs the `sso` extra (`pip install -e ".[sso]"`), and without it
+every entry point refuses **by name** rather than falling back to something
+weaker — a deployment that cannot verify signatures must refuse to do SSO, not
+do it badly. That extra exists because verifying an RS256 signature needs real
+asymmetric cryptography, and hand-rolling the PKCS#1 v1.5 padding check is how
+forged signatures get accepted.
+
+The whole security of SSO is *verify the signature before believing a single
+claim*. A verifier that parses the payload first has already chosen a key, an
+issuer and a tenant from attacker-controlled data. The refusals, each a real
+attack rather than a hypothetical, and each with a test that forges the token:
+
+| Refused | Why it is an attack |
+|---|---|
+| `alg: none` | A token asserting it is unsigned; a verifier dispatching on the token's own `alg` verifies nothing |
+| HMAC algorithms | Algorithm confusion: sign with HS256 using the provider's *public* RSA key, which is public |
+| Unknown `kid` | Trying every key until one works turns a rotated-out key into a valid signer forever |
+| No `kid`, several keys | Guessing is not verification |
+| Wrong audience | Genuinely signed, genuinely current, and issued for a different client of the same provider |
+| Wrong issuer | Genuinely signed by somebody else |
+| Expired / future `iat` / future `nbf` | A future `iat` extends the token's usable life by however far ahead it claims |
+| Missing or replayed nonce | The only thing a nonce is for |
+| Empty `sub` | The subject is the identity; an empty one identifies nobody |
+| `use: enc` keys in the JWKS | A key the provider never signs with would verify a token |
+
+Clock skew is tolerated to sixty seconds in both directions and no further.
+
+Group-to-role mapping is **declared**, and a group with no mapping grants
+nothing — an unmapped group silently conferring a default role is how everybody
+in the directory becomes an owner. `ClaimMapping.unmapped()` reports the groups
+that granted nothing, because somebody who signs in successfully and can see
+nothing has a configuration problem that looks exactly like a permissions bug.
+
+Local identity is keyed on **issuer *and* subject**: a subject is unique within
+its issuer and nowhere else, so keying on subject alone lets two providers
+collide onto one account.
+
+The JWKS is **passed in, not fetched**. Fetching is an egress and a caching
+problem; mixing either into a verifier makes it untestable offline.
+
+### 2.2 SCIM provisioning
+
+`prama.security.scim` decides what the directory's view means for an account.
+The protocol is tedious and the decisions are not, so this is the decisions.
+**The HTTP endpoints that speak SCIM's wire format are not written** — what is
+here is the part where being wrong is expensive.
+
+**Nobody is ever deleted.** A SCIM `DELETE` deactivates. The person signed
+things — approved a control, attested a period — and deleting the account leaves
+an attestation signed by a principal that does not exist. That is a hole in the
+audit trail, not a tidy-up. There is no `DELETE` outcome in the enum at all.
+
+**Demotion and deprovisioning are different, and both happen.** Someone who
+leaves the owners group loses the role and keeps the account; someone who leaves
+the company keeps neither. The directory expresses these differently — a group
+change versus `active: false` — and conflating them either locks out somebody
+who moved desk or leaves a leaver signed in.
+
+**Roles are replaced, never merged.** The directory is authoritative for group
+membership. A union means a role granted once is granted forever, and the group
+somebody was removed from six months ago still confers it.
+
+**The last active administrator cannot be deprovisioned.** A directory
+misconfiguration that deactivates every admin locks everybody out of the tenant
+with no way back that does not involve the database. A batch counts the admin
+pool once across the whole sync and decrements it as it goes, so a sync
+deactivating three of four refuses on the one that would leave none — not on the
+first one it reaches.
+
+**An absent field is not a request to blank one.** SCIM PATCH omits what it is
+not changing, and treating omission as deletion wipes an email address on every
+sync.
+
+`REFUSED` is distinct from `NONE`: nothing changed, and something should have.
+
+### 2.3 Customer-managed keys
+
+`prama.security.cmk`. The promise a regulated buyer wants is not "your data is
+encrypted" — it is **"we can take the key away and you cannot read it any
+more"**, which is a claim about who holds what.
+
+A fresh AES-256 data key encrypts each payload; the customer's key (their KMS,
+HSM or Vault) wraps the data key; Prama stores the wrapped key beside the
+ciphertext and never holds the customer key. Revoke it and every envelope it
+wrapped is unreadable, permanently, with no action needed on Prama's side and
+none possible.
+
+That last property is the product, and its cost is stated rather than
+discovered: **revocation is neither reversible nor selective.** A customer who
+revokes to satisfy an erasure request has also made every backup of that data
+unreadable, including the ones taken for their own recovery obligations. The
+error message says so, because `KeyRevoked` is usually not a fault and an
+operator who reads "decryption failed" opens a ticket about a bug that does not
+exist.
+
+Three things that are silent when wrong, each with a test:
+
+- **The nonce is fresh per encryption and never supplied.** Reusing one under a
+  single key in GCM does not merely weaken it: it leaks the XOR of the
+  plaintexts and permits forgery.
+- **The context is authenticated, not merely stored.** Tenant and purpose go
+  into the AAD, so an envelope moved between tenants *fails* to decrypt.
+  Recording the tenant alongside would let it decrypt cleanly into the wrong
+  one — the failure that looks like nothing at all.
+- **The provider cannot generate the customer key.** A provider that could would
+  mean Prama held it at some point, and "we never had it" is the claim the whole
+  arrangement exists to make.
+
+The reference provider is called `LocalTestKeyProvider` and its docstring says
+*never for production*: a class named `LocalKeyProvider` ends up in somebody's
+deployment, and a customer-managed key held by Prama is not one.
+
+**No cloud KMS has been exercised.** `KeyProvider` is an ABC and no AWS, Azure
+or GCP client is imported; a test asserts that. Those clients belong to the
+deployment, and keeping them out is what lets the envelope logic be tested.
+
+---
+
 ## 3. Data protection
 
 **Minimisation is architectural, not procedural.** Because execution is pushdown-first, the only
@@ -62,6 +183,95 @@ number of masked failing-row samples. There is no Prama-side copy of customer da
 | Residency | Execution and storage locality enforced per declared jurisdiction; cross-border movement is blocked, not warned |
 | Erasure | Subject data purged from samples/evidence with a tamper-evident tombstone that preserves hash-chain integrity |
 | Key management | External KMS/HSM; per-tenant key hierarchy; documented rotation |
+
+---
+
+### 3.0 Secrets
+
+References are stored, values are resolved at the point of use. Three providers
+ship: `env://`, `file://` and `vault://` (HashiCorp KV v2).
+
+Vault is **registered but unconfigured** by default, which is not the same as
+absent: a reference then fails with *what to set* rather than with "no provider
+for scheme 'vault'", and the second message sends somebody looking for a plugin
+that is already installed. A provider supplies its own unavailability remedy —
+the resolver knows a provider said no, but only the provider knows which setting
+is missing.
+
+Four things about KV v2 that look fine and are not, each with a test:
+
+- **The envelope nests twice.** A read returns `{"data": {"data": …}}`. Reading
+  the outer `data` returns the *metadata* — version numbers and timestamps —
+  which is not the secret and does not look like an error either.
+- **A soft-deleted version is not a value.** Vault returns it with empty data
+  and no HTTP error. Handing that back as an empty string reaches the driver as
+  an authentication failure and sends somebody to check a password that was
+  never read.
+- **A secret is a document.** A reference must name its field; guessing which
+  one is the credential is how a username gets used as a password. When a field
+  is absent the error lists the field *names* that are present — they are not
+  values, and they make it fixable in one step.
+- **The Vault token is itself a credential**, so it is given as a reference
+  (`env://VAULT_TOKEN`) and never as a literal.
+
+The transport is injected, which is what lets the whole of it be tested without
+a Vault and lets a deployment substitute its own client with the organisation's
+mTLS, proxy and retry policy applied. **It has not been run against a live Vault
+server**; the request and response shapes are from the documented API.
+
+---
+
+### 3.1 Residency, and where the question gets asked
+
+`prama.security.residency` decides whether a movement is allowed;
+`prama.security.egress` decides **where the question gets asked**, which is the
+part that goes wrong. A policy engine nothing calls permits everything, and it
+fails silently — the worst way for a control to fail.
+
+Five egress points are registered, each naming what leaves, where the
+destination comes from, and where the subject's jurisdiction comes from:
+
+| Point | What leaves |
+|---|---|
+| `model-inference` | prompts, which carry column names, samples and business language |
+| `catalog-write-back` | quality badges: standing, coverage, evidence reference |
+| `siem-export` | audit events: who did what to which tenant's estate |
+| `evidence-export` | the evidence ledger for a period, including sample digests |
+| `alert-delivery` | alert bodies, which quote failing values |
+
+The third column is the one that gets forgotten. An egress that knows its
+destination and not its subject's home answers the wrong question confidently,
+so `Badge`, `Alert` and the export calls all carry a jurisdiction.
+
+**Two guards, because the registry is only worth having if something checks it
+is true.** `tests/architecture/test_egress.py` requires every registered module
+to consult residency — a registered point that does not is a build failure, not
+a note. And it derives the list of modules that *can* reach the network from
+their imports rather than from a list somebody maintains, so a new module that
+opens a socket without being registered fails. The list is the thing that rots;
+the imports are the thing that is true. There is one accepted exception
+(`db/schema/bootstrap.py` imports `socket` for `gethostname`), and a second test
+asserts the exception still applies, because a waiver whose reason has expired
+is how the next module inherits it.
+
+**The gate raises.** `Gate.require` is the normal way in; `Gate.decide` returns
+a decision and is for reporting. A returned decision can be ignored, and the one
+call site where somebody forgets is the one that matters. `ResidencyRefused` is
+its own error type so an operator triaging a failed export can tell "the data
+may not go there" from "the request was malformed".
+
+**Refusal granularity is decided per point, not uniformly.** Catalogue
+write-back refuses *per badge* and lets the rest land — a residency breach is
+not a reason to leave forty tables stale. SIEM and evidence export refuse
+*wholesale* — an audit export missing the records that could not cross is an
+export with a hole in it and nothing in the file says so. Alert delivery is
+withheld from **everybody or nobody**: an alert some recipients received and
+others silently did not is worse than either, because the ones who got it assume
+everyone did.
+
+**The gate is optional at every call site.** Most deployments are in one region
+with no residency obligation at all, and a required argument is one that every
+caller passes `None` to — which is a control in name only.
 
 ---
 
@@ -167,6 +377,51 @@ Every assertion execution — without exception — appends one immutable record
 | **Honest about limits** | Where a source cannot supply an exact snapshot, `exact:false` is recorded; sampled results carry their coverage and confidence |
 | **Exportable** | Open formats (JSON/Parquet), documented schema, full-tenant export (`NFR-POR-004`) |
 | **Retained** | 1–25 years per criticality tier, with legal hold |
+
+### 6.2a Verifying without us — `scripts/verify_evidence.py`
+
+An audit trail that can only be checked by the tool that produced it is that
+tool's own account of itself, which is the one thing an auditor is there not to
+accept. So the chain algorithm is written out in prose in every bundle's
+`manifest.json`, and `scripts/verify_evidence.py` is an implementation of that
+prose which **imports nothing from Prama and nothing outside the Python standard
+library**. A test asserts both facts by parsing the script's imports, and runs
+it as a subprocess with `PYTHONPATH` emptied — an auditor's actual situation.
+
+```
+python3 verify_evidence.py <bundle-directory>
+
+exit 0   every check passed
+exit 1   at least one check failed
+exit 2   the bundle could not be read at all
+```
+
+The third code exists because "I could not read it" and "it is wrong" are
+different findings: the first is a broken transfer, the second a broken claim.
+
+Seven checks: content hashes, chain links, contiguous sequence numbers, the
+manifest's record count against the file, the payload digest, the Merkle root,
+and the chain head. The count is the one that catches what archives actually
+suffer — a **truncated file**, whose remaining chain is perfectly valid.
+
+**What a green result does not mean.** The script prints this on success, where
+the overstatement happens; nobody misreads a failure:
+
+> This says the records have not been altered since they were written, and that
+> this file is the one the manifest describes. It does not say the records are
+> true: a false record, honestly written and correctly chained, produces a
+> bundle that verifies exactly like this one.
+
+Chain integrity answers *has this been altered since it was written*, not *was
+it right when it was written*. The second question is what controls, replay and
+the two-stage engine are for.
+
+The verifier's counterfactual is tested five ways — an altered field, a
+truncated file, a removed middle record, a reordered pair, and a manifest
+doctored to match a doctored payload — plus a sixth asserting the untouched
+bundle still passes, so the five failures are not vacuous.
+
+---
 
 ### 6.3 Deterministic replay
 

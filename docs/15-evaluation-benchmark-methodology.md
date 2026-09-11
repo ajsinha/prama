@@ -85,6 +85,68 @@ MT↔MX translation pair; a corporate-action event that legitimately shifts dist
 Released with a **synthetic-data statement** (no real customer or personal data), generation code,
 and a fixed seed.
 
+### 2.4 What is built today
+
+`prama.bench.corpus` and `prama.bench.baselines`, driven by `prama bench`.
+
+**Built:** the taxonomy (28 classes across the six families and all four
+difficulty tiers), the injectors, the labelling discipline, and a baseline
+comparison. `prama bench taxonomy` lists the classes; `prama bench run --seed N`
+builds a corpus and scores every baseline against it.
+
+**Not built:** scale, and real datasets. §2.1's S/M/L tiers at 10⁶–10¹⁰ rows
+against NYC TLC, PUMS, MIMIC-IV and OSM extracts are not here, and neither is
+FinDQ-Bench's generated bank. What is here runs in a test suite in under a
+second. That is deliberate: the taxonomy, the injectors and the labelling are
+the part that must be right before scale is worth buying, and a corpus that
+plants defects it does not label is wrong at every scale equally.
+
+Three decisions in the implementation are worth stating, because each of them
+was a bug first.
+
+**The defect is what changed, not what was written.** A sign flip landing on an
+already-negative amount changes nothing, and crediting a detector for finding it
+credits it for finding a defect that is not there. Every injector reports
+whether it altered the row; a no-op plants no label. A class that plants nothing
+at all in a given run is reported by name — silence there becomes recall a
+detector never had to earn.
+
+**One window per defect class.** §3.1 scores a detection on dataset, column
+*and* window. Six classes that all damage `amount` in one window share a locus,
+so a single alert on `amount` would be credited with finding all six. Each class
+gets its own window, which is what makes the recall figure mean what it says.
+
+**The seed has no default.** A default seed is a seed nobody records, and an
+unrecorded number is an anecdote. `--seed` is a required argument and is printed
+with the result.
+
+#### Baselines actually run
+
+Two **bounds** — `detect-nothing` and `alert-on-everything` — and three
+**ablations** — `schema-only`, `patterns-only`, `statistics-only`. The bounds
+are axes, not contenders: a recall figure cannot be read until you know that
+alerting on every column scores 1.0. `detect-nothing` reports precision as
+*undefined* rather than zero, because "how many of your alerts were right" has
+no answer when there were none.
+
+**No external tool is run.** Configuring Great Expectations, Soda Core, Deequ or
+a platform-native checker fairly means following each tool's own recommended
+setup, ideally reviewed by a practitioner of it — and a comparison configured by
+the party who benefits from the result is not evidence. The fifteen baselines
+named in §4 are listed by name in every run's output, so the absence travels
+with the numbers instead of being inferred from a five-row table.
+
+#### The result the ablations produce
+
+At seed 42, on 28 scenarios of 200 rows: `schema-only` recall 0.07,
+`patterns-only` 0.18, `statistics-only` 0.25, against `alert-on-everything` at
+1.00 with precision 0.08. Every ablation is **blind to the semantic family** —
+the defects that pass every format and range check. That is the claim §2.1 makes
+about the semantic family, stated as a measurement rather than an assertion, and
+it is what the semantic layer has to earn its place against.
+
+---
+
 ### 2.3 Live-shadow evaluation
 
 Benchmarks are necessary but insufficient. At three design-partner banks we run Prama in **shadow**

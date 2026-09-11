@@ -39,6 +39,8 @@ import enum
 from collections.abc import Iterable, Mapping
 from typing import Any
 
+from prama.semantic.relationships import RelationshipKind
+
 
 class Standing(enum.Enum):
     """How an obligation stands for a period."""
@@ -70,17 +72,42 @@ class Standing(enum.Enum):
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Citation:
-    """Where an obligation comes from, precisely enough to look up."""
+    """Where an obligation comes from, precisely enough to look up.
+
+    ``confirmed`` records whether a person has checked this reference against
+    the published text. It defaults to false and is *meant* to be visible:
+    "show me where this comes from" is the follow-up to every finding an
+    examiner makes, and an unverified article number that turns out to be wrong
+    costs more credibility than having cited nothing. Marking them is what lets
+    a bank's own compliance function work through the list rather than
+    discovering the problem in the room.
+    """
 
     document: str
     clause: str
     #: The publishing body, because two documents share a number often enough.
     authority: str = ""
     url: str = ""
+    #: Checked against the published text by a person, and by whom.
+    confirmed: bool = False
+    confirmed_by: str = ""
+
+    def __post_init__(self) -> None:
+        if self.confirmed and not self.confirmed_by:
+            raise ValueError(
+                f"{self.render()} is marked confirmed with nobody named. "
+                "An unattributable confirmation is not one."
+            )
 
     def render(self) -> str:
         body = f"{self.authority} " if self.authority else ""
         return f"{body}{self.document} {self.clause}".strip()
+
+    def render_with_standing(self) -> str:
+        """The citation, and whether anybody has checked it."""
+        if self.confirmed:
+            return f"{self.render()} (confirmed by {self.confirmed_by})"
+        return f"{self.render()} [unconfirmed against the published text]"
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -123,6 +150,28 @@ class Template:
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
+class RelationshipRequirement:
+    """An obligation discharged by a *declaration*, not by a control.
+
+    Some obligations are not checks on a dataset at all. "Every trade was
+    reported" is a statement about two populations, and "these three feeds
+    together cover the book" is a statement about a set of them. In Prama those
+    are relationship declarations, from which the generator derives controls
+    (``docs/03 §2.4``) — so writing them as PQL here would mean inventing
+    syntax the language does not have, and a catalogue whose templates do not
+    parse is a catalogue of promises.
+    """
+
+    kind: RelationshipKind
+    #: What it connects, in placeholder terms, e.g. "{trade_store} -> {report}".
+    between: str
+    note: str = ""
+
+    def render(self) -> str:
+        return f"{self.kind.value}: {self.between}"
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
 class Obligation:
     """One thing a regulator requires, and what would discharge it."""
 
@@ -134,17 +183,40 @@ class Obligation:
     #: nobody checks against.
     objective: str
     templates: tuple[Template, ...] = ()
+    #: Declarations that discharge part of this obligation.
+    relationships: tuple[RelationshipRequirement, ...] = ()
+    #: The part of the objective nothing here discharges. Written out rather
+    #: than left to be inferred from an absence: an obligation listed in a
+    #: catalogue reads as an obligation handled, and a reader who assumes that
+    #: finds out in the examination room.
+    not_discharged: str = ""
     #: The BCBS 239 principle this maps to, where it maps to one.
     principle: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.templates and not self.relationships and not self.not_discharged:
+            raise ValueError(
+                f"{self.identity} ships nothing that discharges it and does not say so. "
+                "An obligation with no templates, no relationships and no stated gap "
+                "is an entry that looks covered."
+            )
+
+    @property
+    def is_fully_discharged(self) -> bool:
+        """Whether everything in the objective is addressed by something here."""
+        return not self.not_discharged
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "identity": self.identity,
             "regime": self.regime,
             "citation": self.citation.render(),
+            "citation_confirmed": self.citation.confirmed,
             "objective": self.objective,
             "principle": self.principle,
             "templates": [t.identity for t in self.templates],
+            "relationships": [r.render() for r in self.relationships],
+            "not_discharged": self.not_discharged,
         }
 
 
@@ -336,6 +408,7 @@ __all__ = [
     "Coverage",
     "Obligation",
     "ObligationStanding",
+    "RelationshipRequirement",
     "Standing",
     "Template",
 ]

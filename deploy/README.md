@@ -15,6 +15,95 @@ Two shapes, and the difference between them matters more than either.
 
 ---
 
+## The operator's control loop
+
+`prama.integrate.operator` decides what reconciling a `PramaEstate` should do;
+`prama.integrate.controller` applies it. The cluster is behind a two-method seam
+(`ResourceClient`, `DeclarationStore`) with an in-memory implementation, so the
+loop's behaviour is testable and only its plumbing is not.
+
+What the loop guarantees, each because the obvious reconciler does something a
+bank would not accept:
+
+- **Status is written on every path, including the failing ones.** A reconcile
+  that hit a conflict and wrote nothing leaves the resource looking untouched,
+  and the operator appears not to be running. The status is the only thing a
+  user sees.
+- **`observedGeneration` comes from what was read at the top.** The manifest can
+  change mid-reconcile, and a `Ready` about "whichever version is current when
+  the write lands" is a statement nobody can point at.
+- **A failed write stops the batch and reports how far it got.** Twelve of forty
+  applied *and stated as twelve* is recoverable; twelve reported as forty is
+  not. A later pass picks up where it stopped.
+- **A terminating resource is left alone.** Its finalizers are somebody else's
+  business, and writing status onto something going away does nothing at best
+  and blocks the deletion at worst.
+- **Neither seam offers a delete.** "This operator never removes anything" is a
+  property of the interface rather than of the loop remembering not to.
+- **Nothing is retried here.** A retry policy belongs to the client, which knows
+  whether the API server was unreachable or the request was rejected — and
+  Kubernetes already backs off the outer loop.
+
+Idempotence is asserted across two passes rather than assumed, which is what the
+in-memory cluster is for.
+
+### Not verified here
+
+**No API server has been contacted.** There is no cluster on this machine — no
+kind, no k3d, no kubectl — and a test asserts the module imports no Kubernetes
+client. What is verified is every decision and every failure path; what is not
+is that a real API server accepts the status subresource writes as shaped.
+
+## Signing an offline bundle
+
+Two signatures, and they answer different questions.
+
+```bash
+# on the connected machine
+openssl genpkey -algorithm ed25519 -out publisher.pem
+openssl pkey -in publisher.pem -pubout -out publisher.pub
+
+prama bundle seal ./offline --sign-with publisher.pem
+
+# on the air-gapped host, which has publisher.pub and nothing else
+prama bundle verify ./offline --publisher-key publisher.pub
+```
+
+The **HMAC seal** says the bundle was sealed by a holder of this deployment's
+key, and nothing at all to anybody who does not hold it. The **Ed25519
+signature** is the one that survives leaving the building: the receiving host
+verifies it with the public half alone, which is what an auditor asks about an
+artefact that arrived on a disk.
+
+A failing seal alongside a holding publisher signature is **not a finding** —
+it is the normal air-gapped case, where the receiver never had the sender's HMAC
+key. A failing *publisher* signature is disqualifying on its own, whatever the
+seal says: somebody signed the bundle and it was not who the key says.
+
+`verify` exits **3** on a bundle that must not be installed and **1** on a check
+that could not be made. A bundle carrying a signature with no key given to check
+it against exits 3: an unverifiable signature reported as nothing would read as
+an unsigned bundle, which is a different and lesser problem.
+
+### Verified here
+
+Sealed on this machine with a generated Ed25519 key and verified on a simulated
+air-gapped host — a different `session_secret`, so the HMAC seal legitimately
+failed while the publisher signature held. Tampering (a wheel replaced after
+sealing), a wrong publisher key, and a signature with no key given were each
+refused with exit 3.
+
+### Not verified here
+
+**Container image signing.** Signing the OCI image needs `cosign` and a
+registry; neither is installed on this machine and neither has been exercised.
+What is signed above is the offline *bundle*, which is a different artefact.
+
+**A genuinely air-gapped run.** This machine has a network. The verification
+above proves the receiving side needs no secret material beyond the public key,
+which is the property that matters, but nobody has carried this to a host with
+no route out and installed from it.
+
 ## What has been verified, and what has not
 
 Stated first, because deployment artefacts are where "it builds" is routinely

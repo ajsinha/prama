@@ -63,7 +63,10 @@ class TestVerify:
         run(["bundle", "seal", str(staged)])
         code, text = run(["bundle", "verify", str(staged)])
         assert code == EXIT_OK
-        assert "the signature holds" in text
+        # Deliberately precise: "the signature holds" over two different
+        # signatures would let a reader take a deployment's own HMAC for
+        # publisher provenance, which is the stronger claim.
+        assert "this deployment's seal holds" in text
 
     def test_a_tampered_file_exits_three(self, staged: Path) -> None:
         """Three, not one: an operator has to tell "this bundle is wrong" from
@@ -121,3 +124,109 @@ class TestSbom:
         payload = pjson.loads(text)
         assert code == EXIT_OK
         assert any(item["name"] == "prama" for item in payload["distributions"])
+
+
+@pytest.fixture
+def keypair(tmp_path: Path) -> tuple[Path, Path]:
+    pytest.importorskip("cryptography", reason="needs the 'sso' extra")
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    key = Ed25519PrivateKey.generate()
+    private = tmp_path / "publisher.pem"
+    public = tmp_path / "publisher.pub"
+    private.write_bytes(
+        key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+    )
+    public.write_bytes(
+        key.public_key().public_bytes(
+            serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+    )
+    return private, public
+
+
+class TestPublisherSigning:
+    """The whole point: a host with only the public key can establish where a
+    bundle came from."""
+
+    def test_an_unsigned_seal_says_the_bundle_carries_no_provenance(self, staged) -> None:
+        """Said on the success path, because that is the moment somebody
+        decides how much the signature is worth."""
+        code, text = run(["bundle", "seal", str(staged), "--no-sbom"])
+        assert code == EXIT_OK
+        assert "No publisher signature" in text
+        assert "cannot check an HMAC without the key" in text
+
+    def test_signing_writes_a_separate_file(self, staged, keypair) -> None:
+        """Two signatures in one file would make a verifier that reads the
+        wrong line report a valid bundle as forged."""
+        private, _ = keypair
+        run(["bundle", "seal", str(staged), "--no-sbom", "--sign-with", str(private)])
+        assert (staged / "manifest.ed25519").is_file()
+        assert (staged / "manifest.sig").is_file()
+
+    def test_a_different_host_verifies_with_the_public_key_alone(self, staged, keypair) -> None:
+        """The air-gapped case: a different session secret, so the HMAC seal
+        legitimately fails while the publisher signature holds."""
+        private, public = keypair
+        run(
+            ["bundle", "seal", str(staged), "--no-sbom", "--sign-with", str(private)],
+            secret="the-build-machine-key",
+        )
+        code, text = run(
+            ["bundle", "verify", str(staged), "--publisher-key", str(public)],
+            secret="a-completely-different-host-key",
+        )
+        assert code == EXIT_OK
+        assert "the publisher signature holds" in text
+        assert "does not verify" not in text
+
+    def test_a_signature_with_no_key_given_refuses(self, staged, keypair) -> None:
+        """An unverifiable signature reported as nothing reads as an unsigned
+        bundle, which is a different and lesser problem."""
+        private, _ = keypair
+        run(["bundle", "seal", str(staged), "--no-sbom", "--sign-with", str(private)])
+        code, text = run(["bundle", "verify", str(staged)], secret="another-host")
+        assert code == EXIT_DRIFT
+        assert "no key was given to" in text
+
+    def test_a_wrong_publisher_key_refuses(self, staged, keypair, tmp_path) -> None:
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+        private, _ = keypair
+        run(["bundle", "seal", str(staged), "--no-sbom", "--sign-with", str(private)])
+        impostor = tmp_path / "impostor.pub"
+        impostor.write_bytes(
+            Ed25519PrivateKey.generate()
+            .public_key()
+            .public_bytes(
+                serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+            )
+        )
+        code, text = run(["bundle", "verify", str(staged), "--publisher-key", str(impostor)])
+        assert code == EXIT_DRIFT
+        assert "signed by somebody else" in text
+
+    def test_tampering_after_signing_is_caught(self, staged, keypair) -> None:
+        private, public = keypair
+        run(["bundle", "seal", str(staged), "--no-sbom", "--sign-with", str(private)])
+        (staged / "wheels" / "prama.whl").write_bytes(b"malicious")
+        code, text = run(["bundle", "verify", str(staged), "--publisher-key", str(public)])
+        assert code == EXIT_DRIFT
+        assert "wrong hash" in text
+        assert "Do not install" in text
+
+    def test_json_says_whether_a_publisher_signature_was_written(self, staged, keypair) -> None:
+        private, _ = keypair
+        _, text = run(["--json", "bundle", "seal", str(staged), "--no-sbom"])
+        assert pjson.loads(text)["publisher_signature"] is False
+        _, text = run(
+            ["--json", "bundle", "seal", str(staged), "--no-sbom", "--sign-with", str(private)]
+        )
+        assert pjson.loads(text)["publisher_signature"] is True

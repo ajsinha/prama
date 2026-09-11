@@ -37,19 +37,18 @@ class PackListCommand(Command):
             "SWIFT MT (MT940, MT103)",
             "ISO 20022 (pacs.008, camt.053)",
             "COBOL copybook over EBCDIC",
+            "FIX 4.2-4.4 (tag=value, repeating groups kept)",
+            "ISO 8583 (bitmap-driven, PAN masked)",
+            "FpML 5 (both legs, direction kept)",
         ]
-        regimes = sorted({o.regime for o in obligations.OBLIGATIONS})
+        regimes = sorted({o.regime for o in obligations.ALL_OBLIGATIONS})
         payload: dict[str, Any] = {
             "calendars": [spec.name for spec in calendars.SPECS],
             "cross_field_functions": [fn.name for fn in BANKING_FUNCTIONS],
-            "obligations": len(obligations.OBLIGATIONS),
+            "obligations": len(obligations.ALL_OBLIGATIONS),
             "regimes": regimes,
             "reconciliations": list(reconciliations.identities()),
-            "message_formats": [
-                "SWIFT MT (MT940, MT103)",
-                "ISO 20022 (pacs.008, camt.053)",
-                "COBOL copybook over EBCDIC",
-            ],
+            "message_formats": formats,
         }
         if ctx.json_output:
             ctx.emit_json(payload)
@@ -67,9 +66,9 @@ class PackListCommand(Command):
         for entry in formats:
             ctx.emit(f"  {entry}")
         ctx.emit()
-        ctx.emit(
-            f"Obligations: {len(obligations.OBLIGATIONS)} across {', '.join(payload['regimes'])}"
-        )
+        ctx.emit(f"Obligations: {len(obligations.ALL_OBLIGATIONS)} across {len(regimes)} regimes")
+        for regime in regimes:
+            ctx.emit(f"  {regime}")
         ctx.emit(f"Reconciliation templates: {len(reconciliations.TEMPLATES)}")
         ctx.emit()
         ctx.emit("`prama pack claims` says what this pack does NOT discharge.")
@@ -90,31 +89,64 @@ class PackClaimsCommand(Command):
         rest. Naming the boundary is what makes the covered part believable.
         """
         from prama.packs.banking.obligations import (
+            ALL_OBLIGATIONS,
             DISCHARGEABLE_PRINCIPLES,
-            OBLIGATIONS,
             SUPPORTED_NOT_DISCHARGED,
         )
+        from prama.packs.banking.regimes import REGIME_SCOPE
+
+        partial = [o for o in ALL_OBLIGATIONS if not o.is_fully_discharged]
+        unconfirmed = [o for o in ALL_OBLIGATIONS if not o.citation.confirmed]
 
         if ctx.json_output:
             ctx.emit_json(
                 {
                     "discharged": list(DISCHARGEABLE_PRINCIPLES),
                     "supported_not_discharged": SUPPORTED_NOT_DISCHARGED,
-                    "obligations": [o.to_dict() for o in OBLIGATIONS],
+                    "regime_scope": REGIME_SCOPE,
+                    "partly_discharged": [o.identity for o in partial],
+                    "unconfirmed_citations": [o.identity for o in unconfirmed],
+                    "obligations": [o.to_dict() for o in ALL_OBLIGATIONS],
                 }
             )
             return EXIT_OK
 
         ctx.emit("Discharged by controls — testable properties of data:")
         for principle in DISCHARGEABLE_PRINCIPLES:
-            covered = [o for o in OBLIGATIONS if o.principle == principle]
+            covered = [o for o in ALL_OBLIGATIONS if o.principle == principle]
             ctx.emit(f"  {principle}  {len(covered)} obligation(s)")
             for obligation in covered:
-                ctx.emit(f"        {obligation.identity}  ({obligation.citation.render()})")
+                ctx.emit(f"        {obligation.identity}")
+                for line in _wrap(obligation.citation.render_with_standing(), 60):
+                    ctx.emit(f"            {line}")
         ctx.emit()
         ctx.emit("Supported but NOT discharged by a control:")
         for principle, how in sorted(SUPPORTED_NOT_DISCHARGED.items()):
             ctx.emit(f"  {principle}  {how}")
+        ctx.emit()
+        ctx.emit("Each reporting regime, and what it leaves alone:")
+        for regime, scope in sorted(REGIME_SCOPE.items()):
+            ctx.emit(f"  {regime}")
+            for line in _wrap(scope, 68):
+                ctx.emit(f"      {line}")
+        ctx.emit()
+        if partial:
+            # Printed even when the list is short. An obligation catalogued but
+            # only partly discharged reads as handled, and the reader who
+            # assumes that finds out in the examination room.
+            ctx.emit("Catalogued but only partly discharged:")
+            for obligation in partial:
+                ctx.emit(f"  {obligation.identity}")
+                for line in _wrap(obligation.not_discharged, 68):
+                    ctx.emit(f"      {line}")
+            ctx.emit()
+        ctx.emit(
+            f"Citations checked against the published text: "
+            f"{len(ALL_OBLIGATIONS) - len(unconfirmed)} of {len(ALL_OBLIGATIONS)}."
+        )
+        if unconfirmed:
+            ctx.emit("The rest are cited at article or section level and are unverified.")
+            ctx.emit("Your compliance function confirms them; `--json` lists which.")
         ctx.emit()
         ctx.emit("Shipping templates for the second group that checked nothing would")
         ctx.emit("be a claim this product cannot defend at an examination.")
@@ -264,6 +296,265 @@ class PackSoc2Command(Command):
         return EXIT_OK
 
 
+class PackParseCommand(Command):
+    name = "parse"
+    help = "parse one financial message and report what is wrong with it"
+
+    def configure(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("path", help="file holding a single message")
+        parser.add_argument(
+            "--format",
+            choices=sorted(_PARSERS),
+            help="format; inferred from the content when omitted",
+        )
+
+    def run(self, ctx: CommandContext) -> int:
+        from pathlib import Path
+
+        source = Path(ctx.args.path)
+        if not source.is_file():
+            raise ValidationError(
+                f"no such file: {source}",
+                remedy="Pass the path to a file holding one message.",
+            )
+        raw = source.read_text(encoding="utf-8", errors="replace")
+
+        chosen = ctx.args.format or _infer(raw)
+        if chosen is None:
+            raise ValidationError(
+                "could not tell which format this is",
+                remedy=(f"Pass --format explicitly; one of {', '.join(sorted(_PARSERS))}."),
+            )
+
+        summary = _PARSERS[chosen](raw)
+        if ctx.json_output:
+            ctx.emit_json({"format": chosen, **summary})
+            return EXIT_OK
+
+        # Width from the labels themselves: a fixed one silently runs the
+        # longest label into its value, which reads as a different label.
+        labels = ["Format", *(k for k in summary if k != "defects")]
+        width = max(len(label) for label in labels) + 2
+        ctx.emit(f"{'Format':{width}}{chosen}{'' if ctx.args.format else ' (inferred)'}")
+        for label, value in summary.items():
+            if label == "defects":
+                continue
+            ctx.emit(f"{label:{width}}{value}")
+        defects = summary["defects"]
+        ctx.emit()
+        if not defects:
+            # Deliberately not "valid": these parsers check structure and
+            # self-consistency, not whether the trade should have been booked.
+            ctx.emit("No structural defects found.")
+        else:
+            ctx.emit(f"{len(defects)} defect(s):")
+            for defect in defects:
+                ctx.emit(f"  {defect}")
+        return EXIT_OK
+
+
+def _wrap(text: str, width: int) -> list[str]:
+    """Wrap a caveat to the terminal.
+
+    Caveats are sentences, and a sentence printed as one long line is a
+    sentence a reader skips — which for this command defeats the point of it.
+    """
+    import textwrap
+
+    return textwrap.wrap(text, width=width) or [""]
+
+
+def _infer(raw: str) -> str | None:
+    """Which format this is, or nothing.
+
+    Guessing wrong is worse than declining: every one of these parsers reports
+    defects, so a misidentified message comes back as a page of findings about
+    a file that was never in that format.
+    """
+    stripped = raw.lstrip()
+    if stripped.startswith("<") and "fpml" in raw[:400].lower():
+        return "fpml"
+    if stripped.startswith("8=FIX"):
+        return "fix"
+    if stripped[:4].isdigit() and len(stripped) > 20:
+        return "iso8583"
+    return None
+
+
+def _fix_summary(raw: str) -> dict[str, Any]:
+    from prama.packs.banking import fix
+
+    message = fix.parse(raw)
+    return {
+        "type": message.msg_type,
+        "fields": len(message.tags),
+        "groups": len(message.groups),
+        "delimiter": "display" if message.arrived_display_delimited else "SOH",
+        "defects": [d.render() for d in message.defects],
+    }
+
+
+def _iso8583_summary(raw: str) -> dict[str, Any]:
+    from prama.packs.banking import iso8583
+
+    message = iso8583.parse(raw.strip())
+    return {
+        "mti": message.mti,
+        "fields": len(message.present),
+        "amount": str(message.amount()) if message.amount() is not None else "-",
+        "defects": [d.problem for d in message.defects],
+    }
+
+
+def _fpml_summary(raw: str) -> dict[str, Any]:
+    from prama.packs.banking import fpml
+
+    trade = fpml.parse(raw)
+    return {
+        "trade": trade.trade_id or "-",
+        "version": trade.version or "-",
+        "legs": len(trade.legs),
+        "legs directed": trade.is_two_sided,
+        "defects": list(trade.defects),
+    }
+
+
+_PARSERS = {
+    "fix": _fix_summary,
+    "iso8583": _iso8583_summary,
+    "fpml": _fpml_summary,
+}
+
+
+class PackConceptsCommand(Command):
+    name = "concepts"
+    help = "the business concept model, and where each concept ends"
+
+    def configure(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("concept", nargs="?", help="one concept, in full")
+
+    def run(self, ctx: CommandContext) -> int:
+        from prama.packs.banking import concepts
+
+        if ctx.args.concept:
+            return self._one(ctx, concepts.concept(ctx.args.concept))
+
+        if ctx.json_output:
+            ctx.emit_json(
+                {
+                    "concepts": [
+                        {
+                            "name": c.name,
+                            "description": c.description,
+                            "identifying": [p.name for p in c.identifying],
+                            "properties": len(c.properties),
+                            "semantic_types": list(c.semantic_types),
+                            "boundary": c.boundary,
+                        }
+                        for c in concepts.CONCEPTS
+                    ]
+                }
+            )
+            return EXIT_OK
+
+        ctx.emit(f"{len(concepts.CONCEPTS)} concepts. A starter ontology; a tenant's own wins.")
+        ctx.emit()
+        for entry in concepts.CONCEPTS:
+            identifying = ", ".join(p.name for p in entry.identifying)
+            ctx.emit(f"  {entry.name:20} {entry.description}")
+            ctx.emit(f"  {'':20} identified by: {identifying}")
+        ctx.emit()
+        ctx.emit("`prama pack concepts <name>` says where a concept ends.")
+        return EXIT_OK
+
+    def _one(self, ctx: CommandContext, entry: Any) -> int:
+        if ctx.json_output:
+            ctx.emit_json(
+                {
+                    "name": entry.name,
+                    "description": entry.description,
+                    "boundary": entry.boundary,
+                    "relevance": entry.relevance,
+                    "properties": [
+                        {
+                            "name": p.name,
+                            "role": p.role.value,
+                            "semantic_type": p.semantic_type,
+                            "aliases": list(p.aliases),
+                        }
+                        for p in entry.properties
+                    ],
+                }
+            )
+            return EXIT_OK
+
+        ctx.emit(f"{entry.name} — {entry.description}")
+        ctx.emit()
+        for prop in entry.properties:
+            marker = {"identifying": "!", "defining": "*", "descriptive": " "}[prop.role.value]
+            kind = f" [{prop.semantic_type}]" if prop.semantic_type else ""
+            ctx.emit(f"  {marker} {prop.name}{kind}")
+            if prop.aliases:
+                ctx.emit(f"      also: {', '.join(prop.aliases)}")
+        ctx.emit()
+        ctx.emit("  ! without it, the table is not this concept")
+        ctx.emit("  * carries the concept's meaning; absence is a finding")
+        if entry.boundary:
+            ctx.emit()
+            ctx.emit(f"What it is not: {entry.boundary}")
+        if entry.relevance:
+            ctx.emit(f"Why it matters: {entry.relevance}")
+        return EXIT_OK
+
+
+class PackRecogniseCommand(Command):
+    name = "recognise"
+    help = "which concept a set of columns is, or why that cannot be said"
+
+    def configure(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("columns", nargs="+", help="column names")
+        parser.add_argument("--as", dest="expected", help="test against one concept")
+
+    def run(self, ctx: CommandContext) -> int:
+        from prama.packs.banking import concepts
+
+        columns = list(ctx.args.columns)
+        if ctx.args.expected:
+            results = [concepts.recognise(ctx.args.expected, columns)]
+        else:
+            results = list(concepts.identify(columns))
+
+        if ctx.json_output:
+            ctx.emit_json({"columns": columns, "candidates": [r.to_dict() for r in results]})
+            return EXIT_OK
+
+        if not results:
+            # Deliberately not the closest match. Position, Balance and
+            # Exposure share a shape, and naming one of them here would be a
+            # guess wearing the tool's authority.
+            ctx.emit("No concept recognised.")
+            ctx.emit()
+            ctx.emit("These columns carry no concept's identifying properties. That is")
+            ctx.emit("usually a table that references business objects rather than being")
+            ctx.emit("one — a fact table, a log, an extract. `prama pack concepts` lists")
+            ctx.emit("what identifies each concept.")
+            return EXIT_OK
+
+        for result in results:
+            ctx.emit(f"{result.concept} — {result.standing.value}")
+            ctx.emit(f"  {result.reason}")
+            for column, prop in result.matched:
+                ctx.emit(f"    {column} -> {prop}")
+            if result.expected_types:
+                pairs = ", ".join(f"{c} is {t}" for c, t in result.expected_types)
+                ctx.emit(f"  expect: {pairs}")
+            if result.unmatched_columns:
+                ctx.emit(f"  unplaced: {', '.join(result.unmatched_columns)}")
+            ctx.emit()
+        ctx.emit("A recognition is a proposal. A steward confirms it.")
+        return EXIT_OK
+
+
 class PackCommand(CommandGroup):
     name = "pack"
     help = "what a domain pack ships, and what it does not claim"
@@ -275,6 +566,9 @@ class PackCommand(CommandGroup):
             PackCalendarCommand(),
             PackReconciliationCommand(),
             PackSoc2Command(),
+            PackParseCommand(),
+            PackConceptsCommand(),
+            PackRecogniseCommand(),
         ]
 
 

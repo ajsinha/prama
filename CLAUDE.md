@@ -155,15 +155,22 @@ prama db verify                          # fail loudly if the live schema has dr
 prama pack list                          # what the banking pack ships
 prama pack claims                        # and what it does NOT claim to discharge
 prama pack calendar TARGET2 --year 2030  # closures, computed from rules
+prama pack parse order.fix               # FIX/ISO 8583/FpML, and what is wrong with it
+prama pack concepts Exposure             # a business concept, and where it ends
+prama pack recognise account_id ccy      # which concept these columns are, or why not
+prama bench run --seed 42                # labelled defect corpus, bounds and ablations
 prama pack soc2                          # Prama's own SOC 2 readiness, gaps first
 prama bundle seal ./offline              # manifest + SBOM, HMAC-sealed
 prama bundle verify ./offline            # exit 3 if it must not be installed
 prama contract check c.json --data rows.json   # CI gate; exit 3 on breach, 1 on failure
 prama contract diff before.csv after.csv --key id   # what changed, not how many
-prama lsp catalogue --out cat.json       # export the estate's schemas for an editor
+prama lsp catalogue --tenant acme --out cat.json   # the estate's schemas, for an editor
 prama lsp serve --catalogue cat.json     # PQL language server on stdio
 python scripts/check_file_length.py      # the 1500-line ceiling
+python3 scripts/verify_evidence.py bundle/   # check evidence without importing Prama
+prama bundle seal ./offline --sign-with k.pem  # Ed25519 provenance for an air-gapped host
 pytest -q tests/web/test_axe.py           # axe-core in Chrome; needs pip install -e ".[audit]"
+pytest -q tests/security/test_oidc.py     # ID-token forgeries; needs pip install -e ".[sso]"
 ruff check src tests && ruff format --check src tests
 mypy src
 ```
@@ -184,7 +191,7 @@ can delete.
 ```bash
 uv python install 3.13          # once; lands in ~/.local/share/uv/python, no sudo
 uv venv --python 3.13           # reads .python-version
-uv pip install -e ".[dev,serve,postgres,fast,audit]"
+uv pip install -e ".[dev,serve,postgres,fast,audit,sso]"
 ```
 
 The suite passes on 3.13 and on 3.14 — both were run before choosing, and every

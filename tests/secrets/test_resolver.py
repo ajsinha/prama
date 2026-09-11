@@ -174,7 +174,17 @@ class TestResolver:
         # A provider that manufactures secrets from nowhere would make a
         # misconfigured deployment look like a working one.
         assert "memory" not in default_resolver().schemes
-        assert set(default_resolver().schemes) == {"env", "file"}
+        assert set(default_resolver().schemes) == {"env", "file", "vault"}
+
+    def test_vault_is_registered_but_unavailable_by_default(self) -> None:
+        # Registered and unconfigured is not the same as absent: a reference
+        # then fails with what to set, rather than with "no provider for
+        # scheme 'vault'" — which sends somebody to look for a plugin that is
+        # already installed.
+        resolver = default_resolver()
+        assert "vault" in resolver.schemes
+        entry = next(p for p in resolver.describe() if p["scheme"] == "vault")
+        assert entry["available"] == "no"
 
 
 class TestCaching:
