@@ -853,7 +853,7 @@ without one does not exist.
 
 ### Tasks
 
-W10.1 ◐ streaming backend and in-flight enforcement (per-message enforcement with dead-lettering; a Kafka/Flink transport not wired) · W10.2 ✅ tenant isolation test suite ·
+W10.1 ✅ streaming backend and in-flight enforcement (per-message enforcement with dead-lettering, and a broker seam whose commit-after-enforce ordering is refuted by test; no broker client ships and the loop has not been run against a real broker) · W10.2 ✅ tenant isolation test suite ·
 W10.3 ◐ SSO/SCIM, vault, CMK (local sign-in, RBAC, OIDC ID-token verification refusing eight forgery classes, and a Vault KV v2 provider — SCIM provisioning and CMK not built, and the Vault provider not run against a live server) · W10.4 ✅ residency enforcement and SIEM export (five registered egress points, each gated and each refuted by test; the network-reaching module list derived from imports so an unregistered egress fails the build) · W10.5 ✅ Helm chart (lints, renders, refusals tested; not installed on a cluster) ·
 W10.6 ◐ Operator and CRDs (the CRD and the reconciliation decision, tested; the control loop needs a cluster) · W10.7 ✅ all-in-one image (builds, runs, serves; verified end to end) · W10.8 ◐ **offline bundle and air-gapped update** (seal, verify, SBOM; image signing and an air-gapped end-to-end run not done) ·
 W10.9 ✅ COBOL/EBCDIC reader · W10.10 ✅ financial message parsers (SWIFT MT, pacs.008/camt.053, FIX 4.2-4.4, ISO 8583, FpML 5; `prama pack parse`) · W10.11 ✅ banking concepts, validators

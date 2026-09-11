@@ -121,6 +121,52 @@ Deployment modes: **connect-out** (control plane initiates), **agent** (customer
 outbound-only connection), and **embedded** (a library invoked inside the customer's Spark/Flink job
 or dbt run).
 
+#### 3.4.1 The broker seam, and commit ordering
+
+`prama.execute.stream` evaluates a control against one message.
+`prama.execute.inflight` decides what happens to it. `prama.execute.transport`
+decides **when it is safe to say the message has been dealt with** — which on a
+stream means when to commit the offset, and that is the whole substance of the
+module.
+
+**Commit after enforcement, never before.** A consumer that commits and then
+enforces has told the broker it is finished with a message it has not finished
+with. Crash in between and the message is never redelivered and never
+dead-lettered: it is gone, with nothing anywhere recording that it existed. That
+is the failure `inflight` exists to prevent, moved one layer out. Four tests fail
+if the two lines are swapped.
+
+**At-least-once, and said out loud.** Committing after enforcement means a crash
+between the two replays the batch, so a message can be dead-lettered twice. The
+trade is deliberate: duplicate evidence is a reconciliation problem, lost data is
+not one anybody can solve afterwards. Nothing claims exactly-once, because
+without a transaction spanning the broker *and* the dead letter nothing can
+deliver it.
+
+**A halted batch commits what completed, not what was polled.** When the dead
+letter fills, the pipeline stops part-way. Committing the batch's last offset
+skips every message after the halt; committing nothing replays what was already
+dead-lettered. Committing through the last *enforced* message is the only choice
+that loses nothing — which is why positions are tracked per message rather than
+per batch.
+
+**Offsets are per partition.** A batch spans partitions, and a single "last
+offset" across them is meaningless; committing one partition's offset against
+another's is how a consumer group silently skips a partition's worth of data.
+
+**No broker client ships.** The transport is an ABC with an in-memory reference
+implementation, and a test asserts that no Kafka or Flink package is imported.
+The transport that talks to a real broker belongs to the deployment, where the
+organisation's security, retry and partition-assignment policy already lives —
+and keeping it out is what lets the commit ordering, the property that matters,
+be tested at all. **The loop has not been run against a real broker.**
+
+The seam is consume-only: a transport that could also produce would invite the
+enforcement loop to republish, and a loop that consumes and produces on the same
+broker is one topology change away from feeding itself.
+
+---
+
 ### 3.5 Evidence Ledger
 Append-only, hash-linked (Merkle) store of `EvidenceRecord`s. Partitioned by tenant/date, columnar,
 compressed, with WORM export (S3 Object Lock / Azure immutable blobs) and optional external
