@@ -854,7 +854,7 @@ without one does not exist.
 ### Tasks
 
 W10.1 ◐ streaming backend and in-flight enforcement (per-message enforcement with dead-lettering; a Kafka/Flink transport not wired) · W10.2 ✅ tenant isolation test suite ·
-W10.3 ◐ SSO/SCIM, vault, CMK (local sign-in and RBAC done; SSO not started) · W10.4 ◐ residency enforcement and SIEM export (policy and export done; wiring to every egress point not started) · W10.5 ✅ Helm chart (lints, renders, refusals tested; not installed on a cluster) ·
+W10.3 ◐ SSO/SCIM, vault, CMK (local sign-in and RBAC done; SSO not started) · W10.4 ✅ residency enforcement and SIEM export (five registered egress points, each gated and each refuted by test; the network-reaching module list derived from imports so an unregistered egress fails the build) · W10.5 ✅ Helm chart (lints, renders, refusals tested; not installed on a cluster) ·
 W10.6 ◐ Operator and CRDs (the CRD and the reconciliation decision, tested; the control loop needs a cluster) · W10.7 ✅ all-in-one image (builds, runs, serves; verified end to end) · W10.8 ◐ **offline bundle and air-gapped update** (seal, verify, SBOM; image signing and an air-gapped end-to-end run not done) ·
 W10.9 ✅ COBOL/EBCDIC reader · W10.10 ✅ financial message parsers (SWIFT MT, pacs.008/camt.053, FIX 4.2-4.4, ISO 8583, FpML 5; `prama pack parse`) · W10.11 ✅ banking concepts, validators
 and calendars (17-concept ontology with three-state recognition, calendars as rules, cross-field checks) · W10.12 ✅ regulatory control catalogue with citations (20 obligations across 9 regimes — BCBS 239 P3-P5, ISO 20022, MiFIR, EMIR REFIT, AnaCredit, CRR large exposures, AML, SOX, GDPR; every citation marked unconfirmed until a compliance function checks it) · W10.13 ✅ reference reconciliation

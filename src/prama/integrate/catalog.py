@@ -32,6 +32,8 @@ import enum
 from collections.abc import Iterable, Sequence
 from typing import Any
 
+from prama.security.egress import Gate, ResidencyRefused
+
 
 class Standing(enum.Enum):
     """What a catalogue should show for a dataset."""
@@ -78,6 +80,10 @@ class Badge:
     #: The evidence this rests on, so "show me" has an answer.
     evidence_reference: str = ""
     detail: str = ""
+    #: Where the dataset's data belongs. Carried on the badge because the
+    #: residency question is about the *subject*, and an egress that knows its
+    #: destination but not its subject's home cannot answer it.
+    jurisdiction: str = ""
 
     def __post_init__(self) -> None:
         if not self.established_at:
@@ -112,6 +118,7 @@ class Badge:
             "failing_controls": self.failing_controls,
             "evidence_reference": self.evidence_reference,
             "detail": self.detail,
+            "jurisdiction": self.jurisdiction,
             "rendered": self.render(),
         }
 
@@ -184,6 +191,10 @@ class CatalogTarget(abc.ABC):
 
     #: The catalogue's name, for a report.
     name: str = ""
+    #: Where this catalogue physically is. A target that does not say cannot be
+    #: residency-checked, and under a tenant with a rule that means refused —
+    #: an unstated destination is not a domestic one.
+    region: str = ""
     #: Fields this catalogue can actually store. A target that cannot hold a
     #: date says so here rather than dropping it silently — and then the badge
     #: is refused, because an undated badge is the failure this whole module is
@@ -196,12 +207,18 @@ class CatalogTarget(abc.ABC):
     def write(self, badge: Badge) -> None:
         """Write one badge, or raise if the catalogue would not take it."""
 
-    def publish(self, badges: Iterable[Badge]) -> WriteReport:
+    def publish(self, badges: Iterable[Badge], *, gate: Gate | None = None) -> WriteReport:
         """Write many, reporting what did not land.
 
         Never raises for one bad badge: a catalogue rejecting one table must not
         leave the other thirty-nine unwritten, because those thirty-nine then
         show yesterday's verdict with today's confidence.
+
+        ``gate`` is the residency check. It is optional because most
+        deployments have no residency obligation and a mandatory argument would
+        be one every caller passes ``None`` to — but when one is given, a badge
+        that may not cross is refused *per badge* and the rest still land. A
+        residency breach is not a reason to leave forty tables stale.
         """
         offered = list(badges)
         if "established_at" not in self.supports:
@@ -222,6 +239,17 @@ class CatalogTarget(abc.ABC):
         written = 0
         refused: list[tuple[str, str]] = []
         for badge in offered:
+            if gate is not None:
+                try:
+                    gate.require(
+                        "catalog-write-back",
+                        destination=self.region,
+                        jurisdiction=badge.jurisdiction,
+                        subject=f"the quality badge for {badge.dataset}",
+                    )
+                except ResidencyRefused as refusal:
+                    refused.append((badge.dataset, refusal.message))
+                    continue
             try:
                 self.write(badge)
                 written += 1

@@ -39,6 +39,8 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
 from typing import Any
 
+from prama.security.egress import Gate, ResidencyRefused
+
 #: How long an alert stays quiet after being sent, unless something changes.
 #: Long enough that an hourly check does not become an hourly alert, short
 #: enough that a forgotten incident resurfaces within a working day.
@@ -115,9 +117,18 @@ class Recipient:
     identity: str
     role: Role
     channel: str = "email"
+    #: Where this recipient's channel delivers. Needed because an alert body
+    #: quotes failing values, so sending one is a movement of the tenant's data
+    #: and not merely a notification.
+    region: str = ""
 
     def to_dict(self) -> dict[str, Any]:
-        return {"identity": self.identity, "role": self.role.value, "channel": self.channel}
+        return {
+            "identity": self.identity,
+            "role": self.role.value,
+            "channel": self.channel,
+            "region": self.region,
+        }
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -141,6 +152,10 @@ class Alert:
     #: alert rather than left on a dashboard, because the person reading this
     #: at three in the morning is not on the dashboard.
     disclosure: str = ""
+    #: Where the alerting dataset's data belongs. The residency question is
+    #: about the subject, and an egress that knows its destination but not its
+    #: subject's home cannot answer it.
+    jurisdiction: str = ""
     #: Findings this stands for, when it is an incident.
     covers: int = 1
 
@@ -284,13 +299,24 @@ class Router:
         *,
         quiet: timedelta = DEFAULT_QUIET,
         channels: Mapping[Role, str] | None = None,
+        channel_regions: Mapping[str, str] | None = None,
+        gate: Gate | None = None,
     ) -> None:
         #: (dataset, role) → person. Missing entries fall back to the owner,
         #: and an alert with nobody at all is reported rather than dropped.
         self._contacts = dict(contacts)
         self._quiet = quiet
         self._channels = dict(channels or {})
+        #: channel → where it delivers. A region belongs to the channel, not to
+        #: the person: the same steward reachable on an in-region chat tool and
+        #: on an external pager is two different residency answers.
+        self._channel_regions = dict(channel_regions or {})
         self._sent: dict[str, tuple[datetime, float]] = {}
+        #: The residency check. Optional, because most deployments have no
+        #: obligation and a required argument would be one every caller passes
+        #: None to — but where there is a rule, an alert body quoting failing
+        #: values is data leaving, and it is checked before it goes.
+        self._gate = gate
 
     def dispatch(self, alert: Alert) -> Dispatch:
         """One alert, routed and deduplicated."""
@@ -306,6 +332,22 @@ class Router:
                     f"nobody is recorded as {alert.fault.route_to.value} for "
                     f"{alert.dataset}, and an alert with no recipient is a finding "
                     f"nobody will see. Assign one"
+                ),
+            )
+
+        blocked = self._residency_refusals(alert, recipients)
+        if blocked:
+            # Not dropped and not partly sent: an alert delivered to some of
+            # its recipients and silently withheld from others is worse than
+            # either, because the ones who got it assume everyone did.
+            return Dispatch(
+                alert=alert,
+                delivery=Delivery.QUIET,
+                change=change,
+                recipients=recipients,
+                reason=(
+                    "withheld on residency: " + "; ".join(blocked) + ". The alert body "
+                    "quotes failing values, so sending it moves the tenant's data"
                 ),
             )
 
@@ -343,6 +385,23 @@ class Router:
                 )
             ),
         )
+
+    def _residency_refusals(self, alert: Alert, recipients: Sequence[Recipient]) -> list[str]:
+        """Which recipients this alert may not reach, and why."""
+        if self._gate is None:
+            return []
+        refused = []
+        for person in recipients:
+            try:
+                self._gate.require(
+                    "alert-delivery",
+                    destination=person.region,
+                    jurisdiction=alert.jurisdiction,
+                    subject=f"an alert about {alert.dataset}",
+                )
+            except ResidencyRefused as refusal:
+                refused.append(f"{person.identity} ({refusal.message})")
+        return refused
 
     def dispatch_all(self, alerts: Sequence[Alert]) -> tuple[Dispatch, ...]:
         return tuple(self.dispatch(alert) for alert in alerts)
@@ -391,10 +450,18 @@ class Router:
         people: list[Recipient] = []
         primary = self._contacts.get((alert.dataset, role))
         if primary:
-            people.append(Recipient(primary, role, self._channels.get(role, "email")))
+            people.append(self._recipient(primary, role))
         elif self._contacts.get((alert.dataset, Role.OWNER)):
             # Falling back to the owner rather than dropping it. The owner is
             # accountable and can reassign; nobody is a black hole.
-            owner = self._contacts[(alert.dataset, Role.OWNER)]
-            people.append(Recipient(owner, Role.OWNER, self._channels.get(Role.OWNER, "email")))
+            people.append(self._recipient(self._contacts[(alert.dataset, Role.OWNER)], Role.OWNER))
         return tuple(people)
+
+    def _recipient(self, identity: str, role: Role) -> Recipient:
+        channel = self._channels.get(role, "email")
+        return Recipient(
+            identity=identity,
+            role=role,
+            channel=channel,
+            region=self._channel_regions.get(channel, ""),
+        )

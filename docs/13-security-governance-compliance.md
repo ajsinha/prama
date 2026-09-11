@@ -65,6 +65,60 @@ number of masked failing-row samples. There is no Prama-side copy of customer da
 
 ---
 
+### 3.1 Residency, and where the question gets asked
+
+`prama.security.residency` decides whether a movement is allowed;
+`prama.security.egress` decides **where the question gets asked**, which is the
+part that goes wrong. A policy engine nothing calls permits everything, and it
+fails silently — the worst way for a control to fail.
+
+Five egress points are registered, each naming what leaves, where the
+destination comes from, and where the subject's jurisdiction comes from:
+
+| Point | What leaves |
+|---|---|
+| `model-inference` | prompts, which carry column names, samples and business language |
+| `catalog-write-back` | quality badges: standing, coverage, evidence reference |
+| `siem-export` | audit events: who did what to which tenant's estate |
+| `evidence-export` | the evidence ledger for a period, including sample digests |
+| `alert-delivery` | alert bodies, which quote failing values |
+
+The third column is the one that gets forgotten. An egress that knows its
+destination and not its subject's home answers the wrong question confidently,
+so `Badge`, `Alert` and the export calls all carry a jurisdiction.
+
+**Two guards, because the registry is only worth having if something checks it
+is true.** `tests/architecture/test_egress.py` requires every registered module
+to consult residency — a registered point that does not is a build failure, not
+a note. And it derives the list of modules that *can* reach the network from
+their imports rather than from a list somebody maintains, so a new module that
+opens a socket without being registered fails. The list is the thing that rots;
+the imports are the thing that is true. There is one accepted exception
+(`db/schema/bootstrap.py` imports `socket` for `gethostname`), and a second test
+asserts the exception still applies, because a waiver whose reason has expired
+is how the next module inherits it.
+
+**The gate raises.** `Gate.require` is the normal way in; `Gate.decide` returns
+a decision and is for reporting. A returned decision can be ignored, and the one
+call site where somebody forgets is the one that matters. `ResidencyRefused` is
+its own error type so an operator triaging a failed export can tell "the data
+may not go there" from "the request was malformed".
+
+**Refusal granularity is decided per point, not uniformly.** Catalogue
+write-back refuses *per badge* and lets the rest land — a residency breach is
+not a reason to leave forty tables stale. SIEM and evidence export refuse
+*wholesale* — an audit export missing the records that could not cross is an
+export with a hole in it and nothing in the file says so. Alert delivery is
+withheld from **everybody or nobody**: an alert some recipients received and
+others silently did not is worse than either, because the ones who got it assume
+everyone did.
+
+**The gate is optional at every call site.** Most deployments are in one region
+with no residency obligation at all, and a required argument is one that every
+caller passes `None` to — which is a control in name only.
+
+---
+
 ## 4. LLM and AI-specific security
 
 1. **No data content ever instructs the system.** All row values, column comments, document text,

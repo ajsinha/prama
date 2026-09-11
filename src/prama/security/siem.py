@@ -38,6 +38,7 @@ import json
 from collections.abc import Iterable
 from typing import Any
 
+from prama.security.egress import Gate
 from prama.version import PRODUCT_NAME, VERSION
 
 #: Detail keys safe to export. Everything else is dropped: `detail_json` is
@@ -235,7 +236,31 @@ def to_cef(events: Iterable[Any]) -> Exported:
 FORMATS = {"ecs": to_ecs, "cef": to_cef}
 
 
-def render(events: Iterable[Any], fmt: str = "ecs") -> Exported:
+def render(
+    events: Iterable[Any],
+    fmt: str = "ecs",
+    *,
+    gate: Gate | None = None,
+    collector_region: str = "",
+    jurisdiction: str = "",
+) -> Exported:
+    """Render events for a collector, refusing if they may not go there.
+
+    The check is here rather than at whatever writes the socket, because this
+    is the last point that knows these are *this tenant's* audit events. A
+    transport handed a finished string has nothing left to decide with.
+
+    Refuses wholesale rather than per event: an audit export missing the
+    records that were not allowed to cross is an audit export with a hole in
+    it, and nothing in the file says so.
+    """
+    if gate is not None:
+        gate.require(
+            "siem-export",
+            destination=collector_region,
+            jurisdiction=jurisdiction,
+            subject="the audit event stream",
+        )
     try:
         return FORMATS[fmt](events)
     except KeyError:
