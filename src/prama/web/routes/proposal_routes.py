@@ -152,7 +152,7 @@ class ProposalRoutes(UiRoutes):
     async def proposals_for(
         self, request: Request, dataset_id: str, caller: Caller, uow: Uow
     ) -> Any:
-        version = await uow.datasets.require_current(dataset_id)
+        version = await uow.datasets.require_current(dataset_id, tenant_id=caller.tenant_id)
         return render(
             request,
             "proposals/queue.html",
@@ -190,6 +190,7 @@ class ProposalRoutes(UiRoutes):
             )
             await uow.controls.activate(
                 str(control.id),
+                tenant_id=caller.tenant_id,
                 approved_by=caller.principal_id or "console",
                 reason="accepted from the proposal queue",
             )

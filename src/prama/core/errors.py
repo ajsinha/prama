@@ -147,3 +147,20 @@ class ValidationError(PramaError):
     """Input failed validation before any state was changed."""
 
     code = "INPUT.INVALID"
+
+
+class UnauthorisedError(PramaError):
+    """The caller did not establish who they are.
+
+    Distinct from :class:`ForbiddenError`, and the distinction is the useful
+    one: this says *we do not know who you are*, which is fixed by presenting a
+    credential, where forbidden says *we know, and no*.
+    """
+
+    code = "AUTH.UNAUTHORISED"
+
+
+class ForbiddenError(PramaError):
+    """The caller is known and may not do this."""
+
+    code = "AUTH.FORBIDDEN"

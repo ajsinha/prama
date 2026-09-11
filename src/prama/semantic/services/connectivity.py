@@ -95,7 +95,14 @@ class ConnectivityService(SemanticService):
         stored configuration — which is why the configuration can safely be
         exported to Git and shown in the UI.
         """
-        declared = await self._uow.connections.current(connection_id)
+        # The CLI reaches connections by id without a tenant, so the owner is
+        # derived rather than checked; see VersionedDao.tenant_of.
+        owner = await self._uow.connections.tenant_of(connection_id)
+        declared = (
+            await self._uow.connections.current(connection_id, tenant_id=owner)
+            if owner is not None
+            else None
+        )
         if declared is None:
             raise NotFoundError(
                 f"connection {connection_id!r} does not exist",

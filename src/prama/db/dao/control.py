@@ -142,6 +142,7 @@ class ControlDao(VersionedDao[CtlControl, CtlControlVersion]):
                 return existing.control, existing
             version = await self.amend(
                 existing.control_id,
+                tenant_id=tenant_id,
                 provenance=Provenance(
                     authored_by=authored_by,
                     approved_by=approved_by,
@@ -182,7 +183,7 @@ class ControlDao(VersionedDao[CtlControl, CtlControlVersion]):
         )
 
     async def activate(
-        self, control_id: str, *, approved_by: str, reason: str = ""
+        self, control_id: str, *, tenant_id: str, approved_by: str, reason: str = ""
     ) -> CtlControlVersion:
         """Accept a proposal: the control begins to run.
 
@@ -193,12 +194,13 @@ class ControlDao(VersionedDao[CtlControl, CtlControlVersion]):
         """
         return await self.amend(
             control_id,
+            tenant_id=tenant_id,
             provenance=Provenance(approved_by=approved_by, reason=reason or "accepted"),
             status="active",
         )
 
     async def suppress(
-        self, control_id: str, *, until: str, because: str, by: str | None = None
+        self, control_id: str, *, tenant_id: str, until: str, because: str, by: str | None = None
     ) -> CtlControlVersion:
         """Silence a control, with an expiry and a reason.
 
@@ -219,6 +221,7 @@ class ControlDao(VersionedDao[CtlControl, CtlControlVersion]):
             )
         return await self.amend(
             control_id,
+            tenant_id=tenant_id,
             provenance=Provenance(authored_by=by, reason=f"suppressed: {because}"),
             status="suppressed",
             suppressed_until=until,
@@ -226,7 +229,7 @@ class ControlDao(VersionedDao[CtlControl, CtlControlVersion]):
         )
 
     async def retire(
-        self, control_id: str, *, provenance: Provenance | None = None
+        self, control_id: str, *, tenant_id: str, provenance: Provenance | None = None
     ) -> CtlControlVersion:
         """Stop running a control without deleting it.
 
@@ -236,6 +239,7 @@ class ControlDao(VersionedDao[CtlControl, CtlControlVersion]):
         """
         return await self.amend(
             control_id,
+            tenant_id=tenant_id,
             provenance=provenance or Provenance(reason="retired"),
             status="retired",
         )

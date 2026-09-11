@@ -276,9 +276,17 @@ class Reconciliation:
         """
         total = Decimal(0)
         steps: list[str] = []
+        unvalued = 0
         for row in rows:
             normalised = normaliser.normalise(row, column, business_date)
             if normalised.value is None:
+                # Not skipped. `match.aggregate` states the rule this module
+                # then failed to follow: a null in an amount column is not
+                # zero, and dropping the row makes the total wrong by exactly
+                # the missing amount — so the side reconciles, or breaks by a
+                # number that looks like a value difference, when the finding
+                # is that a posting has no amount at all.
+                unvalued += 1
                 continue
             total += normalised.value
             for _, detail in normalised.steps:
@@ -286,4 +294,11 @@ class Reconciliation:
                     steps.append(detail)
                 if "converted" in detail:
                     seen_rates.setdefault(detail, {"detail": detail})
+        if unvalued:
+            steps.append(
+                f"{unvalued} row(s) carry no {column}, so this side has no total — "
+                "treating a missing amount as zero would report it as a value "
+                "difference of exactly the wrong size"
+            )
+            return None, tuple(steps)
         return total, tuple(steps)

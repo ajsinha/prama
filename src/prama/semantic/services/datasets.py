@@ -107,7 +107,7 @@ class DatasetService(SemanticService):
                     "declaration is an audit finding."
                 ),
             )
-        current = await self._uow.datasets.require_current(dataset_id)
+        current = await self._uow.datasets.require_current(dataset_id, tenant_id=tenant_id)
         self._policy.check(
             criticality=changes.get("criticality", current.criticality),
             authored_by=authored_by,
@@ -116,6 +116,7 @@ class DatasetService(SemanticService):
         )
         version = await self._uow.datasets.amend(
             dataset_id,
+            tenant_id=tenant_id,
             effective_from=effective_from,
             provenance=Provenance(authored_by=authored_by, approved_by=approved_by, reason=reason),
             **changes,
@@ -147,6 +148,7 @@ class DatasetService(SemanticService):
             )
         version = await self._uow.datasets.correct(
             dataset_id,
+            tenant_id=tenant_id,
             provenance=Provenance(authored_by=authored_by, reason=reason),
             **changes,
         )
@@ -175,7 +177,7 @@ class DatasetService(SemanticService):
         **extra: Any,
     ) -> Any:
         """Declare an attribute and what it means."""
-        if await self._uow.datasets.current(dataset_id) is None:
+        if await self._uow.datasets.current(dataset_id, tenant_id=tenant_id) is None:
             raise NotFoundError(
                 f"dataset {dataset_id!r} does not exist",
                 remedy="Declare the dataset before declaring its attributes.",

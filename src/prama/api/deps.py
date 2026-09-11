@@ -15,24 +15,25 @@ from typing import Annotated
 
 from fastapi import Depends, Header, Request
 
+from prama.core.clock import utc_now
 from prama.core.config import Configuration
-from prama.core.errors import ValidationError
+from prama.core.errors import UnauthorisedError, ValidationError
 from prama.core.ids import new_ulid
 from prama.core.log import correlation_id
 from prama.core.log import tenant_id as tenant_context
 from prama.db import Database
+from prama.db.security import ApiKeyIssuer
 from prama.db.session import UnitOfWork
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class CallerIdentity:
-    """Who is making this request.
+    """Who is making this request, established from an API key.
 
-    Wave 2 trusts headers because there is no authentication subsystem yet; the
-    shape is fixed now so that Wave 10 replaces the *source* of these values
-    without touching a single route. Every route already takes the caller
-    explicitly rather than reaching for an ambient user, which is what makes
-    that substitution safe.
+    The tenant is **not** taken from the request. It is read from the key's own
+    record, because a caller who can choose their own tenant is not scoped at
+    all — and for several waves this class took it from a header, which meant
+    anybody who could reach the port was every tenant at once.
     """
 
     tenant_id: str
@@ -57,16 +58,60 @@ def get_database(request: Request) -> Database:
 
 
 async def get_caller(
-    x_prama_tenant: Annotated[str | None, Header()] = None,
-    x_prama_principal: Annotated[str | None, Header()] = None,
+    uow: Annotated[UnitOfWork, Depends(get_uow)],
+    authorization: Annotated[str | None, Header()] = None,
+    x_prama_api_key: Annotated[str | None, Header()] = None,
 ) -> CallerIdentity:
-    if not x_prama_tenant:
-        raise ValidationError(
-            "no tenant was supplied with the request",
-            remedy="Send the X-Prama-Tenant header. Every operation is tenant-scoped.",
+    """Authenticate the request and derive its scope from the key.
+
+    Every value here comes from the key's stored record. Nothing is taken from
+    a header the caller controls except the key itself — which is the whole
+    point: the previous version read the tenant from ``X-Prama-Tenant`` and
+    verified nothing, so any caller who could reach the port could act as any
+    tenant, including one that did not exist.
+    """
+    presented = x_prama_api_key or _bearer(authorization)
+    if not presented:
+        raise UnauthorisedError(
+            "this request carried no API key",
+            remedy=(
+                "Send `Authorization: Bearer pk_live_…`, or the X-Prama-API-Key "
+                "header. Create one with `prama apikey create`."
+            ),
         )
-    tenant_context.set(x_prama_tenant)
-    return CallerIdentity(tenant_id=x_prama_tenant, principal_id=x_prama_principal)
+
+    issuer = ApiKeyIssuer()
+    record = await uow.api_keys.by_prefix(issuer.prefix_of(presented))
+    # One refusal for every failure below, and deliberately the same one: which
+    # part was wrong is useful to an attacker enumerating keys and useless to
+    # anybody else, who simply has a key that does not work.
+    refusal = UnauthorisedError(
+        "that API key is not usable",
+        remedy=(
+            "Check the key is current and has not been revoked. `prama apikey "
+            "list` shows which keys exist for a tenant and their state."
+        ),
+    )
+    if record is None or not issuer.verify(presented, record.key_hash):
+        raise refusal
+    if record.revoked_at is not None:
+        raise refusal
+    if record.expires_at is not None and record.expires_at <= utc_now():
+        raise refusal
+
+    tenant_context.set(record.tenant_id)
+    return CallerIdentity(
+        tenant_id=record.tenant_id,
+        principal_id=record.principal_id,
+        scopes=tuple(record.scopes_json or ()),
+    )
+
+
+def _bearer(header: str | None) -> str:
+    if not header:
+        return ""
+    scheme, _, value = header.partition(" ")
+    return value.strip() if scheme.lower() == "bearer" else ""
 
 
 async def get_uow(

@@ -1,0 +1,21 @@
+[
+  {
+    "nodes": 500,
+    "render_ms": 4472,
+    "counted": 500,
+    "fps": 60.7,
+    "drew": true
+  },
+  {
+    "nodes": 2000,
+    "render_ms": 21973,
+    "counted": 2000,
+    "fps": 60.3,
+    "drew": true
+  },
+  {
+    "nodes": 4000,
+    "drew": false,
+    "failure": "TimeoutError: Page.wait_for_function: Timeout 60000ms exceeded."
+  }
+]

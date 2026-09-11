@@ -73,7 +73,7 @@ class ConceptService(SemanticService):
         mapped to it — which is what "author once, enforce everywhere" means in
         practice, and why the mapping is worth asking for.
         """
-        if await self._uow.concepts.current(concept_id) is None:
+        if await self._uow.concepts.current(concept_id, tenant_id=tenant_id) is None:
             raise NotFoundError(
                 f"concept {concept_id!r} does not exist",
                 remedy="Declare the concept before declaring its properties.",
@@ -121,7 +121,7 @@ class ConceptService(SemanticService):
         asserting the same meaning while disagreeing about units become visible
         rather than silently coexisting.
         """
-        if await self._uow.concept_properties.current(property_id) is None:
+        if await self._uow.concept_properties.current(property_id, tenant_id=tenant_id) is None:
             raise NotFoundError(
                 f"concept property {property_id!r} does not exist",
                 remedy="Declare the property before mapping attributes to it.",
@@ -129,6 +129,7 @@ class ConceptService(SemanticService):
             )
         version = await self._uow.attributes.amend(
             attribute_id,
+            tenant_id=tenant_id,
             concept_property_id=property_id,
             provenance=Provenance(
                 authored_by=mapped_by, reason="mapped to a canonical concept property"
@@ -181,7 +182,7 @@ class JourneyService(SemanticService):
             approved_by=approved_by,
             what="journey declaration",
         )
-        normalised = await self._validate_steps(steps or [])
+        normalised = await self._validate_steps(steps or [], tenant_id=tenant_id)
         entity, version = await self._uow.journeys.create(
             tenant_id=tenant_id,
             name=name,
@@ -220,9 +221,10 @@ class JourneyService(SemanticService):
         Steps are edited as a whole because reordering touches every one of
         them; a per-step API would make the common operation the awkward one.
         """
-        normalised = await self._validate_steps(steps)
+        normalised = await self._validate_steps(steps, tenant_id=tenant_id)
         version = await self._uow.journeys.amend(
             journey_id,
+            tenant_id=tenant_id,
             steps_json=normalised,
             provenance=Provenance(authored_by=authored_by, reason=reason),
         )
@@ -236,7 +238,9 @@ class JourneyService(SemanticService):
         )
         return version
 
-    async def _validate_steps(self, steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    async def _validate_steps(
+        self, steps: list[dict[str, Any]], *, tenant_id: str
+    ) -> list[dict[str, Any]]:
         """Check every step and renumber, so ordinals always match position."""
         normalised: list[dict[str, Any]] = []
         for position, step in enumerate(steps):
@@ -258,7 +262,7 @@ class JourneyService(SemanticService):
                         ),
                         context={"position": position},
                     )
-                if await self._uow.datasets.current(dataset_id) is None:
+                if (await self._uow.datasets.current(dataset_id, tenant_id=tenant_id)) is None:
                     raise NotFoundError(
                         f"step {position} references dataset {dataset_id!r}, which does not exist",
                         remedy="Declare the dataset first, or correct the reference.",
@@ -347,6 +351,7 @@ class ConnectionService(SemanticService):
         """
         version = await self._uow.connections.amend(
             connection_id,
+            tenant_id=tenant_id,
             health_state=state,
             health_detail=detail,
             health_checked_at=checked_at,
@@ -417,13 +422,13 @@ class BindingService(SemanticService):
         authored_by: str | None = None,
     ) -> Any:
         """Bind a dataset, and record the shape it turned out to have."""
-        if await self._uow.datasets.current(dataset_id) is None:
+        if await self._uow.datasets.current(dataset_id, tenant_id=tenant_id) is None:
             raise NotFoundError(
                 f"dataset {dataset_id!r} does not exist",
                 remedy="Declare the dataset before binding it.",
                 context={"dataset_id": dataset_id},
             )
-        if await self._uow.connections.current(connection_id) is None:
+        if await self._uow.connections.current(connection_id, tenant_id=tenant_id) is None:
             raise NotFoundError(
                 f"connection {connection_id!r} does not exist",
                 remedy="Configure the connection before binding through it.",
@@ -444,6 +449,7 @@ class BindingService(SemanticService):
         # must agree, or the coverage report lies.
         await self._uow.datasets.amend(
             dataset_id,
+            tenant_id=tenant_id,
             shape=shape,
             provenance=Provenance(authored_by=authored_by, reason="bound to a source"),
         )
@@ -498,9 +504,10 @@ class BindingService(SemanticService):
         the declaration is theirs, and only a platform holding a declared model
         can detect this at all.
         """
-        binding = await self._uow.bindings.require_current(binding_id)
+        binding = await self._uow.bindings.require_current(binding_id, tenant_id=tenant_id)
         version = await self._uow.bindings.amend(
             binding_id,
+            tenant_id=tenant_id,
             drift_state=drift_state,
             status="broken" if drift_state == "missing" else binding.status,
             provenance=Provenance(reason=detail or f"re-examination found: {drift_state}"),

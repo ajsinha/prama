@@ -212,7 +212,7 @@ class ClickHouseConnector(SqlConnector):
                 code="CONNECT.NOT_OPEN",
                 remedy="Use the connector as an async context manager, or call open() first.",
             )
-        return await self._worker.call(lambda: function(*arguments, **keywords))
+        return await self._worker.call(function, *arguments, **keywords)
 
     async def _fetch(self, sql: str, *params: Any) -> list[tuple[Any, ...]]:
         statement, arguments = _bind(sql, params)

@@ -163,7 +163,7 @@ async def list_journeys(
 
 @router.get("/journeys/{journey_id}", response_model=JourneyOut)
 async def get_journey(journey_id: str, caller: Caller, uow: Uow) -> JourneyOut:
-    version = await uow.journeys.current(journey_id)
+    version = await uow.journeys.current(journey_id, tenant_id=caller.tenant_id)
     if version is None:
         raise NotFoundError(
             f"journey {journey_id!r} does not exist",

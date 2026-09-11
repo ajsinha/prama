@@ -95,7 +95,7 @@ class TestDeclaration:
         async with started_database.unit_of_work() as uow:
             entity, version = await _declare_dataset(uow, tenant_id)
             assert version.is_current
-            assert (await uow.datasets.current(entity.id)).id == version.id
+            assert (await uow.datasets.current(entity.id, tenant_id=tenant_id)).id == version.id
 
 
 class TestAmendVersusCorrect:
@@ -115,14 +115,15 @@ class TestAmendVersusCorrect:
             )
             await uow.datasets.amend(
                 entity.id,
+                tenant_id=tenant_id,
                 effective_from=april,
                 grain_json=Grain(("account_id", "instrument_id", "as_of_date")).to_dict(),
                 provenance=Provenance(authored_by="user-2", reason="added instrument split"),
             )
 
             # Both versions are still believed; each is true of its own period.
-            in_march = await uow.datasets.valid_at(entity.id, march)
-            now = await uow.datasets.current(entity.id)
+            in_march = await uow.datasets.valid_at(entity.id, march, tenant_id=tenant_id)
+            now = await uow.datasets.current(entity.id, tenant_id=tenant_id)
             assert Grain.from_dict(in_march.grain_json).arity == 2
             assert Grain.from_dict(now.grain_json).arity == 3
             assert first.valid_to == april
@@ -140,6 +141,7 @@ class TestAmendVersusCorrect:
             )
             corrected = await uow.datasets.correct(
                 entity.id,
+                tenant_id=tenant_id,
                 name="Positions EOD",
                 provenance=Provenance(authored_by="user-2", reason="typo in the name"),
             )
@@ -159,11 +161,14 @@ class TestAmendVersusCorrect:
                 uow, tenant_id, valid_from=datetime(2026, 1, 1, tzinfo=UTC)
             )
             await uow.datasets.amend(
-                entity.id, effective_from=datetime(2026, 4, 1, tzinfo=UTC), purpose="amended"
+                entity.id,
+                tenant_id=tenant_id,
+                effective_from=datetime(2026, 4, 1, tzinfo=UTC),
+                purpose="amended",
             )
-            await uow.datasets.correct(entity.id, description="corrected")
+            await uow.datasets.correct(entity.id, description="corrected", tenant_id=tenant_id)
 
-            history = await uow.datasets.history(entity.id)
+            history = await uow.datasets.history(entity.id, tenant_id=tenant_id)
             amended = [v for v in history if v.valid_to is not None and v.superseded_at is None]
             superseded = [v for v in history if v.superseded_at is not None]
             assert len(history) == 3
@@ -190,15 +195,16 @@ class TestAmendVersusCorrect:
             when_the_control_ran = utc_now()
             # The correction comes later, as it does in life: someone noticed.
             await asyncio.sleep(0.01)
-            await uow.datasets.correct(entity.id, name="Right Name")
+            await uow.datasets.correct(entity.id, name="Right Name", tenant_id=tenant_id)
             assert mistaken.superseded_at > when_the_control_ran
 
             believed_then = await uow.datasets.as_of(
                 entity.id,
+                tenant_id=tenant_id,
                 valid_at=datetime(2026, 2, 1, tzinfo=UTC),
                 known_at=when_the_control_ran,
             )
-            believed_now = await uow.datasets.current(entity.id)
+            believed_now = await uow.datasets.current(entity.id, tenant_id=tenant_id)
             assert believed_then.name == "Wrong Name"
             assert believed_now.name == "Right Name"
 
@@ -211,7 +217,10 @@ class TestAmendVersusCorrect:
             )
             with pytest.raises(ConflictError, match="before the version it replaces"):
                 await uow.datasets.amend(
-                    entity.id, effective_from=datetime(2026, 1, 1, tzinfo=UTC), purpose="x"
+                    entity.id,
+                    tenant_id=tenant_id,
+                    effective_from=datetime(2026, 1, 1, tzinfo=UTC),
+                    purpose="x",
                 )
 
     async def test_amending_a_nonexistent_entity_names_it(
@@ -219,7 +228,9 @@ class TestAmendVersusCorrect:
     ) -> None:
         async with started_database.unit_of_work() as uow:
             with pytest.raises(NotFoundError):
-                await uow.datasets.amend("01AAAAAAAAAAAAAAAAAAAAAAAA", purpose="x")
+                await uow.datasets.amend(
+                    "01AAAAAAAAAAAAAAAAAAAAAAAA", purpose="x", tenant_id=tenant_id
+                )
 
     async def test_a_typo_in_a_field_name_is_refused_rather_than_silently_ignored(
         self, started_database: Database, tenant_id: str
@@ -227,16 +238,22 @@ class TestAmendVersusCorrect:
         async with started_database.unit_of_work() as uow:
             entity, _ = await _declare_dataset(uow, tenant_id)
             with pytest.raises(ConflictError, match="unknown field"):
-                await uow.datasets.amend(entity.id, critcality=1)  # codespell:ignore
+                await uow.datasets.amend(
+                    entity.id, critcality=1, tenant_id=tenant_id
+                )  # codespell:ignore
 
     async def test_retire_ends_validity_without_destroying_history(
         self, started_database: Database, tenant_id: str
     ) -> None:
         async with started_database.unit_of_work() as uow:
             entity, _ = await _declare_dataset(uow, tenant_id)
-            await uow.datasets.retire(entity.id, provenance=Provenance(reason="decommissioned"))
-            assert await uow.datasets.current(entity.id) is None
-            assert len(await uow.datasets.history(entity.id)) == 1  # still there
+            await uow.datasets.retire(
+                entity.id, provenance=Provenance(reason="decommissioned"), tenant_id=tenant_id
+            )
+            assert await uow.datasets.current(entity.id, tenant_id=tenant_id) is None
+            assert (
+                len(await uow.datasets.history(entity.id, tenant_id=tenant_id)) == 1
+            )  # still there
 
 
 class TestAttributes:
@@ -431,6 +448,7 @@ class TestJourneysAndBindings:
             # The column vanishes beneath the declaration.
             await uow.bindings.amend(
                 binding.id,
+                tenant_id=tenant_id,
                 drift_state="missing",
                 provenance=Provenance(reason="re-examination found the object absent"),
             )

@@ -98,6 +98,7 @@ class VersionedDao(Dao[E], Generic[E, V]):
         self,
         entity_id: str,
         *,
+        tenant_id: str,
         provenance: Provenance | None = None,
         effective_from: datetime | None = None,
         **changes: Any,
@@ -107,7 +108,7 @@ class VersionedDao(Dao[E], Generic[E, V]):
         The current version's validity is closed at *effective_from* and a new
         version opens there. Both remain believed: neither was ever wrong.
         """
-        current = await self.current(entity_id)
+        current = await self.current(entity_id, tenant_id=tenant_id)
         if current is None:
             raise NotFoundError(
                 f"{self.model.__name__} {entity_id!r} has no current version to amend",
@@ -148,6 +149,7 @@ class VersionedDao(Dao[E], Generic[E, V]):
         self,
         entity_id: str,
         *,
+        tenant_id: str,
         provenance: Provenance | None = None,
         **changes: Any,
     ) -> V:
@@ -159,7 +161,7 @@ class VersionedDao(Dao[E], Generic[E, V]):
         an evidence record from before the correction still resolve to what was
         believed when it ran.
         """
-        current = await self.current(entity_id)
+        current = await self.current(entity_id, tenant_id=tenant_id)
         if current is None:
             raise NotFoundError(
                 f"{self.model.__name__} {entity_id!r} has no current version to correct",
@@ -179,13 +181,15 @@ class VersionedDao(Dao[E], Generic[E, V]):
         await self._session.flush()
         return corrected
 
-    async def retire(self, entity_id: str, *, provenance: Provenance | None = None) -> V | None:
+    async def retire(
+        self, entity_id: str, *, tenant_id: str, provenance: Provenance | None = None
+    ) -> V | None:
         """End a declaration's validity without deleting anything.
 
         Nothing in the semantic layer is ever destroyed: a retired dataset's
         history is still needed to interpret evidence produced while it existed.
         """
-        current = await self.current(entity_id)
+        current = await self.current(entity_id, tenant_id=tenant_id)
         if current is None:
             return None
         current.valid_to = utc_now()
@@ -196,19 +200,48 @@ class VersionedDao(Dao[E], Generic[E, V]):
 
     # -- reads -------------------------------------------------------------
 
-    async def current(self, entity_id: str) -> V | None:
+    def _scoped(self, entity_id: str, tenant_id: str) -> Any:
+        """The base select for one entity, restricted to one tenant.
+
+        The tenant lives on the identity row, not the version row, so every
+        by-id read joins back to it. Doing that here rather than in each method
+        is the point: a scope you have to remember is not a scope. See
+        ``docs/reviews/2026-09-11-adversarial-review.md`` finding S2 — these
+        methods previously took only an id, so any caller holding an
+        identifier from another estate read and wrote another tenant's rows.
+        """
+        return (
+            select(self.version_model)
+            .join(
+                self.model,
+                self._identity_id == getattr(self.version_model, self.entity_key),
+            )
+            .where(
+                getattr(self.version_model, self.entity_key) == entity_id,
+                getattr(self.model, self.tenant_key) == tenant_id,
+            )
+        )
+
+    async def tenant_of(self, entity_id: str) -> str | None:
+        """Which estate owns this entity, or ``None`` if it does not exist.
+
+        A *derivation*, not a check. The scoped reads below answer "may this
+        caller see it"; this one answers "whose is it", and is for the trusted
+        local paths — the CLI — that operate on an identifier without having
+        been told a tenant. Never use it to satisfy a caller-supplied
+        ``tenant_id``: that turns the scope into a tautology.
+        """
+        stmt = select(getattr(self.model, self.tenant_key)).where(self._identity_id == entity_id)
+        return cast(str | None, (await self._session.execute(stmt)).scalars().one_or_none())
+
+    async def current(self, entity_id: str, *, tenant_id: str) -> V | None:
         """The present declaration: still true, still believed."""
         await self._session.flush()
-        stmt = TemporalQuery.current(
-            select(self.version_model).where(
-                getattr(self.version_model, self.entity_key) == entity_id
-            ),
-            self.version_model,
-        )
+        stmt = TemporalQuery.current(self._scoped(entity_id, tenant_id), self.version_model)
         return (await self._session.execute(stmt)).scalars().one_or_none()
 
-    async def require_current(self, entity_id: str) -> V:
-        version = await self.current(entity_id)
+    async def require_current(self, entity_id: str, *, tenant_id: str) -> V:
+        version = await self.current(entity_id, tenant_id=tenant_id)
         if version is None:
             raise NotFoundError(
                 f"{self.model.__name__} {entity_id!r} has no current version",
@@ -217,19 +250,17 @@ class VersionedDao(Dao[E], Generic[E, V]):
             )
         return version
 
-    async def valid_at(self, entity_id: str, moment: datetime) -> V | None:
+    async def valid_at(self, entity_id: str, moment: datetime, *, tenant_id: str) -> V | None:
         """What we believe *today* was true at *moment*."""
         await self._session.flush()
         stmt = TemporalQuery.believed_now_valid_at(
-            select(self.version_model).where(
-                getattr(self.version_model, self.entity_key) == entity_id
-            ),
-            self.version_model,
-            moment,
+            self._scoped(entity_id, tenant_id), self.version_model, moment
         )
         return (await self._session.execute(stmt)).scalars().one_or_none()
 
-    async def as_of(self, entity_id: str, valid_at: datetime, known_at: datetime) -> V | None:
+    async def as_of(
+        self, entity_id: str, valid_at: datetime, known_at: datetime, *, tenant_id: str
+    ) -> V | None:
         """True at *valid_at*, as believed at *known_at*.
 
         The question an evidence replay asks, and the only one that gives an
@@ -237,24 +268,14 @@ class VersionedDao(Dao[E], Generic[E, V]):
         """
         await self._session.flush()
         stmt = TemporalQuery.as_of(
-            select(self.version_model).where(
-                getattr(self.version_model, self.entity_key) == entity_id
-            ),
-            self.version_model,
-            valid_at,
-            known_at,
+            self._scoped(entity_id, tenant_id), self.version_model, valid_at, known_at
         )
         return (await self._session.execute(stmt)).scalars().first()
 
-    async def history(self, entity_id: str) -> list[V]:
+    async def history(self, entity_id: str, *, tenant_id: str) -> list[V]:
         """Every version, oldest first — the audit view."""
         await self._session.flush()
-        stmt = TemporalQuery.all_versions(
-            select(self.version_model).where(
-                getattr(self.version_model, self.entity_key) == entity_id
-            ),
-            self.version_model,
-        )
+        stmt = TemporalQuery.all_versions(self._scoped(entity_id, tenant_id), self.version_model)
         return list((await self._session.execute(stmt)).scalars().all())
 
     async def list_current(self, tenant_id: str, *, limit: int = 100, offset: int = 0) -> list[V]:

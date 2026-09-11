@@ -195,12 +195,23 @@ class Classifier:
 
         if left is None or right is None:
             present, missing = ("right", "left") if left is None else ("left", "right")
+            # A side can have no total for two different reasons, and they are
+            # different findings: the record is not there, or the record is
+            # there and carries no amount. Saying "not on the left" about a row
+            # that is plainly on the left sends somebody to look for a missing
+            # feed instead of at the posting in front of them.
+            unvalued = next((s for s in normalisation if "carry no" in s), "")
             return Break(
-                kind=BreakKind.EXTRA if left is None else BreakKind.MISSING,
+                kind=BreakKind.GENUINE
+                if unvalued
+                else (BreakKind.EXTRA if left is None else BreakKind.MISSING),
                 because=(
-                    f"the record is on the {present} and not the {missing}. Until it "
-                    f"is known whether it is late or absent, its whole value is the "
-                    f"break"
+                    unvalued
+                    or (
+                        f"the record is on the {present} and not the {missing}. Until "
+                        f"it is known whether it is late or absent, its whole value is "
+                        f"the break"
+                    )
                 ),
                 **common,  # type: ignore[arg-type]
             )

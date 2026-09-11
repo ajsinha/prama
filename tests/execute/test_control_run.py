@@ -57,7 +57,7 @@ async def _control(
             tenant_id=tenant_id, identity=identity, pql=pql, criticality=1
         )
         if active:
-            await uow.controls.activate(str(control.id), approved_by="alice")
+            await uow.controls.activate(str(control.id), tenant_id=tenant_id, approved_by="alice")
         return str(control.id)
 
 
@@ -152,7 +152,10 @@ class TestOnlyAgreedControlsRun:
         control_id = await _control(started_database, tenant_id, CLEAN)
         async with started_database.unit_of_work() as uow:
             await uow.controls.suppress(
-                control_id, until="2099-01-01T00:00:00Z", because="upstream migration"
+                control_id,
+                tenant_id=tenant_id,
+                until="2099-01-01T00:00:00Z",
+                because="upstream migration",
             )
             report = await ControlRun(
                 uow, tenant_id, execute=rows_for(scanned_rows=10, violating_rows=0)
@@ -473,7 +476,7 @@ class TestOnlyWhatIsDue:
             control, _ = await uow.controls.declare(
                 tenant_id=tenant_id, identity="i1", pql=CLEAN, schedule="30 6 * * 1-5"
             )
-            await uow.controls.activate(str(control.id), approved_by="alice")
+            await uow.controls.activate(str(control.id), tenant_id=tenant_id, approved_by="alice")
 
         async with started_database.unit_of_work() as uow:
             report = await ControlRun(
@@ -494,7 +497,7 @@ class TestOnlyWhatIsDue:
             control, _ = await uow.controls.declare(
                 tenant_id=tenant_id, identity="i1", pql=CLEAN, schedule="manual"
             )
-            await uow.controls.activate(str(control.id), approved_by="alice")
+            await uow.controls.activate(str(control.id), tenant_id=tenant_id, approved_by="alice")
             report = await ControlRun(
                 uow,
                 tenant_id,
@@ -515,7 +518,7 @@ class TestOnlyWhatIsDue:
             control, _ = await uow.controls.declare(
                 tenant_id=tenant_id, identity="i1", pql=CLEAN, schedule="manual"
             )
-            await uow.controls.activate(str(control.id), approved_by="alice")
+            await uow.controls.activate(str(control.id), tenant_id=tenant_id, approved_by="alice")
             report = await ControlRun(
                 uow, tenant_id, execute=rows_for(scanned_rows=10, violating_rows=0)
             ).execute_all()
@@ -539,7 +542,7 @@ class TestAnEstateWithMoreThanOneSource:
                     "DIMENSION completeness BECAUSE 'why'"
                 ),
             )
-            await uow.controls.activate(str(control.id), approved_by="alice")
+            await uow.controls.activate(str(control.id), tenant_id=tenant_id, approved_by="alice")
 
         async with started_database.unit_of_work() as uow:
             report = await ControlRun(
@@ -567,7 +570,7 @@ class TestAnEstateWithMoreThanOneSource:
                     "DIMENSION completeness BECAUSE 'why'"
                 ),
             )
-            await uow.controls.activate(str(control.id), approved_by="alice")
+            await uow.controls.activate(str(control.id), tenant_id=tenant_id, approved_by="alice")
 
         async with started_database.unit_of_work() as uow:
             report = await ControlRun(
@@ -590,7 +593,7 @@ class TestAnEstateWithMoreThanOneSource:
             control, _ = await uow.controls.declare(
                 tenant_id=tenant_id, identity="there", pql=CLEAN
             )
-            await uow.controls.activate(str(control.id), approved_by="alice")
+            await uow.controls.activate(str(control.id), tenant_id=tenant_id, approved_by="alice")
             report = await ControlRun(
                 uow,
                 tenant_id,

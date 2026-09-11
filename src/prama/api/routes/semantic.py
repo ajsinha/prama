@@ -114,11 +114,13 @@ async def get_dataset(
     ),
 ) -> DatasetOut:
     if valid_at and known_at:
-        version = await uow.datasets.as_of(dataset_id, valid_at=valid_at, known_at=known_at)
+        version = await uow.datasets.as_of(
+            dataset_id, valid_at=valid_at, known_at=known_at, tenant_id=caller.tenant_id
+        )
     elif valid_at:
-        version = await uow.datasets.valid_at(dataset_id, valid_at)
+        version = await uow.datasets.valid_at(dataset_id, valid_at, tenant_id=caller.tenant_id)
     else:
-        version = await uow.datasets.current(dataset_id)
+        version = await uow.datasets.current(dataset_id, tenant_id=caller.tenant_id)
     if version is None:
         raise NotFoundError(
             f"dataset {dataset_id!r} has no version matching that point in time",
@@ -131,7 +133,9 @@ async def get_dataset(
 @router.get("/datasets/{dataset_id}/history", response_model=list[DatasetOut])
 async def dataset_history(dataset_id: str, caller: Caller, uow: Uow) -> list[DatasetOut]:
     """Every version, oldest first — the audit view of a declaration."""
-    return [dataset_out(v) for v in await uow.datasets.history(dataset_id)]
+    return [
+        dataset_out(v) for v in await uow.datasets.history(dataset_id, tenant_id=caller.tenant_id)
+    ]
 
 
 @router.post("/datasets/{dataset_id}/amend", response_model=DatasetOut)
@@ -169,7 +173,15 @@ async def correct_dataset(
 @router.delete("/datasets/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def retire_dataset(dataset_id: str, caller: Caller, uow: Uow) -> Response:
     """Retire, never delete: history is needed to interpret past evidence."""
-    await uow.datasets.retire(dataset_id)
+    # A 204 for an id that was never retired tells the caller the opposite of
+    # what happened — and, before the tenant scope existed, told a caller of
+    # another estate that a declaration they cannot see had been withdrawn.
+    if await uow.datasets.retire(dataset_id, tenant_id=caller.tenant_id) is None:
+        raise NotFoundError(
+            f"dataset {dataset_id!r} has no current version to retire",
+            remedy="Check the identifier, or list the declared datasets.",
+            context={"dataset_id": dataset_id},
+        )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

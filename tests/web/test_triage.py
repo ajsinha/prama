@@ -27,7 +27,7 @@ PQL = (
 async def _control(database: Database, tenant_id: str, identity: str = "a") -> str:
     async with database.unit_of_work() as uow:
         control, _ = await uow.controls.declare(tenant_id=tenant_id, identity=identity, pql=PQL)
-        await uow.controls.activate(str(control.id), approved_by="bob")
+        await uow.controls.activate(str(control.id), tenant_id=tenant_id, approved_by="bob")
         return str(control.id)
 
 

@@ -264,10 +264,10 @@ class TestRelationshipService:
                 rejected_by="steward",
                 reason="different account namespaces",
             )
-            current = await uow.relationships.current(str(entity.id))
+            current = await uow.relationships.current(str(entity.id), tenant_id=tenant_id)
             assert current.status == "rejected"
             # Re-proposing something already rejected is how trust is lost.
-            assert len(await uow.relationships.history(str(entity.id))) == 2
+            assert len(await uow.relationships.history(str(entity.id), tenant_id=tenant_id)) == 2
 
     def test_every_kind_is_offered_in_business_language(self) -> None:
         kinds = relationship_kinds()

@@ -510,7 +510,7 @@ class TestRelationships:
 
         await ui.post(f"/relationships/{relationship_id}/reject", data={"reason": "not true"})
         async with started_database.unit_of_work() as uow:
-            current = await uow.relationships.require_current(relationship_id)
+            current = await uow.relationships.require_current(relationship_id, tenant_id=tenant_id)
             assert current.status == "rejected"
 
     async def test_a_proposed_edge_is_not_drawn_as_a_declared_one(
@@ -1088,7 +1088,7 @@ class TestControlEstate:
                     "DIMENSION completeness BECAUSE 'why'"
                 ),
             )
-            await uow.controls.activate(str(control.id), approved_by="alice")
+            await uow.controls.activate(str(control.id), tenant_id=tenant_id, approved_by="alice")
             control_id = str(control.id)
 
         await ui.post(f"/controls/{control_id}/suppress", data={"until": "", "because": ""})
@@ -1111,9 +1111,12 @@ class TestControlEstate:
                     "DIMENSION completeness BECAUSE 'why'"
                 ),
             )
-            await uow.controls.activate(str(control.id), approved_by="alice")
+            await uow.controls.activate(str(control.id), tenant_id=tenant_id, approved_by="alice")
             await uow.controls.suppress(
-                str(control.id), until="2020-01-01T00:00:00Z", because="migration"
+                str(control.id),
+                tenant_id=tenant_id,
+                until="2020-01-01T00:00:00Z",
+                because="migration",
             )
         body = (await ui.get("/controls")).text
         assert "still silent past the date" in body
@@ -1134,7 +1137,7 @@ class TestControlEstate:
                 ),
                 schedule="30 6 * * 1-5",
             )
-            await uow.controls.activate(str(control.id), approved_by="alice")
+            await uow.controls.activate(str(control.id), tenant_id=tenant_id, approved_by="alice")
 
         body = " ".join((await ui.get("/controls")).text.split())
         assert "schedule Prama cannot read" in body
@@ -1153,7 +1156,7 @@ class TestControlEstate:
                 ),
                 schedule="every 4 hours",
             )
-            await uow.controls.activate(str(control.id), approved_by="alice")
+            await uow.controls.activate(str(control.id), tenant_id=tenant_id, approved_by="alice")
 
         body = (await ui.get("/controls")).text
         assert "every 4 hour(s)" in body

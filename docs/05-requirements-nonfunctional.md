@@ -38,10 +38,19 @@ budget. The file-length ceiling (1500 code lines) is enforced in the hook and
 the gate.
 
 **Not measured:** reconciliation at 10⁸ records per side — measured at 100,000;
-streaming p95 detection and added p99 at target throughput; the estate map at
-50,000 nodes; and the API at the rates §4 states. None of these has a harness on
-a machine large enough to answer it, and `docs/19` records each as outstanding
-rather than assumed.
+streaming p95 detection and added p99 at target throughput; and the API at the
+rates §4 states. None of these has a harness on a machine large enough to answer
+it, and `docs/19` records each as outstanding rather than assumed.
+
+**Measured and not met:** the estate map (`NFR-SCA-011`). A Playwright harness in
+a real browser, killing each attempt from outside the process so the budget is
+enforceable, finds that 500 nodes take **5.3 s** to first draw, 2,000 take **15.5 s**, and 4,000 do not
+draw at all within 60 s — the browser's main thread is blocked throughout, so the
+page is unresponsive rather than merely slow. Pan and zoom do hold 60 fps, but
+only once the map has appeared. The requirement is unchanged; the
+implementation is short of it by more than an order of magnitude, and saying so
+is cheaper than discovering it in front of a customer with a large estate. The
+cause is a quadratic layout pass, not the renderer — see `docs/10` §1.
 
 ---
 

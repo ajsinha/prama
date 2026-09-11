@@ -491,7 +491,9 @@ class TestEveryTenantAwareReadIsScoped:
             # `live()` whatever the tenant filter says, so leaving it as one
             # would make this probe pass against a DAO with no filter at all —
             # which is exactly what it did before somebody checked.
-            await uow.controls.activate(str(their_control.id), approved_by="them")
+            await uow.controls.activate(
+                str(their_control.id), tenant_id=other_tenant, approved_by="them"
+            )
             await uow.rejections.record(
                 tenant_id=other_tenant,
                 identity="r",

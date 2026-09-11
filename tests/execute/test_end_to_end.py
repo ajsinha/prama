@@ -110,7 +110,7 @@ class TestDeclarationToVerdict:
 
         # 2. Γ derives the controls the declaration implies.
         async with started_database.unit_of_work() as uow:
-            stored = await uow.datasets.require_current(dataset_id)
+            stored = await uow.datasets.require_current(dataset_id, tenant_id=tenant_id)
             attributes = await uow.attributes.for_dataset(dataset_id)
             generation = ControlGenerator().generate(dataset_declaration_of(stored, attributes))
             derived = [c for c in generation.controls if c.rule.startswith("grain")]
@@ -125,7 +125,7 @@ class TestDeclarationToVerdict:
                     rule=control.rule,
                     criticality=2,
                 )
-                await uow.controls.activate(str(entity.id), approved_by="bob")
+                await uow.controls.activate(str(entity.id), tenant_id=tenant_id, approved_by="bob")
 
         # 4. It runs against the actual table.
         async with started_database.unit_of_work() as uow:
@@ -154,7 +154,7 @@ class TestDeclarationToVerdict:
                     "SEVERITY critical DIMENSION uniqueness BECAUSE 'declared grain'"
                 ),
             )
-            await uow.controls.activate(str(control.id), approved_by="bob")
+            await uow.controls.activate(str(control.id), tenant_id=tenant_id, approved_by="bob")
 
         async with started_database.unit_of_work() as uow:
             await ControlRun(
@@ -183,7 +183,7 @@ class TestDeclarationToVerdict:
                     "SEVERITY major DIMENSION completeness BECAUSE 'CDE'"
                 ),
             )
-            await uow.controls.activate(str(control.id), approved_by="bob")
+            await uow.controls.activate(str(control.id), tenant_id=tenant_id, approved_by="bob")
 
         async with started_database.unit_of_work() as uow:
             await ControlRun(
@@ -208,7 +208,7 @@ class TestDeclarationToVerdict:
                     "SEVERITY major DIMENSION completeness BECAUSE 'why'"
                 ),
             )
-            await uow.controls.activate(str(control.id), approved_by="bob")
+            await uow.controls.activate(str(control.id), tenant_id=tenant_id, approved_by="bob")
 
         async with started_database.unit_of_work() as uow:
             report = await ControlRun(
@@ -245,7 +245,7 @@ class TestDeclarationToVerdict:
                 control, _ = await uow.controls.declare(
                     tenant_id=tenant_id, identity=identity, pql=pql
                 )
-                await uow.controls.activate(str(control.id), approved_by="bob")
+                await uow.controls.activate(str(control.id), tenant_id=tenant_id, approved_by="bob")
 
         async with started_database.unit_of_work() as uow:
             await ControlRun(

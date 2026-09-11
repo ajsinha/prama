@@ -206,13 +206,23 @@ class JdbcConnector(SqlConnector):
         bridge = self._bridge()
         _use_exact_decimals(bridge)
         self._worker = DedicatedThread(name=f"jdbc-{self._dialect_name}")
-        self._connection = await self._call(
-            bridge.connect,
-            self._driver_class,
-            self._url,
-            [self._user, self._password],
-            self._driver_path,
-        )
+        try:
+            self._connection = await self._call(
+                bridge.connect,
+                self._driver_class,
+                self._url,
+                [self._user, self._password],
+                self._driver_path,
+            )
+        except Exception:
+            # Python does not call __aexit__ when __aenter__ raises, so nothing
+            # else ever closes this. The thread has touched Java by now, so a
+            # leaked one is also a leaked JVM attachment — and JPype's shutdown
+            # waits for those, which hangs the interpreter at exit, a long way
+            # from anything explanatory. Bad credentials are an ordinary
+            # failure; three of them should not stop the process exiting.
+            await self.close()
+            raise
 
     async def close(self) -> None:
         if self._connection is not None:

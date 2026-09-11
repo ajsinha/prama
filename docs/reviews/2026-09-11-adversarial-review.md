@@ -1,0 +1,273 @@
+<img src="../assets/prama-lockup.svg" alt="Prama — Declare it. Prove it. Trust it." width="330"/>
+
+*Copyright © 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.*
+
+---
+
+# Adversarial review — 11 September 2026
+
+Five independent reviewers, each given one specialism and told to find defects
+rather than to praise: correctness, security, test quality, honesty of claims,
+and concurrency. Every finding below was reproduced before being recorded.
+
+This document is the record. It exists because a review whose findings live in a
+chat transcript is a review that happened once.
+
+## What it says about the codebase
+
+The pattern in the failures is worth naming, because it was consistent across
+three reviewers who could not see each other's work:
+
+> **The claims that broke are the ones about a boundary.** The banking pack's
+> functions against the core catalogue. The connector's capability vocabulary
+> against the backend's. The tombstone against the hash. The configuration
+> declaration against the code that reads it. The roadmap's task list against
+> the roadmap's own status table. Each side is tested; nothing tested the seam.
+
+The second pattern: **the guards held, and the things with no guard did not.**
+Schema parity, the layering scan, the file-length ceiling, the function
+conformance corpus and the evidence chain all survived direct attack. The
+defects were in the places where a test would have had to cross a module
+boundary to exist.
+
+---
+
+## Status
+
+| | Finding | Severity | State |
+|---|---|---|---|
+| S1 | The HTTP API authenticated nothing; the tenant came from a client header | **Critical** | **Fixed** |
+| S2 | `VersionedDao` by-id reads and writes are not tenant-scoped | **Critical** | **Fixed** |
+| C1 | Reconciliation dropped rows with a null amount from the total | **High** | **Fixed** |
+| C2 | `Tolerance.permits` uses `and` where its own `render()` says "or" | **High** | Open |
+| C3 | `_key_part` renders integers in scientific notation, defeating key matching | **High** | Open |
+| X1 | `DedicatedThread.call` took no keywords, so Snowflake `open()` could never run | **High** | **Fixed** |
+| X2 | A failed `open()` leaked a thread and a JVM attachment | **High** | **Fixed** |
+| S3 | The prompt-injection fence can be broken by interleaving the marker | **High** | Open |
+| S4 | RBAC scopes are computed, stored, and never enforced | **High** | Open |
+| X3 | An agent deletes the record of gaps in its own evidence | **High** | Open |
+| C4 | Reference interpreter and SQL disagree on `%` and `/`; corpus has no case | **High** | Open |
+| H1 | Banking cross-field functions are advertised and never installed | **High** | Open |
+| C5 | A dataset that scanned zero rows scores 100% | **High** | Open |
+| X4 | A ledger failure strands a work unit and its lease permanently | **Medium** | Open |
+| X5 | `unfinished()` cannot see a run that died mid-flight | **Medium** | Open |
+| S5 | ClickHouse and BigQuery quoting escapes the backtick, not the backslash | **Medium** | Open |
+| S6 | CMK `decrypt()` offers no way to assert the expected tenant | **Medium** | Open |
+| S7 | Open redirect on sign-in via `/\` | **Medium** | Open |
+| S8 | Sessions are never revalidated; sign-out revokes nothing | **Medium** | Open |
+| C6 | `CountMin` depth is decorative; error bound violated ~750× | **Medium** | Open |
+| C7 | `TDigest` weighted `add` collapses every quantile to the maximum | **Medium** | Open |
+| C8 | `TDigest` is not tail-accurate, which is why it was chosen | **Medium** | Open |
+| C9 | The Fed calendar closes a Friday the Fed is open | **Medium** | Open |
+| C10 | `Diff.columns_that_changed` derives from the capped example set | **Medium** | Open |
+| X6 | `BoundedQueue.try_put` never wakes a waiting consumer | **Medium** | Open |
+| H2 | Six documents assert CI enforcement; there is no CI | **Medium** | Open |
+| H3 | Plugin purity does not ban `import time` or dynamic imports | **Medium** | Open |
+| H4 | The tombstone is outside the content hash it claims to be inside | **Medium** | Open |
+| H5 | Two capability vocabularies the comment insists are one | **Medium** | Open |
+| H6 | Four `remedy=` strings name configuration nothing reads | **Low** | Open |
+| H7 | `'06:30 TARGET2'` — a remedy's own example is rejected | **Low** | Open |
+| T1 | The egress guard passes on prose; `llm/providers` never consults the gate | **High** | Open |
+| T2 | `test_every_tenant_scoped_dao_is_covered` covers 3 of 25 DAOs and cannot fail | **High** | Open |
+| T3 | Batch/stream equivalence compares the reference interpreter with itself | **High** | Open |
+| T4 | Conformance excuses an engine finding *zero* violations on a two-stage control | **High** | Open |
+| T5 | The tenant sweep is blind for 29 of the 49 methods it probes | **High** | Open |
+| T6 | Every HMAC seal is verified only by recomputing it with the function under test | **High** | Open |
+| T7 | `test_at_least_two_genuinely_different_engines_took_part` is `assert 3 >= 2` | **Medium** | Open |
+| T8 | `DriftReport.disagreement` has no coverage; its one test asserts nothing | **Medium** | Open |
+| T9 | "Mining finds a rule" passes while mining finds nothing | **Medium** | Open |
+| T10 | The web tenant sweep's markers never render on 6 of its 11 screens | **Medium** | Open |
+| T11 | `verify([record.to_dict()])` is intact for any content whatsoever | **Medium** | Open |
+| T12 | Three architecture guards go vacuous if pytest runs from another directory | **Medium** | Open |
+| T13 | A parametrized test that ignores one of its parameters | **Low** | Open |
+
+---
+
+## Fixed in this pass
+
+**S1 — the API authenticated nothing.** `get_caller` read `X-Prama-Tenant` and
+`X-Prama-Principal` from headers and verified neither, on routers mounted
+unconditionally. A tenant id that did not exist worked identically, which is
+what proved nothing was ever checked. Now every value comes from an API key's
+stored record — the machinery for which (`ApiKeyDao`, `ApiKeyIssuer`) already
+existed and had never been wired to anything. Four tests pin it closed,
+including the exact request that used to return 200.
+
+**C1 — reconciliation lost postings.** `_total` skipped any row whose amount
+normalised to `None`. `match.aggregate` in the same package states the rule and
+refuses to do it — *"a null in an amount column is not zero"* — and the engine
+never called it. A sub-ledger with one null posting reconciled clean. The side
+now has **no total** rather than a wrong one, and the break says which rows.
+
+**X1 — Snowflake could never open.** `DedicatedThread.call` accepted no keyword
+arguments, so `open()` raised `got an unexpected keyword argument 'account'` —
+blaming the concurrency primitive for a connector bug. The primitive takes
+keywords now, which also removes the lambda ClickHouse had to wrap around it.
+
+**X2 — a failed open leaked a thread.** Python does not call `__aexit__` when
+`__aenter__` raises, so a rotated password left a worker alive — attached to the
+JVM, which JPype's shutdown then waits for. Three health checks against stale
+credentials and the process will not exit.
+
+---
+
+## S2, and what fixing it taught
+
+**S2 — `VersionedDao` was not tenant-scoped.** `current()`, `amend()`,
+`retire()`, `correct()`, `history()`, `valid_at()` and `as_of()` took an entity
+id and nothing else. The service layer passed a tenant and used it *only for the
+audit event*, so a cross-tenant write landed on the victim's row and was
+recorded under the attacker's tenant. Reachable from the console as well as the
+API, so fixing S1 did not close it.
+
+The fix makes `tenant_id` a **required keyword-only** argument on every by-id
+method, and puts the join back to the identity row — where the tenant actually
+lives — in one private `_scoped()` helper. Three properties follow:
+
+- **Forgetting is a type error.** Making the argument optional would have left
+  the hole open for whoever forgot. Making it required turned mypy into the
+  enumerator: it found all 31 call sites in `src/` and refused the build until
+  each had been thought about.
+- **The trusted paths had to say so out loud.** One caller genuinely had no
+  tenant — `ConnectivityService.connector_for`, reached only from the CLI, which
+  has no tenant flag at all. Rather than invent a bypass, it now calls
+  `tenant_of()`, a method whose docstring says plainly that it *derives* the
+  owner and must never be used to satisfy a caller-supplied scope.
+- **A route was lying about a write.** `DELETE /datasets/{id}` returned 204
+  whatever happened. Before the scope existed, that told a caller of another
+  estate that a declaration they cannot see had been withdrawn; after it, it
+  would have hidden the refusal. It now 404s when nothing was retired.
+
+`tests/api/test_tenant_isolation.py` pins it: read, read-history, amend and
+retire, each as a fully valid caller of a second estate. All four were confirmed
+to fail against the unscoped code — reads returned 200, the retire returned 204.
+The amend and retire cases additionally assert the victim's declaration is
+*unchanged*, so a 404 returned after the write landed would still fail.
+
+**The hole in the guard, recorded because it will recur.** mypy found 31 of the
+32 call sites. It missed `ControlDao.declare`, which unpacks `**fields` into its
+own `amend()` call: a `dict[str, Any]` splat can supply any keyword, so the type
+checker cannot know the required one is absent. Only the test suite caught it.
+A required-argument guard is enforced statically *except* through `**kwargs` —
+which means the suite, not mypy, is the backstop for exactly the dynamic call
+sites where a scope is easiest to lose.
+
+---
+
+## The test suite reviewed adversarially
+
+A sixth reviewer was asked the question the other five could not: **which tests
+pass without testing anything?** It traced every assertion in the suite at the
+line level and proved each finding by breaking the thing the test claims to
+protect and watching the test stay green.
+
+The headline number — 4,479 passing — is not what it looked like. Thirteen
+findings, and the pattern in them matters more than the count: **almost every
+vacuous test is one whose docstring states the property most confidently.**
+
+- **T1** — `tests/architecture/test_egress.py` greps the raw file text for
+  `"Gate"`, `"residency"` or `"ResidencyRefused"`, comments and docstrings
+  included. A *comment* in `secrets/vault.py` saying the gate is "somewhere
+  checked like any other egress" is what makes the test green. Renaming that
+  word in three comments — touching no executable line — turned exactly three
+  tests red. Worse than a weak matcher: **`prama.llm.providers` has no gate call
+  anywhere**, and calls `urlopen()` with prompts the registry itself describes
+  as carrying column names, samples and business language. `egress.py` says "a
+  registered point that does not consult the gate is a build failure". It is
+  not. It is green.
+- **T6** — every HMAC seal in the product is tested by `sign` agreeing with
+  `sign`. Replacing all three with `sha256(key || message)` — the textbook
+  length-extension-vulnerable prefix MAC — and `compare_digest` with `==`
+  produced **zero** new failures. There is no known-answer vector anywhere.
+  Note the contrast the reviewer drew: the hash *chain* is genuinely well
+  pinned, by hand and by an independent stdlib-only verifier. It is the word
+  "signed" that is unbacked.
+- **T3/T4** — the two-stage verdict, which is the thesis of the product, is
+  nowhere asserted as *executed on a real engine*. Neutering the screen
+  predicate so DuckDB finds nothing leaves all 119 backend tests green, because
+  `_compare_two_stage` treats "found fewer violations" as acceptable
+  unconditionally. That is precisely the "assert the rendered artefact, not the
+  intent" rule in `CLAUDE.md`, unmet at the one place it was written for.
+- **T2/T5/T10** — three different tenant-isolation guards, each with a docstring
+  claiming comprehensiveness, each covering a minority of what it enumerates.
+  T2 is the sharpest: the same file, forty lines earlier, *diagnoses this exact
+  defect* — "a scan keyed on the base class covered three of twenty-three while
+  claiming to cover everything, which is worse than not scanning at all" — and
+  the base-class scan was left standing anyway.
+
+What the reviewer found *sound* calibrates this: the OIDC tests, the PQL
+function catalogue executed against two live engines, the 250-control fuzz
+corpus with its own anti-vacuity guard, the model-verdict guard with its
+counterfactual pair, and the near-total absence of mocks. The suite is mostly
+honest. These thirteen are where it is not, and they cluster — unsurprisingly —
+on the claims that are hardest to test and most valuable to assert.
+
+---
+
+## The harness that flattered the thing it measured
+
+Not a reviewer's finding — mine, while acting on one. It belongs here because it
+is the same defect class the review was hunting, committed by the tool built to
+detect it.
+
+`docs/09` claimed the estate map draws 50,000 nodes at 60 fps and nobody had
+measured it. The first harness reported **10,000 nodes in 22 ms at 60.2 fps**,
+and the number was written into four documents before anything checked it
+against arithmetic. It does not survive arithmetic: `relax()` in
+`estate-map.js` is an all-pairs O(n²) force loop run 60 times *before* Sigma is
+constructed, so 10,000 nodes is ~3×10⁹ attribute lookups. Nothing does that in
+22 ms. The harness reported a smaller number for 10,000 nodes than for 500, and
+that non-monotonicity was the tell.
+
+Three separate defects, each of which alone produced a flattering answer:
+
+1. **It waited on the wrong thing.** `canvas.width > 0` is true as soon as Sigma
+   creates its canvas — before it draws. Fixed by waiting on the status line,
+   which the page writes on the last statement of the success path.
+2. **It measured a delta between two `page.evaluate` calls.** An evaluate cannot
+   run while the main thread is blocked either, so the "start" reading was taken
+   *after* the blocking layout. Both readings landed on the same side of the work
+   they were supposed to bracket. Fixed by reading `performance.now()` once, as
+   time since navigation start.
+3. **Its timeout could not fire.** `wait_for_function(timeout=120_000)` polls
+   inside the page, and the page was blocked. One attempt sat at 101% CPU for
+   **53 minutes** before being killed by hand. A budget that the condition it
+   guards can starve is not a budget; it is now enforced by killing a
+   subprocess from outside.
+
+The harness now also asserts it measured what it claims — it reads the node
+count back off the page and voids the run if it does not match the count
+requested — because two of the three defects above would have been caught by
+that one check.
+
+**The honest curve**, on this machine, in real Chrome:
+
+| nodes | time to first draw | pan/zoom |
+|---|---|---|
+| 500 | 5.3 s | 60.5 fps |
+| 2,000 | 15.5 s | 60.1 fps |
+| 4,000 | never, within 60 s — main thread blocked throughout | — |
+
+`NFR-SCA-011` asks for 50,000 at 60 fps. The frame rate was never the problem;
+the map does hold 60 fps once it exists. What fails is getting it to exist, and
+the cliff is below four thousand nodes — more than an order of magnitude short,
+and *below* the "~5–10k elements" that `docs/18` predicted for a renderer it
+turns out not to be about. The four documents now carry these numbers.
+
+The lesson is the one this repository already writes down, arriving from a new
+direction: **a measurement is an artefact, and an artefact must be asserted
+rather than trusted.** A harness that returns a plausible number is exactly as
+dangerous as a control that returns a plausible verdict.
+
+---
+
+## What survived
+
+Recorded because it calibrates the rest. The OIDC verifier resisted a
+deliberate attempt to find a token shape it wrongly accepts. Secret handling
+held: every `context={…}` dict in `secrets/`, `connect/` and `core/config/`
+carries references, hosts and key *names*, never values. Schema parity, the
+layering import scan and the file-length ceiling are genuinely enforced. The
+evidence chain verified correctly under attack except for the tombstone gap
+(H4). Every pip extra, every `prama` command and every `--flag` named in a
+remedy exists. Nine of ten Wave 11 mechanisms behaved exactly as claimed.

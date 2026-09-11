@@ -17,9 +17,11 @@ from fastapi.responses import JSONResponse
 
 from prama.core.errors import (
     ConflictError,
+    ForbiddenError,
     NotFoundError,
     PramaError,
     SchemaDriftError,
+    UnauthorisedError,
     ValidationError,
 )
 from prama.core.log import correlation_id, get_logger
@@ -29,6 +31,8 @@ _log = get_logger(__name__)
 #: Which HTTP status each error family deserves. Anything unmapped is a 500,
 #: which is correct: an unmapped error is one we did not anticipate.
 STATUS_BY_TYPE: list[tuple[type[PramaError], int]] = [
+    (UnauthorisedError, 401),
+    (ForbiddenError, 403),
     (NotFoundError, 404),
     (ConflictError, 409),
     (ValidationError, 422),

@@ -758,7 +758,13 @@ programmatically can. Found by the rule builder's `parse(render(c)) == c` guard.
 - [ ] `NFR-USA-001`…`008` met in a study with **≥ 12 participants per persona**.
 - [ ] ≥ 90% unaided task success on the eight core business tasks.
 - [ ] ≤ 3 min median to a reviewed control via chat or induction (`S4`).
-- [ ] Estate map: 50,000 nodes at 60 fps pan/zoom.
+- [◑] Estate map: 50,000 nodes at 60 fps pan/zoom. **Measured, and not met — by more than
+      an order of magnitude.** 500 nodes: 5.3 s to first draw. 2,000 nodes: 15.5 s. 4,000
+      nodes: no draw within 60 s, with the browser's main thread blocked throughout. Pan and
+      zoom hold 60 fps once drawn; the frame rate was never what failed. Harness:
+      `tests/web/test_estate_map_scale.py`; numbers: `tests/web/estate-map-scale.json`; cause:
+      the synchronous all-pairs `relax()` in `estate-map.js`. Marked ◑ rather than ✅ or ⏳
+      because the capability exists and the target does not.
 - [◑] WCAG 2.2 AA, zero critical findings — axe-core in real Chrome, 26 checks, zero critical.
       **Screen-reader testing is not done**: it needs a person with NVDA or VoiceOver, and an
       automated pass is not evidence of it.

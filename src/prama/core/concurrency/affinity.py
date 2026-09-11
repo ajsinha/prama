@@ -60,8 +60,15 @@ class DedicatedThread:
     def is_open(self) -> bool:
         return self._pool is not None
 
-    async def call(self, function: Callable[..., Any], *arguments: Any) -> Any:
-        """Run one piece of work on this worker's thread."""
+    async def call(self, function: Callable[..., Any], *arguments: Any, **keywords: Any) -> Any:
+        """Run one piece of work on this worker's thread.
+
+        Keywords as well as positionals. Without them every caller with a
+        keyword-taking function has to wrap it in a lambda, and the one that
+        forgot — Snowflake's ``open()`` — raised ``DedicatedThread.call() got an
+        unexpected keyword argument 'account'``, which blames the concurrency
+        primitive for a connector bug and could never have worked.
+        """
         if self._pool is None:
             raise PramaError(
                 f"the {self._name} worker has been closed",
@@ -72,7 +79,7 @@ class DedicatedThread:
                 ),
             )
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(self._pool, lambda: function(*arguments))
+        return await loop.run_in_executor(self._pool, lambda: function(*arguments, **keywords))
 
     async def close(self, *, teardown: Callable[[], Any] | None = None) -> None:
         """Stop the worker, running ``teardown`` on it first.

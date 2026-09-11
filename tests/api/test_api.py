@@ -6,10 +6,8 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import httpx
-from httpx import ASGITransport
 
-from prama.api import API_PREFIX, create_app
-from prama.core.config import Configuration
+from prama.api import API_PREFIX
 from prama.db import Database
 
 TENANT_HEADER = "X-Prama-Tenant"
@@ -73,7 +71,11 @@ class TestDatasets:
         assert body["grain"]["attributes"][0] == "account_id"
         assert body["meta"]["version"] == 1
         assert body["meta"]["is_current"] is True
-        assert body["meta"]["authored_by"] == "alice"
+        # The principal id from the key's record, not a name the client sent.
+        # That is the change: authorship is now something the server knows
+        # rather than something the caller asserts about itself.
+        assert body["meta"]["authored_by"]
+        assert body["meta"]["authored_by"] != "alice"
 
         fetched = await client.get(f"/datasets/{body['id']}")
         assert fetched.json()["name"] == "Positions EOD"
@@ -106,19 +108,50 @@ class TestDatasets:
         assert response.status_code == 404
         assert response.json()["remedy"]
 
-    async def test_a_missing_tenant_header_is_refused(
-        self, sqlite_config: Configuration, started_database: Database
+    async def test_a_request_with_no_credential_is_refused(
+        self, unauthenticated: httpx.AsyncClient
     ) -> None:
-        app = create_app(sqlite_config, database=started_database)
-        async with (
-            httpx.AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://testserver" + API_PREFIX
-            ) as http,
-            app.router.lifespan_context(app),
-        ):
-            response = await http.get("/datasets")
-            assert response.status_code == 422
-            assert "tenant" in response.json()["title"].lower()
+        """The hole this replaced: the API read its tenant from a header and
+        checked nothing, so anybody who could reach the port was every tenant
+        at once — including tenants that did not exist."""
+        response = await unauthenticated.get("/datasets")
+        assert response.status_code == 401
+        assert "api key" in response.json()["title"].lower()
+
+    async def test_a_forged_key_is_refused(self, unauthenticated: httpx.AsyncClient) -> None:
+        response = await unauthenticated.get(
+            "/datasets", headers={"Authorization": "Bearer pk_live_not-a-real-key"}
+        )
+        assert response.status_code == 401
+
+    async def test_a_tenant_header_no_longer_grants_anything(
+        self, unauthenticated: httpx.AsyncClient, tenant_id: str
+    ) -> None:
+        """The counterfactual for the fix. This exact request used to return
+        200 and act as the named tenant."""
+        response = await unauthenticated.get(
+            "/datasets", headers={"X-Prama-Tenant": tenant_id, "X-Prama-Principal": "mallory"}
+        )
+        assert response.status_code == 401
+
+    async def test_a_revoked_key_stops_working(
+        self,
+        unauthenticated: httpx.AsyncClient,
+        started_database: Database,
+        api_key: str,
+    ) -> None:
+        """Revocation that does not take effect until a cache expires is not
+        revocation."""
+        from prama.core.clock import utc_now
+        from prama.db.security import ApiKeyIssuer
+
+        async with started_database.unit_of_work() as uow:
+            record = await uow.api_keys.by_prefix(ApiKeyIssuer().prefix_of(api_key))
+            record.revoked_at = utc_now()
+        response = await unauthenticated.get(
+            "/datasets", headers={"Authorization": f"Bearer {api_key}"}
+        )
+        assert response.status_code == 401
 
     async def test_listing_filters_by_unbound_and_criticality(
         self, client: httpx.AsyncClient

@@ -198,7 +198,10 @@ class ControlRoutes(UiRoutes):
         self, request: Request, control_id: str, caller: Caller, uow: Uow
     ) -> Any:
         await uow.controls.activate(
-            control_id, approved_by=caller.principal_id or "console", reason="accepted"
+            control_id,
+            tenant_id=caller.tenant_id,
+            approved_by=caller.principal_id or "console",
+            reason="accepted",
         )
         return redirect_to(request, "control_list", flash_message="The control is now running.")
 
@@ -213,7 +216,11 @@ class ControlRoutes(UiRoutes):
     ) -> Any:
         try:
             await uow.controls.suppress(
-                control_id, until=until, because=because, by=caller.principal_id
+                control_id,
+                tenant_id=caller.tenant_id,
+                until=until,
+                because=because,
+                by=caller.principal_id,
             )
         except PramaError as exc:
             flash_error_and_log(request, "That control could not be suppressed", exc)
