@@ -43,6 +43,34 @@ account before anybody depends on it.
 **ODBC is not built.** It needs unixODBC, which cannot be installed here, and a
 connector that has never reached a database is not one.
 
+### The enterprise relational estate is dialects, not connectors
+
+Oracle, SQL Server, DB2, Teradata and MySQL do not need five connectors. They
+need five **dialects** on the JDBC transport, which is why the SQL connector was
+split into choreography and dialect in the first place: a new enterprise
+database is a catalogue query, a snapshot expression and a quoting rule, not
+another copy of health, discovery, paging and budgeting with its own subtly
+different idea of what a sample is.
+
+**MySQL is verified** — against MySQL 8.4 over Connector/J. The other four are
+written from documented behaviour and **no Oracle, SQL Server, DB2 or Teradata
+has answered them**; each says so in its own docstring and a test asserts it
+still does.
+
+That split is the point. The risky part of a new source is the transport —
+connection lifecycle, threading, type fidelity, paging — and that part is shared
+and exercised. What remains per dialect is SQL, which is wrong in ways a first
+run finds in minutes rather than in ways that corrupt evidence quietly.
+
+Three differences recur and none of them is syntax. **Snapshots**: Oracle's SCN,
+SQL Server's LSN and DB2's commit sequence are exact, so a control can be
+replayed against the data it read; Teradata and MySQL have no cheap
+statement-level marker a read-only account can see, and say wall-clock. **Row
+estimates** come from each catalogue and never from a scan — `count(*)` on a
+Teradata fact table is a conversation with the platform team. **Identifier
+folding** differs in three directions, so everything is quoted with the
+catalogue's own spelling.
+
 Two things the JDBC connector exists for, neither of which is the transport.
 **Exact numbers stay exact**: the usual Python JDBC bridge calls
 `BigDecimal.doubleValue()` on any scaled decimal, so `numeric(38,12)` arrives as
