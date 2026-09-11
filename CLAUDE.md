@@ -167,6 +167,7 @@ prama contract diff before.csv after.csv --key id   # what changed, not how many
 prama lsp catalogue --out cat.json       # export the estate's schemas for an editor
 prama lsp serve --catalogue cat.json     # PQL language server on stdio
 python scripts/check_file_length.py      # the 1500-line ceiling
+python3 scripts/verify_evidence.py bundle/   # check evidence without importing Prama
 pytest -q tests/web/test_axe.py           # axe-core in Chrome; needs pip install -e ".[audit]"
 ruff check src tests && ruff format --check src tests
 mypy src

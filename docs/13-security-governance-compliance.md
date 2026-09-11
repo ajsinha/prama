@@ -168,6 +168,51 @@ Every assertion execution — without exception — appends one immutable record
 | **Exportable** | Open formats (JSON/Parquet), documented schema, full-tenant export (`NFR-POR-004`) |
 | **Retained** | 1–25 years per criticality tier, with legal hold |
 
+### 6.2a Verifying without us — `scripts/verify_evidence.py`
+
+An audit trail that can only be checked by the tool that produced it is that
+tool's own account of itself, which is the one thing an auditor is there not to
+accept. So the chain algorithm is written out in prose in every bundle's
+`manifest.json`, and `scripts/verify_evidence.py` is an implementation of that
+prose which **imports nothing from Prama and nothing outside the Python standard
+library**. A test asserts both facts by parsing the script's imports, and runs
+it as a subprocess with `PYTHONPATH` emptied — an auditor's actual situation.
+
+```
+python3 verify_evidence.py <bundle-directory>
+
+exit 0   every check passed
+exit 1   at least one check failed
+exit 2   the bundle could not be read at all
+```
+
+The third code exists because "I could not read it" and "it is wrong" are
+different findings: the first is a broken transfer, the second a broken claim.
+
+Seven checks: content hashes, chain links, contiguous sequence numbers, the
+manifest's record count against the file, the payload digest, the Merkle root,
+and the chain head. The count is the one that catches what archives actually
+suffer — a **truncated file**, whose remaining chain is perfectly valid.
+
+**What a green result does not mean.** The script prints this on success, where
+the overstatement happens; nobody misreads a failure:
+
+> This says the records have not been altered since they were written, and that
+> this file is the one the manifest describes. It does not say the records are
+> true: a false record, honestly written and correctly chained, produces a
+> bundle that verifies exactly like this one.
+
+Chain integrity answers *has this been altered since it was written*, not *was
+it right when it was written*. The second question is what controls, replay and
+the two-stage engine are for.
+
+The verifier's counterfactual is tested five ways — an altered field, a
+truncated file, a removed middle record, a reordered pair, and a manifest
+doctored to match a doctored payload — plus a sixth asserting the untouched
+bundle still passes, so the five failures are not vacuous.
+
+---
+
 ### 6.3 Deterministic replay
 
 Any historical execution can be re-run against the same snapshot and rule version. The replay
