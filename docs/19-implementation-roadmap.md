@@ -735,9 +735,15 @@ programmatically can. Found by the rule builder's `parse(render(c)) == c` guard.
 - [ ] ≥ 90% unaided task success on the eight core business tasks.
 - [ ] ≤ 3 min median to a reviewed control via chat or induction (`S4`).
 - [ ] Estate map: 50,000 nodes at 60 fps pan/zoom.
-- [ ] WCAG 2.2 AA, zero critical findings, screen-reader tested.
-- [ ] Every assistant mutation is a reviewable diff passing the standard approval workflow.
-- [ ] Adversarial prompt-injection corpus fully passed.
+- [◑] WCAG 2.2 AA, zero critical findings — axe-core in real Chrome, 26 checks, zero critical.
+      **Screen-reader testing is not done**: it needs a person with NVDA or VoiceOver, and an
+      automated pass is not evidence of it.
+- [x] Every assistant mutation is a reviewable diff passing the standard approval workflow —
+      satisfied in the stronger form: the assistant **cannot mutate at all**. No tool in the
+      registry mutates, a mutating tool cannot be registered, and everything it produces is a
+      proposal on the queue.
+- [x] Adversarial prompt-injection corpus fully passed. 53 cases: direct attacks, attacks
+      written into the estate, fence escapes, secret leakage, runaway loops.
 
 **Demo.** A business owner who has never seen the product declares a dataset, draws a relationship,
 approves the generated controls, and asks the assistant why last night's feed was late.
@@ -870,7 +876,8 @@ W10.20 ✅ **auditor RDARR validation** (the pack generates; `scripts/verify_evi
 - [ ] Streaming: p95 ≤ 60 s detection, ≤ 5 ms added p99 at target throughput.
 - [ ] Independent RDARR test script: 100% pass.
 - [ ] ≥ 45 certified connectors including COBOL/EBCDIC and ≥ 6 financial message standards.
-- [ ] Zero cross-tenant leakage findings; adversarial injection corpus passed.
+- [x] Zero cross-tenant leakage findings; adversarial injection corpus passed. 22 isolation
+      tests scanning DAOs by method signature, plus the 53 above.
 - [ ] DQ-Bench and FinDQ-Bench public, with baseline configurations for every competitor.
 
 **Demo.** The one that closes deals: a BCBS 239 attestation pack for one risk domain, generated —
