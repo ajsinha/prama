@@ -13,6 +13,8 @@ import random
 import time
 from datetime import UTC, datetime, timedelta
 
+from typing import Any, ClassVar
+
 import pytest
 
 from prama.backend.execute import judge as judge_batch
@@ -67,7 +69,22 @@ class TestPerMessage:
 
 
 class TestTheSameMeaningAsABatch:
-    """A control cannot mean one thing in flight and another overnight."""
+    """A control cannot mean one thing in flight and another overnight.
+
+    **What this can and cannot catch.** Both sides evaluate the predicate with
+    `ReferenceEvaluator.evaluate`, so an error *inside* that method moves both
+    sides together and these tests stay green — the reviewer proved it by
+    inverting every definite boolean it returns. That is not what they are for.
+    Whether `evaluate` is right is settled by the engine conformance suite,
+    against DuckDB, SQLite and PostgreSQL executing real SQL.
+
+    What these are for is everything wrapped *around* it — the unknown policy,
+    the residual stage, the threshold, the aggregation — where the streaming
+    path and the batch path are separate code and did in fact diverge. Saying
+    so matters, because a class named "the same meaning as a batch" reads like a
+    stronger guarantee than it is, and `TestTheComparisonDiscriminates` below is
+    what keeps it an honest one.
+    """
 
     @pytest.mark.parametrize(
         "source",
@@ -77,13 +94,41 @@ class TestTheSameMeaningAsABatch:
             "CHECK t.ccy IN ('GBP','USD') BECAUSE 'x'",
             "CHECK t.qty BETWEEN 1 AND 100 BECAUSE 'x'",
             "CHECK t SATISFIES NOT (side = 'BUY' AND qty < 0) BECAUSE 'x'",
+            # Two-stage. Finding T3: the stream applied the screen and stopped,
+            # so a fabricated identifier with an LEI's exact shape passed in
+            # flight and failed overnight — PASS/0 against FAIL/1 on the same
+            # three messages. Every case above is single-stage, which is why
+            # five parametrised cases and a class named "the same meaning as a
+            # batch" did not notice.
+            "CHECK t.lei IS VALID 'lei' BECAUSE 'x'",
         ],
     )
     def test_a_window_reaches_the_same_verdict_as_a_batch(self, source: str) -> None:
         messages = [
-            {"notional": 100.0, "ccy": "GBP", "qty": 5, "side": "BUY"},
-            {"notional": None, "ccy": "XXX", "qty": 500, "side": "SELL"},
-            {"notional": -1.0, "ccy": "USD", "qty": 50, "side": "BUY"},
+            # 213800QILIUD4ROSUO03 is a real, check-digit-valid LEI.
+            # AAAAAAAAAAAAAAAAAA00 has an LEI's exact shape and does not verify:
+            # the screen accepts it and only the residual check rejects it.
+            {
+                "notional": 100.0,
+                "ccy": "GBP",
+                "qty": 5,
+                "side": "BUY",
+                "lei": "213800QILIUD4ROSUO03",
+            },
+            {
+                "notional": None,
+                "ccy": "XXX",
+                "qty": 500,
+                "side": "SELL",
+                "lei": "AAAAAAAAAAAAAAAAAA00",
+            },
+            {
+                "notional": -1.0,
+                "ccy": "USD",
+                "qty": 50,
+                "side": "BUY",
+                "lei": "213800QILIUD4ROSUO03",
+            },
         ]
         plan = a_plan(source)
         assertion = StreamAssertion(plan, window=Window(kind=WindowKind.COUNT, size=3))
@@ -274,3 +319,87 @@ class TestTheHotPath:
         # so it is expected to be slower. Twice is the ceiling; it was three
         # times before the allocation went.
         assert offering < judging * 2.5
+
+
+class TestTheComparisonDiscriminates:
+    """The equivalence tests above must be able to fail.
+
+    Finding T3 was that they could not — every case was single-stage, so the
+    one place the two paths genuinely differed was never exercised, and a
+    divergence that existed in the shipped code went unnoticed by a test named
+    for catching exactly it.
+
+    These break the streaming side deliberately, one rule at a time, and require
+    the comparison to notice. A test whose failure mode has never been observed
+    is a test nobody has any reason to trust.
+    """
+
+    MESSAGES: ClassVar[list[dict[str, Any]]] = [
+        {"notional": 100.0, "lei": "213800QILIUD4ROSUO03"},
+        {"notional": None, "lei": "AAAAAAAAAAAAAAAAAA00"},
+        {"notional": -1.0, "lei": "213800QILIUD4ROSUO03"},
+    ]
+
+    def run_both(self, source: str, assertion_class: type[StreamAssertion]) -> tuple[Any, Any]:
+        from prama.backend.reference import ReferenceEvaluator
+
+        plan = a_plan(source)
+        assertion = assertion_class(plan, window=Window(kind=WindowKind.COUNT, size=3))
+        closed = None
+        for message in self.MESSAGES:
+            closed = assertion.offer(message) or closed
+        assert closed is not None
+        return closed, ReferenceEvaluator().run(plan, self.MESSAGES)
+
+    def test_the_honest_implementation_agrees(self) -> None:
+        """The positive control. Without it every assertion below would be
+        satisfied by a comparison that always reports a difference."""
+        for source in (
+            "CHECK t.notional > 0 BECAUSE 'x'",
+            "CHECK t.lei IS VALID 'lei' BECAUSE 'x'",
+        ):
+            closed, batch = self.run_both(source, StreamAssertion)
+            assert closed.verdict is batch.verdict, source
+            assert closed.violations == batch.metrics["violating_rows"], source
+
+    def test_a_stream_that_forgets_the_unknown_policy_is_caught(self) -> None:
+        class Forgetful(StreamAssertion):
+            def offer(self, message, *, at=None):  # type: ignore[no-untyped-def]
+                self._unknown_is_violation = False
+                return super().offer(message, at=at)
+
+        closed, batch = self.run_both("CHECK t.notional > 0 BECAUSE 'x'", Forgetful)
+        assert closed.violations != batch.metrics["violating_rows"]
+
+    def test_a_stream_that_skips_the_second_stage_is_caught(self) -> None:
+        """The actual defect, reintroduced. Before the fix this was the shipped
+        behaviour, and no test in the suite reported it."""
+
+        class ScreenOnly(StreamAssertion):
+            def offer(self, message, *, at=None):  # type: ignore[no-untyped-def]
+                self._has_residual = False
+                return super().offer(message, at=at)
+
+        closed, batch = self.run_both("CHECK t.lei IS VALID 'lei' BECAUSE 'x'", ScreenOnly)
+        assert closed.verdict is not batch.verdict
+        assert closed.violations != batch.metrics["violating_rows"]
+
+    def test_judge_and_offer_agree_with_each_other(self) -> None:
+        """Two entry points into the same rules, and they had drifted apart
+        from the batch together — which is why agreeing with each other is
+        necessary and is not sufficient."""
+        for source in (
+            "CHECK t.notional > 0 BECAUSE 'x'",
+            "CHECK t.lei IS VALID 'lei' BECAUSE 'x'",
+        ):
+            plan = a_plan(source)
+            per_message = StreamAssertion(plan)
+            windowed = StreamAssertion(plan, window=Window(kind=WindowKind.COUNT, size=3))
+            expected = sum(
+                1 for message in self.MESSAGES if per_message.judge(message).is_violation
+            )
+            closed = None
+            for message in self.MESSAGES:
+                closed = windowed.offer(message) or closed
+            assert closed is not None
+            assert closed.violations == expected, source

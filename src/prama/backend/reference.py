@@ -138,10 +138,10 @@ class ReferenceEvaluator:
 
     def _count_if(self, plan: ControlPlan, metric: Metric, rows: list[dict[str, Any]]) -> int:
         if metric.applies_unknown_policy:
-            return sum(1 for row in rows if self._is_violation(plan, row))
+            return sum(1 for row in rows if self.is_violation(plan, row))
         return sum(1 for row in rows if self.evaluate(metric.expression, row) is True)
 
-    def _is_violation(self, plan: ControlPlan, row: Row) -> bool:
+    def is_violation(self, plan: ControlPlan, row: Row) -> bool:
         """Whether this row counts against the control.
 
         The predicate is stated positively, so a violation is its negation —
@@ -162,9 +162,17 @@ class ReferenceEvaluator:
         # fabricated identifiers runs green for a year: every value has the
         # right shape, and the shape was never the standard. The interpreter
         # can do the arithmetic no engine here does faithfully, so it does.
-        return self._fails_residual(plan, row)
+        return self.fails_residual(plan, row)
 
-    def _fails_residual(self, plan: ControlPlan, row: Row) -> bool:
+    def fails_residual(self, plan: ControlPlan, row: Row) -> bool:
+        """Whether a row the screen accepted fails the exact check.
+
+        Public because the streaming path needs exactly this and had been
+        reimplementing the surrounding logic without it — a control that caught
+        a fabricated identifier overnight passed it in flight (finding T3). The
+        alternative to sharing it is two copies of the rule, which is how they
+        came to differ.
+        """
         for name, column in plan.residual_validators:
             value = row.get(column)
             if value is None:

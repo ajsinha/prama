@@ -69,7 +69,7 @@ boundary to exist.
 | H7 | `'06:30 TARGET2'` — a remedy's own example is rejected | **Low** | Open |
 | T1 | The egress guard passes on prose; `llm/providers` never consults the gate | **High** | **Fixed** |
 | T2 | `test_every_tenant_scoped_dao_is_covered` covers 3 of 25 DAOs and cannot fail | **High** | Open |
-| T3 | Batch/stream equivalence compares the reference interpreter with itself | **High** | Open |
+| T3 | Batch/stream equivalence compares the reference interpreter with itself | **High** | **Fixed** |
 | T4 | Conformance excuses an engine finding *zero* violations on a two-stage control | **High** | **Fixed** |
 | T5 | The tenant sweep is blind for 29 of the 49 methods it probes | **High** | Open |
 | T6 | Every HMAC seal is verified only by recomputing it with the function under test | **High** | **Fixed** |
@@ -401,6 +401,37 @@ exact substitution now fails seven tests where it previously failed none.
 Worth keeping the reviewer's own calibration attached: the hash **chain** was
 already well pinned, by hand and by the stdlib-only verifier, and the Ed25519
 path in `test_bundle.py` is real. This was the HMAC half alone.
+
+**T3 — a control meant one thing in flight and another overnight.** The
+streaming path reimplemented the reference interpreter's per-row rules and
+dropped one: the residual check. For a two-stage control the SQL-side screen is
+only a necessary condition, and `_is_violation` finishes the job by running the
+exact check on rows the screen accepted. `StreamAssertion.judge` and `.offer`
+did not. Measured on three messages, `CHECK t.lei IS VALID 'lei'` gave
+**PASS / 0 in flight and FAIL / 1 in a batch** — a fabricated identifier with an
+LEI's exact shape passed live and failed the nightly run.
+
+`judge`'s docstring said the semantics were "the same … imported rather than
+reimplemented", which is precisely the claim that was false. `is_violation` and
+`fails_residual` are now public on `ReferenceEvaluator` and the streaming path
+calls the second one, so the rule is genuinely shared rather than restated. The
+`_has_residual` flag is read once in the constructor, alongside the existing
+`_unknown_is_violation`, so a single-stage control pays nothing for the branch.
+
+The test named for catching this could not. All five parametrised cases were
+single-stage, so the one place the two paths differ was never exercised. Adding
+a two-stage case fails immediately against the old code.
+
+**And the comparison itself is now discriminating.** The reviewer showed that
+inverting every definite boolean `ReferenceEvaluator.evaluate` returns leaves
+the equivalence tests green — because both sides call it. That is inherent, and
+the class now says so: whether `evaluate` is right is settled by the engine
+conformance suite against real SQL, and these tests are for everything wrapped
+around it, where the two paths are separate code. `TestTheComparisonDiscriminates`
+breaks the streaming side deliberately — once by forgetting the unknown policy,
+once by skipping the second stage, which is the shipped defect reintroduced —
+and requires the comparison to notice, with a positive control so it cannot pass
+by always reporting a difference.
 
 ---
 
