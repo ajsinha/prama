@@ -20,7 +20,19 @@ from prama.llm.providers import (
 )
 from prama.llm.spi import Grammar, Hosting, ProviderRegistry, Request
 from prama.secrets.value import SecretValue
+from prama.security.egress import Gate, ResidencyRefused
 from prama.semantic.values import Sensitivity
+
+
+def permitting_gate() -> Gate:
+    """A residency rule that allows the movement.
+
+    Installed explicitly in the tests below that are about the *wire format*,
+    because residency is now enforced in `ask` and an absent gate is a refusal.
+    Spelling it out at each such call site is the point: a test that sends a
+    prompt to a hosted model is a test that has decided the prompt may go.
+    """
+    return Gate.for_tenant(residency=None, tenant_id="t")
 
 
 def canned(payload: dict[str, object]):  # type: ignore[no-untyped-def]
@@ -155,6 +167,7 @@ def test_the_anthropic_shape_pins_its_api_version() -> None:
         model="m",
         api_key=SecretValue("k"),
         opener=opener,
+        gate=permitting_gate(),
     )
     response = provider.ask(Request(system="s", prompt="p"))
     assert response.text == "CHECK t.x IS NOT NULL"
@@ -168,6 +181,7 @@ def test_an_api_key_never_appears_in_a_recorded_response() -> None:
         model="m",
         api_key=SecretValue("sk-secret-value"),
         opener=opener,
+        gate=permitting_gate(),
     )
     response = provider.ask(Request(system="s", prompt="p"))
     assert "sk-secret-value" not in json.dumps(response.to_dict())
@@ -181,3 +195,66 @@ def test_a_provider_pointed_at_a_vendor_can_declare_its_real_hosting() -> None:
     )
     with pytest.raises(ValidationError, match="may not be sent"):
         hosted.ask(Request(system="s", prompt="p", sensitivity=Sensitivity.PII))
+
+
+# -- residency, which is a different question from sensitivity ---------------
+
+
+class TestResidencyIsEnforcedNotAssumed:
+    """`model-inference` is registered as an egress point in
+    :mod:`prama.security.egress`, and until this was written nothing enforced
+    it. The sensitivity check was standing in for a residency check it cannot
+    perform: it asks what *class* the data is, never where it is *from* or
+    where the model *is*. A prompt carrying EU column names and samples reached
+    a US endpoint so long as nobody had labelled it PII.
+    """
+
+    def canned_provider(self, **kwargs: object) -> AnthropicProvider:
+        return AnthropicProvider(
+            endpoint="https://api.example",
+            model="m",
+            api_key=SecretValue("k"),
+            opener=canned({"content": [{"type": "text", "text": "x"}]}),
+            **kwargs,  # type: ignore[arg-type]
+        )
+
+    def test_a_hosted_provider_without_a_gate_refuses(self) -> None:
+        """Undeclared is not unrestricted. The deployment nobody got round to
+        configuring must not be the one that exports."""
+        with pytest.raises(ResidencyRefused, match="no residency rule is declared"):
+            self.canned_provider().ask(Request(system="s", prompt="p"))
+
+    def test_a_self_hosted_provider_needs_no_gate(self) -> None:
+        """Nothing leaves the network, so there is nothing to permit. An
+        air-gapped estate is not asked to declare a residency rule about a
+        movement that does not happen."""
+        assert ScriptedProvider(lambda _: "ok").ask(Request(system="s", prompt="p")).ok
+
+    def test_a_prompt_may_not_travel_where_its_subject_may_not(self) -> None:
+        """The case sensitivity cannot catch: ordinary internal data, correctly
+        classified, belonging to a jurisdiction that forbids the destination."""
+        provider = self.canned_provider(
+            gate=Gate.for_tenant(residency="EU", tenant_id="t"), region="US"
+        )
+        with pytest.raises(ResidencyRefused):
+            provider.ask(
+                Request(
+                    system="s",
+                    prompt="p",
+                    context={"jurisdiction": "EU", "dataset": "positions"},
+                )
+            )
+
+    def test_the_same_prompt_travels_within_its_jurisdiction(self) -> None:
+        """The counterfactual. A control that refuses everything is not a
+        residency rule, it is an outage."""
+        provider = self.canned_provider(
+            gate=Gate.for_tenant(residency="EU", tenant_id="t"), region="EU"
+        )
+        assert provider.ask(
+            Request(
+                system="s",
+                prompt="p",
+                context={"jurisdiction": "EU", "dataset": "positions"},
+            )
+        ).ok

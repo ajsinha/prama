@@ -39,8 +39,8 @@ boundary to exist.
 | S1 | The HTTP API authenticated nothing; the tenant came from a client header | **Critical** | **Fixed** |
 | S2 | `VersionedDao` by-id reads and writes are not tenant-scoped | **Critical** | **Fixed** |
 | C1 | Reconciliation dropped rows with a null amount from the total | **High** | **Fixed** |
-| C2 | `Tolerance.permits` uses `and` where its own `render()` says "or" | **High** | Open |
-| C3 | `_key_part` renders integers in scientific notation, defeating key matching | **High** | Open |
+| C2 | `Tolerance.permits` uses `and` where its own `render()` says "or" | **High** | **Fixed** |
+| C3 | `_key_part` renders integers in scientific notation, defeating key matching | **High** | **Fixed** |
 | X1 | `DedicatedThread.call` took no keywords, so Snowflake `open()` could never run | **High** | **Fixed** |
 | X2 | A failed `open()` leaked a thread and a JVM attachment | **High** | **Fixed** |
 | S3 | The prompt-injection fence can be broken by interleaving the marker | **High** | Open |
@@ -67,7 +67,7 @@ boundary to exist.
 | H5 | Two capability vocabularies the comment insists are one | **Medium** | Open |
 | H6 | Four `remedy=` strings name configuration nothing reads | **Low** | Open |
 | H7 | `'06:30 TARGET2'` — a remedy's own example is rejected | **Low** | Open |
-| T1 | The egress guard passes on prose; `llm/providers` never consults the gate | **High** | Open |
+| T1 | The egress guard passes on prose; `llm/providers` never consults the gate | **High** | **Fixed** |
 | T2 | `test_every_tenant_scoped_dao_is_covered` covers 3 of 25 DAOs and cannot fail | **High** | Open |
 | T3 | Batch/stream equivalence compares the reference interpreter with itself | **High** | Open |
 | T4 | Conformance excuses an engine finding *zero* violations on a two-stage control | **High** | Open |
@@ -151,6 +151,68 @@ checker cannot know the required one is absent. Only the test suite caught it.
 A required-argument guard is enforced statically *except* through `**kwargs` —
 which means the suite, not mypy, is the backstop for exactly the dynamic call
 sites where a scope is easiest to lose.
+
+---
+
+## Fixed in the second pass
+
+**C3 — the key normaliser defeated itself on round numbers.** `_key_part`
+exists so that `1` and `'1'` are the same key; it used `Decimal.normalize()`,
+which strips trailing zeros by *raising the exponent*. `1000` became `'1E+3'`
+and `250` became `'2.5E+2'` while the text side stayed `'1000'` and `'250'`.
+The parametrised counterfactual fails on five of six values — every number
+ending in a zero. It matters because it is partial: a reconciliation matches
+most of its rows and reports the rest as missing on one side and extra on the
+other, which reads as a genuine finding rather than a bug. Fixed with
+`format(d, "f")`, which has no exponent. The existing test used `1`, one of the
+values that happens to work.
+
+**C2 — the tolerance computed "whichever is smaller".** Three separate
+statements of intent said otherwise and every one of them disagreed with the
+code it describes: the class docstring ("a difference must breach **both** to
+count"), `render()`, which prints "within 1 EUR or 0.1%", and the inline comment
+on the return statement itself. Only the expression was wrong —
+`absolute_ok and relative_ok` is the intersection. Under a declared materiality
+of "1 EUR or 10 bps", a 500 EUR difference on a 1,000,000 EUR position was a
+break, though 10 bps of that position is 1,000 EUR. Every large position
+generated a break its own declaration calls immaterial: the phantom-break flood
+this module exists to prevent. Now `difference <= max(allowances)`, which is
+what "whichever is larger" says. No test had exercised both bounds at once.
+
+One thing the fix had to decide that the old code got wrong by accident: a
+relative bound against a **zero** magnitude. The old expression treated it as
+*satisfied*; under a union that would make a declared absolute bound
+unreachable on exactly the rows where a difference is most obviously real —
+something against nothing. It is now treated as *not applicable*, and a
+relative bound alone against zero permits only an exact match.
+
+**T1 — `model-inference` was a registered egress point with no egress check.**
+Two defects, and the second hid the first.
+
+The check: `ModelProvider.ask` already said in its docstring that "the
+residency check lives here", and enforced only `permit()` — sensitivity against
+hosting. That asks what *class* the data is. It never asks where the data is
+*from* or where the model *is*, which is the question `model-inference` is
+registered for. A prompt carrying EU column names and samples reached a US
+endpoint so long as nobody had labelled it PII. `ask` now also calls
+`permit_residency`, which consults the gate; a self-hosted model is exempt
+because nothing leaves the network, and for anything else **an absent gate is a
+refusal** — undeclared is not unrestricted, the same principle the residency
+module already applies to an undeclared jurisdiction. `complete()` is the
+transport and enforces nothing, so a new architecture test refuses any call to
+it outside `spi.py`, where `ask` legitimately delegates.
+
+The guard: `tests/architecture/test_egress.py` matched the raw file text for
+"Gate", "residency" or "ResidencyRefused" — comments and docstrings included.
+A comment in `secrets/vault.py` reading "under a residency rule that somewhere
+is checked like any other egress" was what held its test green. It now strips
+docstrings and comments through `ast.unparse` and matches only executable code,
+and `Gate` is no longer one of the names it looks for, because
+`prama.induce.validate` defines an unrelated enum of that name. Counterfactual:
+deleting the `require(...)` call from `connect/sources/rest.py` while leaving
+every comment about it intact turns `source-read` red. Against the old matcher
+it stayed green — which is the failure the guard exists to prevent, committed
+by the guard.
 
 ---
 

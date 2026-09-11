@@ -354,8 +354,14 @@ def _key_part(value: Any) -> Any:
     if isinstance(value, bool):
         return value
     if isinstance(value, int | Decimal | float):
-        as_decimal = Decimal(str(value))
-        return str(as_decimal.normalize())
+        # `format(d, "f")` and not `str(d.normalize())`. normalize() strips
+        # trailing zeros by *raising the exponent*, so 1000 renders as '1E+3'
+        # and 250 as '2.5E+2' while the text side of the same key stays
+        # '1000' and '250'. The keys then never collide — for round numbers
+        # only, so a reconciliation matches most of its rows and reports the
+        # rest as breaks on both sides. Positional format has no exponent.
+        as_decimal = Decimal(str(value)).normalize()
+        return format(as_decimal, "f")
     return str(value).strip()
 
 

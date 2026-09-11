@@ -40,6 +40,7 @@ from typing import Any, ClassVar
 
 from prama.core import pjson
 from prama.core.errors import ValidationError
+from prama.security.egress import Gate, ResidencyRefused
 from prama.semantic.values import Sensitivity
 
 
@@ -201,6 +202,17 @@ class ModelProvider(abc.ABC):
     def complete(self, request: Request) -> Response:
         """Answer one request. Implementations do not enforce residency."""
 
+    #: The residency gate, installed by whatever built this provider. ``None``
+    #: means no residency rule has been declared — which is a refusal for a
+    #: provider that leaves the network, not a permission. See
+    #: :meth:`permit_residency`.
+    residency_gate: Gate | None = None
+    #: The **jurisdiction** this provider's endpoint sits in — "EU", "US" —
+    #: not a cloud region name. It is compared against the tenant's declared
+    #: residency list, so "eu-west-1" would be refused as a destination outside
+    #: every rule, which is a confusing way to be right.
+    residency_region: str = ""
+
     def ask(self, request: Request) -> Response:
         """Answer one request, refusing to send what may not be sent.
 
@@ -210,7 +222,45 @@ class ModelProvider(abc.ABC):
         hole in it.
         """
         self.permit(request)
+        self.permit_residency(request)
         return self.complete(request)
+
+    def permit_residency(self, request: Request) -> None:
+        """Refuse a prompt whose subject may not travel to this provider.
+
+        Distinct from :meth:`permit`, which asks what *class* of data this is.
+        This asks where the data is *from* and where the model *is* — two
+        questions with different answers, and the registry in
+        :mod:`prama.security.egress` names ``model-inference`` as an egress
+        point precisely because the second one had no enforcement at all: the
+        sensitivity check was standing in for a residency check it cannot
+        perform. A prompt carrying EU column names and samples reached a US
+        endpoint so long as nobody had labelled it PII.
+
+        A self-hosted model is exempt because nothing leaves the network. For
+        anything else an absent gate is a refusal: undeclared is not
+        unrestricted, and treating it as unrestricted is how the one deployment
+        nobody got round to configuring is the one that exports.
+        """
+        if self.hosting is Hosting.SELF_HOSTED:
+            return
+        if self.residency_gate is None:
+            raise ResidencyRefused(
+                f"no residency rule is declared, so nothing may be sent to the "
+                f"{self.hosting.value} model {self.name!r}",
+                remedy=(
+                    "Install a residency gate on the provider (Gate.for_tenant with "
+                    "the tenant's declared residency), or use a self-hosted provider. "
+                    "Prama refuses rather than assuming the movement is allowed."
+                ),
+                context={"provider": self.name, "hosting": self.hosting.value},
+            )
+        self.residency_gate.require(
+            "model-inference",
+            destination=self.residency_region,
+            jurisdiction=request.context.get("jurisdiction", ""),
+            subject=request.context.get("dataset", "") or "a prompt",
+        )
 
     def permit(self, request: Request) -> None:
         if request.sensitivity not in self.hosting.permits:
