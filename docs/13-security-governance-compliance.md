@@ -46,6 +46,58 @@ Requirements: [`NFR-SEC`](05-requirements-nonfunctional.md#d-security-nfr-sec),
 
 ---
 
+### 2.1 Single sign-on
+
+`prama.security.oidc` verifies an OIDC ID token and maps its claims to a
+principal. It needs the `sso` extra (`pip install -e ".[sso]"`), and without it
+every entry point refuses **by name** rather than falling back to something
+weaker — a deployment that cannot verify signatures must refuse to do SSO, not
+do it badly. That extra exists because verifying an RS256 signature needs real
+asymmetric cryptography, and hand-rolling the PKCS#1 v1.5 padding check is how
+forged signatures get accepted.
+
+The whole security of SSO is *verify the signature before believing a single
+claim*. A verifier that parses the payload first has already chosen a key, an
+issuer and a tenant from attacker-controlled data. The refusals, each a real
+attack rather than a hypothetical, and each with a test that forges the token:
+
+| Refused | Why it is an attack |
+|---|---|
+| `alg: none` | A token asserting it is unsigned; a verifier dispatching on the token's own `alg` verifies nothing |
+| HMAC algorithms | Algorithm confusion: sign with HS256 using the provider's *public* RSA key, which is public |
+| Unknown `kid` | Trying every key until one works turns a rotated-out key into a valid signer forever |
+| No `kid`, several keys | Guessing is not verification |
+| Wrong audience | Genuinely signed, genuinely current, and issued for a different client of the same provider |
+| Wrong issuer | Genuinely signed by somebody else |
+| Expired / future `iat` / future `nbf` | A future `iat` extends the token's usable life by however far ahead it claims |
+| Missing or replayed nonce | The only thing a nonce is for |
+| Empty `sub` | The subject is the identity; an empty one identifies nobody |
+| `use: enc` keys in the JWKS | A key the provider never signs with would verify a token |
+
+Clock skew is tolerated to sixty seconds in both directions and no further.
+
+Group-to-role mapping is **declared**, and a group with no mapping grants
+nothing — an unmapped group silently conferring a default role is how everybody
+in the directory becomes an owner. `ClaimMapping.unmapped()` reports the groups
+that granted nothing, because somebody who signs in successfully and can see
+nothing has a configuration problem that looks exactly like a permissions bug.
+
+Local identity is keyed on **issuer *and* subject**: a subject is unique within
+its issuer and nowhere else, so keying on subject alone lets two providers
+collide onto one account.
+
+The JWKS is **passed in, not fetched**. Fetching is an egress and a caching
+problem; mixing either into a verifier makes it untestable offline.
+
+**Not built:** SCIM provisioning and customer-managed keys. The `Principal`
+model already carries `(idp, external_id)` and `PrincipalDao.by_external_id`
+exists, so the join an SSO sign-in needs is there — but directory-driven
+provisioning and de-provisioning are not, and neither is CMK envelope
+encryption. Both are listed as outstanding in `docs/19` rather than implied by
+this section's presence.
+
+---
+
 ## 3. Data protection
 
 **Minimisation is architectural, not procedural.** Because execution is pushdown-first, the only
@@ -62,6 +114,41 @@ number of masked failing-row samples. There is no Prama-side copy of customer da
 | Residency | Execution and storage locality enforced per declared jurisdiction; cross-border movement is blocked, not warned |
 | Erasure | Subject data purged from samples/evidence with a tamper-evident tombstone that preserves hash-chain integrity |
 | Key management | External KMS/HSM; per-tenant key hierarchy; documented rotation |
+
+---
+
+### 3.0 Secrets
+
+References are stored, values are resolved at the point of use. Three providers
+ship: `env://`, `file://` and `vault://` (HashiCorp KV v2).
+
+Vault is **registered but unconfigured** by default, which is not the same as
+absent: a reference then fails with *what to set* rather than with "no provider
+for scheme 'vault'", and the second message sends somebody looking for a plugin
+that is already installed. A provider supplies its own unavailability remedy —
+the resolver knows a provider said no, but only the provider knows which setting
+is missing.
+
+Four things about KV v2 that look fine and are not, each with a test:
+
+- **The envelope nests twice.** A read returns `{"data": {"data": …}}`. Reading
+  the outer `data` returns the *metadata* — version numbers and timestamps —
+  which is not the secret and does not look like an error either.
+- **A soft-deleted version is not a value.** Vault returns it with empty data
+  and no HTTP error. Handing that back as an empty string reaches the driver as
+  an authentication failure and sends somebody to check a password that was
+  never read.
+- **A secret is a document.** A reference must name its field; guessing which
+  one is the credential is how a username gets used as a password. When a field
+  is absent the error lists the field *names* that are present — they are not
+  values, and they make it fixable in one step.
+- **The Vault token is itself a credential**, so it is given as a reference
+  (`env://VAULT_TOKEN`) and never as a literal.
+
+The transport is injected, which is what lets the whole of it be tested without
+a Vault and lets a deployment substitute its own client with the organisation's
+mTLS, proxy and retry policy applied. **It has not been run against a live Vault
+server**; the request and response shapes are from the documented API.
 
 ---
 

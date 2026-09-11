@@ -169,6 +169,7 @@ prama lsp serve --catalogue cat.json     # PQL language server on stdio
 python scripts/check_file_length.py      # the 1500-line ceiling
 python3 scripts/verify_evidence.py bundle/   # check evidence without importing Prama
 pytest -q tests/web/test_axe.py           # axe-core in Chrome; needs pip install -e ".[audit]"
+pytest -q tests/security/test_oidc.py     # ID-token forgeries; needs pip install -e ".[sso]"
 ruff check src tests && ruff format --check src tests
 mypy src
 ```
@@ -189,7 +190,7 @@ can delete.
 ```bash
 uv python install 3.13          # once; lands in ~/.local/share/uv/python, no sudo
 uv venv --python 3.13           # reads .python-version
-uv pip install -e ".[dev,serve,postgres,fast,audit]"
+uv pip install -e ".[dev,serve,postgres,fast,audit,sso]"
 ```
 
 The suite passes on 3.13 and on 3.14 — both were run before choosing, and every

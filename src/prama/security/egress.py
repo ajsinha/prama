@@ -110,6 +110,19 @@ EGRESS_POINTS: Final[tuple[EgressPoint, ...]] = (
         jurisdiction_from="the tenant's declared residency",
     ),
     EgressPoint(
+        name="secret-fetch",
+        module="prama.secrets.vault",
+        what=(
+            "an authenticated read against the secret store. The credential "
+            "comes back, so the store's region is where a credential is held"
+        ),
+        destination_from="the configured Vault address's region",
+        jurisdiction_from=(
+            "the same region: a credential belongs wherever its store is, and "
+            "there is no separate subject to ask"
+        ),
+    ),
+    EgressPoint(
         name="alert-delivery",
         module="prama.alert.route",
         what="alert bodies, which quote failing values",

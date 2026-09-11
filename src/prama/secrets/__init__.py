@@ -21,6 +21,7 @@ from prama.secrets.spi import (
     SecretResolutionError,
 )
 from prama.secrets.value import REDACTED, SecretValue
+from prama.secrets.vault import VaultSecretProvider
 
 __all__ = [
     "DEFAULT_CACHE_TTL_SECONDS",
@@ -35,5 +36,6 @@ __all__ = [
     "SecretResolutionError",
     "SecretResolver",
     "SecretValue",
+    "VaultSecretProvider",
     "default_resolver",
 ]
