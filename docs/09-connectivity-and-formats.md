@@ -26,13 +26,22 @@ file feeds that arrive by SFTP at 04:00. Prama's differentiation in regulated in
 See §16.1 for catalogue write-back and §4.1 of `docs/12` for the message
 formats, each of which states its own position rather than being summarised here.
 
-Connectors: **seven of eight** GA targets — filesystem, SQLite, PostgreSQL,
-object store, Kafka verified against a live broker, REST verified against a real
-HTTP server, and JDBC verified against PostgreSQL over the pgjdbc driver.
+Connectors: **eight of eight written, seven verified.**
 
-**ODBC is deliberately not built.** It needs unixODBC, which cannot be installed
-here, and a connector shipped without ever having reached a database is the
-artefact this codebase is built to avoid. Snowflake needs an account.
+Verified against the real thing: filesystem, SQLite, PostgreSQL, object store,
+Kafka against a live broker, REST against a real HTTP server, and JDBC against
+PostgreSQL over the pgjdbc driver on Java 25.
+
+**Snowflake is written and has never met an account.** Its dialect, its
+refusals and its cost decisions are tested; a warehouse has answered none of it.
+The module says so, the class says so, and the entry in the source picker says
+so — three tests assert each of those is still true, because an unverified
+connector is a reasonable thing to ship and an unverified connector that has
+quietly stopped saying so is not. It will need a first run against a real
+account before anybody depends on it.
+
+**ODBC is not built.** It needs unixODBC, which cannot be installed here, and a
+connector that has never reached a database is not one.
 
 Two things the JDBC connector exists for, neither of which is the transport.
 **Exact numbers stay exact**: the usual Python JDBC bridge calls

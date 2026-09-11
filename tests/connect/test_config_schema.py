@@ -150,6 +150,7 @@ class TestRegistry:
             "objectstore",
             "postgresql",
             "rest",
+            "snowflake",
             "sqlite",
         }
         assert catalogue["sqlite"]["kind"] == "relational"
@@ -160,6 +161,10 @@ class TestRegistry:
         assert catalogue["rest"]["kind"] == "api"
         assert catalogue["rest"]["form"]["groups"]
         assert catalogue["rest"]["capabilities"] == []
+        # A source nobody has run still appears in the picker, and its warning
+        # travels with it. Hiding it would be a different lie from overstating
+        # it, and the person choosing a source is exactly who needs to know.
+        assert "NOT YET VERIFIED" in catalogue["snowflake"]["description"]
 
     def test_no_builtin_overlay_disagrees_with_its_connector(self) -> None:
         """The check that makes the derived form worth deriving.
@@ -189,5 +194,10 @@ class TestRegistry:
         from prama.connect import SourceKind
 
         registry = register_builtin(ConnectorRegistry())
-        assert registry.of_kind(SourceKind.RELATIONAL) == ["jdbc", "postgresql", "sqlite"]
+        assert registry.of_kind(SourceKind.RELATIONAL) == [
+            "jdbc",
+            "postgresql",
+            "snowflake",
+            "sqlite",
+        ]
         assert registry.of_kind(SourceKind.FILESYSTEM) == ["filesystem"]

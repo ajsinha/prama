@@ -27,6 +27,8 @@ from prama.connect.sources.sql.jdbc import CAPABILITIES as JDBC_CAPABILITIES
 from prama.connect.sources.sql.jdbc import DIALECTS, JdbcConnector
 from prama.connect.sources.sql.postgres import CAPABILITIES as POSTGRES_CAPABILITIES
 from prama.connect.sources.sql.postgres import PostgresConnector
+from prama.connect.sources.sql.snowflake import CAPABILITIES as SNOWFLAKE_CAPABILITIES
+from prama.connect.sources.sql.snowflake import SnowflakeConnector
 from prama.connect.sources.sqlite import CAPABILITIES as SQLITE_CAPABILITIES
 from prama.connect.sources.sqlite import SqliteConnector
 
@@ -353,6 +355,48 @@ JDBC_OVERLAY: dict[str, FieldPresentation] = {
 }
 
 
+SNOWFLAKE_OVERLAY: dict[str, FieldPresentation] = {
+    "account": FieldPresentation(
+        label="Account",
+        help="The account identifier, e.g. xy12345.eu-west-1. Not the URL.",
+        input_kind=InputKind.TEXT,
+        required=True,
+        order=10,
+    ),
+    "user": FieldPresentation(label="User", required=True, order=20),
+    "password": FieldPresentation(
+        label="Password",
+        help="A secret reference, never the password itself — env://SNOWFLAKE_PASSWORD.",
+        input_kind=InputKind.PASSWORD,
+        order=30,
+    ),
+    "role": FieldPresentation(
+        label="Role",
+        help=(
+            "Connect as a role with SELECT and nothing more. Snowflake has no "
+            "session read-only switch, so this is what actually stops Prama "
+            "writing — not the product's good manners."
+        ),
+        order=40,
+    ),
+    "warehouse": FieldPresentation(
+        label="Warehouse",
+        help=(
+            "Which warehouse runs the queries, and therefore whose credits they "
+            "spend. A query with no warehouse has nothing to run on."
+        ),
+        required=True,
+        order=50,
+    ),
+    "database": FieldPresentation(label="Database", required=True, order=60),
+    "schema": FieldPresentation(
+        label="Schema",
+        help="The default for unqualified names. Discovery still sees the others.",
+        order=70,
+    ),
+}
+
+
 BUILTIN: tuple[tuple[type, CapabilityMatrix, dict[str, FieldPresentation]], ...] = (
     (FilesystemConnector, FILESYSTEM_CAPABILITIES, FILESYSTEM_OVERLAY),
     (SqliteConnector, SQLITE_CAPABILITIES, SQLITE_OVERLAY),
@@ -360,6 +404,7 @@ BUILTIN: tuple[tuple[type, CapabilityMatrix, dict[str, FieldPresentation]], ...]
     (ObjectStoreConnector, OBJECTSTORE_CAPABILITIES, OBJECTSTORE_OVERLAY),
     (RestConnector, REST_CAPABILITIES, REST_OVERLAY),
     (JdbcConnector, JDBC_CAPABILITIES, JDBC_OVERLAY),
+    (SnowflakeConnector, SNOWFLAKE_CAPABILITIES, SNOWFLAKE_OVERLAY),
 )
 
 

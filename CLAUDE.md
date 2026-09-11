@@ -197,7 +197,7 @@ can delete.
 ```bash
 uv python install 3.13          # once; lands in ~/.local/share/uv/python, no sudo
 uv venv --python 3.13           # reads .python-version
-uv pip install -e ".[dev,serve,postgres,fast,audit,sso,kafka,rest,jdbc]"
+uv pip install -e ".[dev,serve,postgres,fast,audit,sso,kafka,rest,jdbc,snowflake]"
 ```
 
 The suite passes on 3.13 and on 3.14 — both were run before choosing, and every
