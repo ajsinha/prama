@@ -287,7 +287,7 @@ W4.1 grammar and parser ✅ · W4.2 AST ✅ · W4.3 type checker and resolution 
 W4.4 selector expansion, materialised and versioned ✅ · W4.5 IR model and content addressing ✅ ·
 W4.6 SQL backend and dialect adapters ✅ · W4.7 local evaluator ✅ · W4.8 **conformance corpus and
 reference interpreter** ✅ · W4.9 property-based equivalence testing ✅ · W4.10 cost estimation ✅ ·
-W4.11 linter ✅ · W4.12 formatter ✅ · W4.13 plain-language renderer ✅ · W4.14 LSP ⏳ ·
+W4.11 linter ✅ · W4.12 formatter ✅ · W4.13 plain-language renderer ✅ · W4.14 LSP ✅ (shipped in W9.6: `prama lsp serve`, one analysis behind both editors) ·
 W4.15 importers for SodaCL, Great Expectations and dbt tests ✅ (ODCS quality blocks ⏳).
 
 **Deferred, with the reason.** The language server (W4.14) is editor tooling with no editor to
