@@ -19,10 +19,14 @@ from prama.connect.config_schema import FieldPresentation, InputKind
 from prama.connect.registry import ConnectorRegistry, default_registry
 from prama.connect.sources.filesystem import CAPABILITIES as FILESYSTEM_CAPABILITIES
 from prama.connect.sources.filesystem import FilesystemConnector
+from prama.connect.sources.mongo import CAPABILITIES as MONGO_CAPABILITIES
+from prama.connect.sources.mongo import MongoConnector
 from prama.connect.sources.objectstore import CAPABILITIES as OBJECTSTORE_CAPABILITIES
 from prama.connect.sources.objectstore import ObjectStoreConnector
 from prama.connect.sources.rest import CAPABILITIES as REST_CAPABILITIES
 from prama.connect.sources.rest import RestConnector
+from prama.connect.sources.sql.clickhouse import CAPABILITIES as CLICKHOUSE_CAPABILITIES
+from prama.connect.sources.sql.clickhouse import ClickHouseConnector
 from prama.connect.sources.sql.jdbc import CAPABILITIES as JDBC_CAPABILITIES
 from prama.connect.sources.sql.jdbc import DIALECTS, JdbcConnector
 from prama.connect.sources.sql.postgres import CAPABILITIES as POSTGRES_CAPABILITIES
@@ -397,6 +401,60 @@ SNOWFLAKE_OVERLAY: dict[str, FieldPresentation] = {
 }
 
 
+CLICKHOUSE_OVERLAY: dict[str, FieldPresentation] = {
+    "host": FieldPresentation(label="Host", required=True, order=10),
+    "port": FieldPresentation(label="Port", help="8123 for HTTP, 8443 for HTTPS.", order=20),
+    "database": FieldPresentation(label="Database", required=True, order=30),
+    "user": FieldPresentation(label="User", order=40),
+    "password": FieldPresentation(
+        label="Password",
+        help="A secret reference, never the password itself — env://CLICKHOUSE_PASSWORD.",
+        input_kind=InputKind.PASSWORD,
+        order=50,
+    ),
+    "secure": FieldPresentation(
+        label="TLS", help="Use HTTPS. On for anything not on a private network.", order=60
+    ),
+}
+
+
+MONGO_OVERLAY: dict[str, FieldPresentation] = {
+    "host": FieldPresentation(label="Host", order=10),
+    "port": FieldPresentation(label="Port", order=20),
+    "database": FieldPresentation(
+        label="Database",
+        help=(
+            "Which database. A deployment holds several and Prama will not pick "
+            "one — an estate declared against the wrong database is worse than "
+            "one that failed to connect."
+        ),
+        required=True,
+        order=30,
+    ),
+    "user": FieldPresentation(label="User", order=40),
+    "password": FieldPresentation(
+        label="Password",
+        help="A secret reference, never the password itself — env://MONGO_PASSWORD.",
+        input_kind=InputKind.PASSWORD,
+        order=50,
+    ),
+    "auth_source": FieldPresentation(
+        label="Auth database",
+        help="Where the user is defined, usually `admin` rather than the data database.",
+        order=60,
+    ),
+    "schema_sample_documents": FieldPresentation(
+        label="Schema sample",
+        help=(
+            "How many documents the inferred schema is taken from. The count is "
+            "reported with it: 'no document has this field' and 'none of the two "
+            "hundred I looked at' are different claims."
+        ),
+        order=70,
+    ),
+}
+
+
 BUILTIN: tuple[tuple[type, CapabilityMatrix, dict[str, FieldPresentation]], ...] = (
     (FilesystemConnector, FILESYSTEM_CAPABILITIES, FILESYSTEM_OVERLAY),
     (SqliteConnector, SQLITE_CAPABILITIES, SQLITE_OVERLAY),
@@ -405,6 +463,8 @@ BUILTIN: tuple[tuple[type, CapabilityMatrix, dict[str, FieldPresentation]], ...]
     (RestConnector, REST_CAPABILITIES, REST_OVERLAY),
     (JdbcConnector, JDBC_CAPABILITIES, JDBC_OVERLAY),
     (SnowflakeConnector, SNOWFLAKE_CAPABILITIES, SNOWFLAKE_OVERLAY),
+    (ClickHouseConnector, CLICKHOUSE_CAPABILITIES, CLICKHOUSE_OVERLAY),
+    (MongoConnector, MONGO_CAPABILITIES, MONGO_OVERLAY),
 )
 
 

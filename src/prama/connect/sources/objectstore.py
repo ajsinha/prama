@@ -43,6 +43,7 @@ from prama.connect.spi import (
     SnapshotKind,
     SourceKind,
     UnauthorisedError,
+    Verification,
 )
 from prama.core.clock import utc_now
 from prama.core.log import get_logger
@@ -118,6 +119,7 @@ class ObjectStoreConnector(Connector):
                 "objects as tables, so a partitioned table stays one dataset instead "
                 "of becoming a thousand. Read-only: nothing is ever written back."
             ),
+            verification=Verification.VERIFIED,
         )
 
     def __init__(self, config: dict[str, Any], **kwargs: Any) -> None:

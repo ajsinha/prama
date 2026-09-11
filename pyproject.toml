@@ -70,6 +70,10 @@ jdbc = ["JayDeBeApi>=1.2", "JPype1>=1.5"]
 # in prama/connect/sources/sql/snowflake.py, which says so and is asserted by a
 # test so it cannot quietly become a claim.
 snowflake = ["snowflake-connector-python>=3.12"]
+# ClickHouse, over its HTTP interface. Verified against ClickHouse 24.8.
+clickhouse = ["clickhouse-connect>=0.8"]
+# MongoDB. Verified against MongoDB 7.
+mongo = ["motor>=3.6", "pymongo>=4.9"]
 
 [project.scripts]
 prama = "prama.cli.main:main"

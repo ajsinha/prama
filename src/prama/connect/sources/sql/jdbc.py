@@ -60,7 +60,7 @@ from typing import Any
 
 from prama.connect.sources.sql.base import SqlConnector
 from prama.connect.sources.sql.dialect import GenericSqlDialect, SqlDialect
-from prama.connect.spi import ConnectorError, SourceKind
+from prama.connect.spi import ConnectorError, SourceKind, Verification
 from prama.core.concurrency import DedicatedThread
 from prama.core.registry import PluginManifest
 
@@ -80,11 +80,16 @@ def _dialects() -> dict[str, SqlDialect]:
     here — a second list would name a dialect that had been renamed.
     """
     from prama.connect.sources.sql.dialects import (
+        BigQueryDialect,
+        DatabricksDialect,
         Db2Dialect,
         MySqlDialect,
         OracleDialect,
+        RedshiftDialect,
         SqlServerDialect,
+        SynapseDialect,
         TeradataDialect,
+        TrinoDialect,
     )
     from prama.connect.sources.sql.postgres import PostgresDialect
 
@@ -96,6 +101,11 @@ def _dialects() -> dict[str, SqlDialect]:
         "sqlserver": SqlServerDialect(),
         "db2": Db2Dialect(),
         "teradata": TeradataDialect(),
+        "redshift": RedshiftDialect(),
+        "databricks": DatabricksDialect(),
+        "synapse": SynapseDialect(),
+        "trino": TrinoDialect(),
+        "bigquery": BigQueryDialect(),
     }
     return known
 
@@ -126,6 +136,7 @@ class JdbcConnector(SqlConnector):
                 "Prama does not redistribute one. Exact decimals arrive as decimals, "
                 "which the usual Python JDBC bridge does not manage."
             ),
+            verification=Verification.VERIFIED,
         )
 
     def __init__(self, config: dict[str, Any], **kwargs: Any) -> None:

@@ -48,11 +48,16 @@ from prama.connect.sources.sql.dialect import SqlDialect
 from prama.connect.spi import SamplePlan, SamplingStrategy, SnapshotKind
 
 __all__ = [
+    "BigQueryDialect",
+    "DatabricksDialect",
     "Db2Dialect",
     "MySqlDialect",
     "OracleDialect",
+    "RedshiftDialect",
     "SqlServerDialect",
+    "SynapseDialect",
     "TeradataDialect",
+    "TrinoDialect",
 ]
 
 #: What a mature relational engine can be asked to do. Narrower than a
@@ -475,3 +480,243 @@ class MySqlDialect(_JdbcDialect):
             "SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED",
             f"SET SESSION MAX_EXECUTION_TIME = {max(1, statement_timeout_ms)}",
         )
+
+
+# -- the cloud warehouses --------------------------------------------------
+#
+# None of these has been run. Each is reachable over JDBC with the vendor's own
+# driver, which is why they are dialects rather than connectors — and why the
+# risk is confined to SQL rather than to connection handling, threading and
+# type fidelity, which are shared and exercised.
+
+
+class RedshiftDialect(_JdbcDialect):
+    """Amazon Redshift. **Never run against a Redshift.**
+
+    Redshift speaks the PostgreSQL wire protocol and diverged from it years
+    ago, which is the trap: a PostgreSQL dialect connects, answers most things,
+    and is wrong in the places that matter. `pg_stat` is not there,
+    `information_schema` is incomplete for external tables, and the row
+    estimate lives in `svv_table_info` rather than in `pg_class.reltuples`.
+    """
+
+    name = "redshift"
+    #: Redshift has no LSN a reader can name and return to.
+    snapshot_kind = SnapshotKind.WALL_CLOCK
+
+    def describe_sql(self) -> str:
+        return f"""
+            SELECT column_name, lower(data_type),
+                   is_nullable = 'YES', ordinal_position, '',
+                   numeric_precision, numeric_scale
+            FROM information_schema.columns
+            WHERE table_schema = {self.placeholder(1)}
+              AND table_name = {self.placeholder(2)}
+            ORDER BY ordinal_position
+        """
+
+    def select_sql(self, path: tuple[str, ...], plan: SamplePlan, limit: int, offset: int) -> str:
+        base = (
+            f"SELECT * FROM {self.qualify(path)}"
+            if plan.strategy in (SamplingStrategy.FULL, SamplingStrategy.HEAD)
+            else self.sample_from(path, plan)
+        )
+        return f"{base} LIMIT {limit} OFFSET {offset}"
+
+    def list_objects_sql(self, *, include_views: bool) -> str:
+        kinds = "'BASE TABLE','VIEW'" if include_views else "'BASE TABLE'"
+        return f"""
+            SELECT t.table_schema, t.table_name,
+                   CASE t.table_type WHEN 'VIEW' THEN 'view' ELSE 'table' END,
+                   i.tbl_rows, i.size * 1024 * 1024, ''
+            FROM information_schema.tables t
+            LEFT JOIN svv_table_info i
+              ON i.schema = t.table_schema AND i.table = t.table_name
+            WHERE t.table_type IN ({kinds})
+              AND t.table_schema NOT IN ('pg_catalog','information_schema')
+            ORDER BY i.size DESC NULLS LAST
+        """
+
+    def estimate_rows_sql(self) -> str | None:
+        """`svv_table_info`, not `pg_class.reltuples`.
+
+        The PostgreSQL column exists on Redshift and is not maintained, so a
+        dialect that inherited it would report zero for every table and look
+        like an empty warehouse.
+        """
+        return f"""
+            SELECT tbl_rows FROM svv_table_info
+            WHERE schema = {self.placeholder(1)} AND "table" = {self.placeholder(2)}
+        """
+
+
+class DatabricksDialect(_JdbcDialect):
+    """Databricks SQL warehouses and Unity Catalog. **Never run against one.**
+
+    Three-level naming — catalog, schema, table — where everything else here is
+    two. The connector's path carries it, and a dialect that assumed two would
+    address the wrong table in the default catalogue rather than failing.
+    """
+
+    name = "databricks"
+    #: Delta keeps versions, so a read can name one and return to it.
+    snapshot_kind = SnapshotKind.DELTA_VERSION
+    has_native_sampling = True
+
+    def quote(self, identifier: str) -> str:
+        return "`" + identifier.replace("`", "``") + "`"
+
+    def list_objects_sql(self, *, include_views: bool) -> str:
+        kinds = "'MANAGED','EXTERNAL','VIEW'" if include_views else "'MANAGED','EXTERNAL'"
+        return f"""
+            SELECT table_schema, table_name,
+                   CASE table_type WHEN 'VIEW' THEN 'view' ELSE 'table' END,
+                   NULL, NULL, COALESCE(comment, '')
+            FROM system.information_schema.tables
+            WHERE table_type IN ({kinds})
+              AND table_schema <> 'information_schema'
+        """
+
+    def describe_sql(self) -> str:
+        return f"""
+            SELECT column_name, lower(full_data_type),
+                   is_nullable = 'YES', ordinal_position,
+                   COALESCE(comment, ''), numeric_precision, numeric_scale
+            FROM system.information_schema.columns
+            WHERE table_schema = {self.placeholder(1)}
+              AND table_name = {self.placeholder(2)}
+            ORDER BY ordinal_position
+        """
+
+    def estimate_rows_sql(self) -> str | None:
+        """None. Unity Catalog does not keep a row count a query can read.
+
+        `None` is the honest answer and the base connector reports "unknown"
+        rather than running `count(*)` across a warehouse somebody pays for by
+        the second.
+        """
+        return None
+
+    def sample_from(self, path: tuple[str, ...], plan: SamplePlan) -> str:
+        table = self.qualify(path)
+        if plan.fraction is not None:
+            return f"SELECT * FROM {table} TABLESAMPLE ({plan.fraction * 100:g} PERCENT)"
+        if plan.rows is not None:
+            return f"SELECT * FROM {table} TABLESAMPLE ({plan.rows} ROWS)"
+        return f"SELECT * FROM {table}"
+
+
+class SynapseDialect(SqlServerDialect):
+    """Azure Synapse dedicated SQL pools. **Never run against a Synapse.**
+
+    SQL Server's dialect with two things removed. Synapse has no
+    `MIN_ACTIVE_ROWVERSION`, and `TABLESAMPLE` is not supported on a
+    distributed table — claiming either would produce SQL the pool rejects.
+    """
+
+    name = "synapse"
+    snapshot_kind = SnapshotKind.WALL_CLOCK
+    has_native_sampling = False
+
+    def snapshot_sql(self) -> str | None:
+        return None
+
+    def sample_from(self, path: tuple[str, ...], plan: SamplePlan) -> str:  # noqa: ARG002
+        return f"SELECT * FROM {self.qualify(path)}"
+
+
+class TrinoDialect(_JdbcDialect):
+    """Trino and Starburst. **Never run against a Trino.**
+
+    A query engine rather than a store, so `information_schema` is per catalog
+    and the row count depends on whichever connector Trino itself is using.
+    Asking for one would be asking a federation layer to guess.
+    """
+
+    name = "trino"
+    snapshot_kind = SnapshotKind.WALL_CLOCK
+    has_native_sampling = True
+
+    def list_objects_sql(self, *, include_views: bool) -> str:
+        kinds = "'BASE TABLE','VIEW'" if include_views else "'BASE TABLE'"
+        return f"""
+            SELECT table_schema, table_name,
+                   CASE table_type WHEN 'VIEW' THEN 'view' ELSE 'table' END,
+                   NULL, NULL, ''
+            FROM information_schema.tables
+            WHERE table_type IN ({kinds})
+              AND table_schema <> 'information_schema'
+        """
+
+    def describe_sql(self) -> str:
+        return f"""
+            SELECT column_name, lower(data_type),
+                   is_nullable = 'YES', ordinal_position,
+                   COALESCE(comment, ''), NULL, NULL
+            FROM information_schema.columns
+            WHERE table_schema = {self.placeholder(1)}
+              AND table_name = {self.placeholder(2)}
+            ORDER BY ordinal_position
+        """
+
+    def estimate_rows_sql(self) -> str | None:
+        """None: Trino federates, and the count belongs to whatever is
+        underneath. A number invented here would be a guess about somebody
+        else's storage."""
+        return None
+
+    def sample_from(self, path: tuple[str, ...], plan: SamplePlan) -> str:
+        table = self.qualify(path)
+        if plan.fraction is not None:
+            return f"SELECT * FROM {table} TABLESAMPLE BERNOULLI ({plan.fraction * 100:g})"
+        return f"SELECT * FROM {table}"
+
+
+class BigQueryDialect(_JdbcDialect):
+    """Google BigQuery. **Never run against a BigQuery.**
+
+    Backticked three-part names, and a cost model where the unit billed is
+    *bytes scanned* rather than time. That makes `SELECT *` on a wide table the
+    expensive operation rather than the slow one, which is the opposite of
+    every row store here — and the reason its row estimate comes from
+    `__TABLES__`, which is free.
+    """
+
+    name = "bigquery"
+    snapshot_kind = SnapshotKind.WALL_CLOCK
+    has_native_sampling = True
+
+    def quote(self, identifier: str) -> str:
+        return "`" + identifier.replace("`", "\\`") + "`"
+
+    def list_objects_sql(self, *, include_views: bool) -> str:
+        kinds = "'BASE TABLE','VIEW'" if include_views else "'BASE TABLE'"
+        return f"""
+            SELECT table_schema, table_name,
+                   CASE table_type WHEN 'VIEW' THEN 'view' ELSE 'table' END,
+                   NULL, NULL, ''
+            FROM INFORMATION_SCHEMA.TABLES
+            WHERE table_type IN ({kinds})
+        """
+
+    def describe_sql(self) -> str:
+        return f"""
+            SELECT column_name, lower(data_type),
+                   is_nullable = 'YES', ordinal_position, '', NULL, NULL
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE table_schema = {self.placeholder(1)}
+              AND table_name = {self.placeholder(2)}
+            ORDER BY ordinal_position
+        """
+
+    def estimate_rows_sql(self) -> str | None:
+        return f"""
+            SELECT row_count FROM __TABLES__
+            WHERE dataset_id = {self.placeholder(1)} AND table_id = {self.placeholder(2)}
+        """
+
+    def sample_from(self, path: tuple[str, ...], plan: SamplePlan) -> str:
+        table = self.qualify(path)
+        if plan.fraction is not None:
+            return f"SELECT * FROM {table} TABLESAMPLE SYSTEM ({plan.fraction * 100:g} PERCENT)"
+        return f"SELECT * FROM {table}"

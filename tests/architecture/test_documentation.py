@@ -11,6 +11,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+import ast
 import re
 from pathlib import Path
 
@@ -36,6 +37,48 @@ def relative(path: Path) -> str:
     return str(path.relative_to(ROOT))
 
 
+def _resolves(reference: str) -> bool:
+    """Whether a dotted name is a module, a package, or a name defined in one.
+
+    Documents legitimately name classes — `prama.connect.spi.Verification` — and
+    an earlier version of this check could only see modules, so naming a class
+    failed as though it did not exist. Resolved by parsing rather than
+    importing: a test that imported every module a document mentions would run
+    arbitrary import side effects to check a piece of prose.
+    """
+    parts = reference.split(".")
+    for candidate in (
+        ROOT / "src" / Path(*parts).with_suffix(".py"),
+        ROOT / "src" / Path(*parts),
+    ):
+        if candidate.exists():
+            return True
+    if len(parts) < 2:
+        return False
+    # The last segment may be a name defined in the module before it.
+    *module_parts, attribute = parts
+    module = ROOT / "src" / Path(*module_parts).with_suffix(".py")
+    if not module.exists():
+        return False
+    tree = ast.parse(module.read_text(encoding="utf-8"))
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
+            if node.name == attribute:
+                return True
+        elif isinstance(node, ast.Assign):
+            if any(
+                isinstance(target, ast.Name) and target.id == attribute for target in node.targets
+            ):
+                return True
+        elif (
+            isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and node.target.id == attribute
+        ):
+            return True
+    return False
+
+
 @pytest.mark.parametrize("document", DOCUMENTS, ids=relative)
 class TestEveryReferenceResolves:
     def test_referenced_paths_exist(self, document: Path) -> None:
@@ -50,17 +93,13 @@ class TestEveryReferenceResolves:
         )
 
     def test_referenced_modules_exist(self, document: Path) -> None:
-        missing = []
-        for reference in MODULE_REF.findall(document.read_text(encoding="utf-8")):
-            parts = reference.split(".")
-            candidates = (
-                ROOT / "src" / Path(*parts).with_suffix(".py"),
-                ROOT / "src" / Path(*parts),
-            )
-            if not any(candidate.exists() for candidate in candidates):
-                missing.append(reference)
+        missing = [
+            reference
+            for reference in MODULE_REF.findall(document.read_text(encoding="utf-8"))
+            if not _resolves(reference)
+        ]
         assert not missing, (
-            f"{relative(document)} names {missing}, which are not modules. This is "
+            f"{relative(document)} names {missing}, which do not exist. This is "
             "the drift that put `prama.pql.grammar` and `prama.stream` in the "
             "roadmap for two waves."
         )

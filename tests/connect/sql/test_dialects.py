@@ -26,17 +26,35 @@ import shutil
 import pytest
 
 from prama.connect.sources.sql.dialects import (
+    BigQueryDialect,
+    DatabricksDialect,
     Db2Dialect,
     MySqlDialect,
     OracleDialect,
+    RedshiftDialect,
     SqlServerDialect,
+    SynapseDialect,
     TeradataDialect,
+    TrinoDialect,
 )
 from prama.connect.sources.sql.jdbc import DIALECTS
 from prama.connect.spi import SamplePlan, SamplingStrategy
 
-ALL = [OracleDialect(), SqlServerDialect(), Db2Dialect(), TeradataDialect(), MySqlDialect()]
-UNVERIFIED = [OracleDialect(), SqlServerDialect(), Db2Dialect(), TeradataDialect()]
+#: Every dialect the JDBC transport carries. MySQL has been run; the rest are
+#: code complete.
+ALL = [
+    OracleDialect(),
+    SqlServerDialect(),
+    Db2Dialect(),
+    TeradataDialect(),
+    MySqlDialect(),
+    RedshiftDialect(),
+    DatabricksDialect(),
+    SynapseDialect(),
+    TrinoDialect(),
+    BigQueryDialect(),
+]
+UNVERIFIED = [d for d in ALL if d.name != "mysql"]
 
 URL = os.environ.get("PRAMA_TEST_MYSQL_JDBC_URL", "")
 DRIVER = os.environ.get("PRAMA_TEST_MYSQL_DRIVER_PATH", "")
@@ -73,11 +91,23 @@ class TestEveryDialectIsReachable:
     @pytest.mark.parametrize("dialect", ALL, ids=ident)
     def test_a_quoted_identifier_survives_its_own_delimiter(self, dialect) -> None:
         """Object names come from a catalogue a customer controls and reach a
-        query string. This is the boundary that keeps them inert."""
-        nasty = {"sqlserver": "a]b", "mysql": "a`b"}.get(dialect.name, 'a"b')
+        query string. This is the boundary that keeps them inert.
+
+        The closing delimiter is *derived* from the dialect rather than looked
+        up — a table of "which dialect uses which quote" is a second source of
+        truth, and it broke the moment three more dialects arrived.
+        """
+        plain = dialect.quote("x")
+        closing = plain[-1]
+        nasty = f"a{closing}b"
         quoted = dialect.quote(nasty)
-        assert quoted.startswith(("'", '"', "[", "`"))
-        assert nasty not in quoted[1:-1] or quoted[1:-1] != nasty
+        assert quoted.startswith(plain[0]) and quoted.endswith(closing)
+        # The embedded delimiter must have been escaped somehow — doubled or
+        # backslashed — so the quoted form is longer than a naive wrap.
+        assert len(quoted) > len(nasty) + 2, (
+            f"{dialect.name} wrapped {nasty!r} as {quoted!r} without escaping "
+            "its own delimiter, so the name terminates the quote early"
+        )
 
 
 class TestTheUnverifiedOnesSaySo:
@@ -116,11 +146,31 @@ class TestCostIsADesignConstraint:
     @pytest.mark.parametrize("dialect", ALL, ids=ident)
     def test_row_estimates_never_scan(self, dialect) -> None:
         """`count(*)` on a Teradata fact table is a conversation with the
-        platform team. Every one of these keeps an approximate count in its
-        catalogue, free."""
+        platform team, and on BigQuery it is a bill.
+
+        `None` is an accepted answer and a better one than a count: Databricks
+        and Trino genuinely cannot say without scanning, and the base connector
+        then reports "unknown" rather than buying a number nobody asked for.
+        """
         sql = dialect.estimate_rows_sql()
-        assert sql is not None
+        if sql is None:
+            return
         assert "count(*)" not in sql.lower()
+
+    def test_the_ones_that_cannot_estimate_say_none_rather_than_guessing(self) -> None:
+        """Unity Catalog keeps no readable row count, and Trino federates — the
+        count belongs to whatever is underneath it."""
+        assert DatabricksDialect().estimate_rows_sql() is None
+        assert TrinoDialect().estimate_rows_sql() is None
+
+    def test_redshift_does_not_inherit_postgres_row_counts(self) -> None:
+        """Redshift speaks the PostgreSQL wire protocol and diverged years ago.
+        `pg_class.reltuples` exists there and is not maintained, so a dialect
+        that inherited it would report zero for every table and look like an
+        empty warehouse."""
+        sql = RedshiftDialect().estimate_rows_sql() or ""
+        assert "svv_table_info" in sql
+        assert "reltuples" not in sql
 
     @pytest.mark.parametrize("dialect", ALL, ids=ident)
     def test_discovery_never_scans(self, dialect) -> None:
@@ -165,6 +215,16 @@ class TestSamplingIsOnlyClaimedWhereItExists:
         assert "SAMPLE (10)" in OracleDialect().sample_from(("S", "t"), plan)
         assert "TABLESAMPLE (10 PERCENT)" in SqlServerDialect().sample_from(("S", "t"), plan)
         assert "SAMPLE 0.1" in TeradataDialect().sample_from(("S", "t"), plan)
+
+    def test_synapse_drops_what_sql_server_has(self) -> None:
+        """Synapse is SQL Server with two things removed: no
+        MIN_ACTIVE_ROWVERSION, and TABLESAMPLE is not supported on a
+        distributed table. Inheriting either would emit SQL the pool rejects."""
+        assert SynapseDialect().snapshot_sql() is None
+        assert not SynapseDialect().has_native_sampling
+        assert "TABLESAMPLE" not in SynapseDialect().sample_from(
+            ("S", "t"), SamplePlan(strategy=SamplingStrategy.RESERVOIR, fraction=0.1)
+        )
 
     def test_db2_and_mysql_do_not_claim_native_sampling(self) -> None:
         """The base connector then reports the result as approximate rather
@@ -269,36 +329,28 @@ class TestAValueTooBigForItsNaturalType:
     """
 
     def test_an_ordinary_column_still_infers(self) -> None:
-        import pyarrow as pa
+        from prama.connect.arrow import to_array
 
-        from prama.connect.sources.sql.base import _as_arrow
-
-        assert _as_arrow(pa, [1, 2, 3]).to_pylist() == [1, 2, 3]
+        assert to_array([1, 2, 3]).to_pylist() == [1, 2, 3]
 
     def test_an_unsigned_bigint_becomes_uint64_not_an_error(self) -> None:
-        import pyarrow as pa
+        from prama.connect.arrow import to_array
 
-        from prama.connect.sources.sql.base import _as_arrow
-
-        array = _as_arrow(pa, [18446744073709551615, 1])
+        array = to_array([18446744073709551615, 1])
         assert array.to_pylist() == [18446744073709551615, 1]
 
     def test_a_value_beyond_every_integer_type_becomes_a_string(self) -> None:
         """Deliberately not a float. A float makes the read succeed and the
         number wrong, which is the failure this connector tree exists to
         prevent; a string is visibly a string and the value survives."""
-        import pyarrow as pa
-
-        from prama.connect.sources.sql.base import _as_arrow
+        from prama.connect.arrow import to_array
 
         enormous = 10**40
-        array = _as_arrow(pa, [enormous])
+        array = to_array([enormous])
         assert array.to_pylist() == [str(enormous)]
         assert str(array.type) == "string"
 
     def test_nulls_survive_the_fallback(self) -> None:
-        import pyarrow as pa
+        from prama.connect.arrow import to_array
 
-        from prama.connect.sources.sql.base import _as_arrow
-
-        assert _as_arrow(pa, [10**40, None]).to_pylist() == [str(10**40), None]
+        assert to_array([10**40, None]).to_pylist() == [str(10**40), None]

@@ -145,8 +145,10 @@ class TestRegistry:
         registry = register_builtin(ConnectorRegistry())
         catalogue = {entry["key"]: entry for entry in registry.catalogue()}
         assert set(catalogue) == {
+            "clickhouse",
             "filesystem",
             "jdbc",
+            "mongodb",
             "objectstore",
             "postgresql",
             "rest",
@@ -195,6 +197,7 @@ class TestRegistry:
 
         registry = register_builtin(ConnectorRegistry())
         assert registry.of_kind(SourceKind.RELATIONAL) == [
+            "clickhouse",
             "jdbc",
             "postgresql",
             "snowflake",

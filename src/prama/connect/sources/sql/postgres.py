@@ -33,6 +33,7 @@ from prama.connect.spi import (
     SamplePlan,
     SamplingStrategy,
     SnapshotKind,
+    Verification,
 )
 from prama.core.registry import PluginManifest
 
@@ -183,6 +184,7 @@ class PostgresConnector(SqlConnector):
                 "and every statement carries a timeout, so pointing Prama at production "
                 "cannot alter it and cannot pin it."
             ),
+            verification=Verification.VERIFIED,
         )
 
     def __init__(self, config: dict[str, Any], **kwargs: Any) -> None:
