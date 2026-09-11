@@ -288,7 +288,7 @@ W4.4 selector expansion, materialised and versioned ✅ · W4.5 IR model and con
 W4.6 SQL backend and dialect adapters ✅ · W4.7 local evaluator ✅ · W4.8 **conformance corpus and
 reference interpreter** ✅ · W4.9 property-based equivalence testing ✅ · W4.10 cost estimation ✅ ·
 W4.11 linter ✅ · W4.12 formatter ✅ · W4.13 plain-language renderer ✅ · W4.14 LSP ✅ (shipped in W9.6: `prama lsp serve`, one analysis behind both editors) ·
-W4.15 importers for SodaCL, Great Expectations and dbt tests ✅ (ODCS quality blocks ⏳).
+W4.15 importers for SodaCL, Great Expectations and dbt tests ✅ (ODCS quality blocks ✅ — library rules become PQL with their thresholds intact; text, raw SQL and unknown engines refused by name, Soda/GE/dbt blocks routed to the importer that already handles them).
 
 **Deferred, with the reason.** The language server (W4.14) is editor tooling with no editor to
 serve until the UI arrives in Wave 9, and `prama control check` and `control format` already give
