@@ -11,6 +11,7 @@ from prama.integrate.catalog import (
     WriteReport,
     badges_from,
 )
+from prama.integrate.controller import Controller, MemoryCluster
 from prama.integrate.operator import Plan, Step, Verb, plan
 from prama.integrate.vendors import AlationTarget, CollibraTarget, DataHubTarget
 
@@ -19,7 +20,9 @@ __all__ = [
     "Badge",
     "CatalogTarget",
     "CollibraTarget",
+    "Controller",
     "DataHubTarget",
+    "MemoryCluster",
     "Plan",
     "RecordingTarget",
     "Standing",
