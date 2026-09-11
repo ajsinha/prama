@@ -808,19 +808,19 @@ W11.12 ✅ purity enforcement and implementation hashing · W11.13 ✅ pushdown 
 
 ### Acceptance criteria
 
-- [ ] **No function exists without both a lowering and a reference implementation.** Enforced by
+- [x] **No function exists without both a lowering and a reference implementation.** Enforced by
       test, not convention.
-- [ ] Every catalogued function agrees between SQL and the reference interpreter on the conformance
+- [x] Every catalogued function agrees between SQL and the reference interpreter on the conformance
       corpus, on every engine that claims it.
-- [ ] An unknown function name is refused at type-check time, naming the ones that exist.
-- [ ] A function an engine cannot express is **refused**, never approximated.
-- [ ] Every divergence from Excel is declared on the function and printed by `control explain`.
-- [ ] A volatile function (`NOW`, `RAND`, `INDIRECT`) is refused with the reason: a control must
+- [x] An unknown function name is refused at type-check time, naming the ones that exist.
+- [x] A function an engine cannot express is **refused**, never approximated.
+- [x] Every divergence from Excel is declared on the function and printed by `control explain`.
+- [x] A volatile function (`NOW`, `RAND`, `INDIRECT`) is refused with the reason: a control must
       replay.
-- [ ] A validator plugin's implementation hash is part of the plan id: editing the code changes the
+- [x] A validator plugin's implementation hash is part of the plan id: editing the code changes the
       control's identity rather than silently changing what past evidence meant.
-- [ ] A plugin that imports a clock, a socket or a model is refused at registration.
-- [ ] ≥ 90% of the catalogue pushes down on PostgreSQL and DuckDB.
+- [x] A plugin that imports a clock, a socket or a model is refused at registration.
+- [x] ≥ 90% of the catalogue pushes down on PostgreSQL and DuckDB.
 
 **Demo.** A business owner writes `SATISFIES EXCEL '=AND([quantity]>0, [notional]=[quantity]*[price])'`,
 sees the SQL it becomes, and sees the one place it differs from what Excel would do — stated on the
