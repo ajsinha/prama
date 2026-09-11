@@ -58,6 +58,7 @@ from prama.connect.spi import (
     SourceKind,
     UnauthorisedError,
     UnreachableError,
+    Verification,
 )
 from prama.core.clock import utc_now
 from prama.core.registry import PluginManifest
@@ -99,6 +100,7 @@ class RestConnector(Connector):
                 "when a page cap stopped it; reports its snapshot as inexact, "
                 "because rows change between the first page and the last."
             ),
+            verification=Verification.VERIFIED,
         )
 
     def __init__(self, config: dict[str, Any], **kwargs: Any) -> None:

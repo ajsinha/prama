@@ -40,7 +40,7 @@ from typing import Any
 from prama.connect.capability import CapabilityMatrix, PushdownFeature
 from prama.connect.sources.sql.base import SqlConnector
 from prama.connect.sources.sql.dialect import SqlDialect
-from prama.connect.spi import ConnectorError, SamplePlan, SnapshotKind
+from prama.connect.spi import ConnectorError, SamplePlan, SnapshotKind, Verification
 from prama.core.concurrency import DedicatedThread
 from prama.core.registry import PluginManifest
 
@@ -180,6 +180,7 @@ class SnowflakeConnector(SqlConnector):
                 "Time Travel gives a genuinely exact snapshot. NOT YET VERIFIED "
                 "against a real account."
             ),
+            verification=Verification.CODE_COMPLETE,
         )
 
     def __init__(self, config: dict[str, Any], **kwargs: Any) -> None:

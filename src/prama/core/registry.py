@@ -62,6 +62,10 @@ class PluginManifest:
     description: str = ""
     vendor: str = ""
     conformance_suite: str = ""
+    #: How far this has been proven against the real thing. See
+    #: :class:`prama.connect.spi.Verification`; a plugin that does not say is
+    #: treated as unproven, because the safe default is the weaker claim.
+    verification: str = "code_complete"
 
     def has(self, capability: str) -> bool:
         return any(c.name == capability for c in self.capabilities)

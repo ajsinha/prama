@@ -35,6 +35,7 @@ from prama.connect.spi import (
     Snapshot,
     SnapshotKind,
     SourceKind,
+    Verification,
 )
 from prama.core.clock import utc_now
 from prama.core.registry import PluginManifest
@@ -94,6 +95,7 @@ class FilesystemConnector(Connector):
                 "inference, Parquet, and JSON, and reports arrival time and content "
                 "digest so feed controls have something to check."
             ),
+            verification=Verification.VERIFIED,
         )
 
     def __init__(self, config: dict[str, Any], **kwargs: Any) -> None:

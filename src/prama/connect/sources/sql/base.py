@@ -23,6 +23,7 @@ from abc import abstractmethod
 from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Any
 
+from prama.connect.arrow import to_array
 from prama.connect.pacing import LoadPacer
 from prama.connect.sources.sql.dialect import SqlDialect
 from prama.connect.spi import (
@@ -253,7 +254,7 @@ class SqlConnector(Connector):
             names = self._column_names()
             columns = list(zip(*chunk, strict=True))
             batch = pa.RecordBatch.from_arrays(
-                [_as_arrow(pa, list(column)) for column in columns], names=list(names)
+                [to_array(list(column)) for column in columns], names=list(names)
             )
             budget.consume(batch.nbytes)
             rows_seen += batch.num_rows
@@ -381,32 +382,6 @@ class SqlConnector(Connector):
                 remedy=("Add it to the connection's allowed paths, or read a permitted object."),
                 context={"object": ".".join(path)},
             )
-
-
-def _as_arrow(pa: Any, values: list[Any]) -> Any:
-    """One column as an Arrow array, without losing a value to its type.
-
-    Arrow infers int64 for whole numbers, and MySQL's unsigned BIGINT goes past
-    it — 18446744073709551615 is a real identifier, and inference raised
-    `OverflowError` rather than producing anything. Three steps, in order of
-    how much they preserve:
-
-    1. Let Arrow infer, which is right almost always.
-    2. Try uint64, which covers the unsigned-integer case exactly.
-    3. Fall back to the values' own decimal strings.
-
-    The third is deliberately *not* float. A float would make the read succeed
-    and the number wrong, which is the failure this whole connector tree is
-    built to avoid; a string is visibly a string and the value survives intact.
-    """
-    try:
-        return pa.array(values)
-    except (pa.ArrowInvalid, OverflowError):
-        pass
-    try:
-        return pa.array(values, type=pa.uint64())
-    except (pa.ArrowInvalid, OverflowError, TypeError):
-        return pa.array([None if v is None else str(v) for v in values], type=pa.string())
 
 
 class _Budget:

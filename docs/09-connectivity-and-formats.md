@@ -26,11 +26,26 @@ file feeds that arrive by SFTP at 04:00. Prama's differentiation in regulated in
 See §16.1 for catalogue write-back and §4.1 of `docs/12` for the message
 formats, each of which states its own position rather than being summarised here.
 
-Connectors: **eight of eight written, seven verified.**
+### Verified, and code complete
 
-Verified against the real thing: filesystem, SQLite, PostgreSQL, object store,
-Kafka against a live broker, REST against a real HTTP server, and JDBC against
-PostgreSQL over the pgjdbc driver on Java 25.
+Two words, used precisely throughout. **Verified** means this repository's test
+suite exercised it against the real product — a live server, broker or account.
+**Code complete** means written, reviewed, typed and unit-tested, with nothing
+having answered it.
+
+The distinction is declared on the connector itself
+(`prama.connect.spi.Verification`), not in prose, and it travels into the source
+picker so a person choosing a source sees which they are getting. The default is
+the weaker claim: a connector that forgets to say is one nobody has run. A
+connector claiming VERIFIED must name the test that proves it, and
+`tests/connect/test_conformance.py` checks that test exists.
+
+Connectors: **nine written, eight verified.**
+
+Verified against the real thing: filesystem, SQLite, PostgreSQL, object store
+(MinIO), REST (a real HTTP server), JDBC (PostgreSQL over pgjdbc on Java 25),
+ClickHouse 24.8, MongoDB 7, and Kafka as a stream transport against a live
+broker.
 
 **Snowflake is written and has never met an account.** Its dialect, its
 refusals and its cost decisions are tested; a warehouse has answered none of it.
@@ -52,10 +67,23 @@ database is a catalogue query, a snapshot expression and a quoting rule, not
 another copy of health, discovery, paging and budgeting with its own subtly
 different idea of what a sample is.
 
-**MySQL is verified** — against MySQL 8.4 over Connector/J. The other four are
-written from documented behaviour and **no Oracle, SQL Server, DB2 or Teradata
-has answered them**; each says so in its own docstring and a test asserts it
-still does.
+**Twelve dialects, one verified.** MySQL has been run — against MySQL 8.4 over
+Connector/J. The other eleven are code complete: Oracle, SQL Server, DB2,
+Teradata, Redshift, Databricks SQL, Synapse, Trino and BigQuery, plus the
+generic fallback. Each says so in its own docstring and a test asserts it still
+does.
+
+Four of those are worth naming because the obvious implementation is wrong.
+**Redshift** speaks the PostgreSQL wire protocol and diverged years ago:
+`pg_class.reltuples` exists there and is not maintained, so a dialect that
+inherited it reports zero for every table and looks like an empty warehouse.
+**Synapse** is SQL Server minus `MIN_ACTIVE_ROWVERSION` and minus `TABLESAMPLE`
+on a distributed table. **Databricks** names things in three parts rather than
+two, so a dialect assuming two addresses the wrong table in the default
+catalogue rather than failing. And **Databricks and Trino return `None` for a row
+estimate** — Unity Catalog keeps no readable count and Trino federates, so the
+count belongs to whatever is underneath. `None` is a better answer than a number
+bought by the second.
 
 That split is the point. The risky part of a new source is the transport —
 connection lifecycle, threading, type fidelity, paging — and that part is shared

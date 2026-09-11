@@ -12,7 +12,7 @@ from __future__ import annotations
 import sqlite3
 from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 
@@ -95,9 +95,15 @@ COVERAGE: dict[str, str | None] = {
     # and a JRE. Verified against PostgreSQL over the pgjdbc driver.
     "jdbc": None,
     # tests/connect/sql/test_snowflake.py — dialect, refusals and the
-    # unverified-warning guards. NOT run against a Snowflake account and not
-    # going to be; the connector says so and a test asserts it still does.
+    # code-complete guards. NOT run against a Snowflake account and not going
+    # to be; the connector says so and a test asserts it still does.
     "snowflake": None,
+    # tests/connect/sql/test_clickhouse.py — needs PRAMA_TEST_CLICKHOUSE_HOST.
+    # Verified against ClickHouse 24.8.
+    "clickhouse": None,
+    # tests/connect/test_mongo.py — needs PRAMA_TEST_MONGO_URI. Verified
+    # against MongoDB 7.
+    "mongodb": None,
 }
 
 LOCAL = [key for key, fixture in COVERAGE.items() if fixture is not None]
@@ -346,3 +352,74 @@ class TestSqliteSpecifics:
         # the source — the exact outcome the capability matrix prevents.
         assert registry.capabilities("sqlite").regex_flavour == "none"
         assert "pushdown.regex" not in registry.capabilities("sqlite").describe()
+
+
+class TestVerificationIsAClaimWithEvidence:
+    """`VERIFIED` has to mean somebody ran it.
+
+    A status field nothing checks is worse than no status field: it looks like
+    a guarantee and costs one keystroke to be wrong about. So a connector
+    claiming VERIFIED must name a test that actually reaches a live source, and
+    CODE_COMPLETE must say so where a person choosing a source will see it.
+    """
+
+    #: The test that proves each verified connector. Named here so a claim
+    #: cannot be made without pointing at the evidence for it.
+    LIVE_TESTS: ClassVar[dict[str, str]] = {
+        "filesystem": "tests/connect/test_conformance.py",
+        "sqlite": "tests/connect/test_conformance.py",
+        "postgresql": "tests/connect/sql/test_postgres_live.py",
+        "objectstore": "tests/connect/objectstore/test_objectstore_live.py",
+        "rest": "tests/connect/test_rest.py",
+        "jdbc": "tests/connect/sql/test_jdbc.py",
+        "clickhouse": "tests/connect/sql/test_clickhouse.py",
+        "mongodb": "tests/connect/test_mongo.py",
+    }
+
+    def test_every_connector_declares_a_verification_status(
+        self, registry: ConnectorRegistry
+    ) -> None:
+        for key in registry:
+            status = registry.get(key).manifest().verification
+            assert status in ("verified", "code_complete"), f"{key}: {status!r}"
+
+    def test_every_verified_connector_names_the_test_that_proves_it(
+        self, registry: ConnectorRegistry
+    ) -> None:
+        root = Path(__file__).resolve().parents[2]
+        for key in registry:
+            if registry.get(key).manifest().verification != "verified":
+                continue
+            named = self.LIVE_TESTS.get(key)
+            assert named, (
+                f"{key} claims VERIFIED and this suite has no record of what "
+                "proved it. Add the test here, or downgrade the claim."
+            )
+            assert (root / named).exists(), f"{key} names {named}, which does not exist"
+
+    def test_a_code_complete_connector_says_so_in_its_description(
+        self, registry: ConnectorRegistry
+    ) -> None:
+        """The description is what reaches the source picker, which is where a
+        person decides. A warning that stays in the source is not a warning."""
+        for key in registry:
+            manifest = registry.get(key).manifest()
+            if manifest.verification == "code_complete":
+                assert "CODE COMPLETE" in manifest.description, key
+
+    def test_a_verified_connector_does_not_carry_the_warning(
+        self, registry: ConnectorRegistry
+    ) -> None:
+        """Saying it about something that has been run is its own inaccuracy,
+        and it would teach people to ignore the label."""
+        for key in registry:
+            manifest = registry.get(key).manifest()
+            if manifest.verification == "verified":
+                assert "CODE COMPLETE" not in manifest.description, key
+
+    def test_the_default_is_the_weaker_claim(self) -> None:
+        """A connector that forgets to say is one nobody has run."""
+        from prama.connect.spi import Connector
+
+        manifest = Connector.describe_manifest(key="x", display_name="X")
+        assert manifest.verification == "code_complete"

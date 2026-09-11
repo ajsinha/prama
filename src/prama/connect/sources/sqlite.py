@@ -34,6 +34,7 @@ from prama.connect.spi import (
     SnapshotKind,
     SourceKind,
     UnauthorisedError,
+    Verification,
 )
 from prama.core.clock import utc_now
 from prama.core.registry import PluginManifest
@@ -75,6 +76,7 @@ class SqliteConnector(Connector):
                 "A SQLite file. Opened read-only, so pointing Prama at a production "
                 "extract cannot alter it."
             ),
+            verification=Verification.VERIFIED,
         )
 
     def __init__(self, config: dict[str, Any], **kwargs: Any) -> None:

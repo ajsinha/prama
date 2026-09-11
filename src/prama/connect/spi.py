@@ -40,6 +40,42 @@ if TYPE_CHECKING:  # pragma: no cover - import cost avoided at runtime
     import pyarrow as pa
 
 
+class Verification(enum.Enum):
+    """How far a connector has been proven, which is not how finished it is.
+
+    A connector can be complete, reviewed, fully typed and covered by tests and
+    still never have opened a socket to the thing it names. That is a reasonable
+    state to ship — somebody has to write it before anybody can run it — and a
+    dangerous one to leave unlabelled, because every other signal a reader has
+    says "done".
+
+    So the distinction is declared here rather than left in a docstring, and it
+    travels into the source picker. A person choosing a source sees which of
+    these they are getting.
+    """
+
+    #: Exercised against the real product — a live server, broker or account —
+    #: in this repository's test suite.
+    VERIFIED = "verified"
+    #: Written, reviewed, typed and unit-tested. Nothing has answered it. The
+    #: SQL or the protocol handling is from documentation, and a first run will
+    #: find whatever documentation does not say.
+    CODE_COMPLETE = "code_complete"
+
+    @property
+    def is_proven(self) -> bool:
+        return self is Verification.VERIFIED
+
+    @property
+    def label(self) -> str:
+        return {
+            Verification.VERIFIED: "verified against a live source",
+            Verification.CODE_COMPLETE: (
+                "CODE COMPLETE — written and unit-tested; no live source has answered it"
+            ),
+        }[self]
+
+
 class SourceKind(enum.Enum):
     """The family a source belongs to.
 
@@ -492,14 +528,26 @@ class Connector(Plugin, ABC):
         version: str = "1.0",
         capabilities: tuple[Capability, ...] = (),
         description: str = "",
+        verification: Verification = Verification.CODE_COMPLETE,
     ) -> PluginManifest:
-        """Build the manifest, so every connector declares one the same way."""
+        """Build the manifest, so every connector declares one the same way.
+
+        ``verification`` defaults to CODE_COMPLETE deliberately: a connector
+        that forgets to say is one nobody has run, and the safe default is the
+        weaker claim. Claiming VERIFIED requires a live test, and
+        ``tests/connect/test_conformance.py`` checks that it exists.
+        """
         return PluginManifest(
             key=key,
             kind="connector",
             display_name=display_name,
             version=version,
             capabilities=capabilities,
-            description=description,
+            description=(
+                description
+                if verification.is_proven
+                else f"{description} [{verification.label}]".strip()
+            ),
             conformance_suite="tests/connect/test_conformance.py",
+            verification=verification.value,
         )
