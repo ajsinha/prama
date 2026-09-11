@@ -19,6 +19,32 @@ not exist.
 
 ---
 
+## As built
+
+`schema/sqlite.sql` and `schema/postgres.sql` are the authority, and they are
+**byte-identical apart from their headers** — `tests/db/test_schema.py` fails if
+they ever are not. There are **no migrations**: `prama db init` applies the
+schema idempotently and `prama db verify` fails loudly on drift rather than
+repairing it.
+
+Only four column types are permitted, because only those mean the same thing in
+both engines: `VARCHAR(n)`, `TEXT`, `INTEGER`, `REAL`. Timestamps are ISO-8601
+UTC text in `VARCHAR(32)`, which sorts chronologically. Identifiers are ULIDs
+minted client-side, so a worker needs no round trip and a retry can reuse one.
+
+`prama.db` is the only package that may import SQLAlchemy;
+`tests/architecture/test_layering.py` enforces it by import scanning. Everything
+else goes through DAOs behind a unit of work, and twenty-two tenant-isolation
+tests scan those DAOs **by method signature** rather than by name, so a new one
+that forgets its tenant filter fails the build.
+
+`prama.api` is the FastAPI surface with its error taxonomy and schema mapping.
+
+**Not built:** the GraphQL surface in §7, and the API has not been load-tested
+at the rates §8 states.
+
+---
+
 ## 1. Canonical entities
 
 ### 1.1 Semantic layer

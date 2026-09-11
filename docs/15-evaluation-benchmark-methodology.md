@@ -21,6 +21,19 @@ This chapter operationalises them and doubles as the experimental protocol for t
 
 ---
 
+## As built
+
+See §2.4, which states exactly what of this methodology exists and what does
+not.
+
+The short version: the taxonomy, the injectors, the labelling discipline and the
+baseline comparison are built and run in the test suite in under a second. Scale
+— S/M/L at 10⁶–10¹⁰ rows, real openly-licensed datasets, and FinDQ-Bench's
+generated bank — is not. **No external tool has been benchmarked**, and every
+run prints the fifteen baselines that were not.
+
+---
+
 ## 1. Why a new benchmark is necessary
 
 There is no accepted benchmark for enterprise data quality management. The nearest neighbours are

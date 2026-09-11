@@ -26,6 +26,30 @@ trustworthy and proving it.**
 
 ---
 
+## As built
+
+Nothing in this document is code, and that is the point: a competitive claim is
+only worth what its measurement is worth.
+
+**No competitor has been benchmarked.** `docs/15 §2.4` explains why in detail —
+configuring Great Expectations, Soda Core, Deequ or a platform-native checker
+fairly means following each tool's own recommended setup, ideally reviewed by a
+practitioner of it, and a comparison configured by the party who benefits from
+the result is not evidence.
+
+What has been measured is Prama against **bounds and ablations**: at seed 42 on
+a 28-class labelled corpus, schema-only recall 0.07, patterns-only 0.18,
+statistics-only 0.25, against alert-on-everything at 1.00 with 0.08 precision.
+Every ablation is blind to the semantic family. `prama bench run --seed N`
+reproduces it, and prints the fifteen baselines named in `docs/15 §4` that were
+**not** run, every time, so the absence travels with the numbers.
+
+The G2 gap in §4 (legacy ETL scanners) is partly addressed: SQL dialects are
+verified, ETL shapes are configurable and **unverified against real Informatica
+or DataStage exports**.
+
+---
+
 ## 1. The competitive map
 
 Seven adjacent categories converging on one buyer. The convergence is the market's defining fact,

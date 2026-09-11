@@ -13,6 +13,20 @@
 
 ---
 
+## As built
+
+This is the commercial delivery plan; `docs/19` is the engineering one, and
+`docs/19` is the authority on what exists.
+
+The engineering waves are complete through Wave 11. The commercial milestones
+here — design partners, the shadow studies, certification, GA — are **not
+started**, and none of them is a build task.
+
+Dates in this document were written before implementation began and should be
+read as sequence rather than schedule.
+
+---
+
 ## 1. Strategy in one page
 
 **Sequence:** win a *narrow, expensive, evidence-hungry* problem in banking (regulatory control

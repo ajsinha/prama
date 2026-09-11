@@ -17,6 +17,30 @@ plan: what gets built, in what order, and what "done" means for each wave.
 
 ---
 
+## How to read this document
+
+This is the authority on what exists. Everywhere else describes a design; here
+each task carries a marker and each acceptance criterion a checkbox.
+
+| Marker | Meaning |
+|---|---|
+| ✅ | Built, tested, and the test would fail if it broke |
+| ◑ | Partly built, with the remainder stated in the same line |
+| ◐ | Built but **not verified against the real thing** — the reason is named |
+| ⏳ | Not started |
+| `- [x]` | An acceptance criterion met and checked |
+| `- [◑]` | Partly met, with the unmet half stated |
+| `- [ ]` | Not met |
+
+Two rules keep this honest. A marker is set by **checking the code**, never from
+memory — on 2026-09-10 a pass over Wave 11's thirteen tasks, rather than ticking
+them because the files existed, found two genuinely unfinished. And ◐ is a real
+state with real entries in it: an operator that has never met an API server and
+an air-gapped install performed on a machine with a network are *not* ✅, and
+calling them so would be the exact failure this product exists to prevent.
+
+---
+
 ## 0. Engineering constraints that hold in every wave
 
 These are not preferences. They are enforced by hooks, by architecture tests, and by CI.

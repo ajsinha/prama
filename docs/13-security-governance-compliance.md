@@ -11,6 +11,21 @@ Requirements: [`NFR-SEC`](05-requirements-nonfunctional.md#d-security-nfr-sec),
 
 ---
 
+## As built
+
+See §2.1 (single sign-on), §2.2 (SCIM), §2.3 (customer-managed keys), §3.0
+(secrets), §3.1 (residency and egress) and §6.2a (verifying evidence without
+Prama), each of which states what exists and what does not in its own place
+rather than in a summary here that would drift from them.
+
+The headline: the security surface is implemented, and three parts of it have
+**not met the real thing** — no cloud KMS has been exercised, the Vault provider
+has not been run against a live server, and no disconnected install has been
+performed on a host with no route out. Each module says so in its own docstring,
+and a test asserts the docstring still says so.
+
+---
+
 ## 1. Threat model
 
 | Actor | Capability | Primary mitigations |

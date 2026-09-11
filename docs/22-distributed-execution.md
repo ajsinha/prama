@@ -23,6 +23,32 @@ findings rather than data.**
 
 ---
 
+## As built
+
+`prama.agent` — the outbound-only customer-hosted worker: identity, capability
+negotiation, the coordinator, residency, and the protocol. `prama.execute` — the
+claim/lease machinery, in-flight enforcement with dead-lettering, and the broker
+seam. `prama.core.concurrency` — supervised task groups, byte-bounded queues and
+leases, which everything must use; there are no bare threads in this codebase
+and no unbounded queues.
+
+The streaming path is complete end to end: `prama.execute.stream` evaluates a
+control against one message, `prama.execute.inflight` decides what happens to it,
+`prama.execute.transport` decides when it is safe to say the message is dealt
+with, and `prama.execute.kafka` is a transport verified against a live Apache
+Kafka broker.
+
+The property that matters is **commit after enforcement, never before**, and
+four tests fail if the two lines are swapped. It is at-least-once and says so:
+duplicate evidence is a reconciliation problem, lost data is not one anybody can
+solve afterwards.
+
+**Not built:** §9's open questions are still open. The multi-node transport
+throughput harness that would answer DEC-17's second half does not exist, and
+nothing here has been run across more than one machine.
+
+---
+
 ## 1. The four properties that matter
 
 Everything else follows from these, and each is enforced somewhere specific rather than promised.

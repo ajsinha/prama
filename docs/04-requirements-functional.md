@@ -26,6 +26,29 @@ PCK domain packs · REF continuous re-examination · ADM administration
 
 ---
 
+## As built
+
+Most of this corpus is implemented. Rather than annotate six hundred
+requirements individually — which would rot on the first change — the honest
+summary is by area, and `docs/19` maps tasks to requirement identifiers.
+
+Implemented and exercised: `FR-MET` (the semantic layer), `FR-RUL` (PQL, the IR,
+the conformance suite), `FR-EVD` (the ledger, replay, attestation), `FR-CTL`
+(derivation, mining, induction, the proposal queue), `FR-MON` (monitors, drift,
+calibration), `FR-REC` (reconciliation, including n-way), `FR-RPT` (scorecards,
+alerting, incidents), `FR-UIX` (the console), `FR-EXT` (plugin registries with
+purity enforcement), `FR-SEC` (RBAC, SSO, SCIM, residency, CMK).
+
+Partially implemented, with the gap stated where it lives: `FR-CON` — six of
+eight GA connectors, with JDBC/ODBC and Snowflake outstanding because each needs
+a driver stack and a live service to verify against.
+
+**The requirement identifiers are load-bearing.** Controls, obligations and
+tests cite them, so a requirement renumbered here breaks a reference somewhere
+else. Add rather than renumber.
+
+---
+
 ## 0. Constraints and assumptions
 
 | ID | Constraint |

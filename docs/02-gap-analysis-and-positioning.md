@@ -13,6 +13,32 @@
 
 ---
 
+## As built
+
+The seven gaps are the product's reason to exist, so their status matters more
+than most.
+
+**G1 business ownership** — built: the semantic layer, the console, and control
+derivation from declarations rather than from SQL.
+**G2 legacy estates** — partial: COBOL/EBCDIC and six financial message formats
+are read and tested; ETL scanners are configurable and unverified against real
+Informatica or DataStage exports.
+**G3 engine divergence** — built, and the strongest part: a typed engine-neutral
+IR, a reference interpreter, and a conformance suite that requires DuckDB,
+SQLite and PostgreSQL to agree per function.
+**G4 alert fatigue** — built: calibration, deduplication, severity, quiet
+periods, and an alert with no recipient reported rather than dropped. The
+*measured* precision claim needs design partners.
+**G5 evidence** — built: hash-chained, replayable, and verifiable by a script
+that imports nothing of ours.
+**G6 regulatory framing** — built: twenty obligations across nine regimes, every
+citation honestly marked unconfirmed.
+**G7 AI that cannot be trusted with verdicts** — built and enforced: `CON-007`
+is an import scan that fails the build, and the assistant cannot mutate anything
+at all.
+
+---
+
 ## 1. The seven structural gaps
 
 Derived from [01 — Landscape Survey](01-landscape-survey.md). Each gap is stated as an observed

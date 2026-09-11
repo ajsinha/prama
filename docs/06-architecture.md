@@ -13,6 +13,30 @@
 
 ---
 
+## As built
+
+Every plane in §3 exists. The package tree follows the architecture closely
+enough that `src/prama/` reads as a table of contents for this document.
+
+Two architectural rules are enforced by the build rather than by review. **Only
+`prama.db` may import SQLAlchemy** — everything else goes through DAOs behind a
+unit of work. And **no module may both call a model and produce a verdict**
+(`CON-007`). Both are import scans in `tests/architecture/test_layering.py`, and
+both fail the build rather than warning.
+
+A third was added while building: **every place data leaves is registered**
+(`prama.security.egress`), and the list of modules that can reach the network is
+derived from their imports rather than maintained by hand. A new module that
+opens a socket without being registered fails the build. The list is the thing
+that rots; the imports are the thing that is true.
+
+Execution backends: SQL pushdown (PostgreSQL, DuckDB, SQLite), Arrow/DuckDB
+local evaluation, the native row scanner for COBOL/EBCDIC and financial message
+formats, and the streaming path. **Spark and Flink are not implemented** — the
+seams are there, the transports are not, and `docs/19` says so.
+
+---
+
 ## 1. Architectural principles
 
 | # | Principle | Consequence |

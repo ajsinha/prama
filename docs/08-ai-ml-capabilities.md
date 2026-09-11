@@ -22,6 +22,36 @@ data yields the same verdict next quarter).
 
 ---
 
+## As built
+
+Every capability here exists, and every one of them obeys `CON-007`: **no model
+output determines a pass/fail verdict on data**. `tests/architecture/test_layering.py`
+enforces it by import scanning, and a module that both calls a model and
+produces a verdict fails the build.
+
+`prama.classify` — semantic type inference with twenty deterministic,
+checksum-bearing validators (LEI, ISIN, IBAN, BIC, CUSIP, SEDOL, FIGI, MIC and
+the rest), plus third-party validator registration by entry point with purity
+enforced by source scanning and the implementation's hash folded into the plan
+id. `prama.mine` — constraint, key and functional-dependency discovery.
+`prama.induce` — LLM-assisted control induction from documents and examples,
+every output validated before it becomes a proposal. `prama.monitor` — drift
+detection, cold start, and monitor cards. `prama.calibrate` — conformal
+prediction and validity selection. `prama.learn` — the feedback loop.
+`prama.propose` — the queue everything AI-authored lands on.
+
+The assistant (`prama.assistant`) **cannot mutate anything**. No tool in its
+registry mutates, a mutating tool cannot be registered, and a read-only surface
+cannot even propose. Fifty-three adversarial injection cases pass, covering
+direct attacks, attacks written into the estate, fence escapes and secret
+leakage.
+
+**Not built:** the measured claims. Acceptance rates, RCA top-hypothesis
+accuracy and the fusion comparison in §9 need design partners over months;
+`docs/15` says which and `docs/19` tracks them.
+
+---
+
 ## 1. The AI subsystem map
 
 | # | Capability | Technique family | Output | Human gate |

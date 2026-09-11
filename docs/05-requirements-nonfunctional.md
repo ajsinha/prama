@@ -20,6 +20,31 @@ MNT maintainability · TST testability · DAT data management · AI AI/ML govern
 
 ---
 
+## As built
+
+The structural NFRs are implemented and enforced by tests rather than by
+convention: `NFR-SEC` (no secrets in tracked configuration, refused by the
+pre-commit hook), `NFR-AI-002` (no model output determines a verdict, enforced
+by import scanning), `NFR-PRV-005` (erasure by tombstone with hash integrity
+preserved), `NFR-TST-001` (advertised numbers derived from a green run, by
+`scripts/sync_test_counts.py`).
+
+**The performance NFRs are the ones to read carefully.** A number here is a
+target unless this section says it was measured.
+
+Measured: in-flight assertion cost at 4.82 µs/message and 208,000 msg/s per core
+on a five-control mix, which is three orders of magnitude inside the latency
+budget. The file-length ceiling (1500 code lines) is enforced in the hook and
+the gate.
+
+**Not measured:** reconciliation at 10⁸ records per side — measured at 100,000;
+streaming p95 detection and added p99 at target throughput; the estate map at
+50,000 nodes; and the API at the rates §4 states. None of these has a harness on
+a machine large enough to answer it, and `docs/19` records each as outstanding
+rather than assumed.
+
+---
+
 ## A. Scale (`NFR-SCA`)
 
 | ID | Requirement | Target | Verify |

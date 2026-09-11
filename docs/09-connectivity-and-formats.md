@@ -21,6 +21,21 @@ file feeds that arrive by SFTP at 04:00. Prama's differentiation in regulated in
 
 ---
 
+## As built
+
+See §16.1 for catalogue write-back and §4.1 of `docs/12` for the message
+formats, each of which states its own position rather than being summarised here.
+
+Connectors: **six of eight** GA targets — filesystem, SQLite, PostgreSQL, object
+store, Kafka as a stream transport verified against a live broker, and REST
+verified against a real HTTP server. JDBC/ODBC and Snowflake are outstanding;
+each needs a driver stack and a live service, and shipping one unverified would
+be the kind of artefact this codebase is built to avoid.
+
+The ~45 and ~85 connector figures in §17 are **targets, not counts**.
+
+---
+
 ## 1. Connector architecture
 
 ```

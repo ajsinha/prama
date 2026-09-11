@@ -9,7 +9,7 @@ Banking and capital markets first. Any industry next.
 
 <sub>
 Copyright © 2026 <b>Ashutosh Sinha</b> &lt;ajsinha@gmail.com&gt; · All rights reserved · Proprietary and confidential<br/>
-<a href="LICENSE">LICENSE</a> · <a href="NOTICE">NOTICE</a> · <a href="docs/">Documentation</a>
+<a href="LICENSE">LICENSE</a> · <a href="NOTICE">NOTICE</a> · <a href="SECURITY.md">SECURITY</a> · <a href="CONTRIBUTING.md">CONTRIBUTING</a> · <a href="docs/">Documentation</a>
 </sub>
 
 </div>
@@ -220,7 +220,7 @@ Five contributions, targeting **ACM JDIQ** with a **VLDB Industrial** companion 
 ## Status
 
 **Implemented.** Eleven waves are complete; two tasks stay open on infrastructure
-rather than code. The suite is at <!--tests-->4,182 passing, 47 skipped<!--/tests-->,
+rather than code. The suite is at <!--tests-->4,320 passing, 47 skipped<!--/tests-->,
 and that number is derived from a green run by `scripts/sync_test_counts.py`
 rather than typed — a count in prose rots the first time somebody adds a test.
 
@@ -248,6 +248,8 @@ prama/
 ├── QUICKSTART.md      ← install, run, and the first control
 ├── LICENSE            ← proprietary; all rights reserved
 ├── NOTICE             ← legal notice, trademarks, third-party references
+├── SECURITY.md        ← reporting, what Prama holds, and what is unverified
+├── CONTRIBUTING.md    ← the habits this codebase is held to
 ├── src/prama/         ← the product: 40 packages
 ├── tests/             ← the suite, mirroring the package tree
 ├── schema/            ← sqlite.sql and postgres.sql; there are no migrations

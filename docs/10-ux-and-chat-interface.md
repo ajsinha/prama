@@ -10,6 +10,32 @@ Personas: [03 §7](03-business-semantic-layer.md#7-personas--who-this-is-for).
 
 ---
 
+## As built
+
+The console is server-rendered Jinja on FastAPI with Bootstrap 5 and jQuery,
+everything vendored, no build step: `prama.web`. Sign-in, the estate map,
+declaration and relationship editing, the control workbench, triage drill-down,
+the break workbench, attestation, and the preview/backtest surface all exist.
+
+Colour is **derived, not picked**. `prama.report.themes` computes WCAG 2.2 AA
+contrast against three grounds — surface, body and raised — and
+`scripts/generate_themes.py` emits the variants; a hand-chosen colour that fails
+contrast cannot get in. axe-core runs in a real Chrome over the console
+(`tests/web/test_axe.py`), currently twenty-six checks with **zero critical
+findings**.
+
+The chat assistant is here and is deliberately unable to change anything — see
+`docs/08`.
+
+**Not built, and it is not code:** every number in §8. Twelve participants per
+persona, ≥90% unaided task success, ≤3 min to a reviewed control — those are a
+study. And **screen-reader testing has not been done**: an automated pass is not
+evidence of it, and ticking that line would claim an accessibility guarantee to
+the people who most depend on it being true. The estate map has not been
+measured at 50,000 nodes.
+
+---
+
 ## 1. Design principles
 
 | # | Principle | Test of compliance |

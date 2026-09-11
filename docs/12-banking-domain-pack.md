@@ -20,6 +20,19 @@ of the mechanism by which Prama becomes industry-general ([02 §4](02-gap-analys
 
 ---
 
+## As built
+
+See §2.1 (concept recognition), §4.1 (message formats) and §5.4 (the regulatory
+catalogue), each stating its own position.
+
+In summary: six message formats read and tested, a seventeen-concept ontology
+with three-state recognition that declines rather than guessing, twenty
+obligations across nine regimes with every citation marked unconfirmed, four
+business calendars computed from rules rather than tabulated, eight cross-field
+validators, and nine reference reconciliation templates.
+
+---
+
 ## 1. Why banking first
 
 - **The pain is priced.** UK FCA fines: ~£95M for MiFID transaction-reporting failures and ~£34.5M

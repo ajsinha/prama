@@ -12,6 +12,23 @@ provable quality conclusions — through a console, a Git repo, or a conversatio
 
 ---
 
+## Start here
+
+| If you are… | Read |
+|---|---|
+| **running Prama** | [QUICKSTART](../QUICKSTART.md), then [operations/](operations/) — runbook, troubleshooting, CLI and configuration reference |
+| **evaluating it** | [00 Executive Summary](00-executive-summary.md), then [15 §2.4](15-evaluation-benchmark-methodology.md) for what has actually been measured |
+| **building on it** | [03 Semantic Layer](03-business-semantic-layer.md) and [07 PQL](07-rule-language-spec.md) |
+| **auditing it** | [13 §6.2a](13-security-governance-compliance.md) and `scripts/verify_evidence.py`, which checks evidence without Prama |
+| **asking what is done** | [19 Implementation Roadmap](19-implementation-roadmap.md) — the authority, marker by marker |
+
+**Every design document opens with an "As built" section** saying what of it
+exists, what does not, and what is built but has never met the real thing. The
+design corpus describes the intent; that section describes the state. Where they
+differ, `docs/19` decides.
+
+---
+
 ## Reading order
 
 | # | Document | What it answers |
@@ -39,6 +56,7 @@ provable quality conclusions — through a console, a Git repo, or a conversatio
 | 20 | [Competitive Analysis](20-competitive-analysis.md) | Head-to-head against Solidatus, Manta, Alation, Collibra, Monte Carlo and the rest — including where we are behind |
 | 21 | [How We Win](21-how-we-win.md) | The plan to beat them: three asymmetric unlocks, honest moat ratings, and the traps we set |
 | 22 | [Distributed Execution: Prama Agents](22-distributed-execution.md) | Agents beside the data: outbound-only, residency-bounded, surviving an outage |
+| — | **[Operations](operations/)** | **Runbook, troubleshooting, CLI reference, configuration reference** |
 | — | [Brand](brand.md) | Name, mark, slogan, palette, voice |
 | — | [Glossary](glossary.md) | Terms of art |
 | — | [Academic Paper](paper/) | Manuscript, outline, bibliography, experiment plan |
@@ -63,6 +81,13 @@ stale. See [02](02-gap-analysis-and-positioning.md) and [03](03-business-semanti
 - Priority: **P0** (must-have for GA), **P1** (competitive parity), **P2** (differentiator, post-GA),
   **P3** (research / long horizon).
 - Where an external claim is load-bearing, the source is linked inline.
+- **Generated documents carry a banner saying so.** `operations/cli-reference.md`
+  and `operations/configuration-reference.md` are built from the argument parser
+  and the shipped configuration by `scripts/generate_docs.py`; the gate refuses a
+  version that has drifted. Edit the code, not the prose.
+- **Advertised test counts are derived from a green run** by
+  `scripts/sync_test_counts.py`, never typed. A number in prose rots the first
+  time somebody adds a test.
 
 ---
 

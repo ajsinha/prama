@@ -18,6 +18,27 @@ observability, catalogs) that shape buyer expectations in the data-quality marke
 
 ---
 
+## As built
+
+A survey, not a specification — nothing here is implemented because nothing here
+is a requirement.
+
+It is worth saying what survived contact with the code. The gaps this survey
+identified (G1–G7 in `docs/02`) drove real design decisions, and two of them
+turned out to be sharper than written. **Engine divergence** (G3) is worse than
+the survey suggests: the same control silently means different things on
+different engines unless something forces the comparison, which is why the
+conformance suite runs every function against a reference implementation on
+three engines rather than trusting per-dialect SQL to be equivalent. And
+**evidence** (G5) is not one problem but two — "has this been altered" and "was
+it right when written" — and only the first is answerable by a hash chain, which
+`scripts/verify_evidence.py` now prints on every successful run.
+
+Vendor capabilities described here were surveyed in 2026 and will age. Treat
+specific claims as dated rather than current.
+
+---
+
 ## 1. Why this market exists
 
 ### 1.1 The economics
