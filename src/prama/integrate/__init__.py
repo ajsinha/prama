@@ -12,10 +12,14 @@ from prama.integrate.catalog import (
     badges_from,
 )
 from prama.integrate.operator import Plan, Step, Verb, plan
+from prama.integrate.vendors import AlationTarget, CollibraTarget, DataHubTarget
 
 __all__ = [
+    "AlationTarget",
     "Badge",
     "CatalogTarget",
+    "CollibraTarget",
+    "DataHubTarget",
     "Plan",
     "RecordingTarget",
     "Standing",
