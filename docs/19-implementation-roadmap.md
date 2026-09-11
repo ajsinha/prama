@@ -17,20 +17,44 @@ plan: what gets built, in what order, and what "done" means for each wave.
 
 ---
 
+## How to read this document
+
+This is the authority on what exists. Everywhere else describes a design; here
+each task carries a marker and each acceptance criterion a checkbox.
+
+| Marker | Meaning |
+|---|---|
+| ✅ | Built, tested, and the test would fail if it broke |
+| ◑ | Partly built, with the remainder stated in the same line |
+| ◐ | Built but **not verified against the real thing** — the reason is named |
+| ⏳ | Not started |
+| `- [x]` | An acceptance criterion met and checked |
+| `- [◑]` | Partly met, with the unmet half stated |
+| `- [ ]` | Not met |
+
+Two rules keep this honest. A marker is set by **checking the code**, never from
+memory — on 2026-09-10 a pass over Wave 11's thirteen tasks, rather than ticking
+them because the files existed, found two genuinely unfinished. And ◐ is a real
+state with real entries in it: an operator that has never met an API server and
+an air-gapped install performed on a machine with a network are *not* ✅, and
+calling them so would be the exact failure this product exists to prevent.
+
+---
+
 ## 0. Engineering constraints that hold in every wave
 
 These are not preferences. They are enforced by hooks, by architecture tests, and by CI.
 
 | # | Constraint | Enforcement |
 |---|---|---|
-| C1 | **No database migrations.** Two authoritative schema files: `schema/sqlite.sql`, `schema/postgres.sql`. Applied idempotently; live schema **verified** against them and drift fails loudly. | `prama db verify`, `tests/db/test_schema_parity.py` |
-| C2 | **Database chosen in config.** `database.dialect: sqlite \| postgres`, switchable with no code change. | `tests/db/test_dual_dialect.py` |
+| C1 | **No database migrations.** Two authoritative schema files: `schema/sqlite.sql`, `schema/postgres.sql`. Applied idempotently; live schema **verified** against them and drift fails loudly. | `prama db verify`, `tests/db/test_schema.py` |
+| C2 | **Database chosen in config.** `database.dialect: sqlite \| postgres`, switchable with no code change. | `tests/db/test_schema.py` |
 | C3 | **All DB code in one package.** Only `src/prama/db/**` may import `sqlalchemy`; everything else uses repositories and the unit of work. | `tests/architecture/test_layering.py` |
 | C4 | **≤ 1500 lines of code per source file** (comments/docstrings/blanks excluded; UI exempt). | `scripts/check_file_length.py` in pre-commit + CI |
 | C5 | **Object-oriented throughout.** Every extension point is an ABC with a registry entry point and its own conformance suite. Concrete types are never named outside their own package. | Architecture tests; plugin conformance suites |
-| C6 | **Structured concurrency.** No bare threads, no unbounded queues, no fire-and-forget tasks. Everything through `prama.core.concurrency`. | `tests/architecture/test_concurrency_hygiene.py` |
+| C6 | **Structured concurrency.** No bare threads, no unbounded queues, no fire-and-forget tasks. Everything through `prama.core.concurrency`. | `tests/architecture/test_layering.py` |
 | C7 | **Scale-out by construction.** Every stateful service is either leased (single-writer, failover-safe) or partitioned by a declared key. No process may assume it is the only one. | Design review + soak tests |
-| C8 | **AI never adjudicates.** No path from a model output to a verdict. | `tests/architecture/test_no_model_verdicts.py` |
+| C8 | **AI never adjudicates.** No path from a model output to a verdict. | `tests/architecture/test_layering.py` |
 | C9 | **Secrets never in tracked config.** Shipped session secret is empty; a fresh clone refuses to boot. | pre-commit hook |
 | C10 | **No assistant attribution in history.** | `.githooks/commit-msg` |
 
@@ -137,7 +161,7 @@ datasets — through an API — and every change is versioned, attributable and 
 | `prama.db.temporal` | Bitemporal versioning: valid time + transaction time, `TemporalQuery` | `NFR-DAT-002`, `NFR-CMP-002` |
 | `prama.db.models.semantic` | Identity + version tables for domain, dataset, attribute, concept, relationship, journey, binding, connection | `FR-MET-001`…`068` |
 | `prama.db.dao.semantic` | DAOs with `current` / `as_of` / `history` access | `FR-MET-107` |
-| `prama.semantic.service` | Declaration services: validate, version, approve, supersede | `FR-MET-010`, `FR-MET-108` |
+| `prama.semantic.services` | Declaration services: validate, version, approve, supersede | `FR-MET-010`, `FR-MET-108` |
 | `prama.semantic.conflict` | Semantic-conflict detection across concept mappings | `FR-MET-043` |
 | `prama.semantic.maturity` | Estate maturity scoring and next-best-action ranking | `FR-MET-104`, `105` |
 | `prama.semantic.gitops` | Round-trippable YAML serialiser and drift detection | `FR-EXT-009` |
@@ -200,14 +224,14 @@ under thirty minutes, unattended, without writing anything — the zero-declarat
 | Module | Contents | Requirements |
 |---|---|---|
 | `prama.connect.spi` | Connector ABC: `discover`, `describe`, `snapshot`, `read`, `sample`, `pushdown_capabilities`, `execute_plan`, `health` | `FR-CON-017` |
-| `prama.connect.schema` | **Config schema derived from connector source** with a presentation-only overlay | `FR-CON-026`, `FR-CON-029` |
+| `prama.connect.config_schema` | **Config schema derived from connector source** with a presentation-only overlay | `FR-CON-026`, `FR-CON-029` |
 | `prama.connect.registry` | Capability matrix, certification tiers | `FR-EXT-005` |
 | `prama.connect.sources.*` | PostgreSQL, SQLite, Snowflake, filesystem/S3 (CSV, Parquet), SFTP feed, Kafka, generic JDBC/ODBC, generic REST | `FR-CON-001`…`020` |
 | `prama.connect.feed` | Landing detection, filename patterns, arrival windows, header/trailer, manifests, duplicate and out-of-sequence detection, decryption | `FR-CON-014`, `034` |
 | `prama.profile` | Column statistics, sketches (HLL, t-digest, count-min), pattern profiling, segmentation, incremental profiling | `FR-PRF-002`…`018` |
-| `prama.profile.sampling` | Sampling planner with statistical bounds and stated confidence | `FR-EXE-007`, `FR-CON-030` |
-| `prama.metrics.history` | Metric history store (Parquet/Iceberg + DuckDB) | `FR-PRF-011` |
-| `prama.connect.policy` | Read policy, budgets, execution windows, load ceiling | `NFR-PRF-013`, `FR-CON-031` |
+| `prama.profile.profiler` | Sampling planner with statistical bounds and stated confidence | `FR-EXE-007`, `FR-CON-030` |
+| `prama.monitor` | Metric history store (Parquet/Iceberg + DuckDB) | `FR-PRF-011` |
+| `prama.connect.spi` | Read policy, budgets, execution windows, load ceiling | `NFR-PRF-013`, `FR-CON-031` |
 
 ### Tasks
 
@@ -223,7 +247,7 @@ under thirty minutes, unattended, without writing anything — the zero-declarat
 | W3.8 | Profiler core and bounded-memory sketches | ✅ |
 | W3.9 | Segmented and incremental profiling | ✅ exact fold of mergeable sketches; settled segments never re-read |
 | W3.10 | Metric history store | ✅ Parquet and in-memory backends |
-| W3.11 | The eight GA connectors | ◑ 5 of 8: filesystem, SQLite, PostgreSQL, object store (S3/GCS/Azure), and Kafka as a stream transport verified against a live broker. Remaining — REST, JDBC/ODBC, Snowflake — each need an SDK and a live service to verify against, so they are deferred rather than written blind |
+| W3.11 | The eight GA connectors | ◑ 6 of 8: filesystem, SQLite, PostgreSQL, object store (S3/GCS/Azure), Kafka as a stream transport verified against a live broker, and REST verified against a real HTTP server. Remaining — JDBC/ODBC, Snowflake — each need an SDK and a live service to verify against, so they are deferred rather than written blind |
 | W3.12 | Feed subsystem: arrival, manifests, trailers, duplicate delivery | ✅ calendar-aware arrival judgement, trailer and manifest integrity |
 | W3.13 | Read policy, budgets and source load ceiling | ✅ paths, hours, sampling, row and byte budgets, and a duty-cycle load ceiling |
 | W3.14 | Binding suggestions for declared-but-unbound datasets | ✅ |
@@ -270,16 +294,16 @@ by a conformance suite that blocks the build.
 
 | Module | Contents | Requirements |
 |---|---|---|
-| `prama.pql.grammar` | EBNF, lexer, parser, AST; expression and YAML surfaces | `FR-RUL-001` |
+| `prama.pql.parser` | EBNF, lexer, parser, AST; expression and YAML surfaces | `FR-RUL-001` |
 | `prama.pql.types` | Type checker, attribute resolution, selector expansion | `FR-RUL-021` |
 | `prama.pql.analysis` | Cost estimation, dialect capability check, subsumption, redundancy, never-fires | `FR-RUL-015`, `021` |
-| `prama.pql.render` | Plain-language rendering of every control | `U2` |
-| `prama.pql.format` | Canonical formatter so diffs are semantic | — |
+| `prama.report.render` | Plain-language rendering of every control | `U2` |
+| `prama.pql.lint` | Canonical formatter so diffs are semantic | — |
 | `prama.ir` | Typed logical plan, content addressing, versioning, serialisation | `FR-EXE-001`, `FR-EXT-010` |
 | `prama.backend.sql` | Dialect adapters: PostgreSQL, SQLite, Snowflake first | `FR-EXE-002` |
-| `prama.backend.arrow` | Local Arrow/DuckDB evaluator | `FR-EXE-002` |
-| `prama.pql.conformance` | Golden corpus + property-based generation + reference interpreter | `NFR-TST-002`, `NFR-POR-003` |
-| `prama.pql.lsp` | Language server for editor and IDE | — |
+| `prama.backend.execute` | Local Arrow/DuckDB evaluator | `FR-EXE-002` |
+| `prama.backend.conformance` | Golden corpus + property-based generation + reference interpreter | `NFR-TST-002`, `NFR-POR-003` |
+| `prama.lsp.server` | Language server for editor and IDE | — |
 
 ### Tasks
 
@@ -288,7 +312,7 @@ W4.4 selector expansion, materialised and versioned ✅ · W4.5 IR model and con
 W4.6 SQL backend and dialect adapters ✅ · W4.7 local evaluator ✅ · W4.8 **conformance corpus and
 reference interpreter** ✅ · W4.9 property-based equivalence testing ✅ · W4.10 cost estimation ✅ ·
 W4.11 linter ✅ · W4.12 formatter ✅ · W4.13 plain-language renderer ✅ · W4.14 LSP ✅ (shipped in W9.6: `prama lsp serve`, one analysis behind both editors) ·
-W4.15 importers for SodaCL, Great Expectations and dbt tests ✅ (ODCS quality blocks ⏳).
+W4.15 importers for SodaCL, Great Expectations and dbt tests ✅ (ODCS quality blocks ✅ — library rules become PQL with their thresholds intact; text, raw SQL and unknown engines refused by name, Soda/GE/dbt blocks routed to the importer that already handles them).
 
 **Deferred, with the reason.** The language server (W4.14) is editor tooling with no editor to
 serve until the UI arrives in Wave 9, and `prama control check` and `control format` already give
@@ -341,10 +365,10 @@ refusal, not a silent difference.
 | Module | Contents | Requirements |
 |---|---|---|
 | `prama.schedule` | Cron, interval, calendar, event and dependency triggers; **adaptive re-examination cadence**; priority classes | `FR-EXE-009`, `FR-REF-001`…`005` |
-| `prama.schedule.fusion` | Assertion fusion: many assertions, one scan | `NFR-PRF-005`, `NFR-COS-001` |
+| `prama.backend.fuse` | Assertion fusion: many assertions, one scan | `NFR-PRF-005`, `NFR-COS-001` |
 | `prama.schedule.budget` | Budget enforcement with prioritised shedding and transparent deferral | `FR-EXE-008` |
 | `prama.execute.worker` | Stateless executors, lease-based claim, agent and embedded modes | `FR-EXE-020` |
-| `prama.execute.incremental` | Watermarks, late and restated data | `FR-EXE-006` |
+| `prama.profile.incremental` | Watermarks, late and restated data | `FR-EXE-006` |
 | `prama.evidence` | Hash-linked append-only ledger, signing, Merkle roots, WORM export | `FR-EXE-014`, `NFR-CMP-001` |
 | `prama.evidence.replay` | Deterministic replay and **divergence reporting** | `NFR-CMP-002` |
 | `prama.execute.stream` | Streaming backend seam + DishtaYantra spike + throughput benchmark | `DEC-17`, `NFR-SCA-005` |
@@ -849,7 +873,7 @@ without one does not exist.
 
 | Module | Contents | Requirements |
 |---|---|---|
-| `prama.stream` | Streaming validation backend (DishtaYantra default per `DEC-17`; Flink pluggable): drop/tag/route/dead-letter, windowed monitors | `FR-EXE-013`, `NFR-SCA-005` |
+| `prama.execute.stream` | Streaming validation backend (DishtaYantra default per `DEC-17`; Flink pluggable): drop/tag/route/dead-letter, windowed monitors | `FR-EXE-013`, `NFR-SCA-005` |
 | `prama.security` | Tenant isolation tests, RBAC/ABAC, SoD, SSO/SCIM, vault, CMK/BYOK, residency, SIEM export | `NFR-SEC-*` |
 | `deploy/helm`, `deploy/operator` | Helm chart, Kubernetes Operator with CRDs, single-container all-in-one, **signed offline bundle** | `NFR-POR-001`, `FR-ADM-010` |
 | `packs/banking` | Concepts, validators, calendars, message parsers (ISO 20022, SWIFT MT, FIX, FpML, XBRL, ISO 8583, NACHA/SEPA), COBOL/EBCDIC reader, reference reconciliations, regulatory control catalogue with citations | `FR-PCK-002`, docs/12 |

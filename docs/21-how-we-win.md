@@ -16,6 +16,29 @@ gaps. This one answers the only question that matters: *what do we do about them
 
 ---
 
+## As built
+
+Unlock 1 — **the auditor's validation** — has its mechanism:
+`scripts/verify_evidence.py` checks an evidence bundle with no Prama and no
+third-party imports, refuted five ways in the test suite. An independent auditor
+running it at a client site remains an engagement rather than a build task.
+
+Unlock 2 — **the regulatory catalogue** — ships twenty obligations across nine
+regimes, every citation marked *unconfirmed against the published text* until a
+compliance function checks it. `prama pack claims` prints that count (currently
+0 of 20) rather than leaving a reader to assume. A wrong article number costs
+more credibility than an absent one.
+
+Unlock 3 — **the semantic discriminator** — is measured rather than asserted:
+every deterministic ablation is blind to the semantic defect family, which is
+the claim this strategy rests on, stated as a number in `prama bench`.
+
+**The rest of this document is strategy, not status.** Design-partner counts,
+the ninety-day shadow runs and the published benchmarks are commercial work, and
+none of it is done.
+
+---
+
 ## 0. First principles, not competitors
 
 Before any of the tactics below, the governing rule:

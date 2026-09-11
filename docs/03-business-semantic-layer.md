@@ -23,6 +23,26 @@ requirements form of this chapter.
 
 ---
 
+## As built
+
+The conceptual heart of the product, and the part most completely realised.
+
+`prama.semantic` holds the declaration model — value domains, grain, rhythm,
+criticality, optionality, relationships with their match keys and tolerances —
+together with conflict detection, a maturity model, and GitOps round-tripping.
+`prama.derive` is the Γ generator: controls derived from declarations rather
+than written, with coverage reporting per declared attribute.
+
+The thirteen relationship kinds in §2.4 all exist and all dispatch to control
+families. `RECONCILES_WITH` and `TOGETHER_COMPLETE` are declarations, not
+control syntax — a distinction that matters, because writing them as PQL would
+mean inventing grammar the language does not have.
+
+**Not built:** nothing structural. What is untested is scale — the declaration
+model has not been exercised against an estate of the size §6 describes.
+
+---
+
 ## 1. The problem this solves
 
 Every existing tool in the landscape starts from the **physical** world: connect to a warehouse,

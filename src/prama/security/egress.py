@@ -123,6 +123,17 @@ EGRESS_POINTS: Final[tuple[EgressPoint, ...]] = (
         ),
     ),
     EgressPoint(
+        name="source-read",
+        module="prama.connect.sources.rest",
+        what=(
+            "a credential, and any query parameters the read carries. Reading is "
+            "mostly an ingress, but the token genuinely leaves and the source's "
+            "region is where the tenant's data is sitting"
+        ),
+        destination_from="the configured base URL's region",
+        jurisdiction_from="the dataset's declared jurisdiction",
+    ),
+    EgressPoint(
         name="alert-delivery",
         module="prama.alert.route",
         what="alert bodies, which quote failing values",

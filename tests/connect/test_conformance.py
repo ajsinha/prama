@@ -87,6 +87,10 @@ COVERAGE: dict[str, str | None] = {
     "postgresql": None,
     # tests/connect/objectstore/ — needs PRAMA_TEST_S3_ENDPOINT
     "objectstore": None,
+    # tests/connect/test_rest.py — a stdlib HTTP server in a thread, so it runs
+    # everywhere rather than needing a service. Not in the shared fixture below
+    # because that server is per-test and this one is per-parameter.
+    "rest": None,
 }
 
 LOCAL = [key for key, fixture in COVERAGE.items() if fixture is not None]
@@ -127,11 +131,27 @@ class TestCoverage:
     def test_every_connector_declares_what_it_can_push_down(
         self, registry: ConnectorRegistry
     ) -> None:
-        # The capability matrix is the published contract. A connector that
-        # declares nothing would have every control fall back to local
-        # evaluation, silently and expensively.
+        """The capability matrix is the published contract.
+
+        A connector that declares nothing has every control fall back to local
+        evaluation — which is fine when the source has no query engine and a
+        silent, expensive mistake when it does. So declaring nothing is allowed
+        only alongside ``can_run_controls`` being false: the two together are a
+        source saying "I am not a query engine", where an empty matrix on its
+        own is a field somebody forgot to fill in.
+        """
         for key in registry:
-            assert registry.capabilities(key).to_capabilities(), key
+            declared = registry.capabilities(key).to_capabilities()
+            if declared:
+                continue
+            # An instance, not the class: `registry.get` returns the class, and
+            # a property accessed on a class is a truthy property object rather
+            # than its value — so asserting on it would pass for everybody.
+            connector = registry.get(key)({})
+            assert not connector.can_run_controls, (
+                f"{key} claims it can run controls and declares no capabilities. "
+                "One of the two is wrong."
+            )
 
     def test_every_connector_states_the_credential_field_it_fills(
         self, registry: ConnectorRegistry

@@ -144,10 +144,15 @@ class TestRegistry:
     def test_the_catalogue_is_everything_a_source_picker_needs(self) -> None:
         registry = register_builtin(ConnectorRegistry())
         catalogue = {entry["key"]: entry for entry in registry.catalogue()}
-        assert set(catalogue) == {"filesystem", "objectstore", "postgresql", "sqlite"}
+        assert set(catalogue) == {"filesystem", "objectstore", "postgresql", "rest", "sqlite"}
         assert catalogue["sqlite"]["kind"] == "relational"
         assert catalogue["sqlite"]["form"]["groups"]
         assert "pushdown.sql" in catalogue["sqlite"]["capabilities"]
+        # A source with no query engine still needs a form, and its empty
+        # capability list is the honest answer rather than a gap.
+        assert catalogue["rest"]["kind"] == "api"
+        assert catalogue["rest"]["form"]["groups"]
+        assert catalogue["rest"]["capabilities"] == []
 
     def test_no_builtin_overlay_disagrees_with_its_connector(self) -> None:
         """The check that makes the derived form worth deriving.

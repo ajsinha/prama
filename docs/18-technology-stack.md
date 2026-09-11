@@ -19,6 +19,28 @@ world-class UI ([`FR-UIX`](04-requirements-functional.md#p-user-interface-fr-uix
 
 ---
 
+## As built
+
+The stack is as chosen. Python 3.13 from a standalone CPython under
+`~/.local/share/uv/python/` rather than from the OS — a decision the repository
+records because an Ubuntu upgrade removed `/usr/bin/python3.12` mid-build and
+orphaned the venv. FastAPI, SQLAlchemy 2.0, Jinja2, pyarrow, DuckDB, and nothing
+in the console that needs a build step.
+
+Optional extras rather than hard dependencies, each refusing **by name** when
+absent rather than falling back to something weaker: `serve`, `postgres`,
+`fast`, `audit`, `sso`, `kafka`, `rest`.
+
+**Dependency floors have no ceilings.** Every requirement is a `>=`, so a
+rebuild floats to the newest release of everything. That has held so far and is
+luck rather than design; a lock file is the thing that would make it not luck.
+
+§3.2's `sync_test_counts.py` — named here as DishtaYantra's discipline worth
+porting — now exists, and the gate runs it. Numbers in prose are derived from a
+green run rather than typed.
+
+---
+
 ## 1. Summary of the recommendation
 
 | Layer | Choice | Reuse from DishtaYantra |

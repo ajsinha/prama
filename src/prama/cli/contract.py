@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Any
 
 from prama.cli.base import EXIT_DRIFT, EXIT_OK, Command, CommandContext, CommandGroup
-from prama.contract import odcs
+from prama.contract import odcs, quality
 from prama.contract.diff import compare, compare_schema
 from prama.core.errors import ValidationError
 
@@ -93,11 +93,18 @@ class ContractImportCommand(Command):
 
     def configure(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("path", help="an ODCS contract, .yaml or .json")
+        parser.add_argument(
+            "--controls",
+            action="store_true",
+            help="also print the controls its quality blocks become, and the ones they do not",
+        )
 
     def run(self, ctx: CommandContext) -> int:
-        result = odcs.load(_load(ctx.args.path, "contract"))
+        document = _load(ctx.args.path, "contract")
+        result = odcs.load(document)
+        checks = quality.controls_from(document)
         if ctx.json_output:
-            ctx.emit_json(result.to_dict())
+            ctx.emit_json({**result.to_dict(), "quality": checks.to_dict()})
             return EXIT_OK if result.declaration else EXIT_DRIFT
         ctx.emit(result.describe())
         if result.declaration is None:
@@ -109,6 +116,17 @@ class ContractImportCommand(Command):
             ctx.emit(f"  default: {note}")
         for note in result.ignored:
             ctx.emit(f"  ignored: {note}")
+
+        if checks.offered:
+            # Always, not only under --controls. A contract's quality blocks are
+            # the part a consumer is relying on, and importing the schema while
+            # silently taking on none of the checks is the failure this whole
+            # module is about.
+            ctx.emit()
+            ctx.emit(checks.describe())
+            if ctx.args.controls:
+                for control in checks.controls:
+                    ctx.emit(f"  {control}")
         return EXIT_OK
 
 

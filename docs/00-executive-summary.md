@@ -4,6 +4,29 @@
 
 ---
 
+## As built
+
+This summary was written before the product existed. It now does.
+
+Eleven waves are complete. The semantic layer, PQL and its engine-neutral IR,
+the evidence ledger with deterministic replay, declaration-derived controls,
+mining and induction, monitoring and calibration, the console, the banking pack,
+six of eight GA connectors, and the enterprise surface — SSO, SCIM, residency,
+customer-managed keys, an operator, an offline bundle with publisher signing —
+are all in `src/prama/`.
+
+**Every number in this document that is a target remains a target.** Detection
+quality, alert precision, time-to-control, connector breadth against the ~45 GA
+figure: these are objectives, and `NOTICE §6` governs how they may be quoted.
+Where something is built but has not met the real thing — the operator has not
+seen a Kubernetes API server, no cloud KMS has been exercised, no disconnected
+install has been performed — the document describing it says so in those words.
+
+`docs/19` is the authority on what is done, and it distinguishes *built*,
+*built but unverified*, and *not built*.
+
+---
+
 ## The proposition
 
 **Prama is a business-owned data quality control plane.** Business owners and data architects

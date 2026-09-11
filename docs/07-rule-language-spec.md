@@ -18,6 +18,35 @@ reviewable by an auditor, executable on any engine.
 
 ---
 
+## As built
+
+The language, its type checker, its linter, its formatter, a plain-language
+renderer and a language server all exist: `prama.pql`, with lowering to a typed
+engine-neutral IR in `prama.ir` and per-dialect SQL in `prama.backend`.
+
+Twenty-five functions are catalogued, each carrying its per-dialect lowering,
+its **required** reference implementation, its unknown-propagation rule and its
+stated divergence from Excel. A function without a reference implementation does
+not construct, which is what stops the compiler and its independent check from
+drifting apart. Every one is executed on DuckDB, SQLite and — when a DSN is set
+— a real PostgreSQL, and required to agree with its own reference.
+
+An unknown function name is refused at type-check time rather than passed
+through to SQL. A function an engine cannot express is refused, never
+approximated. A volatile function is refused by name, and the reason given is
+replay rather than capability.
+
+The Excel front end (`prama.pql.excel`) is a precedence-climbing parser
+producing the *same* AST — no second IR and no second evaluator — and it claims
+Excel **familiarity**, never Excel **compatibility**. Every divergence is
+declared on the function and printed by `prama control explain`.
+
+**Not built:** nothing in this specification is outstanding. The open question
+is §11's — whether ≥95% of real design-partner controls express in the portable
+subset — and that needs design partners, not code.
+
+---
+
 ## 1. Design goals and non-goals
 
 | Goal | Consequence |
@@ -414,7 +443,7 @@ every hard control goes until the declarative core is decoration around a pile o
 What is supported is what already worked: a `SemanticValidator` with a SQL **screen** and a
 Python **residual**, which is how `ISIN` and `LEI` have always been checked. The PQL surface does
 not change — `IS VALID 'my_scheme'` — and a distribution advertises one through the
-`prama.validators` entry point.
+`prama.classify.validators` entry point.
 
 The contract is enforced, not documented:
 

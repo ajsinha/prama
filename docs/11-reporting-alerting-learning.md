@@ -19,6 +19,33 @@ Requirements: [`FR-SCR`](04-requirements-functional.md#k-scoring-reporting--anal
 
 ---
 
+## As built
+
+`prama.score` — composite scoring and trust propagation along lineage, derived
+from evidence rather than assigned. `prama.report` — scorecards, charts, the
+RDARR attestation pack, the SOC 2 readiness matrix, and the theme machinery.
+`prama.alert` — routing, deduplication, severity, digests, and the quiet period.
+`prama.incident` — correlation and root-cause analysis. `prama.learn` — the
+feedback loop. `prama.integrate.catalog` — quality badges written back to
+Collibra, Alation and DataHub.
+
+Two behaviours worth naming because they are the opposite of the obvious
+implementation. An alert with no recipient is **reported, not dropped** — an
+alert nobody receives is a finding nobody sees. And an alert that fails
+residency is withheld from **everybody or nobody**: delivered to some recipients
+and silently withheld from others is worse than either, because the ones who got
+it assume everyone did.
+
+A badge cannot be constructed without a date. "Trusted" on a table nobody has
+checked since March reads as current, and a reader has no way to tell.
+
+**Not built:** the longitudinal measurements in §6 — alert precision, proposal
+acceptance and break-classification accuracy over twelve months — which need
+design partners. The vendor adapters are written and **none has been run against
+a live server**.
+
+---
+
 ## 1. The measurement model
 
 Everything reported derives from four layers, each fully traceable to the one below:

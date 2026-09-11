@@ -6,7 +6,7 @@ Proprietary and confidential. No licence is granted except by separate written a
 
 ---
 
-Three runnable studies over fabricated banking and trading data. Each builds its
+Four runnable studies over fabricated banking and trading data. Each builds its
 own data, declares an estate in business terms, lets Prama derive the controls,
 runs them, and serves the console — all on localhost, nothing external.
 

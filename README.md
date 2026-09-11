@@ -9,7 +9,7 @@ Banking and capital markets first. Any industry next.
 
 <sub>
 Copyright © 2026 <b>Ashutosh Sinha</b> &lt;ajsinha@gmail.com&gt; · All rights reserved · Proprietary and confidential<br/>
-<a href="LICENSE">LICENSE</a> · <a href="NOTICE">NOTICE</a> · <a href="docs/">Documentation</a>
+<a href="LICENSE">LICENSE</a> · <a href="NOTICE">NOTICE</a> · <a href="SECURITY.md">SECURITY</a> · <a href="CONTRIBUTING.md">CONTRIBUTING</a> · <a href="docs/">Documentation</a>
 </sub>
 
 </div>
@@ -219,26 +219,54 @@ Five contributions, targeting **ACM JDIQ** with a **VLDB Industrial** companion 
 
 ## Status
 
-**Pre-implementation.** This repository currently contains the complete research survey,
-requirements corpus, architecture, language specification, evaluation methodology, and academic
-manuscript. Figures marked as targets, gates, or ⟨TBD⟩ are **objectives, not measured results** —
-see [NOTICE §6](NOTICE).
+**Implemented.** Eleven waves are complete; two tasks stay open on infrastructure
+rather than code. The suite is at <!--tests-->4,320 passing, 47 skipped<!--/tests-->,
+and that number is derived from a green run by `scripts/sync_test_counts.py`
+rather than typed — a count in prose rots the first time somebody adds a test.
+
+What that covers: the semantic layer and declaration model; PQL, its typed
+engine-neutral IR, and a conformance suite that runs the same control on DuckDB,
+SQLite and PostgreSQL and requires them to agree; a hash-chained evidence ledger
+with deterministic replay and a verifier that imports nothing of ours;
+declaration-derived controls, mining and induction; monitoring and calibration;
+the console; a banking pack with six financial message formats, a
+seventeen-concept ontology and twenty regulatory obligations; six of eight GA
+connectors; and the enterprise surface — SSO, SCIM, residency, customer-managed
+keys, an operator, an offline bundle with publisher signing.
+
+**Figures marked as targets or gates are objectives, not measured results**
+(see [NOTICE §6](NOTICE)). Where something is built but unverified, the document
+that describes it says so in those words — the operator has not met a real API
+server, no cloud KMS has been exercised, and no disconnected install has been
+performed on a host with no route out. `docs/19` tracks every one.
 
 Repository layout:
 
 ```
 prama/
 ├── README.md          ← you are here
+├── QUICKSTART.md      ← install, run, and the first control
 ├── LICENSE            ← proprietary; all rights reserved
 ├── NOTICE             ← legal notice, trademarks, third-party references
+├── SECURITY.md        ← reporting, what Prama holds, and what is unverified
+├── CONTRIBUTING.md    ← the habits this codebase is held to
+├── src/prama/         ← the product: 40 packages
+├── tests/             ← the suite, mirroring the package tree
+├── schema/            ← sqlite.sql and postgres.sql; there are no migrations
+├── config/            ← application.yaml; secrets live in application.local.yaml
+├── deploy/            ← Dockerfile, Helm chart, operator CRDs
+├── scripts/           ← the gate, the file-length ceiling, the evidence verifier
+├── case-studies/      ← worked examples end to end
 └── docs/
-    ├── 00–17          ← the analysis, requirements, and design corpus
+    ├── 00–22          ← the analysis, requirements, design and roadmap corpus
+    ├── operations/    ← runbook, configuration and CLI reference, troubleshooting
     ├── assets/        ← logo, seal, favicon, brand preview
     ├── brand.md · glossary.md
     └── paper/         ← manuscript, bibliography, experiment plan
 ```
 
-Branching: work lands on **`develop`** and is merged to **`main`**.
+Branching: work lands on **`develop`** and is merged to **`main`** at the end of
+a wave.
 
 ---
 

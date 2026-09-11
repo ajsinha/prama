@@ -339,16 +339,34 @@ fastest way to find out why a setting is not taking effect.
 | `authoritative schema file not found` | Run from the repository root, or set `database.schema_dir`. |
 | `SchemaDriftError` on start | The live database no longer matches the schema file. `prama db verify` names every difference. Prama will not migrate it for you. |
 | Console loads but every screen is empty | Nothing has run. That is a different fact from "nothing is wrong", and the screens say which. Try a case study (§4). |
+| `there is already a tenant called …` | You are pointed at a different database than you think. The environment variable is `PRAMA_DATABASE__SQLITE__PATH` — double underscores between path segments. `PRAMA_DATABASE__PATH` is not a setting and is silently ignored. |
+| A named refusal mentioning an *extra* | An optional dependency is not installed — `sso`, `kafka`, `rest`, `audit`. It refuses by name rather than falling back to something weaker. |
+
+More of these, and the reasoning behind them, in
+[`docs/operations/troubleshooting.md`](docs/operations/troubleshooting.md).
 
 ---
 
 ## Where to read next
 
-* `README.md` — what Prama is, and the claim it makes falsifiable
-* `docs/03-business-semantic-layer.md` — the conceptual heart
-* `docs/07-rule-language-spec.md` — PQL in full
-* `docs/19-implementation-roadmap.md` — what is built and what is not
-* `CLAUDE.md` — the rules this codebase is held to
+**Running it**
+
+* [`docs/operations/`](docs/operations/) — the operations index, and the shape of a Prama incident
+* [`docs/operations/runbook.md`](docs/operations/runbook.md) — when something is wrong in production
+* [`docs/operations/troubleshooting.md`](docs/operations/troubleshooting.md) — errors that mean something other than they say
+* [`docs/operations/cli-reference.md`](docs/operations/cli-reference.md) — every command and flag, generated from the parser
+* [`docs/operations/configuration-reference.md`](docs/operations/configuration-reference.md) — every setting and its default
+
+**Understanding it**
+
+* [`README.md`](README.md) — what Prama is, and the claim it makes falsifiable
+* [`docs/03-business-semantic-layer.md`](docs/03-business-semantic-layer.md) — the conceptual heart
+* [`docs/07-rule-language-spec.md`](docs/07-rule-language-spec.md) — PQL in full
+* [`docs/19-implementation-roadmap.md`](docs/19-implementation-roadmap.md) — what is built and what is not
+* [`CLAUDE.md`](CLAUDE.md) — the rules this codebase is held to
+
+Every design document in `docs/` opens with an **As built** section saying how
+much of it exists. Where a document and the code disagree, `docs/19` decides.
 
 ---
 
