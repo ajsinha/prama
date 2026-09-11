@@ -26,13 +26,17 @@ Secret leakage into tracked configuration (refused by the pre-commit hook).
 **Still open, and unchanged.** Whether ≥95% of real controls express in the
 portable subset — needs design partners. Whether alert precision holds outside a
 synthetic corpus — needs the shadow study. Whether the connector breadth target
-is reachable at the quality bar this codebase holds; six of eight GA connectors
-took the whole of Wave 3 and part of Wave 10, and the remaining two need driver
-stacks.
+is reachable at the quality bar this codebase holds; seven of eight GA
+connectors took the whole of Wave 3 and part of Wave 10, and the eighth needs a
+Snowflake account. ODBC was attempted and refused: unixODBC cannot be installed
+here, and a connector that has never reached a database is not one.
 
-**New, and not in the original list.** Dependency floors have no ceilings, so a
-rebuild floats to the newest release of everything. It has held; that is luck
-rather than design, and a lock file is what would make it not luck.
+**New, and now closed.** Dependency floors have no ceilings, so a rebuild
+floated to the newest release of everything and that had held by luck.
+`uv.lock` pins the resolution and the gate refuses a lock that has drifted from
+`pyproject.toml`. The declaration still floats deliberately, so security fixes
+arrive; what changed is that a rebuild is reproducible and a version move is a
+visible diff.
 
 ---
 

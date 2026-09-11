@@ -220,9 +220,11 @@ Five contributions, targeting **ACM JDIQ** with a **VLDB Industrial** companion 
 ## Status
 
 **Implemented.** Eleven waves are complete; two tasks stay open on infrastructure
-rather than code. The suite is at <!--tests-->4,320 passing, 47 skipped<!--/tests-->,
-and that number is derived from a green run by `scripts/sync_test_counts.py`
-rather than typed — a count in prose rots the first time somebody adds a test.
+rather than code. The suite is at <!--tests-->4,332 passing, 67 skipped<!--/tests-->,
+derived from a green run by `scripts/sync_test_counts.py` rather than typed — a
+count in prose rots the first time somebody adds a test. That is the *base*
+suite, what a fresh clone gets; the skips are tests needing a service (a
+PostgreSQL, a Kafka, a JDBC driver) and they run when one is there.
 
 What that covers: the semantic layer and declaration model; PQL, its typed
 engine-neutral IR, and a conformance suite that runs the same control on DuckDB,

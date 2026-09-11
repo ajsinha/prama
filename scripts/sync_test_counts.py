@@ -33,6 +33,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import subprocess
 import sys
@@ -58,18 +59,29 @@ SUMMARY = re.compile(r"(\d+) passed(?:, (\d+) skipped)?")
 
 
 def measure() -> tuple[int, int]:
-    """Run the suite and read its summary. Raises if it is not green.
+    """Run the base suite and read its summary. Raises if it is not green.
 
     Deliberately not `--collect-only`: collecting counts tests that exist, and
     the claim is about tests that *pass*. A suite with nine failures collects
     exactly as many as a green one.
     """
+    # A fixed environment, so the number does not depend on which containers
+    # happen to be running. With PostgreSQL up the suite reports seventeen more
+    # passes and seventeen fewer skips than without — a figure that moves with
+    # ambient state is sampled rather than derived, and two people would
+    # advertise different numbers for the same commit.
+    #
+    # The base suite is the honest one to publish: it is what a fresh clone
+    # gets. The skip count is published alongside precisely so the difference is
+    # visible rather than hidden.
+    environment = {k: v for k, v in os.environ.items() if not k.startswith("PRAMA_TEST_")}
     result = subprocess.run(
         [sys.executable, "-m", "pytest", "-q", "--no-header", "-p", "no:cacheprovider"],
         cwd=ROOT,
         capture_output=True,
         text=True,
         check=False,
+        env=environment,
     )
     match = None
     for line in reversed(result.stdout.splitlines()):

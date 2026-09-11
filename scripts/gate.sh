@@ -16,5 +16,14 @@ python scripts/check_file_length.py
 # reference edited by hand is a second source of truth, and it drifts in the
 # flattering direction.
 python3 scripts/generate_docs.py --check
+# The lock file must describe this pyproject. A lock that has drifted is worse
+# than none: it looks like a reproducible build and is not one. Skipped rather
+# than failed where uv is absent, because a contributor without it can still run
+# everything else.
+if command -v uv >/dev/null 2>&1; then
+  uv lock --check
+else
+  echo "uv not installed; skipping the lock-file check"
+fi
 pytest tests -q | tail -3
 echo "gate: green"
