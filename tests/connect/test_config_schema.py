@@ -144,7 +144,14 @@ class TestRegistry:
     def test_the_catalogue_is_everything_a_source_picker_needs(self) -> None:
         registry = register_builtin(ConnectorRegistry())
         catalogue = {entry["key"]: entry for entry in registry.catalogue()}
-        assert set(catalogue) == {"filesystem", "objectstore", "postgresql", "rest", "sqlite"}
+        assert set(catalogue) == {
+            "filesystem",
+            "jdbc",
+            "objectstore",
+            "postgresql",
+            "rest",
+            "sqlite",
+        }
         assert catalogue["sqlite"]["kind"] == "relational"
         assert catalogue["sqlite"]["form"]["groups"]
         assert "pushdown.sql" in catalogue["sqlite"]["capabilities"]
@@ -182,5 +189,5 @@ class TestRegistry:
         from prama.connect import SourceKind
 
         registry = register_builtin(ConnectorRegistry())
-        assert registry.of_kind(SourceKind.RELATIONAL) == ["postgresql", "sqlite"]
+        assert registry.of_kind(SourceKind.RELATIONAL) == ["jdbc", "postgresql", "sqlite"]
         assert registry.of_kind(SourceKind.FILESYSTEM) == ["filesystem"]

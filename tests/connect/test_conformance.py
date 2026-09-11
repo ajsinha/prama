@@ -91,6 +91,9 @@ COVERAGE: dict[str, str | None] = {
     # everywhere rather than needing a service. Not in the shared fixture below
     # because that server is per-test and this one is per-parameter.
     "rest": None,
+    # tests/connect/sql/test_jdbc.py — needs PRAMA_TEST_JDBC_URL, a driver jar
+    # and a JRE. Verified against PostgreSQL over the pgjdbc driver.
+    "jdbc": None,
 }
 
 LOCAL = [key for key, fixture in COVERAGE.items() if fixture is not None]

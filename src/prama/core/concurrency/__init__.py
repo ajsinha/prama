@@ -17,6 +17,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+from prama.core.concurrency.affinity import DedicatedThread
 from prama.core.concurrency.bounded_queue import BoundedQueue, QueueStats
 from prama.core.concurrency.leases import (
     Lease,
@@ -31,6 +32,7 @@ from prama.core.concurrency.supervisor import TaskHandle, TaskSupervisor, run_sy
 __all__ = [
     "BoundedQueue",
     "ConcurrencyLimiter",
+    "DedicatedThread",
     "Lease",
     "LeaseHolder",
     "LeaseProvider",

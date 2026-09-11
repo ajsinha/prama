@@ -159,7 +159,19 @@ class TestConcurrencyHygiene:
     """CLAUDE.md doctrine: structured concurrency only."""
 
     def test_no_bare_threads_outside_the_concurrency_package(self) -> None:
-        allowed_files = {"ids.py", "bounded_queue.py", "supervisor.py", "leases.py", "limits.py"}
+        # affinity.py is the one place a raw thread is allowed outside this
+        # list's original members: some native libraries are thread-*bound*
+        # rather than merely thread-unsafe, and using them from another thread
+        # deadlocks instead of failing. Keeping that in one reviewed primitive
+        # is the point of the rule, not an exception to it.
+        allowed_files = {
+            "ids.py",
+            "bounded_queue.py",
+            "supervisor.py",
+            "leases.py",
+            "limits.py",
+            "affinity.py",
+        }
         offenders = []
         for path in python_files(SRC):
             if path.name in allowed_files:

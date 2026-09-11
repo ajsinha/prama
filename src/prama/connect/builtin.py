@@ -23,6 +23,8 @@ from prama.connect.sources.objectstore import CAPABILITIES as OBJECTSTORE_CAPABI
 from prama.connect.sources.objectstore import ObjectStoreConnector
 from prama.connect.sources.rest import CAPABILITIES as REST_CAPABILITIES
 from prama.connect.sources.rest import RestConnector
+from prama.connect.sources.sql.jdbc import CAPABILITIES as JDBC_CAPABILITIES
+from prama.connect.sources.sql.jdbc import DIALECTS, JdbcConnector
 from prama.connect.sources.sql.postgres import CAPABILITIES as POSTGRES_CAPABILITIES
 from prama.connect.sources.sql.postgres import PostgresConnector
 from prama.connect.sources.sqlite import CAPABILITIES as SQLITE_CAPABILITIES
@@ -297,12 +299,67 @@ REST_OVERLAY: dict[str, FieldPresentation] = {
 }
 
 
+JDBC_OVERLAY: dict[str, FieldPresentation] = {
+    "jdbc_url": FieldPresentation(
+        label="JDBC URL",
+        help="e.g. jdbc:oracle:thin:@host:1521/SERVICE. The driver's own form.",
+        input_kind=InputKind.TEXT,
+        required=True,
+        order=10,
+    ),
+    "driver_class": FieldPresentation(
+        label="Driver class",
+        help="e.g. oracle.jdbc.OracleDriver. Named in the driver's documentation.",
+        required=True,
+        order=20,
+    ),
+    "driver_path": FieldPresentation(
+        label="Driver jar",
+        help=(
+            "Path to the jar on this host. Prama does not redistribute drivers and "
+            "will not fetch one — the jar is somebody else's code running in our "
+            "process, so the deployment chooses it."
+        ),
+        input_kind=InputKind.PATH,
+        required=True,
+        order=30,
+    ),
+    "dialect": FieldPresentation(
+        label="Dialect",
+        help=(
+            "Which database is on the other end. JDBC is a transport, not a "
+            "dialect: guessing would send one database's SQL to another and "
+            f"produce a control that compiles and then fails. One of: {', '.join(DIALECTS)}."
+        ),
+        input_kind=InputKind.SELECT,
+        required=True,
+        order=40,
+    ),
+    "user": FieldPresentation(label="User", order=50),
+    "password": FieldPresentation(
+        label="Password",
+        help="A secret reference, never the password itself — env://ORACLE_PASSWORD.",
+        input_kind=InputKind.PASSWORD,
+        order=60,
+    ),
+    "fetch_size": FieldPresentation(
+        label="Fetch size",
+        help=(
+            "Rows per round trip. Without it the driver materialises the whole "
+            "result in the JVM heap and a large read fails on memory."
+        ),
+        order=70,
+    ),
+}
+
+
 BUILTIN: tuple[tuple[type, CapabilityMatrix, dict[str, FieldPresentation]], ...] = (
     (FilesystemConnector, FILESYSTEM_CAPABILITIES, FILESYSTEM_OVERLAY),
     (SqliteConnector, SQLITE_CAPABILITIES, SQLITE_OVERLAY),
     (PostgresConnector, POSTGRES_CAPABILITIES, POSTGRES_OVERLAY),
     (ObjectStoreConnector, OBJECTSTORE_CAPABILITIES, OBJECTSTORE_OVERLAY),
     (RestConnector, REST_CAPABILITIES, REST_OVERLAY),
+    (JdbcConnector, JDBC_CAPABILITIES, JDBC_OVERLAY),
 )
 
 
