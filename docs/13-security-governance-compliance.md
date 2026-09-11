@@ -89,12 +89,81 @@ collide onto one account.
 The JWKS is **passed in, not fetched**. Fetching is an egress and a caching
 problem; mixing either into a verifier makes it untestable offline.
 
-**Not built:** SCIM provisioning and customer-managed keys. The `Principal`
-model already carries `(idp, external_id)` and `PrincipalDao.by_external_id`
-exists, so the join an SSO sign-in needs is there — but directory-driven
-provisioning and de-provisioning are not, and neither is CMK envelope
-encryption. Both are listed as outstanding in `docs/19` rather than implied by
-this section's presence.
+### 2.2 SCIM provisioning
+
+`prama.security.scim` decides what the directory's view means for an account.
+The protocol is tedious and the decisions are not, so this is the decisions.
+**The HTTP endpoints that speak SCIM's wire format are not written** — what is
+here is the part where being wrong is expensive.
+
+**Nobody is ever deleted.** A SCIM `DELETE` deactivates. The person signed
+things — approved a control, attested a period — and deleting the account leaves
+an attestation signed by a principal that does not exist. That is a hole in the
+audit trail, not a tidy-up. There is no `DELETE` outcome in the enum at all.
+
+**Demotion and deprovisioning are different, and both happen.** Someone who
+leaves the owners group loses the role and keeps the account; someone who leaves
+the company keeps neither. The directory expresses these differently — a group
+change versus `active: false` — and conflating them either locks out somebody
+who moved desk or leaves a leaver signed in.
+
+**Roles are replaced, never merged.** The directory is authoritative for group
+membership. A union means a role granted once is granted forever, and the group
+somebody was removed from six months ago still confers it.
+
+**The last active administrator cannot be deprovisioned.** A directory
+misconfiguration that deactivates every admin locks everybody out of the tenant
+with no way back that does not involve the database. A batch counts the admin
+pool once across the whole sync and decrements it as it goes, so a sync
+deactivating three of four refuses on the one that would leave none — not on the
+first one it reaches.
+
+**An absent field is not a request to blank one.** SCIM PATCH omits what it is
+not changing, and treating omission as deletion wipes an email address on every
+sync.
+
+`REFUSED` is distinct from `NONE`: nothing changed, and something should have.
+
+### 2.3 Customer-managed keys
+
+`prama.security.cmk`. The promise a regulated buyer wants is not "your data is
+encrypted" — it is **"we can take the key away and you cannot read it any
+more"**, which is a claim about who holds what.
+
+A fresh AES-256 data key encrypts each payload; the customer's key (their KMS,
+HSM or Vault) wraps the data key; Prama stores the wrapped key beside the
+ciphertext and never holds the customer key. Revoke it and every envelope it
+wrapped is unreadable, permanently, with no action needed on Prama's side and
+none possible.
+
+That last property is the product, and its cost is stated rather than
+discovered: **revocation is neither reversible nor selective.** A customer who
+revokes to satisfy an erasure request has also made every backup of that data
+unreadable, including the ones taken for their own recovery obligations. The
+error message says so, because `KeyRevoked` is usually not a fault and an
+operator who reads "decryption failed" opens a ticket about a bug that does not
+exist.
+
+Three things that are silent when wrong, each with a test:
+
+- **The nonce is fresh per encryption and never supplied.** Reusing one under a
+  single key in GCM does not merely weaken it: it leaks the XOR of the
+  plaintexts and permits forgery.
+- **The context is authenticated, not merely stored.** Tenant and purpose go
+  into the AAD, so an envelope moved between tenants *fails* to decrypt.
+  Recording the tenant alongside would let it decrypt cleanly into the wrong
+  one — the failure that looks like nothing at all.
+- **The provider cannot generate the customer key.** A provider that could would
+  mean Prama held it at some point, and "we never had it" is the claim the whole
+  arrangement exists to make.
+
+The reference provider is called `LocalTestKeyProvider` and its docstring says
+*never for production*: a class named `LocalKeyProvider` ends up in somebody's
+deployment, and a customer-managed key held by Prama is not one.
+
+**No cloud KMS has been exercised.** `KeyProvider` is an ABC and no AWS, Azure
+or GCP client is imported; a test asserts that. Those clients belong to the
+deployment, and keeping them out is what lets the envelope logic be tested.
 
 ---
 
