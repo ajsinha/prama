@@ -18,11 +18,28 @@ Three properties, and each is a way the obvious implementation is useless:
   nothing about origin, so ``verify`` reports the signature's absence as loudly
   as a mismatch rather than passing on the hashes alone.
 
-**The signature is an HMAC and says so.** It establishes that the bundle was
-sealed by a holder of the deployment's key and nothing to anybody else — the
-same limit the attestation seal carries. An asymmetric signature would say more;
-this does not, and pretending otherwise in an air-gapped install is worse than
-in a connected one, because there is nothing else to check against.
+**Two signatures, and they say different things.**
+
+The **HMAC seal** establishes that the bundle was sealed by a holder of the
+deployment's key, and nothing at all to anybody who does not hold it. It is
+fine for a deployment checking its own artefacts and useless as provenance.
+
+The **Ed25519 signature** is the one that matters air-gapped. A customer holding
+only Prama's *public* key can verify the bundle came from whoever holds the
+private half — which is the entire question an auditor asks about an artefact
+that arrived on a disk. Verification needs nothing secret, so the key can be
+published, pinned, and checked by somebody with no relationship to the sender.
+
+Both are optional and neither is assumed. ``verify`` reports each separately,
+because "sealed by us" and "signed by the publisher" are different claims and a
+single boolean would collapse them. What it will not do is treat an absent
+signature as a passing one: an unsigned bundle verifies internally and proves
+nothing about origin, and in an air-gapped install there is nothing else to
+check it against.
+
+**Container image signing is a separate thing and is not done here.** This signs
+the offline bundle. Signing the OCI image needs cosign and a registry, neither
+of which has been exercised.
 
 Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 """
@@ -125,10 +142,35 @@ class Manifest:
         """An HMAC over the manifest's hash.
 
         Says the manifest was sealed by a holder of this key, and nothing to
-        anybody who does not hold it. An asymmetric signature would say more;
-        this does not, and the readout says so.
+        anybody who does not hold it. Use :meth:`sign` for provenance somebody
+        else can check.
         """
         return hmac.new(key, self.content_hash.encode("ascii"), hashlib.sha256).hexdigest()
+
+    def sign(self, private_key: Any) -> str:
+        """An Ed25519 signature over the manifest's hash, hex encoded.
+
+        This is the one that survives leaving the building. A customer with only
+        the public half can establish that the bundle came from whoever holds
+        the private half, which is what an auditor asks about an artefact that
+        arrived on a disk.
+
+        Signed over the content hash rather than the bundle, so verification
+        stays cheap: re-hashing gigabytes to check one file is a verification
+        nobody performs on a restore.
+        """
+        signature: bytes = private_key.sign(self.content_hash.encode("ascii"))
+        return signature.hex()
+
+    def signature_holds(self, public_key: Any, signature: str) -> bool:
+        """Whether ``signature`` was made over this manifest by that key."""
+        try:
+            public_key.verify(bytes.fromhex(signature), self.content_hash.encode("ascii"))
+        except Exception:
+            # Every failure is one answer: no. Distinguishing a malformed
+            # signature from a wrong one tells an attacker which half to vary.
+            return False
+        return True
 
     def entry(self, path: str) -> Entry | None:
         return next((e for e in self.entries if e.path == path), None)
@@ -157,8 +199,12 @@ class Verification:
     #: and worth saying: an unlisted file is one nobody signed for.
     unexpected: tuple[str, ...] = ()
     manifest_intact: bool = True
-    #: None when no signature was offered — which is not the same as a bad one.
+    #: None when no seal was offered — which is not the same as a bad one.
     seal_holds: bool | None = None
+    #: None when no Ed25519 signature was offered. Kept apart from the seal
+    #: because "sealed by us" and "signed by the publisher" are different
+    #: claims, and one boolean would collapse them.
+    signature_holds: bool | None = None
 
     @property
     def is_trustworthy(self) -> bool:
@@ -168,11 +214,20 @@ class Verification:
         and proves nothing about origin, and in an air-gapped install there is
         nothing else to check it against.
         """
+        if self.signature_holds is False:
+            # A signature that was offered and did not verify is disqualifying
+            # on its own. Somebody signed this and it was not who the key says,
+            # and a holding local seal does not answer that — it says only that
+            # whoever put it on this host had this host's key.
+            return False
         return (
             self.manifest_intact
             and not self.missing
             and not self.modified
-            and self.seal_holds is True
+            # Either signature suffices. The air-gapped receiver has the
+            # publisher's public key and not the sender's HMAC key; requiring
+            # both would make the case this exists for impossible.
+            and (self.seal_holds is True or self.signature_holds is True)
         )
 
     def describe(self) -> str:
@@ -201,20 +256,44 @@ class Verification:
                 f"{len(self.unexpected)} file(s) present that nobody signed for: "
                 f"{', '.join(self.unexpected[:5])}"
             )
-        if self.seal_holds is None:
+        # The two signatures are reported apart, and a failing *seal* alongside
+        # a holding *publisher signature* is not a finding at all — it is the
+        # normal air-gapped case, where the receiving host has the publisher's
+        # public key and was never given the sender's HMAC key. Reporting it as
+        # a failure sent an operator to look for tampering that had not
+        # happened.
+        if self.signature_holds is False:
+            parts.append(
+                "the publisher signature does not verify against the key given: the "
+                "bundle was altered, or signed by somebody else"
+            )
+        if self.seal_holds is False and self.signature_holds is not True:
+            parts.append(
+                "the seal does not verify against this deployment's key: the bundle "
+                "was altered, or sealed elsewhere"
+            )
+        if self.seal_holds is None and self.signature_holds is None:
             parts.append(
                 "no signature was offered, so this bundle proves nothing about where "
                 "it came from — it is internally consistent and could have been built "
                 "by anybody"
             )
-        elif not self.seal_holds:
-            parts.append(
-                "the signature does not verify against this deployment's key: the "
-                "bundle was altered, or sealed elsewhere"
-            )
         if not parts:
-            return f"{self.checked} file(s) verified, and the signature holds."
+            return f"{self.checked} file(s) verified, and {self._who_vouched()}."
         return "; ".join(parts) + f". {self.checked} file(s) checked."
+
+    def _who_vouched(self) -> str:
+        """Which signature actually held, said precisely.
+
+        "the signature holds" over two different signatures would let a reader
+        take a deployment's own HMAC for publisher provenance, which is the
+        stronger claim and the one they came for.
+        """
+        if self.signature_holds and self.seal_holds:
+            return "both the publisher signature and this deployment's seal hold"
+        if self.signature_holds:
+            return "the publisher signature holds"
+        return "this deployment's seal holds — no publisher signature was checked"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -286,7 +365,13 @@ def build_manifest(
 
 
 def verify(
-    root: Path, manifest: Manifest, *, key: bytes | None = None, seal: str = ""
+    root: Path,
+    manifest: Manifest,
+    *,
+    key: bytes | None = None,
+    seal: str = "",
+    public_key: Any = None,
+    signature: str = "",
 ) -> Verification:
     """Check a bundle against its manifest, naming what is wrong and how."""
     stored_hash = manifest.content_hash
@@ -309,13 +394,24 @@ def verify(
         str(path.relative_to(root))
         for path in root.rglob("*")
         if path.is_file()
-        and path.name not in ("manifest.json", "manifest.sig")
+        # The manifest and the signatures over it cannot appear in the file
+        # list they sign, so they are not "unsigned for" — listing them as such
+        # made a correctly signed bundle read as carrying a stray file.
+        and path.name not in ("manifest.json", "manifest.sig", "manifest.ed25519")
         and str(path.relative_to(root)) not in listed
     )
 
     holds: bool | None = None
     if seal:
         holds = bool(key) and hmac.compare_digest(manifest.seal(key or b""), seal)
+
+    signed: bool | None = None
+    if signature:
+        # Offered without a key to check it against is a no, not an absence: a
+        # verifier that skipped it would report an unverifiable signature as
+        # "unsigned", which reads as a packaging oversight rather than a claim
+        # nobody could stand up.
+        signed = public_key is not None and manifest.signature_holds(public_key, signature)
 
     return Verification(
         checked=checked,
@@ -324,6 +420,7 @@ def verify(
         unexpected=tuple(unexpected),
         manifest_intact=intact,
         seal_holds=holds,
+        signature_holds=signed,
     )
 
 

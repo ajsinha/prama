@@ -15,6 +15,56 @@ Two shapes, and the difference between them matters more than either.
 
 ---
 
+## Signing an offline bundle
+
+Two signatures, and they answer different questions.
+
+```bash
+# on the connected machine
+openssl genpkey -algorithm ed25519 -out publisher.pem
+openssl pkey -in publisher.pem -pubout -out publisher.pub
+
+prama bundle seal ./offline --sign-with publisher.pem
+
+# on the air-gapped host, which has publisher.pub and nothing else
+prama bundle verify ./offline --publisher-key publisher.pub
+```
+
+The **HMAC seal** says the bundle was sealed by a holder of this deployment's
+key, and nothing at all to anybody who does not hold it. The **Ed25519
+signature** is the one that survives leaving the building: the receiving host
+verifies it with the public half alone, which is what an auditor asks about an
+artefact that arrived on a disk.
+
+A failing seal alongside a holding publisher signature is **not a finding** —
+it is the normal air-gapped case, where the receiver never had the sender's HMAC
+key. A failing *publisher* signature is disqualifying on its own, whatever the
+seal says: somebody signed the bundle and it was not who the key says.
+
+`verify` exits **3** on a bundle that must not be installed and **1** on a check
+that could not be made. A bundle carrying a signature with no key given to check
+it against exits 3: an unverifiable signature reported as nothing would read as
+an unsigned bundle, which is a different and lesser problem.
+
+### Verified here
+
+Sealed on this machine with a generated Ed25519 key and verified on a simulated
+air-gapped host — a different `session_secret`, so the HMAC seal legitimately
+failed while the publisher signature held. Tampering (a wheel replaced after
+sealing), a wrong publisher key, and a signature with no key given were each
+refused with exit 3.
+
+### Not verified here
+
+**Container image signing.** Signing the OCI image needs `cosign` and a
+registry; neither is installed on this machine and neither has been exercised.
+What is signed above is the offline *bundle*, which is a different artefact.
+
+**A genuinely air-gapped run.** This machine has a network. The verification
+above proves the receiving side needs no secret material beyond the public key,
+which is the property that matters, but nobody has carried this to a host with
+no route out and installed from it.
+
 ## What has been verified, and what has not
 
 Stated first, because deployment artefacts are where "it builds" is routinely

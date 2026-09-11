@@ -168,6 +168,7 @@ prama lsp catalogue --out cat.json       # export the estate's schemas for an ed
 prama lsp serve --catalogue cat.json     # PQL language server on stdio
 python scripts/check_file_length.py      # the 1500-line ceiling
 python3 scripts/verify_evidence.py bundle/   # check evidence without importing Prama
+prama bundle seal ./offline --sign-with k.pem  # Ed25519 provenance for an air-gapped host
 pytest -q tests/web/test_axe.py           # axe-core in Chrome; needs pip install -e ".[audit]"
 pytest -q tests/security/test_oidc.py     # ID-token forgeries; needs pip install -e ".[sso]"
 ruff check src tests && ruff format --check src tests
