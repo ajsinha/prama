@@ -179,10 +179,16 @@ def scoped(scope: str) -> Any:
 
 Caller = Annotated[CallerIdentity, Depends(get_caller)]
 #: An authenticated caller, with no authorisation check. Reserved for the
-#: routes that genuinely need none; a route using this instead of `Reader` or
-#: `Writer` is what `tests/architecture/test_scopes.py` looks for.
-Reader = scoped("semantic:read")
-Writer = scoped("semantic:write")
+#: routes that genuinely need none; a route using this instead of one of the
+#: annotations below is what `tests/architecture/test_scopes.py` looks for.
+#:
+#: The names come from `prama.security.scopes.SCOPES`, which is the same list
+#: `BUILTIN_ROLES` grants from — see finding H5. An annotation naming a scope no
+#: role can hold is a route nobody can call.
+Reader = scoped("declaration:read")
+Writer = scoped("declaration:write")
+RelationshipReader = scoped("relationship:read")
+RelationshipWriter = scoped("relationship:write")
 Uow = Annotated[UnitOfWork, Depends(get_uow)]
 Config = Annotated[Configuration, Depends(get_config)]
 Db = Annotated[Database, Depends(get_database)]

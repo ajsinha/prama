@@ -18,17 +18,37 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-#: Every scope the API enforces, with the sentence a person reading an audit
-#: log needs. Declared rather than inferred, so `prama principal create` and
-#: the console can offer the real list and a typo in a route is a test failure
-#: rather than a permission nobody can ever hold.
+#: **The vocabulary. One of them.** Every scope the product enforces anywhere,
+#: with the sentence a person reading an audit log needs.
+#:
+#: Finding H5 was two vocabularies a comment insisted were one; the first pass
+#: at finding S4 briefly made it three, by inventing `semantic:read` and
+#: `semantic:write` for the API while `BUILTIN_ROLES` granted `declaration:*`
+#: and `control:approve`. A key issued to an `owner` would have held every
+#: permission that role names and been refused by every route — a permission
+#: model that cannot be satisfied is worse than one that is not enforced,
+#: because it fails in production rather than in review.
+#:
+#: `prama.cli.principal.BUILTIN_ROLES` grants from this list and nothing else,
+#: and `tests/architecture/test_scopes.py` checks both directions: a role may
+#: not grant a permission no route requires, and no route may require a
+#: permission no role can hold.
 SCOPES: dict[str, str] = {
-    "semantic:read": "read declarations: datasets, attributes, relationships, journeys",
-    "semantic:write": "declare, amend, correct and retire semantic objects",
+    "declaration:read": "read the semantic layer: domains, datasets, attributes, concepts",
+    "declaration:write": "declare, amend, correct and retire semantic objects",
+    "relationship:read": "read declared and discovered relationships",
+    "relationship:write": "declare a relationship, confirm one, or reject one",
     "control:read": "read controls and their history",
-    "control:write": "author and amend controls",
+    "control:propose": "author a control, which somebody else then approves",
     "control:approve": "activate a control, or suppress a running one",
+    "incident:read": "read incidents",
+    "incident:write": "triage and dispose of incidents",
+    "break:read": "read reconciliation breaks",
+    "break:write": "assign, explain and accept breaks",
     "evidence:read": "read evidence records and run history",
+    "report:read": "read scorecards and reports",
+    "attestation:read": "read attestations",
+    "attestation:sign": "sign an attestation",
     "admin": "manage principals, roles and API keys",
 }
 

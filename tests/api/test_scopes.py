@@ -51,7 +51,7 @@ async def reader(
 ) -> AsyncIterator[httpx.AsyncClient]:
     """A key issued to look, not to touch."""
     async for http in client_with(
-        sqlite_config, started_database, tenant_id, ["semantic:read"], "reader"
+        sqlite_config, started_database, tenant_id, ["declaration:read"], "reader"
     ):
         yield http
 
@@ -82,7 +82,7 @@ class TestAReadKeyCannotWrite:
         assert response.status_code == 403, response.text
         problem = response.json()
         assert problem["code"] == "AUTH.FORBIDDEN"
-        assert "semantic:write" in problem["remedy"]
+        assert "declaration:write" in problem["remedy"]
 
     async def test_it_may_not_retire(
         self, reader: httpx.AsyncClient, client: httpx.AsyncClient

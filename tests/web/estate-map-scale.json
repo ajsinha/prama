@@ -1,16 +1,16 @@
 [
   {
     "nodes": 500,
-    "render_ms": 2878,
+    "render_ms": 6159,
     "counted": 500,
     "fps": 60.4,
     "drew": true
   },
   {
     "nodes": 2000,
-    "render_ms": 14671,
+    "render_ms": 19762,
     "counted": 2000,
-    "fps": 60.2,
+    "fps": 60.5,
     "drew": true
   },
   {

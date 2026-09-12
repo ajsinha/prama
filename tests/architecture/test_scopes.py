@@ -157,3 +157,75 @@ class TestEveryApiRouteDeclaresAScope:
         used = {scope_of(e) for e in endpoints} - {None}
         assert used, "no route required any scope, so this proves nothing"
         assert used <= set(SCOPES), f"routes require scopes nobody can hold: {used - set(SCOPES)}"
+
+
+class TestThereIsOneVocabulary:
+    """Finding H5, and a defect this session introduced while fixing S4.
+
+    `BUILTIN_ROLES` grants `declaration:*`, `control:approve`, `evidence:read`.
+    The first pass at S4 annotated every API route with `semantic:read` and
+    `semantic:write` — names no role grants and none ever could. A key issued to
+    an `owner` would have held every permission that role names and been refused
+    by every route.
+
+    A permission model that cannot be satisfied is worse than one that is not
+    enforced: it fails in production rather than in review, and it fails in the
+    direction that looks like a bug in the caller's credentials.
+
+    Both directions are checked. A role may not grant a permission no route can
+    require, and no route may require a permission no role can hold — because
+    each failure is silent in its own way, and neither shows up in a test of
+    either half alone.
+    """
+
+    @staticmethod
+    def granted() -> set[str]:
+        from prama.cli.principal import BUILTIN_ROLES
+
+        return {grant for _, permissions in BUILTIN_ROLES.values() for grant in permissions}
+
+    def test_every_granted_permission_is_a_declared_scope(self) -> None:
+        from prama.security.scopes import WILDCARD, unknown
+
+        invented = unknown(self.granted() - {WILDCARD})
+        assert not invented, (
+            f"BUILTIN_ROLES grants permissions that are not scopes: {invented}. "
+            "Anybody holding one holds nothing."
+        )
+
+    def test_every_wildcard_grant_covers_something(self) -> None:
+        """`declaration:*` is only meaningful if a `declaration:` scope exists.
+        A wildcard over an empty prefix reads as a broad grant and is a grant of
+        nothing at all."""
+        from prama.security.scopes import SCOPES
+
+        empty = sorted(
+            grant
+            for grant in self.granted()
+            if grant.endswith(":*") and not any(scope.startswith(grant[:-1]) for scope in SCOPES)
+        )
+        assert not empty, f"these wildcards match no declared scope: {empty}"
+
+    def test_every_scope_a_route_requires_can_be_held(self, endpoints: list[Endpoint]) -> None:
+        from prama.security.scopes import permits
+
+        granted = self.granted()
+        required = {scope_of(end) for end in endpoints} - {None}
+        assert required, "no route required any scope, so this proves nothing"
+        unreachable = sorted(scope for scope in required if scope and not permits(granted, scope))
+        assert not unreachable, (
+            f"these routes require a scope no built-in role grants: {unreachable}. "
+            "Nobody can call them."
+        )
+
+    def test_each_builtin_role_can_actually_do_something(self) -> None:
+        """A role that satisfies no route is a job title, not a permission."""
+        from prama.cli.principal import BUILTIN_ROLES
+        from prama.security.scopes import SCOPES, permits
+
+        useless = sorted(
+            name
+            for name, (_, permissions) in BUILTIN_ROLES.items()
+            if not any(permits(permissions, scope) for scope in SCOPES)
+        )
+        assert not useless, f"these roles grant nothing any route accepts: {useless}"

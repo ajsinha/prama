@@ -31,7 +31,18 @@ async def _principal(
     *,
     password: str | None = PASSWORD,
     status: str = "active",
+    role: str | None = "admin",
 ) -> str:
+    """Somebody who can sign in.
+
+    *role* defaults to admin because most tests here are about the session
+    rather than about permissions, and a principal with no roles now holds
+    nothing — the console checks scopes, so a role-less account signs in
+    successfully and is then refused every page. That is the intended
+    behaviour; `role=None` is how a test asks for it.
+    """
+    from prama.cli.principal import BUILTIN_ROLES
+
     async with database.unit_of_work() as uow:
         principal = uow.principals.create(
             tenant_id=tenant_id, username=username, display_name=username.title()
@@ -40,6 +51,20 @@ async def _principal(
             uow.principals.set_password(principal, password)
         principal.status = status
         await uow.flush()
+        if role is not None:
+            description, permissions = BUILTIN_ROLES[role]
+            existing = await uow.roles.by_name(tenant_id, role)
+            if existing is None:
+                existing = uow.roles.create(
+                    tenant_id=tenant_id,
+                    name=role,
+                    permissions=permissions,
+                    description=description,
+                    builtin=True,
+                )
+                await uow.flush()
+            await uow.roles.grant(str(principal.id), str(existing.id))
+            await uow.flush()
         return str(principal.id)
 
 
@@ -206,8 +231,14 @@ class TestTheSignInPage:
     async def test_signing_out_clears_the_session(
         self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
     ) -> None:
-        """Cleared, not flagged. A session marked signed-out is still a session,
-        and the flag is one bug away from being ignored."""
+        """Cleared, and revoked.
+
+        The docstring here used to end at "cleared, not flagged" — presenting
+        the absence of a revocation flag as a security property. That is true of
+        a flag and is not an argument for having nothing: clearing the client's
+        cookie left one captured beforehand valid for Starlette's default
+        fourteen days. See the revocation tests below.
+        """
         await _principal(started_database, tenant_id)
         await ui.post("/sign-in", data={"username": "alice", "password": PASSWORD})
         response = await ui.post("/sign-out")
@@ -216,7 +247,24 @@ class TestTheSignInPage:
 
     @pytest.mark.parametrize(
         "target",
-        ["https://evil.example/", "//evil.example/", "http://evil.example"],
+        [
+            "https://evil.example/",
+            "//evil.example/",
+            "http://evil.example",
+            # Finding S7. A backslash is a path separator for a special scheme
+            # under the WHATWG URL spec, so Chrome, Firefox and Safari all
+            # resolve these to //evil.example and then to http://evil.example.
+            # The check read the raw string, saw one leading slash, and put it
+            # straight into a 303 Location header. Two characters.
+            "/\\evil.example",
+            "/\\\\evil.example",
+            "\\\\evil.example",
+            # Characters a browser strips before resolving, which hide the
+            # shape of the target from a check that reads the string as sent.
+            "/\t/evil.example",
+            "/\n/evil.example",
+            "/\r/evil.example",
+        ],
     )
     async def test_an_offsite_next_is_refused(
         self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str, target: str
@@ -256,3 +304,136 @@ class TestTheSignInPage:
         await _principal(started_database, tenant_id)
         body = (await ui.get("/sign-in")).text
         assert "Nobody has been created" not in body
+
+
+class TestASessionIsRevalidatedNotTrusted:
+    """Finding S8. `ui_caller` built the caller from the cookie alone.
+
+    No principal was loaded, no status was read, no role was re-checked. The
+    session is a self-contained signed cookie with no server-side store, so
+    disabling or deleting an account had **no effect on a session it already
+    held** — `PrincipalDao.authenticate` refuses them at the door and the door
+    was already open. Offboarding was not enforceable.
+
+    Revocation is keyed on the principal's own `updated_at`: a session issued
+    before the row last changed is refused. Any change to the account — being
+    disabled, losing a role — invalidates its sessions as a side effect.
+    Over-invalidation is the safe direction; the cost is signing in again.
+    """
+
+    async def signed_in(self, ui: Any, database: Database, tenant_id: str) -> Any:
+        await _principal(database, tenant_id)
+        response = await ui.post("/sign-in", data={"username": "alice", "password": PASSWORD})
+        assert response.status_code == 303
+        return response
+
+    async def test_an_ordinary_session_still_works(
+        self, ui: Any, started_database: Database, tenant_id: str
+    ) -> None:
+        """The positive control. A revalidation that refuses everything is not
+        a security property, it is an outage."""
+        await self.signed_in(ui, started_database, tenant_id)
+        assert (await ui.get("/estate")).status_code == 200
+
+    async def test_disabling_an_account_ends_its_session(
+        self, ui: Any, started_database: Database, tenant_id: str
+    ) -> None:
+        await self.signed_in(ui, started_database, tenant_id)
+        async with started_database.unit_of_work() as uow:
+            person = await uow.principals.by_username(tenant_id, "alice")
+            assert person is not None
+            person.status = "disabled"
+            await uow.flush()
+
+        landed = await ui.get("/estate", follow_redirects=False)
+        assert landed.status_code == 303, "a disabled account kept its session"
+        assert landed.headers["location"] == "/sign-in"
+
+    async def test_signing_out_revokes_a_cookie_captured_earlier(
+        self, ui: Any, started_database: Database, tenant_id: str
+    ) -> None:
+        """The one that matters on a shared machine.
+
+        Clearing the client's cookie is not revocation: it is asking the client
+        nicely. A copy taken beforehand must stop working too.
+        """
+        await self.signed_in(ui, started_database, tenant_id)
+        captured = dict(ui.cookies)
+        assert captured, "no session cookie was set"
+
+        await ui.post("/sign-out")
+
+        # Present the captured cookie as an attacker would.
+        ui.cookies.clear()
+        for name, value in captured.items():
+            ui.cookies.set(name, value)
+        landed = await ui.get("/estate", follow_redirects=False)
+        assert landed.status_code == 303, "a cookie captured before sign-out still worked"
+
+
+class TestTheConsoleChecksWhatTheSessionMayDo:
+    """The console was out of scope for finding S4, and it should not have been.
+
+    It authenticates a *session* rather than a key, and a route was authorised
+    by the caller merely being signed in. `ui_caller` had been putting the
+    principal's permissions on the identity for waves and nothing read them: an
+    `auditor` — the role whose entire description is "reads everything and
+    changes nothing" — could post to `/controls/{id}/activate` exactly as an
+    `owner` could.
+
+    Enforced in `UiRoutes.page` rather than on each handler, because the console
+    registers forty-eight routes through that one call and annotating them
+    individually is forty-eight chances to forget.
+    """
+
+    async def signed_in_as(self, ui: Any, database: Database, tenant_id: str, role: str) -> None:
+        from prama.cli.principal import BUILTIN_ROLES
+
+        _, permissions = BUILTIN_ROLES[role]
+        async with database.unit_of_work() as uow:
+            person = uow.principals.create(
+                tenant_id=tenant_id, username=role, display_name=role.title()
+            )
+            uow.principals.set_password(person, PASSWORD)
+            granted = uow.roles.create(tenant_id=tenant_id, name=role, permissions=permissions)
+            await uow.flush()
+            await uow.roles.grant(str(person.id), str(granted.id))
+            await uow.flush()
+        response = await ui.post("/sign-in", data={"username": role, "password": PASSWORD})
+        assert response.status_code == 303, response.text
+
+    async def test_an_auditor_may_read(
+        self, ui: Any, started_database: Database, tenant_id: str
+    ) -> None:
+        """The positive control. A guard that refuses everybody is an outage,
+        not an authorisation model."""
+        await self.signed_in_as(ui, started_database, tenant_id, "auditor")
+        assert (await ui.get("/estate")).status_code == 200
+
+    async def test_an_auditor_may_not_activate_a_control(
+        self, ui: Any, started_database: Database, tenant_id: str
+    ) -> None:
+        await self.signed_in_as(ui, started_database, tenant_id, "auditor")
+        response = await ui.post("/controls/01ANYTHING/activate")
+        assert response.status_code == 403, (
+            "the role whose description is 'reads everything and changes "
+            f"nothing' activated a control: {response.status_code}"
+        )
+
+    async def test_an_owner_may(self, ui: Any, started_database: Database, tenant_id: str) -> None:
+        """The other half of the counterfactual: the refusal above must be
+        about the permission and not about the route being broken."""
+        await self.signed_in_as(ui, started_database, tenant_id, "owner")
+        response = await ui.post("/controls/01ANYTHING/activate")
+        assert response.status_code != 403, response.text
+
+    async def test_a_principal_with_no_roles_holds_nothing(
+        self, ui: Any, started_database: Database, tenant_id: str
+    ) -> None:
+        """ "No roles recorded" is not "no restriction" — the same rule the API
+        applies to a key with no scopes."""
+        await _principal(started_database, tenant_id, username="nobody", role=None)
+        assert (
+            await ui.post("/sign-in", data={"username": "nobody", "password": PASSWORD})
+        ).status_code == 303
+        assert (await ui.get("/estate")).status_code == 403

@@ -12,7 +12,6 @@ from __future__ import annotations
 import random
 import time
 from datetime import UTC, datetime, timedelta
-
 from typing import Any, ClassVar
 
 import pytest

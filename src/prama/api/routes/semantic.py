@@ -14,7 +14,13 @@ from datetime import datetime
 
 from fastapi import APIRouter, Query, Response, status
 
-from prama.api.deps import Reader, Uow, Writer
+from prama.api.deps import (
+    Reader,
+    RelationshipReader,
+    RelationshipWriter,
+    Uow,
+    Writer,
+)
 from prama.api.mapping import attribute_out, dataset_out, relationship_out
 from prama.api.schemas import (
     AttributeIn,
@@ -247,7 +253,9 @@ async def list_relationship_kinds() -> list[RelationshipKindOut]:
 
 
 @router.post("/relationships", response_model=RelationshipOut, status_code=status.HTTP_201_CREATED)
-async def declare_relationship(body: RelationshipIn, caller: Writer, uow: Uow) -> RelationshipOut:
+async def declare_relationship(
+    body: RelationshipIn, caller: RelationshipWriter, uow: Uow
+) -> RelationshipOut:
     """Declare a relationship. Validation happens before anything is stored."""
     declaration = RelationshipDeclaration(
         kind=body.kind,
@@ -276,7 +284,7 @@ async def declare_relationship(body: RelationshipIn, caller: Writer, uow: Uow) -
 
 @router.get("/relationships", response_model=list[RelationshipOut])
 async def list_relationships(
-    caller: Reader,
+    caller: RelationshipReader,
     uow: Uow,
     dataset_id: str | None = Query(default=None, description="Either side of the relationship."),
     kind: str | None = Query(default=None),
@@ -295,7 +303,7 @@ async def list_relationships(
 
 @router.post("/relationships/{relationship_id}/confirm", response_model=RelationshipOut)
 async def confirm_relationship(
-    relationship_id: str, body: RelationshipDecisionIn, caller: Writer, uow: Uow
+    relationship_id: str, body: RelationshipDecisionIn, caller: RelationshipWriter, uow: Uow
 ) -> RelationshipOut:
     """Confirm a proposal. Until this, derived controls stay proposals too."""
     version = await RelationshipService(uow).confirm(
@@ -309,7 +317,7 @@ async def confirm_relationship(
 
 @router.post("/relationships/{relationship_id}/reject", response_model=RelationshipOut)
 async def reject_relationship(
-    relationship_id: str, body: RelationshipDecisionIn, caller: Writer, uow: Uow
+    relationship_id: str, body: RelationshipDecisionIn, caller: RelationshipWriter, uow: Uow
 ) -> RelationshipOut:
     """Reject a proposal. Recorded, not deleted: it is a training signal."""
     version = await RelationshipService(uow).reject(

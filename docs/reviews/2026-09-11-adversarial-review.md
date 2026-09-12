@@ -53,8 +53,8 @@ boundary to exist.
 | X5 | `unfinished()` cannot see a run that died mid-flight | **Medium** | Open |
 | S5 | ClickHouse and BigQuery quoting escapes the backtick, not the backslash | **Medium** | Open |
 | S6 | CMK `decrypt()` offers no way to assert the expected tenant | **Medium** | Open |
-| S7 | Open redirect on sign-in via `/\` | **Medium** | Open |
-| S8 | Sessions are never revalidated; sign-out revokes nothing | **Medium** | Open |
+| S7 | Open redirect on sign-in via `/\` | **Medium** | **Fixed** |
+| S8 | Sessions are never revalidated; sign-out revokes nothing | **Medium** | **Fixed** |
 | C6 | `CountMin` depth is decorative; error bound violated ~750× | **Medium** | Open |
 | C7 | `TDigest` weighted `add` collapses every quantile to the maximum | **Medium** | Open |
 | C8 | `TDigest` is not tail-accurate, which is why it was chosen | **Medium** | Open |
@@ -64,7 +64,7 @@ boundary to exist.
 | H2 | Six documents assert CI enforcement; there is no CI | **Medium** | Open |
 | H3 | Plugin purity does not ban `import time` or dynamic imports | **Medium** | Open |
 | H4 | The tombstone is outside the content hash it claims to be inside | **Medium** | Open |
-| H5 | Two capability vocabularies the comment insists are one | **Medium** | Open |
+| H5 | Two capability vocabularies the comment insists are one | **Medium** | **Fixed** |
 | H6 | Four `remedy=` strings name configuration nothing reads | **Low** | Open |
 | H7 | `'06:30 TARGET2'` — a remedy's own example is rejected | **Low** | Open |
 | T1 | The egress guard passes on prose; `llm/providers` never consults the gate | **High** | **Fixed** |
@@ -564,6 +564,71 @@ sensitive data in the product — has **no tenant-scoped read at all**.
 the shape of finding S2. `forget(digest)` takes no tenant whatever, so a known
 digest deletes another estate's samples. Both are now written down rather than
 implied by an absence.
+
+## The session layer, and one vocabulary
+
+**S7 — the open redirect was two characters.** `_safe_next` checked that the
+target "starts with exactly one slash", explicitly to stop `//evil.example`. It
+read the raw string. Under the WHATWG URL spec a backslash is a path separator
+for a special scheme, so Chrome, Firefox and Safari all resolve
+`/\evil.example` to `//evil.example` and then to `http://evil.example`:
+
+    https://prama.customer/sign-in?next=/\attacker.example/prama-sso
+
+The victim authenticates against the genuine host and is bounced to a page that
+looks like a continuation of the login flow. The target is now normalised the
+way a browser normalises it — backslashes folded, and the tab, newline and
+carriage return a browser strips removed — *before* the check runs. Checking a
+string against a rule the browser will not apply to it was the defect.
+
+**S8 — a session was a claim, not a fact.** `ui_caller` built the caller from
+the cookie alone: no principal loaded, no status read, no role re-checked. Two
+consequences. Disabling or deleting an account had **no effect on a session it
+already held**, so offboarding was not enforceable — `authenticate` refuses them
+at the door and the door was already open. And `sign_out` cleared the client's
+cookie only, leaving one captured beforehand valid for Starlette's default
+fourteen days.
+
+The module presented the absence of a revocation flag as a security property —
+*"cleared, not flagged… the flag is one bug away from being ignored"*. That is
+true of a flag and is not an argument for having nothing.
+
+The session is now revalidated on every request, and revocation is keyed on the
+principal's own `updated_at` rather than a new column: a session issued before
+the row last changed is refused. Sign-out touches the row, which revokes the
+other browser the user forgot about — what somebody clicking "sign out" on a
+shared machine actually means. Any change to the account invalidates its
+sessions as a side effect; over-invalidation is the safe direction and the cost
+is signing in again.
+
+**The console now checks what a session may do.** It was out of scope for S4
+and should not have been: `ui_caller` had been putting the principal's
+permissions on the identity for waves and *nothing read them*. An `auditor` —
+the role whose entire description is "reads everything and changes nothing" —
+could post to `/controls/{id}/activate` exactly as an `owner` could. Enforced in
+`UiRoutes.page`, because the console registers forty-eight routes through that
+one call and annotating them individually is forty-eight chances to forget.
+
+**H5, and a third vocabulary this session nearly shipped.** The finding was two
+capability vocabularies a comment insisted were one. Fixing S4 briefly made it
+three: the API routes were annotated `semantic:read` / `semantic:write`, names
+that appear in no role and never could, while `BUILTIN_ROLES` grants
+`declaration:*` and `control:approve`. A key issued to an `owner` would have
+held every permission that role names and been refused by every route.
+
+That is worse than the finding it was meant to fix. A permission model that
+**cannot be satisfied** fails in production rather than in review, and it fails
+in the direction that looks like a bug in the caller's credentials. There is now
+one list in `prama.security.scopes`, `BUILTIN_ROLES` grants from it and nothing
+else, and the guard checks both directions — a role may not grant a permission
+no route requires, and no route may require a permission no role can hold,
+because each of those is silent in its own way.
+
+Caught by writing the console guard, not by the review: annotating console
+routes meant asking what an `owner` actually holds, and the answer did not
+include anything the API was asking for.
+
+---
 
 ---
 

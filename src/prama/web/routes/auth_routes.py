@@ -36,6 +36,7 @@ from typing import Annotated, Any
 from fastapi import Form, Query, Request
 from fastapi.responses import RedirectResponse
 
+from prama.core.clock import utc_now
 from prama.core.log import get_logger
 from prama.web.deps import Uow
 from prama.web.rendering import render
@@ -119,23 +120,66 @@ class AuthRoutes(UiRoutes):
         request.session["scopes"] = sorted(
             permission for role in principal.roles for permission in role.permissions_json
         )
+        # When, so the session can be refused if the account changes underneath
+        # it. Flushed first and read from the row rather than from the clock:
+        # `authenticate` stamps `last_login_at`, which moves `updated_at`, and a
+        # session stamped before that flush would be refused by the request
+        # immediately after it. See prama.web.deps.ui_caller.
+        await uow.flush()
+        request.session["issued_at"] = (principal.updated_at or utc_now()).isoformat()
         _log.info("signed in %s on tenant %s", principal.username, principal.tenant_id)
         return RedirectResponse(url=_safe_next(next_url) or LANDING, status_code=303)
 
-    async def sign_out(self, request: Request) -> Any:
+    async def sign_out(self, request: Request, uow: Uow) -> Any:
+        """Clear the cookie, and invalidate every session this account holds.
+
+        Clearing alone left a captured cookie usable for Starlette's default
+        fourteen days — finding S8. Touching the principal moves its
+        ``updated_at`` past the ``issued_at`` of every session already minted,
+        which `ui_caller` refuses. It revokes the other browser the user forgot
+        about too, which is what somebody clicking "sign out" on a shared
+        machine actually means.
+        """
+        principal_id = request.session.get("principal_id")
         request.session.clear()
+        if principal_id:
+            principal = await uow.principals.get(principal_id)
+            if principal is not None:
+                principal.updated_at = utc_now()
+                await uow.flush()
         return RedirectResponse(url="/sign-in", status_code=303)
 
 
+#: Characters a browser removes from a URL before resolving it. Left in place,
+#: they hide the shape of the target from a check that reads the raw string:
+#: ``/\tevil.example`` is ``//evil.example`` by the time it reaches the network.
+_URL_IGNORED = str.maketrans({"\t": None, "\n": None, "\r": None})
+
+
 def _safe_next(target: str) -> str:
-    """A redirect target, or nothing.
+    r"""A redirect target, or nothing.
 
     Only a path on this site. ``next=https://elsewhere/`` in a link is how a
     sign-in page becomes somebody else's phishing redirect, and the check is
     "starts with exactly one slash" rather than a URL parse — ``//evil.example``
     is a protocol-relative URL that a parser will happily call a path.
+
+    **The string is normalised the way a browser normalises it before the check
+    runs**, which the original did not do and is finding S7. Under the WHATWG
+    URL spec a backslash is a path separator for special schemes, so Chrome,
+    Firefox and Safari all resolve ``/\evil.example`` to ``//evil.example`` and
+    then to ``http://evil.example``. The check saw one leading slash and passed
+    it through to a 303 ``Location`` header. The attack is two characters:
+
+        https://prama.customer/sign-in?next=/\attacker.example/prama-sso
+
+    The victim authenticates against the genuine host and is bounced to a page
+    that looks like a continuation of the login flow. Checking the raw string
+    against a rule the browser will not apply to it is the defect; anything that
+    changes the target's meaning has to be applied here first.
     """
-    candidate = (target or "").strip()
+    candidate = (target or "").strip().translate(_URL_IGNORED)
+    candidate = candidate.replace("\\", "/")
     if not candidate.startswith("/") or candidate.startswith("//"):
         return ""
     return candidate
