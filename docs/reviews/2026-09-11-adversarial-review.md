@@ -55,11 +55,11 @@ boundary to exist.
 | S6 | CMK `decrypt()` offers no way to assert the expected tenant | **Medium** | Open |
 | S7 | Open redirect on sign-in via `/\` | **Medium** | **Fixed** |
 | S8 | Sessions are never revalidated; sign-out revokes nothing | **Medium** | **Fixed** |
-| C6 | `CountMin` depth is decorative; error bound violated ~750× | **Medium** | Open |
-| C7 | `TDigest` weighted `add` collapses every quantile to the maximum | **Medium** | Open |
-| C8 | `TDigest` is not tail-accurate, which is why it was chosen | **Medium** | Open |
-| C9 | The Fed calendar closes a Friday the Fed is open | **Medium** | Open |
-| C10 | `Diff.columns_that_changed` derives from the capped example set | **Medium** | Open |
+| C6 | `CountMin` depth is decorative; error bound violated ~750× | **Medium** | **Fixed** |
+| C7 | `TDigest` weighted `add` collapses every quantile to the maximum | **Medium** | **Fixed** |
+| C8 | `TDigest` is not tail-accurate, which is why it was chosen | **Medium** | **Fixed** |
+| C9 | The Fed calendar closes a Friday the Fed is open | **Medium** | **Fixed** |
+| C10 | `Diff.columns_that_changed` derives from the capped example set | **Medium** | **Fixed** |
 | X6 | `BoundedQueue.try_put` never wakes a waiting consumer | **Medium** | Open |
 | H2 | Six documents assert CI enforcement; there is no CI | **Medium** | Open |
 | H3 | Plugin purity does not ban `import time` or dynamic imports | **Medium** | Open |
@@ -629,6 +629,66 @@ routes meant asking what an `owner` actually holds, and the answer did not
 include anything the API was asking for.
 
 ---
+
+## Three sketches, a calendar and a tally
+
+**C6 — the CountMin rows were not independent.** Every row indexed by one hash
+plus a constant offset, modulo a power-of-two width. Adding the same constant to
+two colliding values cannot separate them, so a collision in one row was a
+collision in *every* row: `min()` eliminated nothing and the sketch was depth-1
+with five times the memory. Measured, `151` and `154` shared a bucket in all
+five rows, and after `add(151, 1_000_000)` the estimate for `154` — true count
+1 — came back as **1,000,001** against a documented bound of 1,327. Out by 753×,
+on a bound the class states as a guarantee. Each row now salts its own hash;
+the same case now returns 1.
+
+**C7 — a weighted point was counted but not stored.** `add(value, weight=n)`
+added `n` to `_count` and one point to the buffer, so the centroids held
+`n_points` of mass while `quantile()` hunted for `q * count` — a target it could
+never reach — and fell through to `return self._max`. Ten values 0…9 at weight
+100 reported a **median of 9.0**. The weight is now mass.
+
+**C8 — the t-digest was not a t-digest.** Every centroid got the same mass cap,
+which is the uniform accuracy an equi-width histogram already gives. The
+`q(1-q)` scale function that shrinks centroids at the tails — the defining
+feature, and the stated reason this structure was chosen over a histogram —
+was absent. The class docstring: *"accurate at the tails … a structure that is
+accurate in the middle and vague at the edges is precisely wrong for this job."*
+
+Measured on 200,000 lognormal samples:
+
+| quantile | before | after |
+|---|---|---|
+| p50 | 1.0% | 0.2% |
+| p99 | **12.7%** | 0.3% |
+| p999 | **17.2%** | 0.1% |
+
+The tails are now *sharper* than the middle, which is the property rather than a
+number. The test asserts it as a relationship for that reason: a fixed
+threshold passes on a lucky seed and proves nothing.
+
+**C9 — the Fed calendar closed days Fedwire was open.** The Federal Reserve's
+published schedule: *"For holidays falling on Saturday, Federal Reserve Bank
+offices … will be open the preceding Friday."* The rules used `NEAREST_WEEKDAY`,
+which moves a Saturday holiday back to the Friday — correct for the NYSE, wrong
+for the Fed. 2021-12-24, 2023-11-10 and 2026-07-03 were all marked closed.
+
+The comment directly above the rules said so, in as many words: *"Saturday
+holidays are not observed … that asymmetry is why NEAREST_WEEKDAY is wrong here
+… so these carry NONE."* Every rule beneath it carried `NEAREST_WEEKDAY`. And
+`tests/packs/test_banking_calendars.py` asserted the behaviour the comment calls
+wrong — two files, two opposite claims, a passing suite, and an external
+authority that sides with the comment. A `SUNDAY_TO_MONDAY` observance now
+exists and the Fed uses it; the NYSE keeps `NEAREST_WEEKDAY`, and a test asserts
+that difference so a fix in one direction cannot silently become a fix in both.
+
+**C10 — the headline number was computed from the first hundred rows.**
+`columns_that_changed` iterated `changed_examples`, capped at `DETAIL_LIMIT`.
+On a diff of 10,000 rows where the first hundred by key differ in
+`settlement_date` and the other 9,900 in `notional`, it reported *"changes are
+in settlement_date"* and never mentioned the column that changed in 99% of rows.
+The summary line then added *"examples are capped and the counts are not"* —
+true of the counts, false of this. The tally now accumulates during the scan.
 
 ---
 

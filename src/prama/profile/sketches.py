@@ -26,15 +26,18 @@ from typing import Any
 HLL_PRECISION = 14
 
 
-def _hash64(value: Any) -> int:
-    """A stable 64-bit hash.
+def _hash64(value: Any, row: int = 0) -> int:
+    """A stable 64-bit hash, independent for each *row*.
 
     ``hash()`` is salted per process, so two workers would disagree and a
     merged sketch would be silently wrong. Stability across processes and
-    across runs is the whole requirement.
+    across runs is the whole requirement — blake2b's ``salt`` gives a different
+    function per row while keeping that stability, which a constant offset does
+    not. See :class:`CountMin` for why the difference is the whole sketch.
     """
     encoded = repr(value).encode("utf-8") if not isinstance(value, bytes) else value
-    return int.from_bytes(hashlib.blake2b(encoded, digest_size=8).digest(), "big")
+    salt = row.to_bytes(2, "big") if row else b""
+    return int.from_bytes(hashlib.blake2b(encoded, digest_size=8, salt=salt).digest(), "big")
 
 
 class HyperLogLog:
@@ -123,16 +126,27 @@ class TDigest:
     def __init__(self, compression: float = 100.0) -> None:
         self._compression = compression
         self._centroids: list[_Centroid] = []
-        self._buffer: list[float] = []
+        self._buffer: list[tuple[float, int]] = []
         self._count = 0
         self._min = math.inf
         self._max = -math.inf
 
     def add(self, value: float, weight: int = 1) -> None:
+        """Add *value*, standing for *weight* observations of it.
+
+        The weight enters the buffer as mass. It used to be added to
+        ``_count`` while the buffer received a single point (finding C7), so
+        the centroids held ``n_points`` of mass and ``quantile()`` looked for
+        ``q * count`` — a target it could never reach. Every quantile fell
+        through to the maximum: ten values 0…9 each with ``weight=100``
+        reported a median of 9.0.
+        """
         if value is None or (isinstance(value, float) and not math.isfinite(value)):
             return
+        if weight <= 0:
+            return
         value = float(value)
-        self._buffer.append(value)
+        self._buffer.append((value, weight))
         self._count += weight
         self._min = min(self._min, value)
         self._max = max(self._max, value)
@@ -146,24 +160,40 @@ class TDigest:
     def _flush(self) -> None:
         if not self._buffer:
             return
-        points = sorted(
-            [(c.mean, c.count) for c in self._centroids] + [(v, 1) for v in self._buffer]
-        )
+        points = sorted([(c.mean, c.count) for c in self._centroids] + self._buffer)
         self._buffer.clear()
         self._centroids = []
         total = sum(count for _, count in points)
         if total == 0:
             return
-        limit = max(1, int(total / self._compression))
+
+        # The scale function, and the whole reason this is a t-digest rather
+        # than an equi-mass histogram — finding C8. A centroid may hold at most
+        # `4 n q (1-q) / compression`, where q is the quantile at its midpoint.
+        # That product vanishes at the tails, so centroids there stay small and
+        # the quantiles this structure exists to answer stay sharp; in the
+        # middle, where nobody is asking a precise question, they grow.
+        #
+        # The cap used to be `total / compression` for every centroid — uniform
+        # accuracy, which is the property an equi-width histogram already has
+        # and the one the class docstring says is "precisely wrong for this
+        # job". Measured on 200,000 lognormal samples, p99 was out by 12.7% and
+        # p999 by 17.2%.
+        def capacity(midpoint: float) -> float:
+            quantile = midpoint / total
+            return max(1.0, 4.0 * total * quantile * (1.0 - quantile) / self._compression)
+
+        below = 0.0
         current_mean, current_count = points[0]
         for mean, count in points[1:]:
-            if current_count + count <= limit:
-                current_mean = (current_mean * current_count + mean * count) / (
-                    current_count + count
-                )
-                current_count += count
+            proposed = current_count + count
+            # The midpoint of the centroid this merge would produce.
+            if proposed <= capacity(below + proposed / 2.0):
+                current_mean = (current_mean * current_count + mean * count) / proposed
+                current_count = proposed
             else:
                 self._centroids.append(_Centroid(current_mean, current_count))
+                below += current_count
                 current_mean, current_count = mean, count
         self._centroids.append(_Centroid(current_mean, current_count))
 
@@ -216,6 +246,17 @@ class CountMin:
     One-sided error matters: a top-K list that might *miss* a frequent value is
     useless for finding a dominant default, while one that might slightly
     over-count a rare one is harmless.
+
+    **Each row hashes independently**, which is the entire mechanism and was
+    missing — finding C6. The rows used to be indexed by one hash plus a
+    constant offset, modulo a power-of-two width: if two values collide in one
+    row they collide in *every* row, because adding the same constant to both
+    cannot separate them. ``min()`` over the rows then eliminated nothing and
+    the sketch was depth-1 with five times the memory. Measured, ``151`` and
+    ``154`` collided in all five rows, and after ``add(151, 1_000_000)`` the
+    estimate for ``154`` — true count 1 — came back as 1,000,001, against a
+    stated error bound of 1,327. The bound is documented as a guarantee with
+    probability ``1 - 2^-depth``; it was out by a factor of 753.
     """
 
     __slots__ = ("_depth", "_table", "_total", "_width")
@@ -229,19 +270,15 @@ class CountMin:
     def add(self, value: Any, count: int = 1) -> None:
         if value is None:
             return
-        digest = _hash64(value)
         for row in range(self._depth):
-            column = (digest + row * 0x9E3779B97F4A7C15) % self._width
-            self._table[row][column] += count
+            self._table[row][_hash64(value, row) % self._width] += count
         self._total += count
 
     def estimate(self, value: Any) -> int:
         if value is None:
             return 0
-        digest = _hash64(value)
         return min(
-            self._table[row][(digest + row * 0x9E3779B97F4A7C15) % self._width]
-            for row in range(self._depth)
+            self._table[row][_hash64(value, row) % self._width] for row in range(self._depth)
         )
 
     def merge(self, other: CountMin) -> CountMin:

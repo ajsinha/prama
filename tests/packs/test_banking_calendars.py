@@ -112,24 +112,77 @@ class TestTheFederalReserveIsNotTheExchange:
 
 
 class TestUsObservance:
+    """Finding C9. The Fed and the NYSE do *not* observe weekends the same way,
+    and the calendar applied the exchange's rule to both.
+
+    The Federal Reserve's published schedule: "For holidays falling on Saturday,
+    Federal Reserve Bank offices ... will be open the preceding Friday." The Fed
+    is shut on Saturday anyway and does not hand back a business day for it.
+    Sunday still rolls to Monday, and that asymmetry is the whole rule.
+
+    The source comment above `FEDERAL_RESERVE_RULES` said exactly this, and
+    every rule beneath it carried `NEAREST_WEEKDAY` regardless — while the test
+    here asserted the behaviour the comment called wrong. Two files, two
+    opposite claims, and a passing suite. The external authority sides with the
+    comment.
+
+    NYSE's use of `NEAREST_WEEKDAY` is correct and stays: the exchange does
+    close the preceding Friday.
+    """
+
     @pytest.mark.parametrize(
         "holiday,observed_on",
         [
             # 2021-07-04 was a Sunday: observed Monday the 5th.
             (date(2021, 7, 4), date(2021, 7, 5)),
-            # 2020-07-04 was a Saturday: observed Friday the 3rd.
-            (date(2020, 7, 4), date(2020, 7, 3)),
             # 2022-12-25 was a Sunday: observed Monday the 26th.
             (date(2022, 12, 25), date(2022, 12, 26)),
+            # 2021-12-25 was a Saturday. Christmas itself is still a closure;
+            # what does not happen is the Friday before.
+            (date(2021, 12, 25), date(2021, 12, 25)),
         ],
     )
-    def test_a_weekend_holiday_moves_to_the_nearest_weekday(
+    def test_a_sunday_holiday_moves_to_the_monday(
         self, calendars: CalendarRegistry, holiday: date, observed_on: date
     ) -> None:
-        """Saturday back to Friday, Sunday forward to Monday. The holiday moves;
-        it does not multiply."""
         fed = calendars.get("FederalReserve")
         assert not fed.is_business_day(observed_on)
+
+    @pytest.mark.parametrize(
+        "open_friday,because",
+        [
+            (date(2021, 12, 24), "Christmas Day 2021 fell on the Saturday"),
+            (date(2023, 11, 10), "Veterans Day 2023 fell on the Saturday"),
+            (date(2026, 7, 3), "Independence Day 2026 falls on the Saturday"),
+            (date(2020, 7, 3), "Independence Day 2020 fell on the Saturday"),
+            (date(2021, 6, 18), "Juneteenth 2021 fell on the Saturday"),
+        ],
+    )
+    def test_the_fed_is_open_the_friday_before_a_saturday_holiday(
+        self, calendars: CalendarRegistry, open_friday: date, because: str
+    ) -> None:
+        """Fedwire settles on these days. A timeliness control that treats one
+        as a closure gives the feed an extra day it was never owed, and a
+        settlement control skips a real business day — once or twice a year,
+        silently."""
+        fed = calendars.get("FederalReserve")
+        assert fed.is_business_day(open_friday), f"{because}, but the Fed is open"
+
+    @pytest.mark.parametrize(
+        "closed_friday,because",
+        [
+            (date(2020, 7, 3), "Independence Day 2020 fell on the Saturday"),
+            (date(2021, 12, 24), "Christmas Day 2021 fell on the Saturday"),
+        ],
+    )
+    def test_the_nyse_does_close_that_friday(
+        self, calendars: CalendarRegistry, closed_friday: date, because: str
+    ) -> None:
+        """The counterfactual, and the reason the two calendars are separate.
+        A fix that made every US calendar Sunday-only would be as wrong in the
+        other direction, and this is the assertion that would catch it."""
+        nyse = calendars.get("NYSE")
+        assert not nyse.is_business_day(closed_friday), f"{because}, and the NYSE shuts"
 
     def test_juneteenth_is_absent_before_it_existed(self, calendars: CalendarRegistry) -> None:
         """It became a federal holiday in 2021. A calendar that back-dated it

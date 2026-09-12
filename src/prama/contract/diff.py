@@ -124,6 +124,11 @@ class Diff:
     added_examples: tuple[tuple[Any, ...], ...] = ()
     removed_examples: tuple[tuple[Any, ...], ...] = ()
     changed_examples: tuple[RowChange, ...] = ()
+    #: How many rows each column changed in, across **every** row compared —
+    #: not only the ones that fit in `changed_examples`. Accumulated during the
+    #: scan rather than derived from the examples afterwards; see
+    #: :attr:`columns_that_changed`.
+    changed_by_column: Mapping[str, int] = dataclasses.field(default_factory=dict)
     truncated: bool = False
     #: Rows that share a key with another row on their own side. A key that is
     #: not unique is not a key, and a diff computed on one is arithmetic on the
@@ -147,16 +152,22 @@ class Diff:
 
     @property
     def columns_that_changed(self) -> tuple[str, ...]:
-        """Every column appearing in a change, most common first.
+        """Every column that changed anywhere, most common first.
 
         The number that turns a diff into an action: four thousand rows
         differing in one column is one bug, and in forty columns is a different
         conversation.
+
+        Counted across every compared row. It used to be derived from
+        `changed_examples`, which is capped at `DETAIL_LIMIT` — so a diff of
+        10,000 rows where the first hundred by key differ in `settlement_date`
+        and the other 9,900 in `notional` reported "changes are in
+        settlement_date" and never mentioned the column that actually changed
+        in 99% of rows (finding C10). The summary line then reassured the reader
+        that "examples are capped and the counts are not", which was true of the
+        counts and not of this.
         """
-        counts: dict[str, int] = {}
-        for change in self.changed_examples:
-            for column in change.columns:
-                counts[column] = counts.get(column, 0) + 1
+        counts = self.changed_by_column
         return tuple(sorted(counts, key=lambda c: (-counts[c], c)))
 
     def describe(self) -> str:
@@ -304,6 +315,8 @@ def compare(
     )
 
     changes: list[RowChange] = []
+    # Accumulated here rather than read back off `changes`, which is bounded.
+    by_column: dict[str, int] = {}
     changed = unchanged = 0
     for identity in shared:
         before, after = left_by_key[identity], right_by_key[identity]
@@ -314,6 +327,8 @@ def compare(
         )
         if differing:
             changed += 1
+            for column_change in differing:
+                by_column[column_change.column] = by_column.get(column_change.column, 0) + 1
             if len(changes) < limit:
                 changes.append(RowChange(key=identity, changes=differing))
         else:
@@ -331,6 +346,7 @@ def compare(
         added_examples=tuple(added_keys[:limit]),
         removed_examples=tuple(removed_keys[:limit]),
         changed_examples=tuple(changes),
+        changed_by_column=dict(by_column),
         truncated=truncated,
         duplicate_keys_left=duplicates_left,
         duplicate_keys_right=duplicates_right,
