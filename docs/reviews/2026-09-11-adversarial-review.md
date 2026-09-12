@@ -68,10 +68,10 @@ boundary to exist.
 | H6 | Four `remedy=` strings name configuration nothing reads | **Low** | Open |
 | H7 | `'06:30 TARGET2'` — a remedy's own example is rejected | **Low** | Open |
 | T1 | The egress guard passes on prose; `llm/providers` never consults the gate | **High** | **Fixed** |
-| T2 | `test_every_tenant_scoped_dao_is_covered` covers 3 of 25 DAOs and cannot fail | **High** | Open |
+| T2 | `test_every_tenant_scoped_dao_is_covered` covers 3 of 25 DAOs and cannot fail | **High** | **Fixed** |
 | T3 | Batch/stream equivalence compares the reference interpreter with itself | **High** | **Fixed** |
 | T4 | Conformance excuses an engine finding *zero* violations on a two-stage control | **High** | **Fixed** |
-| T5 | The tenant sweep is blind for 29 of the 49 methods it probes | **High** | Open |
+| T5 | The tenant sweep is blind for 29 of the 49 methods it probes | **High** | **Fixed** |
 | T6 | Every HMAC seal is verified only by recomputing it with the function under test | **High** | **Fixed** |
 | T7 | `test_at_least_two_genuinely_different_engines_took_part` is `assert 3 >= 2` | **Medium** | Open |
 | T8 | `DriftReport.disagreement` has no coverage; its one test asserts nothing | **Medium** | Open |
@@ -515,6 +515,55 @@ All eight templates now guard exactly what their reference guards, and the tests
 execute the SQL on DuckDB rather than inspecting the string, with a positive
 control asserting the reference really does decline first. Ten fail against the
 old code.
+
+**T2 and T5 — the guard on the boundary this whole session was about.** Both
+live in `tests/security/test_tenant_isolation.py`, and both were the same defect
+in different clothes: a scan whose emptiness came from looking in the wrong
+place rather than from there being nothing to find.
+
+**T5.** The sweep filled one estate, asked the *other*, and required "nothing".
+The fixture planted six kinds of row; the sweep probed forty-nine methods across
+twenty-two DAOs. For the other twenty-nine the answer was empty **because the
+table was empty**. Measured against an estate that owns everything, 29 of 49
+still answered nothing — so they were asserting that an empty table is empty.
+Deleting the tenant filter from `ConceptDao.list_current` and `count_current`
+outright left the whole sweep green.
+
+Two changes. `_one_of_everything` now plants a row in every table the sweep
+reads — including the states that are easy to miss and are exactly where a leak
+would hide: a connection recorded *unhealthy* so `unhealthy()` has something to
+find, a binding recorded as *drifted*, a run left *unfinished*. And the sweep
+now asks **both** estates: a probe where the owner's answer is indistinguishable
+from the empty estate's is reported as blind, because it could not have detected
+a leak whatever the query did. Comparing the two answers rather than hunting for
+a marker string also covers the methods whose answer is a hash or a count and
+carries no name to match on. Blind probes are now **zero**, and the reviewer's
+counterfactual — deleting `ConceptDao`'s filter — turns the sweep red.
+
+**T2.** The test holding the file's strongest claim — *"a DAO added next year
+fails here until it has been thought about"* — enumerated DAOs by
+`issubclass(…, TenantScopedDao)`. Exactly three of twenty-three inherit that
+base, all three were already in `COVERED`, and the other twenty take the tenant
+as an *argument* by convention and could never enter the scan. `missing` was
+permanently the empty set.
+
+The file diagnosed this itself, forty lines above, in `_tenant_scoped_methods`:
+*"A scan keyed on the base class therefore covered three of twenty-three while
+claiming to cover everything, which is worse than not scanning at all."* The
+helper was fixed to scan signatures; the test was left keyed on the base class.
+
+It now enumerates every DAO and requires each to be accounted for — swept,
+covered by a bespoke test, or declared in `UNSWEPT` with the reason its boundary
+rests elsewhere. Adding an unscoped DAO fails it.
+
+**Writing those declarations surfaced a real gap**, which is the point of making
+someone write them. `SampleDao` — which holds the actual failing rows, the most
+sensitive data in the product — has **no tenant-scoped read at all**.
+`get(digest)` is content-addressed and the tenant check lives in the caller
+(`triage_routes._sample` compares `stored.tenant_id` itself), which is precisely
+the shape of finding S2. `forget(digest)` takes no tenant whatever, so a known
+digest deletes another estate's samples. Both are now written down rather than
+implied by an absence.
 
 ---
 

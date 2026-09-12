@@ -24,6 +24,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -458,6 +459,169 @@ WRITE_VERBS = frozenset(
 )
 
 
+async def _one_of_everything(uow: Any, tenant: str) -> None:
+    """Put a row in every table the sweep reads, for one estate.
+
+    Finding T5. The fixture used to plant six kinds of row, and the sweep probed
+    forty-nine methods across twenty-two DAOs. For the other twenty-nine the
+    probe returned empty **because the table was empty**, not because the query
+    was scoped — measured against an estate that owns everything, twenty-nine of
+    forty-nine still answered "nothing". Deleting the tenant filter from
+    `ConceptDao.list_current` and `count_current` outright left the whole sweep
+    green.
+
+    A probe that cannot distinguish "scoped" from "nothing there" is not a
+    weaker check than none; it is a worse one, because it reports coverage.
+    """
+    from prama.db.security import ApiKeyIssuer
+    from prama.report.attestation import Attestation, Coverage
+    from prama.semantic.relationships import (
+        MatchKey,
+        RelationshipDeclaration,
+        RelationshipKind,
+        Tolerance,
+    )
+    from prama.semantic.services.datasets import DatasetService
+    from prama.semantic.services.graph import (
+        BindingService,
+        ConceptService,
+        ConnectionService,
+        JourneyService,
+    )
+    from prama.semantic.services.relationships import RelationshipService
+
+    domain, _ = await uow.domains.create(tenant_id=tenant, name="Markets", description="theirs")
+    await uow.flush()
+
+    dataset = await DatasetService(uow).declare(
+        tenant_id=tenant, name="Their Book", description="theirs", domain_id=str(domain.id)
+    )
+    second = await DatasetService(uow).declare(tenant_id=tenant, name="Their Ledger")
+    await uow.flush()
+    # The services return (entity, version); the id lives on the entity.
+    dataset_id = str(dataset[0].id)
+    second_id = str(second[0].id)
+
+    await DatasetService(uow).declare_attribute(
+        tenant_id=tenant, dataset_id=dataset_id, name="theirs_cde", is_cde=True
+    )
+
+    concept = await ConceptService(uow).declare_concept(tenant_id=tenant, name="TheirConcept")
+    await uow.flush()
+    await ConceptService(uow).declare_property(
+        tenant_id=tenant, concept_id=str(concept[0].id), name="theirs_property"
+    )
+
+    await JourneyService(uow).declare(tenant_id=tenant, name="Their Journey")
+
+    connection = await ConnectionService(uow).configure(
+        tenant_id=tenant, name="theirs-warehouse", source_type="sqlite"
+    )
+    await uow.flush()
+    connection_id = str(connection[0].id)
+    # Unhealthy, so `ConnectionDao.unhealthy` has something to find. A probe
+    # against a healthy estate proves nothing about that method.
+    await ConnectionService(uow).record_health(
+        tenant_id=tenant,
+        connection_id=connection_id,
+        state="unreachable",
+        detail="theirs",
+        checked_at=datetime(2026, 9, 10, 6, 0, tzinfo=UTC),
+    )
+
+    binding = await BindingService(uow).bind_dataset(
+        tenant_id=tenant,
+        dataset_id=dataset_id,
+        connection_id=connection_id,
+        physical_ref={"table": "theirs"},
+    )
+    await uow.flush()
+    # Drifted, so `BindingDao.drifted` is exercised rather than merely called.
+    await BindingService(uow).record_drift(
+        tenant_id=tenant, binding_id=str(binding[0].id), drift_state="missing"
+    )
+
+    await RelationshipService(uow).declare(
+        tenant_id=tenant,
+        declaration=RelationshipDeclaration(
+            kind=RelationshipKind.RECONCILES_WITH,
+            from_dataset_id=dataset_id,
+            to_dataset_id=second_id,
+            match_keys=(MatchKey("account_id"),),
+            compare=("amount",),
+            tolerance=Tolerance(absolute=1.00, currency="EUR"),
+        ),
+        confirmed=True,
+    )
+
+    person = uow.principals.create(tenant_id=tenant, username="theirs", display_name="T")
+    uow.roles.create(tenant_id=tenant, name="admin", permissions=["*"])
+    await uow.flush()
+    issued = ApiKeyIssuer().issue(environment="test")
+    uow.api_keys.create(
+        tenant_id=tenant,
+        principal_id=str(person.id),
+        name="theirs",
+        key_prefix=issued.prefix,
+        key_hash=issued.hash,
+        scopes=["*"],
+    )
+
+    await uow.settings.put(tenant, "theirs.key", "theirs", scope="global")
+
+    their_control, _ = await uow.controls.declare(tenant_id=tenant, identity="theirs", pql=PQL)
+    # Activated, not merely declared. A proposal is invisible to `live()`
+    # whatever the tenant filter says, so leaving it as one would make the
+    # probe pass against a DAO with no filter at all.
+    await uow.controls.activate(str(their_control.id), tenant_id=tenant, approved_by="theirs")
+    await uow.rejections.record(
+        tenant_id=tenant,
+        identity="theirs",
+        content_hash="ab",
+        rejected_at="2026-09-09T00:00:00Z",
+    )
+
+    attestation = Attestation(
+        attester_id=str(person.id),
+        attester_name="theirs",
+        statement="theirs",
+        scope="Their Book",
+        period_start="2026-09-01",
+        period_end="2026-09-30",
+        coverage=Coverage(controls_in_scope=1, controls_run=1, passed=1, failed=0, never_ran=0),
+        exceptions=(),
+        evidence_root="ab" * 32,
+        evidence_records=1,
+        signed_at="2026-10-01T09:15:00Z",
+        tenant_id=tenant,
+    )
+    await uow.attestations.sign(attestation, seal=attestation.seal(b"k"))
+
+    from decimal import Decimal
+
+    from prama.recon.classify import Break, BreakKind
+
+    await uow.breaks.observe(
+        [
+            Break(
+                key="theirs-ACC1",
+                kind=BreakKind.GENUINE,
+                left=Decimal("100.00"),
+                right=Decimal("105.00"),
+                because="theirs",
+            )
+        ],
+        tenant_id=tenant,
+        definition="theirs-ledger-vs-custodian",
+        when="2026-09-09",
+    )
+
+    # Left unfinished on purpose: `EvidenceRunDao.unfinished` is about a run
+    # that died, and a fixture that only ever finishes runs cannot reach it.
+    await uow.evidence_runs.start(tenant_id=tenant, triggered_by="test", engine="reference")
+    await uow.flush()
+
+
 class TestEveryTenantAwareReadIsScoped:
     """The sweep that does not depend on anyone remembering.
 
@@ -477,33 +641,43 @@ class TestEveryTenantAwareReadIsScoped:
     async def test_an_empty_estate_sees_nothing_anywhere(
         self, started_database: Database, tenant_id: str, other_tenant: str
     ) -> None:
-        from prama.semantic.services.datasets import DatasetService
+        empty, blind = await self._sweep(started_database, tenant_id, other_tenant)
+        assert not empty, "these answered for an estate that owns nothing:\n" + "\n".join(empty)
 
-        # One of everything, in the *other* estate.
-        async with started_database.unit_of_work() as uow:
-            await DatasetService(uow).declare(
-                tenant_id=other_tenant, name="Their Book", description="theirs"
-            )
-            their_control, _ = await uow.controls.declare(
-                tenant_id=other_tenant, identity="t", pql=PQL
-            )
-            # Activated, not merely declared. A proposal is invisible to
-            # `live()` whatever the tenant filter says, so leaving it as one
-            # would make this probe pass against a DAO with no filter at all —
-            # which is exactly what it did before somebody checked.
-            await uow.controls.activate(
-                str(their_control.id), tenant_id=other_tenant, approved_by="them"
-            )
-            await uow.rejections.record(
-                tenant_id=other_tenant,
-                identity="r",
-                content_hash="ab",
-                rejected_at="2026-09-09T00:00:00Z",
-            )
-            uow.principals.create(tenant_id=other_tenant, username="theirs", display_name="T")
-            uow.roles.create(tenant_id=other_tenant, name="admin", permissions=["*"])
-            await uow.flush()
-        async with started_database.unit_of_work() as uow:
+    async def test_no_probe_is_blind(
+        self, started_database: Database, tenant_id: str, other_tenant: str
+    ) -> None:
+        """Every probe must be able to see something when it should.
+
+        The test above asks an empty estate and requires "nothing". That answer
+        is only evidence if the same method answers *something* for the estate
+        that owns everything. Twenty-nine of forty-nine did not, so they were
+        asserting that an empty table is empty — and deleting the tenant filter
+        from `ConceptDao` entirely left the sweep green.
+        """
+        _, blind = await self._sweep(started_database, tenant_id, other_tenant)
+        unexplained = sorted(set(blind) - BLIND_BY_DESIGN.keys())
+        assert not unexplained, (
+            "these saw nothing even for the estate that owns everything, so their "
+            f"'nothing' proves nothing: {unexplained}. Plant a row for them in "
+            "_one_of_everything, or declare why the probe cannot reach them."
+        )
+
+    async def test_the_declared_blind_spots_are_still_blind(
+        self, started_database: Database, tenant_id: str, other_tenant: str
+    ) -> None:
+        """An exemption that has quietly started working is dead weight, and
+        makes the list look more considered than it is."""
+        _, blind = await self._sweep(started_database, tenant_id, other_tenant)
+        stale = sorted(BLIND_BY_DESIGN.keys() - set(blind))
+        assert not stale, f"declared unreachable but the sweep now reaches them: {stale}"
+
+    @staticmethod
+    async def _sweep(database: Database, ours: str, theirs: str) -> tuple[list[str], list[str]]:
+        """Fill one estate, then ask both. Returns (leaks, blind probes)."""
+        async with database.unit_of_work() as uow:
+            await _one_of_everything(uow, theirs)
+        async with database.unit_of_work() as uow:
             await uow.evidence.append(
                 EvidenceRecord(
                     control_id="01T",
@@ -512,32 +686,63 @@ class TestEveryTenantAwareReadIsScoped:
                     metrics={"scanned_rows": 1.0, "violating_rows": 1.0},
                     finished_at="2026-09-10T06:00:00Z",
                 ),
-                tenant_id=other_tenant,
+                tenant_id=theirs,
             )
 
         # What only the other estate has. A result is a leak if it carries one
         # of these, not merely if it is truthy: an empty chain's genesis hash
         # and a zero-record verification are truthful "nothing here" answers
         # that happen not to be falsy.
-        markers = ("Their Book", "01T", "theirs", "admin", other_tenant)
+        markers = ("Their", "theirs", "01T", "admin", theirs)
 
-        empty: list[str] = []
-        async with started_database.unit_of_work() as uow:
+        leaks: list[str] = []
+        blind: list[str] = []
+        async with database.unit_of_work() as uow:
             for class_name, method_name in _tenant_scoped_methods():
                 if method_name in WRITE_VERBS:
                     continue
                 dao = _dao_for(uow, class_name)
                 if dao is None:
                     continue
-                # By keyword: some of these declare tenant_id keyword-only.
-                result = getattr(dao, method_name)(tenant_id=tenant_id)
-                if hasattr(result, "__await__"):
-                    result = await result
-                complaint = _leaks(result, markers)
-                if complaint:
-                    empty.append(f"{class_name}.{method_name} {complaint}")
+                probe = f"{class_name}.{method_name}"
 
-        assert not empty, "these answered for an estate that owns nothing:\n" + "\n".join(empty)
+                # By keyword: some of these declare tenant_id keyword-only.
+                mine = getattr(dao, method_name)(tenant_id=ours)
+                if hasattr(mine, "__await__"):
+                    mine = await mine
+                complaint = _leaks(mine, markers)
+                if complaint:
+                    leaks.append(f"{probe} {complaint}")
+
+                owner = getattr(dao, method_name)(tenant_id=theirs)
+                if hasattr(owner, "__await__"):
+                    owner = await owner
+                # Blind means *indistinguishable*: if the estate that owns
+                # everything gets the same answer as the estate that owns
+                # nothing, this probe could not report a leak whatever the
+                # query did. Comparing the two answers rather than looking for
+                # a marker also covers the methods whose answer is a hash or a
+                # count and carries no name to match on.
+                if _render(owner) == _render(mine):
+                    blind.append(probe)
+        return leaks, blind
+
+
+#: Probes the sweep cannot make meaningful, each with the reason. An entry here
+#: is an admission that this method has no coverage *from the sweep* — it is not
+#: an exemption from being tested, and several are covered by a bespoke test
+#: above.
+BLIND_BY_DESIGN: dict[str, str] = {}
+
+
+def _render(result: Any) -> str:
+    """One answer, as a comparable string."""
+    if hasattr(result, "to_dict"):
+        try:
+            return repr(result.to_dict())
+        except Exception:  # pragma: no cover - a to_dict needing more setup
+            pass
+    return repr(result)
 
 
 def _leaks(result: Any, markers: tuple[str, ...]) -> str:
@@ -575,27 +780,88 @@ def _dao_for(uow: Any, class_name: str) -> Any:
     return None
 
 
+#: DAOs the sweep cannot reach, each with the reason. An entry is an admission,
+#: not an exemption: it says this DAO's tenant boundary rests on something other
+#: than a scoped query, and names what.
+UNSWEPT: dict[str, str] = {
+    "TenantDao": (
+        "the root of the scoping, not a thing scoped by it. A tenant row is how "
+        "an estate exists; there is no tenant to filter it by."
+    ),
+    "SampleDao": (
+        "no tenant-scoped read exists. `get(digest)` is content-addressed and "
+        "the tenant check lives in the caller — `triage_routes._sample` compares "
+        "`stored.tenant_id` itself — which is the shape finding S2 was about. "
+        "`forget(digest)` takes no tenant at all, so a known digest deletes "
+        "another estate's samples. Covered today by "
+        "`tests/web/test_triage.py::test_another_tenants_samples_are_not_shown`, "
+        "which tests the route rather than the store."
+    ),
+}
+
+
 class TestTheSuiteCannotFallBehind:
-    def test_every_tenant_scoped_dao_is_covered(self) -> None:
-        """The test that makes this file mean something.
+    """Finding T2. The test that was supposed to make this file mean something
+    could not fail.
 
-        A per-DAO suite only covers what somebody remembered to list. This
-        enumerates the tenant-scoped DAOs from the class hierarchy and fails
-        when one has not been thought about — so a DAO added next year fails
-        here until it has been.
-        """
-        import prama.db.dao as dao_package
-        from prama.db.dao.base import TenantScopedDao
+    It enumerated DAOs by `issubclass(..., TenantScopedDao)`. Exactly three of
+    twenty-three inherit that base — `ApiKeyDao`, `PrincipalDao`, `RoleDao` —
+    and all three were already in `COVERED`, so `missing` was permanently the
+    empty set. The other twenty take the tenant as an *argument*, by convention,
+    and could never enter the scan at all; a DAO added next year would not have
+    failed it.
 
-        scoped = {
+    The file diagnosed this itself, forty lines above, in the docstring of
+    `_tenant_scoped_methods`: "A scan keyed on the base class therefore covered
+    three of twenty-three while claiming to cover everything, which is worse
+    than not scanning at all." The helper was fixed to scan signatures. The test
+    holding the strongest claim in the file was left keyed on the base class.
+
+    So it now enumerates every DAO and requires each to be accounted for: swept
+    by `TestEveryTenantAwareReadIsScoped`, covered by a bespoke test above, or
+    declared in `UNSWEPT` with the reason its boundary rests elsewhere.
+    """
+
+    @staticmethod
+    def all_daos() -> set[str]:
+        import prama.db.dao as package
+        from prama.db.dao.base import Dao, TenantScopedDao
+
+        return {
             name
-            for name in dir(dao_package)
-            if isinstance(getattr(dao_package, name), type)
-            and issubclass(getattr(dao_package, name), TenantScopedDao)
-            and getattr(dao_package, name) is not TenantScopedDao
+            for name in dir(package)
+            if isinstance(getattr(package, name), type)
+            and issubclass(getattr(package, name), Dao)
+            and getattr(package, name) not in (Dao, TenantScopedDao)
         }
-        missing = scoped - COVERED
-        assert not missing, (
-            f"tenant-scoped DAOs with no isolation test: {sorted(missing)}. "
-            "Add one above and list it in COVERED."
+
+    def test_there_are_daos_to_check(self) -> None:
+        """Anti-vacuity, and not a formality: the version of this test it
+        replaces compared two sets that were equal by construction."""
+        assert len(self.all_daos()) >= 20
+
+    def test_every_dao_is_swept_bespoke_or_declared(self) -> None:
+        swept = {class_name for class_name, _ in _tenant_scoped_methods()}
+        unaccounted = self.all_daos() - swept - COVERED - UNSWEPT.keys()
+        assert not unaccounted, (
+            f"these DAOs have no tenant isolation test of any kind: "
+            f"{sorted(unaccounted)}. Give each a scoped read the sweep can "
+            "exercise, a bespoke test listed in COVERED, or an entry in UNSWEPT "
+            "saying what its boundary rests on instead."
         )
+
+    def test_the_declarations_are_still_true(self) -> None:
+        """An admission about a DAO that has since grown a scoped read is dead
+        weight, and makes the list look more considered than it is."""
+        swept = {class_name for class_name, _ in _tenant_scoped_methods()}
+        stale = sorted(UNSWEPT.keys() & swept)
+        assert not stale, (
+            f"declared unsweepable but the sweep now reaches them: {stale}. Remove the entry."
+        )
+
+    def test_every_named_dao_exists(self) -> None:
+        """A name that no longer resolves reads as coverage of something that
+        is not there."""
+        known = self.all_daos()
+        missing = sorted((COVERED | UNSWEPT.keys()) - known)
+        assert not missing, f"named in COVERED or UNSWEPT and not a DAO: {missing}"
