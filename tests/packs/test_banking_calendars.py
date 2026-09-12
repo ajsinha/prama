@@ -14,7 +14,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
@@ -145,8 +145,21 @@ class TestUsObservance:
     def test_a_sunday_holiday_moves_to_the_monday(
         self, calendars: CalendarRegistry, holiday: date, observed_on: date
     ) -> None:
+        """The holiday moves; it does not multiply.
+
+        `holiday` used to be accepted and never referenced (finding T13), which
+        left the second half of that sentence asserted nowhere — the test would
+        have passed just as well had the calendar closed the whole week.
+        """
         fed = calendars.get("FederalReserve")
         assert not fed.is_business_day(observed_on)
+        # Exactly one weekday lost. The Friday before the holiday is a business
+        # day: that is the Fed rule, and it is the assertion `holiday` exists
+        # to make.
+        friday = holiday - timedelta(days=holiday.weekday() - 4 if holiday.weekday() >= 4 else 3)
+        while friday.weekday() != 4:
+            friday -= timedelta(days=1)
+        assert fed.is_business_day(friday), f"the Friday before {holiday} should be open"
 
     @pytest.mark.parametrize(
         "open_friday,because",

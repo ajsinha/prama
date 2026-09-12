@@ -352,20 +352,39 @@ def test_governing_documents_are_present(repo_root: Path, filename: str) -> None
 
 
 class TestLanguageLayering:
-    """The language must not depend on what compiles it."""
+    """The language must not depend on what compiles it.
+
+    Finding T12. These three guards used cwd-relative paths —
+    `Path("src/prama/pql")` — while every other guard in this file anchors on
+    `SRC`, which is derived from `__file__`. pytest does not chdir to rootdir,
+    so running from any other directory made them iterate over zero files and
+    pass in 0.05 s: `cd tests && pytest architecture/test_layering.py -k
+    LanguageLayering` reported *3 passed* while checking nothing. An IDE runner
+    or a `cd` into a subdirectory silently disarmed the pql→ir→backend rule and
+    the engine-name branching rule.
+
+    The anti-vacuity test below is what makes the anchoring stick.
+    """
+
+    def test_there_are_files_to_check(self) -> None:
+        """A scan over an empty directory passes identically to a scan that
+        found nothing wrong, and that is exactly how this failed."""
+        assert len(list((SRC / "pql").rglob("*.py"))) >= 5
+        assert len(list((SRC / "ir").rglob("*.py"))) >= 3
+        assert len(list((SRC / "backend").rglob("*.py"))) >= 5
 
     def test_pql_does_not_import_the_ir_or_a_backend(self) -> None:
         # The direction is pql → ir → backend. Reversing it anywhere makes the
         # language unusable without the execution stack, and produced a
         # circular import the moment the linter reached for a lowered plan to
         # compare two controls.
-        for path in (Path("src/prama/pql")).rglob("*.py"):
+        for path in (SRC / "pql").rglob("*.py"):
             imported = imported_modules(path)
             offending = {m for m in imported if m.startswith(("prama.ir", "prama.backend"))}
             assert not offending, f"{path} imports {sorted(offending)}"
 
     def test_the_ir_does_not_import_a_backend(self) -> None:
-        for path in (Path("src/prama/ir")).rglob("*.py"):
+        for path in (SRC / "ir").rglob("*.py"):
             imported = imported_modules(path)
             offending = {m for m in imported if m.startswith("prama.backend")}
             assert not offending, f"{path} imports {sorted(offending)}"
@@ -381,7 +400,7 @@ class TestLanguageLayering:
         comparisons = re.compile(
             r"""(==|!=|\bis\b|\bin\b)\s*\(?\s*["'](postgresql|duckdb|sqlite)["']"""
         )
-        for path in Path("src/prama/backend").rglob("*.py"):
+        for path in (SRC / "backend").rglob("*.py"):
             if path.name == "dialect.py":
                 continue
             for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
@@ -442,3 +461,53 @@ class TestSingleMutationChannel:
                 if any(module.startswith(f"prama.{p}") for p in self.INFERRING):
                     offenders.append(f"{relative(path)} imports {module}")
         assert not offenders, f"the queue should not know about generators: {offenders}"
+
+
+class TestTheGuardsCannotBeDisarmedByChangingDirectory:
+    """Finding T12, generalised. A guard that resolves its own location cannot
+    be silenced by where pytest was started; one that uses a relative path can.
+
+    `cd tests && pytest architecture/test_layering.py -k LanguageLayering`
+    reported *3 passed in 0.05s* while iterating over zero files, because
+    `Path("src/prama/pql")` does not exist from there and pytest does not chdir
+    to rootdir. Every other guard in this file anchors on `__file__`; three did
+    not, and nothing said so.
+    """
+
+    def test_no_test_reaches_for_the_source_tree_by_relative_path(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        offenders: list[str] = []
+        for path in root.rglob("test_*.py"):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if (
+                    isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Name)
+                    and node.func.id == "Path"
+                    and node.args
+                    and isinstance(node.args[0], ast.Constant)
+                    and isinstance(node.args[0].value, str)
+                    and node.args[0].value.startswith(("src/", "src\\", "tests/", "scripts/"))
+                ):
+                    offenders.append(f"{path.relative_to(root).as_posix()}:{node.lineno}")
+        assert not offenders, (
+            "these resolve the repository by a path relative to the working "
+            f"directory, so they pass vacuously when pytest is run from "
+            f"anywhere else: {offenders}. Anchor on __file__."
+        )
+
+    def test_the_scan_would_notice(self) -> None:
+        """The counterfactual. A scan looking for the wrong node type finds
+        nothing and passes exactly like one with nothing to find."""
+        tree = ast.parse('for p in Path("src/prama/pql").rglob("*.py"): pass')
+        found = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "Path"
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+            and str(node.args[0].value).startswith("src/")
+        ]
+        assert len(found) == 1

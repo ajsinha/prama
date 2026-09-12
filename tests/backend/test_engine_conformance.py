@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 
-from prama.backend.conformance import ConformanceRun, EngineOutcome
+from prama.backend.conformance import REFERENCE, ConformanceRun, EngineOutcome
 from prama.backend.corpus import CASES, Case
 from prama.backend.execute import ControlResult
 from prama.ir.model import Verdict
@@ -30,12 +30,37 @@ class TestTheEnginesAgree:
         # which is not part of a control's meaning.
         report = conformance.summarise(engines)
         assert report["conforming"], "\n".join(report["disagreements"])
-        assert report["cases"] == len(CASES)
+        # Cases that at least two engines actually answered — not len(CASES)
+        # compared with len(CASES), which is what this used to be.
+        assert report["cases_compared"] == len(CASES), (
+            f"only {report['cases_compared']} of {len(CASES)} cases were answered "
+            "by two or more engines; the rest were compared against nothing"
+        )
 
-    def test_at_least_two_genuinely_different_engines_took_part(self, engines: dict) -> None:
-        # A suite that silently ran one engine twice would pass for ever and
-        # prove nothing.
-        assert len(engines) >= 2
+    def test_at_least_two_genuinely_different_engines_took_part(
+        self, engines: dict, conformance: ConformanceRun
+    ) -> None:
+        """Finding T7. This was `assert len(engines) >= 2` against a dict built
+        from three hard-coded literals, so it could never be false — while its
+        own comment said "a suite that silently ran one engine twice would pass
+        for ever and prove nothing".
+
+        Counting keys is not counting engines. Making `SqlCompiler.compile`
+        raise for every control on SQLite drops SQLite out of the run entirely,
+        because refusals are filtered before comparison — and this test, the
+        whole-corpus test and all 21 per-case tests stayed green while the
+        headline Wave-4 gate had degraded to one SQL engine plus the
+        interpreter.
+        """
+        report = conformance.summarise(engines)
+        ran = set(report["engines_that_ran"])
+        assert REFERENCE in ran, "the interpreter is the oracle; without it nothing is settled"
+        sql_engines = ran - {REFERENCE}
+        assert len(sql_engines) >= 2, (
+            f"only {sorted(sql_engines)} executed anything. Three SQL backends "
+            "agreeing proves agreement about the compiler they share; one "
+            "agreeing with the interpreter proves much less, and silently."
+        )
 
     @pytest.mark.parametrize("name", [c.name for c in CASES])
     def test_each_case_individually(

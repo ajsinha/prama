@@ -359,48 +359,166 @@ class TestTheWebTier:
             unchanged = await uow.breaks.require(identifier)
         assert unchanged.state == "open"
 
+    #: Every list screen the console offers. A screen absent from this tuple is
+    #: a screen nobody checks for leakage.
+    SCREENS: ClassVar[tuple[str, ...]] = (
+        "/estate",
+        # The map itself renders client-side, so the dataset names reach the
+        # browser through this endpoint and not through the page's HTML. A
+        # sweep over the page alone never sees the data the page displays.
+        "/estate/graph.json",
+        "/estate/gaps",
+        "/declarations",
+        "/controls",
+        "/proposals",
+        "/incidents",
+        "/reconciliation",
+        "/scorecards",
+        "/evidence",
+        "/attestations",
+        "/reports",
+    )
+
+    #: Screens that render none of the planted markers even for the estate that
+    #: owns them, with the reason. An entry is an admission that this sweep says
+    #: nothing about that screen — not that the screen is exempt from tenancy.
+    SILENT: ClassVar[dict[str, str]] = {
+        "/estate": (
+            "the map is drawn client-side from /estate/graph.json, which is in "
+            "this sweep. The page's own HTML carries no dataset names."
+        ),
+        "/proposals": (
+            "proposals are generated from declarations on request, not stored; "
+            "nothing planted appears until somebody asks for a generation. "
+            "Covered by TestTheWebTier's bespoke proposal tests above."
+        ),
+        "/reports": (
+            "aggregate counts only — '12 controls, 3 failing'. It carries no "
+            "name from any estate, which is why nothing planted shows up."
+        ),
+    }
+
+    @staticmethod
+    async def plant(database: Database, tenant: str, label: str) -> tuple[str, ...]:
+        """One of everything, named so it can be recognised on a page."""
+        from decimal import Decimal
+
+        from prama.recon.classify import Break, BreakKind
+        from prama.report.attestation import Attestation, Coverage
+        from prama.semantic.services.datasets import DatasetService
+
+        async with database.unit_of_work() as uow:
+            await DatasetService(uow).declare(
+                tenant_id=tenant, name=f"{label} Book", description=f"{label} alone"
+            )
+            # The controls page lists a control by its *dataset*, taken from
+            # the PQL, so a shared PQL constant gives every estate the same
+            # row text and nothing to recognise. This is the marker that
+            # screen can actually show.
+            control, _ = await uow.controls.declare(
+                tenant_id=tenant,
+                identity=f"{label}-ctl",
+                pql=(
+                    f"CHECK {label.lower()}_ledger.notional IS NOT NULL "
+                    "SEVERITY critical DIMENSION completeness BECAUSE 'CDE'"
+                ),
+            )
+            await uow.controls.activate(str(control.id), tenant_id=tenant, approved_by=label)
+            await uow.breaks.observe(
+                [
+                    Break(
+                        key=f"{label}-ACC1",
+                        kind=BreakKind.GENUINE,
+                        left=Decimal("100.00"),
+                        right=Decimal("105.00"),
+                        because=f"{label} disagree",
+                    )
+                ],
+                tenant_id=tenant,
+                definition=f"{label}-ledger-vs-custodian",
+                when="2026-09-09",
+            )
+            person = uow.principals.create(
+                tenant_id=tenant, username=label.lower(), display_name=label
+            )
+            await uow.flush()
+            attestation = Attestation(
+                attester_id=str(person.id),
+                attester_name=f"{label} Attester",
+                statement=f"{label} reviewed",
+                scope=f"{label} Book",
+                period_start="2026-09-01",
+                period_end="2026-09-30",
+                coverage=Coverage(
+                    controls_in_scope=1, controls_run=1, passed=1, failed=0, never_ran=0
+                ),
+                exceptions=(),
+                evidence_root="ab" * 32,
+                evidence_records=1,
+                signed_at="2026-10-01T09:15:00Z",
+                tenant_id=tenant,
+            )
+            await uow.attestations.sign(attestation, seal=attestation.seal(b"k"))
+        async with database.unit_of_work() as uow:
+            await uow.evidence.append(
+                EvidenceRecord(
+                    control_id=f"01{label.upper()}",
+                    dataset=f"{label}_secret_dataset",
+                    verdict="fail",
+                    metrics={"scanned_rows": 10.0, "violating_rows": 4.0},
+                    finished_at="2026-09-10T06:00:00Z",
+                ),
+                tenant_id=tenant,
+            )
+        return (
+            f"{label} Book",
+            f"{label}_secret_dataset",
+            f"01{label.upper()}",
+            f"{label}-ACC1",
+            f"{label} Attester",
+            f"{label}-ctl",
+            f"{label}-ledger-vs-custodian",
+            f"{label.lower()}_ledger",
+        )
+
+    async def test_every_screen_in_the_sweep_can_show_something(
+        self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """The positive control, and the whole point — finding T10.
+
+        The sweep below asserts that another estate's rows do not appear. That
+        is only evidence if the same rows *would* appear when they belong to
+        the caller. Measured, six of the eleven screens rendered none of the
+        four markers even for their own estate, so `assert leak not in body`
+        could not fail on those for any tenancy-related reason. Two of them were
+        checked against fixture data the sweep never created at all.
+        """
+        markers = await self.plant(started_database, tenant_id, "Ours")
+        silent = []
+        for path in self.SCREENS:
+            body = (await ui.get(path)).text
+            if not any(marker in body for marker in markers):
+                silent.append(path)
+        unexplained = sorted(set(silent) - self.SILENT.keys())
+        assert not unexplained, (
+            f"these screens show none of {markers} even for the estate that owns "
+            f"them, so their 'nothing leaked' proves nothing: {unexplained}. "
+            "Plant something they render, or declare why they cannot."
+        )
+
     async def test_no_screen_shows_another_estates_rows(
         self, ui: httpx.AsyncClient, started_database: Database, other_tenant: str
     ) -> None:
         """The sweep. Every list screen, against an estate that has one of
         everything, asserting none of it appears."""
-        from prama.semantic.services.datasets import DatasetService
-
-        async with started_database.unit_of_work() as uow:
-            await DatasetService(uow).declare(
-                tenant_id=other_tenant,
-                name="Their Secret Book",
-                description="theirs alone",
-            )
-            await uow.controls.declare(tenant_id=other_tenant, identity="theirs", pql=PQL)
-            await uow.evidence.append(
-                EvidenceRecord(
-                    control_id="01THEIRS",
-                    dataset="their_secret_dataset",
-                    verdict="fail",
-                    metrics={"scanned_rows": 10.0, "violating_rows": 4.0},
-                    finished_at="2026-09-10T06:00:00Z",
-                ),
-                tenant_id=other_tenant,
-            )
-
-        leaks = ("Their Secret Book", "their_secret_dataset", "01THEIRS", "theirs")
-        for path in (
-            "/estate",
-            "/estate/gaps",
-            "/declarations",
-            "/controls",
-            "/proposals",
-            "/incidents",
-            "/reconciliation",
-            "/scorecards",
-            "/evidence",
-            "/attestations",
-            "/reports",
-        ):
-            body = (await ui.get(path)).text
-            for leak in leaks:
-                assert leak not in body, f"{path} leaked {leak!r}"
+        markers = await self.plant(started_database, other_tenant, "Theirs")
+        for path in self.SCREENS:
+            response = await ui.get(path)
+            # Asserted, because a screen that 404s leaks nothing and proves
+            # nothing, and the sweep used to discard the status entirely.
+            assert response.status_code == 200, f"{path} answered {response.status_code}"
+            for leak in markers:
+                assert leak not in response.text, f"{path} leaked {leak!r}"
 
 
 def _tenant_scoped_methods() -> list[tuple[str, str]]:

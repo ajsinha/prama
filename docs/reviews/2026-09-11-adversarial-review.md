@@ -73,13 +73,13 @@ boundary to exist.
 | T4 | Conformance excuses an engine finding *zero* violations on a two-stage control | **High** | **Fixed** |
 | T5 | The tenant sweep is blind for 29 of the 49 methods it probes | **High** | **Fixed** |
 | T6 | Every HMAC seal is verified only by recomputing it with the function under test | **High** | **Fixed** |
-| T7 | `test_at_least_two_genuinely_different_engines_took_part` is `assert 3 >= 2` | **Medium** | Open |
-| T8 | `DriftReport.disagreement` has no coverage; its one test asserts nothing | **Medium** | Open |
-| T9 | "Mining finds a rule" passes while mining finds nothing | **Medium** | Open |
-| T10 | The web tenant sweep's markers never render on 6 of its 11 screens | **Medium** | Open |
-| T11 | `verify([record.to_dict()])` is intact for any content whatsoever | **Medium** | Open |
-| T12 | Three architecture guards go vacuous if pytest runs from another directory | **Medium** | Open |
-| T13 | A parametrized test that ignores one of its parameters | **Low** | Open |
+| T7 | `test_at_least_two_genuinely_different_engines_took_part` is `assert 3 >= 2` | **Medium** | **Fixed** |
+| T8 | `DriftReport.disagreement` has no coverage; its one test asserts nothing | **Medium** | **Fixed** |
+| T9 | "Mining finds a rule" passes while mining finds nothing | **Medium** | **Fixed** |
+| T10 | The web tenant sweep's markers never render on 6 of its 11 screens | **Medium** | **Fixed** |
+| T11 | `verify([record.to_dict()])` is intact for any content whatsoever | **Medium** | **Fixed** |
+| T12 | Three architecture guards go vacuous if pytest runs from another directory | **Medium** | **Fixed** |
+| T13 | A parametrized test that ignores one of its parameters | **Low** | **Fixed** |
 
 ---
 
@@ -760,6 +760,79 @@ implements and every existing chain was written under. The verifier checks the
 seal, and refuses a tombstone that carries none — an attacker who cannot forge a
 seal removes it, and a check that only runs when a seal is present checks
 nothing.
+
+## The rest of the test-quality findings
+
+**T7 — `assert len(engines) >= 2` against a dict of three hard-coded keys.**
+Its own comment said "a suite that silently ran one engine twice would pass for
+ever and prove nothing", and counting dictionary keys is not counting engines.
+Making `SqlCompiler.compile` refuse every control on SQLite drops SQLite out of
+the run entirely — refusals are filtered before comparison — and this test, the
+whole-corpus test and all 21 per-case tests stayed green while the headline
+Wave-4 gate had degraded to one SQL engine plus the interpreter. The sibling
+`assert report["cases"] == len(CASES)` compared `len(CASES)` with itself.
+
+The report now distinguishes who was *offered* the corpus from who *executed*
+it, and counts cases at least two engines answered. Both assertions now fail
+when an engine drops out.
+
+**T8 — a test that executed neither of its assertions.** They sat inside
+`if report.material and len(report.material) < len(report.measures)`, and with a
+shift from spread 50 to 130 every measure finds it material, so the condition
+was always false. `DriftReport.disagreement` was referenced by no other test:
+replacing its body with `return ""` left all 106 tests in `tests/monitor`
+passing. Spread 60 is a corpus that genuinely splits the measures two-to-three,
+and the test now asserts the split *before* relying on it — plus the two other
+cases, unanimous and refused, where the property must be silent.
+
+**T9 — an acceptance test for mining that did not demonstrate mining.**
+`assert findings.dependencies or findings.discarded` passed entirely on the
+second disjunct: against the corpus, mining found **0 dependencies and discarded
+2**. The third assertion sits inside `for dependency in findings.dependencies`
+and never executed. The corpus drew each row's rating at random, so no
+functional dependency existed to find. There is now one that does —
+`counterparty_lei → rating`, which holds in any real exposures table — and the
+old corpus is kept as the counterfactual: a miner reporting a rule *there* would
+be inventing them.
+
+**T10 — six of eleven screens could not have failed.** The sweep asserted that
+another estate's rows do not appear. Measured against the estate that *owns*
+them, `/estate`, `/controls`, `/proposals`, `/reconciliation`, `/attestations`
+and `/reports` rendered none of the four markers, so `assert leak not in body`
+could not fail on those for any tenancy reason; two were checked against fixture
+data the sweep never created.
+
+A positive control now runs first and requires every screen to show its own
+estate's data. Making it pass found real gaps in the sweep rather than in the
+product: `/estate` draws client-side, so the dataset names reach the browser
+through `/estate/graph.json` — an endpoint the sweep never fetched, and the one
+that actually carries the data. Breaks and attestations were never planted.
+`/controls` lists a control by its *dataset*, so a shared PQL constant gave
+every estate identical row text. `/proposals` and `/reports` are declared with
+reasons: one generates on request, the other carries only counts. The sweep also
+asserts a 200 now — a screen that 404s leaks nothing and proves nothing, and the
+status was being discarded.
+
+**T11 — `verify([record.to_dict()])` is intact for any content whatsoever.**
+`content_hash` and `record_hash` are computed properties, so `to_dict()` emits
+hashes over whatever the object currently holds and `verify` compares them
+against themselves. The file's own `TestVerificationUsesStoredHashes` explains
+this trap and the `as_stored` tests do it correctly; one line reached for the
+wrong helper. It now uses `as_stored`, and the tautology is pinned by a test
+that asserts it *is* a tautology, so the wrong helper cannot come back unnoticed.
+
+**T12 — three guards disarmed by changing directory.** They used
+`Path("src/prama/pql")` while every other guard in the file anchors on
+`__file__`. pytest does not chdir to rootdir, so `cd tests && pytest
+architecture/test_layering.py -k LanguageLayering` reported *3 passed in 0.05s*
+over zero files — silently disarming the pql→ir→backend rule for any IDE runner.
+Anchored, given an anti-vacuity check, and generalised: no test may resolve the
+repository by a working-directory-relative path.
+
+**T13 — a parametrised test that ignored a parameter.** `holiday` was accepted
+and never referenced, leaving the docstring's claim — "the holiday moves; it
+does not multiply" — asserted nowhere. It now asserts the Friday before is a
+business day, which is the Fed rule from C9 and the thing the parameter is for.
 
 ---
 

@@ -276,18 +276,38 @@ class ConformanceRun:
         return found
 
     def summarise(self, runners: dict[str, Runner]) -> dict[str, Any]:
-        """A report worth putting in front of somebody, pass or fail."""
+        """A report worth putting in front of somebody, pass or fail.
+
+        ``engines`` is who was *offered* the corpus; ``engines_that_ran`` is who
+        actually executed a case, and ``cases_compared`` is how many cases at
+        least two of them answered. The difference is the whole value of the
+        report — finding T7. An engine that refuses every control is filtered
+        out before comparison, so a compiler change that made SQLite refuse
+        everything left the gate green while it compared one SQL engine against
+        the interpreter, and the tests asserted `len(engines) >= 2` against a
+        dict built from three hard-coded keys and `len(CASES) == len(CASES)`.
+        """
         rows: list[dict[str, Any]] = []
+        ran_at_least_once: set[str] = set()
+        compared = 0
         for case in CASES:
             entry: dict[str, Any] = {"case": case.name, "catches": case.catches}
+            answered = 0
             for engine, runner in runners.items():
                 outcome = self.run_case(case, engine, runner)
                 entry[engine] = outcome.result.verdict.value if outcome.result else outcome.status
+                if outcome.status == "ran":
+                    ran_at_least_once.add(engine)
+                    answered += 1
+            if answered >= 2:
+                compared += 1
             rows.append(entry)
         disagreements = self.compare(runners)
         return {
             "engines": sorted(runners),
+            "engines_that_ran": sorted(ran_at_least_once),
             "cases": len(CASES),
+            "cases_compared": compared,
             "disagreements": [d.render() for d in disagreements],
             "conforming": not disagreements,
             "rows": rows,
