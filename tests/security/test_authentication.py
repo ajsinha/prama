@@ -11,11 +11,15 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import time
+from collections.abc import AsyncIterator
 from typing import Any
 
 import httpx
 import pytest
+from httpx import ASGITransport
 
+from prama.api import create_app
+from prama.core.config import Configuration
 from prama.core.errors import ValidationError
 from prama.db import Database
 from prama.db.security import PasswordHasher
@@ -438,3 +442,66 @@ class TestTheConsoleChecksWhatTheSessionMayDo:
             await ui.post("/sign-in", data={"username": "nobody", "password": PASSWORD})
         ).status_code == 303
         assert (await ui.get("/estate")).status_code == 403
+
+
+class TestTheSignInPageIsReachableWithoutSigningIn:
+    """A deployment nobody can get into.
+
+    Found by standing the product up, not by the suite. Enforcing scopes at
+    `UiRoutes.page` gave `/sign-in` the default read scope, so an
+    unauthenticated request raised `NotSignedIn`, the handler turned that into
+    a 303 to `/sign-in`, and `/sign-in` asked again — an infinite redirect on
+    the only page that matters to somebody who is not yet in.
+
+    Four thousand six hundred tests missed it because every console fixture
+    sets `tenancy.default_tenant`, which is the pre-authentication path and
+    grants the wildcard. The one configuration a real deployment uses — a
+    tenant, a principal, and no default — was the one nothing exercised.
+
+    These use a client with *no* session and no default tenant, which is what a
+    browser arriving at a fresh install looks like.
+    """
+
+    @pytest.fixture
+    async def stranger(
+        self, sqlite_config: Configuration, started_database: Database
+    ) -> AsyncIterator[httpx.AsyncClient]:
+        """A browser with no session, against a deployment with no default
+        tenant. Deliberately not the `ui` fixture, which has both."""
+        app = create_app(sqlite_config, database=started_database)
+        async with (
+            httpx.AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://testserver"
+            ) as http,
+            app.router.lifespan_context(app),
+        ):
+            yield http
+
+    async def test_the_sign_in_page_renders(self, stranger: httpx.AsyncClient) -> None:
+        response = await stranger.get("/sign-in")
+        assert response.status_code == 200, (
+            f"the sign-in page answered {response.status_code}; if it is a redirect "
+            "to itself, nobody can ever sign in"
+        )
+        assert "password" in response.text.lower()
+
+    async def test_it_does_not_redirect_to_itself(self, stranger: httpx.AsyncClient) -> None:
+        """Stated separately because a 303 to somewhere else is a different
+        bug from a 303 to here, and only one of them is a locked door."""
+        response = await stranger.get("/sign-in", follow_redirects=False)
+        assert response.headers.get("location") != "/sign-in"
+
+    async def test_posting_credentials_is_reachable(self, stranger: httpx.AsyncClient) -> None:
+        """The form must be able to submit to something other than a redirect.
+        A GET that renders and a POST that bounces is the same locked door."""
+        response = await stranger.post(
+            "/sign-in", data={"username": "nobody", "password": "wrong-but-long-enough"}
+        )
+        assert response.status_code == 401, response.status_code
+
+    async def test_a_protected_page_still_redirects(self, stranger: httpx.AsyncClient) -> None:
+        """The counterfactual. Making sign-in anonymous must not make
+        everything anonymous."""
+        response = await stranger.get("/estate", follow_redirects=False)
+        assert response.status_code == 303
+        assert response.headers["location"] == "/sign-in"

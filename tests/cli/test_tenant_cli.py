@@ -18,7 +18,10 @@ import pytest
 
 from prama.cli.base import EXIT_ERROR, EXIT_OK, Application
 from prama.cli.commands import all_commands
+from prama.cli.principal import _resolve_tenant
 from prama.core import pjson
+from prama.core.errors import ValidationError
+from prama.db import Database
 
 
 def run(argv: list[str]) -> tuple[int, str]:
@@ -178,3 +181,54 @@ class TestTheNextStepIsSpelledOut:
         _, text = run(["--config", str(config), "tenant", "create", "acme-bank"])
         assert "prama principal create" in text
         assert "has no sign-in yet" not in text
+
+
+class TestTheFirstTwoCommandsAgree:
+    """`prama tenant create` prints, as its next step:
+
+        prama principal create <username> --admin --tenant acme-bank
+
+    and until this was pinned, that command failed with a raw
+    `FOREIGN KEY constraint failed`. `--tenant` took an id; the message told
+    the operator to pass a slug. The first two commands anybody runs, and the
+    first one told them to type something the second refused.
+
+    Found by standing the product up, not by the suite — the same way the
+    sign-in redirect loop was. Both are the shape a suite is worst at: two
+    components that are each correct and disagree at the seam.
+    """
+
+    async def _tenant(self, database: Database, slug: str = "acme-bank") -> str:
+        async with database.unit_of_work() as uow:
+            tenant = uow.tenants.create(slug=slug, display_name="Acme")
+            await uow.flush()
+            return str(tenant.id)
+
+    async def test_a_slug_is_accepted(self, started_database: Database) -> None:
+        expected = await self._tenant(started_database)
+        async with started_database.unit_of_work() as uow:
+            assert await _resolve_tenant(uow, "acme-bank") == expected
+
+    async def test_an_id_is_still_accepted(self, started_database: Database) -> None:
+        """Scripts pass ids and people pass slugs; both have to work."""
+        identifier = await self._tenant(started_database)
+        async with started_database.unit_of_work() as uow:
+            assert await _resolve_tenant(uow, identifier) == identifier
+
+    async def test_an_unknown_estate_is_named_not_a_constraint(
+        self, started_database: Database
+    ) -> None:
+        """An integrity error names a constraint. A person needs the mistake."""
+        await self._tenant(started_database)
+        async with started_database.unit_of_work() as uow:
+            with pytest.raises(ValidationError, match="no estate called"):
+                await _resolve_tenant(uow, "nosuchbank")
+
+    async def test_the_refusal_lists_the_estates_that_do_exist(
+        self, started_database: Database
+    ) -> None:
+        await self._tenant(started_database)
+        async with started_database.unit_of_work() as uow:
+            with pytest.raises(ValidationError) as caught:
+                await _resolve_tenant(uow, "nope")
+        assert "acme-bank" in str(caught.value)

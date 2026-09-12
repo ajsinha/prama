@@ -99,6 +99,37 @@ def _read_password(confirm: bool = True) -> str:
     return first
 
 
+async def _resolve_tenant(uow: Any, given: str) -> str:
+    """A tenant id, from either an id or the slug a person actually knows.
+
+    `prama tenant create acme-bank` prints, as its next step,
+    `prama principal create <username> --admin --tenant acme-bank` — and until
+    this existed that command failed with a raw
+    `FOREIGN KEY constraint failed`. The first two commands an operator runs,
+    and the first one told them to type something the second refused. Found by
+    standing the product up rather than by any test.
+
+    The slug is the thing a human has; the id is the thing the schema needs.
+    Accepting both is the fix, and naming the estate when neither matches is
+    the other half — an integrity error names a constraint, not a mistake.
+    """
+    existing = await uow.tenants.get(given)
+    if existing is not None:
+        return str(existing.id)
+    by_slug = await uow.tenants.by_slug(given)
+    if by_slug is not None:
+        return str(by_slug.id)
+    known = [t.slug for t in await uow.tenants.list_active(limit=20)]
+    raise ValidationError(
+        f"there is no estate called {given!r}",
+        remedy=(
+            ("Known estates: " + ", ".join(known) + ". ") if known else "There are no estates yet. "
+        )
+        + "Create one with `prama tenant create <slug>`.",
+        context={"tenant": given},
+    )
+
+
 class PrincipalCreateCommand(Command):
     name = "create"
     help = "create somebody who can sign in"
@@ -155,21 +186,22 @@ class PrincipalCreateCommand(Command):
             await database.start()
             try:
                 async with database.unit_of_work() as uow:
-                    if await uow.principals.by_username(tenant, username) is not None:
+                    resolved = await _resolve_tenant(uow, tenant)
+                    if await uow.principals.by_username(resolved, username) is not None:
                         raise ConflictError(
                             f"{username!r} already exists in this estate",
                             remedy="Choose another name, or reset the password instead.",
-                            context={"username": username, "tenant": tenant},
+                            context={"username": username, "tenant": resolved},
                         )
                     principal = uow.principals.create(
-                        tenant_id=tenant,
+                        tenant_id=resolved,
                         username=username,
                         display_name=str(ctx.args.name).strip() or username,
                         email=str(ctx.args.email).strip() or None,
                     )
                     uow.principals.set_password(principal, password)
                     await uow.flush()
-                    granted = await _grant(uow, tenant, principal, wanted)
+                    granted = await _grant(uow, resolved, principal, wanted)
                     return str(principal.id), granted
             finally:
                 await database.stop()

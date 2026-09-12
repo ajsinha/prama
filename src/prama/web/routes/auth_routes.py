@@ -55,9 +55,17 @@ class AuthRoutes(UiRoutes):
     """The sign-in page and the two things that change a session."""
 
     def register(self) -> None:
-        self.page("/sign-in", self.sign_in_form, name="sign_in")
-        self.page("/sign-in", self.sign_in, name="sign_in_post", methods=["POST"])
-        self.page("/sign-out", self.sign_out, name="sign_out", methods=["POST"])
+        # `scope=None`, and this is the one place it is right. A page that
+        # demands a permission before you can sign in is a page that redirects
+        # you to itself, for ever: `ui_caller` raises NotSignedIn, the handler
+        # turns that into a 303 to /sign-in, and /sign-in asks again. Nobody
+        # can ever get in.
+        self.page("/sign-in", self.sign_in_form, name="sign_in", scope=None)
+        self.page("/sign-in", self.sign_in, name="sign_in_post", methods=["POST"], scope=None)
+        # Signing out needs no permission either. A principal whose roles were
+        # just removed holds nothing, and telling them they may not leave is
+        # both absurd and a way to strand a session that ought to be revoked.
+        self.page("/sign-out", self.sign_out, name="sign_out", methods=["POST"], scope=None)
 
     async def sign_in_form(
         self,
