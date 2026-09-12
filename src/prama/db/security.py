@@ -36,7 +36,12 @@ class PasswordHasher:
         if iterations < 100_000:
             raise ValidationError(
                 f"password hash iterations ({iterations}) is below the safe floor",
-                remedy="Set security.api_key_hash_rounds to at least 100000.",
+                remedy=(
+                    "Construct the hasher with iterations=100000 or more. This is a "
+                    "code-level floor, not a setting: the value comes from "
+                    "PasswordHasher(iterations=...) and its DEFAULT_ITERATIONS, and "
+                    "nothing reads it from configuration."
+                ),
                 context={"iterations": iterations},
             )
         self._iterations = iterations

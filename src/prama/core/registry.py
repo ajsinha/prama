@@ -148,8 +148,12 @@ class Registry(Generic[T]):
     def get(self, key: str) -> type[T]:
         if key in self._disabled:
             raise RegistryError(
-                f"{self._kind} plugin {key!r} is disabled by configuration",
-                remedy=f"Remove {key!r} from plugins.disabled to use it.",
+                f"{self._kind} plugin {key!r} has been disabled",
+                remedy=(
+                    f"Something called disable({key!r}) on this registry. Re-enable "
+                    "it there, or build a registry without the call — a disabled "
+                    "plugin is disabled in code, not in configuration."
+                ),
                 context={"kind": self._kind, "key": key},
             )
         try:

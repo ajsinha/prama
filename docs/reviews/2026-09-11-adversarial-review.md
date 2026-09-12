@@ -919,6 +919,41 @@ nothing installed the calendar, while the error message told the reader to write
 exactly that string: the test and the remedy asserted opposite things about the
 same value. It now uses a name that does not exist and never will.
 
+**H6 — remedies naming configuration nothing reads.** Three of them:
+`security.api_key_hash_rounds`, `plugins.disabled` and
+`concurrency.queue.max_bytes`. Each key exists in `defaults.py` *and* in
+`application.yaml`, so a naive existence check passes; `grep` for the key in
+`src/` returns the default and the remedy and nothing else.
+
+That is the worst shape a remedy can have. Somebody follows the advice, changes
+the value, watches nothing happen, and concludes the problem is elsewhere —
+which is the opposite of what a remedy is for. And an inert knob is precisely
+the restatement this project's own notes warn about: `plugins.disabled` was
+documentation of a mechanism that lives entirely in `Registry.disable()`, whose
+only caller is a test.
+
+**Removed rather than wired.** Plumbing a `Configuration` into `PasswordHasher`,
+`Registry` and `BoundedQueue` to make three decorative keys live would add
+coupling to three core primitives in order to preserve a设 that never worked.
+The keys are gone from `defaults.py` and `application.yaml`, and each remedy now
+names the real lever — a constructor argument, or the code that called
+`disable()`. `generate_docs.py --check` caught the configuration reference
+drifting in the same commit, which is that machinery doing its job.
+
+**And the guard is honest about its limit.** `tests/architecture/test_remedies.py`
+extracts every `remedy=` literal by AST — handling implicit concatenation, `+`
+joins and f-strings, because the long ones use all three — finds the dotted keys
+in each, and requires that something outside `defaults.py` reads them. It
+understands both spellings, since `database.schema_dir` is read as
+`section.get_str("schema_dir")` and a scan looking only for the dotted form
+calls a live key dead. It excludes a dotted name followed by `(`, because
+`catalogue.of(kind)` is a method and not a setting.
+
+It cannot prove that the *particular* code path a remedy describes is the one
+that reads the key, and it says so. What it does catch is a key that exists in
+exactly two places, the default and the remedy naming it, which is what all
+three of these were.
+
 ---
 
 ## The test suite reviewed adversarially

@@ -155,8 +155,11 @@ class BoundedQueue(Generic[T]):
                         f"queue {self.name!r} is full: "
                         f"{self._bytes}/{self._max_bytes} bytes, {len(self._items)} items",
                         remedy=(
-                            "Slow the producer, widen concurrency.queue.max_bytes, or add "
-                            "consumers. Sustained back-pressure means the sink is the bottleneck."
+                            "Slow the producer, add consumers, or build this queue "
+                            "with a larger max_bytes — it is a constructor argument, "
+                            "not a setting. Sustained back-pressure means the sink "
+                            "is the bottleneck, and widening the queue postpones the "
+                            "same problem with more memory held."
                         ),
                         context={
                             "queue": self.name,

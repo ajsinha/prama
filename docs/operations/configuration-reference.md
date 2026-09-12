@@ -31,7 +31,6 @@ becomes `PRAMA_DATABASE__SQLITE__PATH`.
 | `logging.level` | `INFO` | DEBUG \| INFO \| WARNING \| ERROR |
 | `logging.format` | `text` | text (terminal) \| json (log shipper) |
 | `security.session_secret` | *(empty)* |  |
-| `security.api_key_hash_rounds` | `210000` |  |
 | `security.cookies_https_only` | `True` | false only for local http development |
 | `tenancy.default_tenant` | *(empty)* |  |
 | `web.enabled` | `True` | serve the console alongside the API |
@@ -62,9 +61,6 @@ becomes `PRAMA_DATABASE__SQLITE__PATH`.
 | `database.schema_dir` | `schema` |  |
 | `database.verify_on_start` | `True` | fail loudly on schema drift rather than migrate |
 | `database.echo` | `False` |  |
-| `concurrency.queue.max_bytes` | `256mb` |  |
-| `concurrency.queue.max_items` | `100000` |  |
-| `concurrency.queue.offer_timeout` | `5s` |  |
 | `concurrency.supervisor.shutdown_grace` | `30s` |  |
 | `concurrency.lease.provider` | `database` | database \| memory |
 | `concurrency.lease.ttl` | `30s` |  |
