@@ -49,8 +49,8 @@ boundary to exist.
 | C4 | Reference interpreter and SQL disagree on `%` and `/`; corpus has no case | **High** | **Fixed** |
 | H1 | Banking cross-field functions are advertised and never installed | **High** | **Fixed** |
 | C5 | A dataset that scanned zero rows scores 100% | **High** | **Fixed** |
-| X4 | A ledger failure strands a work unit and its lease permanently | **Medium** | Open |
-| X5 | `unfinished()` cannot see a run that died mid-flight | **Medium** | Open |
+| X4 | A ledger failure strands a work unit and its lease permanently | **Medium** | **Fixed** |
+| X5 | `unfinished()` cannot see a run that died mid-flight | **Medium** | **Fixed** |
 | S5 | ClickHouse and BigQuery quoting escapes the backtick, not the backslash | **Medium** | Open |
 | S6 | CMK `decrypt()` offers no way to assert the expected tenant | **Medium** | Open |
 | S7 | Open redirect on sign-in via `/\` | **Medium** | **Fixed** |
@@ -60,10 +60,10 @@ boundary to exist.
 | C8 | `TDigest` is not tail-accurate, which is why it was chosen | **Medium** | **Fixed** |
 | C9 | The Fed calendar closes a Friday the Fed is open | **Medium** | **Fixed** |
 | C10 | `Diff.columns_that_changed` derives from the capped example set | **Medium** | **Fixed** |
-| X6 | `BoundedQueue.try_put` never wakes a waiting consumer | **Medium** | Open |
+| X6 | `BoundedQueue.try_put` never wakes a waiting consumer | **Medium** | **Fixed** |
 | H2 | Six documents assert CI enforcement; there is no CI | **Medium** | Open |
 | H3 | Plugin purity does not ban `import time` or dynamic imports | **Medium** | Open |
-| H4 | The tombstone is outside the content hash it claims to be inside | **Medium** | Open |
+| H4 | The tombstone is outside the content hash it claims to be inside | **Medium** | **Fixed** |
 | H5 | Two capability vocabularies the comment insists are one | **Medium** | **Fixed** |
 | H6 | Four `remedy=` strings name configuration nothing reads | **Low** | Open |
 | H7 | `'06:30 TARGET2'` — a remedy's own example is rejected | **Low** | Open |
@@ -689,6 +689,77 @@ On a diff of 10,000 rows where the first hundred by key differ in
 in settlement_date"* and never mentioned the column that changed in 99% of rows.
 The summary line then added *"examples are capped and the counts are not"* —
 true of the counts, false of this. The tally now accumulates during the scan.
+
+## Concurrency, recovery, and one correction to the review
+
+**X6 — two ways to leave a waiter parked for ever.** `try_put` enqueued and
+notified nobody, so a consumer in `get()` or `drain()` waited indefinitely while
+the item sat in the deque. `resize` widened the queue and notified nobody, so
+producers already blocked sat out their full `offer_timeout` and took a
+`BackPressureError` against a queue with room — against a method whose reason to
+exist is "an operator can widen a queue under load without a restart". Both are
+now coroutines that notify; `put()` two methods above had always done it.
+Neither had a caller in `src/`, and the architecture guard requires every queue
+in the codebase to be this one, so the first caller would have found it.
+
+**X4 — the only path that stranded work permanently was the only path with no
+cleanup.** `_run` wraps the runner and the claim check and turns each into an
+outcome; it does not wrap the recorder, and `take_one` had no `try/finally`
+around `_run`. A transiently unreachable ledger therefore escaped both. The unit
+had already left `_pending` and was never returned, `queue.release` never ran so
+it stayed claimed, and `release_claim` never ran so the lease holder renewed the
+lease indefinitely. The unit was invisible to every worker in the fleet, nobody
+could claim its resource again, and the report did not mention it: not lost, not
+failed, absent. It now returns a `stranded` outcome, which requeues — the work
+ran and the *recording* failed, so there is no verdict anywhere and the work
+still needs doing. Kept distinct from `failed`, because an operator needs to
+tell "this control errored" from "we could not write down what it said".
+
+**X5 — a documented recovery property that could not hold.** The module
+docstring: *"A run is opened before it does anything. If the process dies
+mid-run the row stays `running`, and `unfinished()` surfaces it."* The class
+docstring, forty lines later: *"a run is one transaction, so the run row, its
+records and its samples commit together."* Both cannot be true, and the
+transaction won — a process dying mid-run had its transaction rolled back, so
+there was no row at all and `unfinished()` returned nothing. The operations
+screen rendered that to an operator as "0 unfinished runs", which reads as
+healthy.
+
+The marker is now committed before any control runs. On the same session rather
+than a second one: the first attempt opened an independent transaction and
+deadlocked on SQLite, which permits a single writer. The cost — a caller with
+pending work of its own has it committed too — is why this is the first thing
+`execute_all` does, and it is now written down instead of the contradiction.
+
+**H4 — and here the review overstated the case.** The finding was that the
+tombstone is outside every hash: `content()` emits no `tombstone` key and
+`content_hash` returns the *original* hash for an erased record, so `erased_by`,
+`erased_at`, `authority` and `reason` were covered by nothing. That part is
+exactly right, and it sits under a docstring reading "nothing is excluded for
+convenience: a field left out of the hash is a field somebody can change without
+detection".
+
+What was overstated is the demonstration. Rewriting an erased record's
+`erased_by` to `mallory` in a *sealed bundle* does **not** produce "every check
+passed" — the manifest's payload digest catches it:
+
+```
+[FAIL] the evidence file is the one the manifest describes
+```
+
+Caught, but by the wrong check and only inside a bundle. Re-seal the manifest,
+as anybody with write access would, and every remaining check passes. Records
+read back from the database, or one record shipped on its own, have no manifest
+over them at all.
+
+The tombstone now carries its own seal, covering its fields *and* the original
+content hash, so it cannot be lifted from one record onto another. Sealed
+separately rather than folded into `record_hash`, because
+`sha256(previous || content)` is the chain rule the independent verifier
+implements and every existing chain was written under. The verifier checks the
+seal, and refuses a tombstone that carries none — an attacker who cannot forge a
+seal removes it, and a check that only runs when a seal is present checks
+nothing.
 
 ---
 

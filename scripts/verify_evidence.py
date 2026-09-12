@@ -131,6 +131,7 @@ def verify_chain(records: list[dict], report: Report) -> list[str]:
     content_failures: list[str] = []
     link_failures: list[str] = []
     sequence_failures: list[str] = []
+    tombstone_failures: list[str] = []
     erased = 0
 
     previous = GENESIS
@@ -153,8 +154,29 @@ def verify_chain(records: list[dict], report: Report) -> list[str]:
 
         if payload.get("tombstone"):
             # Erased content. Its stored content_hash is the hash the content
-            # had; only its place in the chain can be checked.
+            # *had*, so the bytes cannot be rehashed — but the erasure itself
+            # is sealed, and that is checkable. Until it was (finding H4),
+            # rewriting who erased a record and under what authority left every
+            # check here passing: the record announced both and nothing covered
+            # either.
             erased += 1
+            stone = dict(payload["tombstone"])
+            claimed_seal = str(stone.pop("seal", ""))
+            recomputed = sha256_hex(canonical(stone))
+            if not claimed_seal:
+                tombstone_failures.append(
+                    f"record {sequence}: erased, and the tombstone carries no seal"
+                )
+            elif recomputed != claimed_seal:
+                tombstone_failures.append(
+                    f"record {sequence}: tombstone seal is {claimed_seal[:12]}…, "
+                    f"its fields give {recomputed[:12]}…"
+                )
+            if stone.get("original_content_hash") != stored_content:
+                tombstone_failures.append(
+                    f"record {sequence}: the tombstone names a different original "
+                    "content hash than the record carries"
+                )
         else:
             computed = sha256_hex(canonical(payload))
             if computed != stored_content:
@@ -196,10 +218,14 @@ def verify_chain(records: list[dict], report: Report) -> list[str]:
     )
     if erased:
         report.record(
-            f"{erased} record(s) carry a tombstone; content erased, chain position checked",
-            True,
-            "Their content cannot be verified, only their place. That is what "
-            "erasure with an intact audit trail means.",
+            f"{erased} record(s) carry a tombstone whose seal holds",
+            not tombstone_failures,
+            "\n".join(tombstone_failures[:5])
+            or (
+                "Their content cannot be verified, only their place and the "
+                "erasure itself — who erased it, when, and under what authority. "
+                "That is what erasure with an intact audit trail means."
+            ),
         )
     return hashes
 

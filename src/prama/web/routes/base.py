@@ -15,9 +15,8 @@ from typing import Any
 
 from fastapi import Depends, FastAPI
 
-from prama.web.deps import ui_scope
-
 from prama.core.log import get_logger
+from prama.web.deps import ui_scope
 
 _log = get_logger(__name__)
 

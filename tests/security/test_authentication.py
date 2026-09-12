@@ -11,6 +11,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import time
+from typing import Any
 
 import httpx
 import pytest

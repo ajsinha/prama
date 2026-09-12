@@ -179,8 +179,17 @@ class BoundedQueue(Generic[T]):
         async with self._not_empty:
             self._not_empty.notify()
 
-    def try_put(self, item: T) -> bool:
-        """Non-blocking enqueue. False means the budget would be breached."""
+    async def try_put(self, item: T) -> bool:
+        """Enqueue without waiting for room. False means the budget is full.
+
+        "Non-blocking" is about back-pressure: this never waits for capacity, it
+        refuses. It is a coroutine because it has to wake a consumer, and
+        finding X6 was that it did not — a consumer parked in `get()` or
+        `drain()` on `_not_empty` was never notified, and with the default
+        `timeout=None` waited for ever while the item sat in the deque. `put()`
+        two methods above notifies on exactly the same line; this one returned
+        `True` and told nobody.
+        """
         size = self._sizer(item)
         self._stats.offered += 1
         if self._closed or not self._would_fit(size):
@@ -191,6 +200,8 @@ class BoundedQueue(Generic[T]):
         self._stats.accepted += 1
         self._stats.high_water_items = max(self._stats.high_water_items, len(self._items))
         self._stats.high_water_bytes = max(self._stats.high_water_bytes, self._bytes)
+        async with self._not_empty:
+            self._not_empty.notify()
         return True
 
     # -- consumer side -----------------------------------------------------
@@ -236,8 +247,16 @@ class BoundedQueue(Generic[T]):
 
     # -- lifecycle ---------------------------------------------------------
 
-    def resize(self, *, max_bytes: int | None = None, max_items: int | None = None) -> None:
-        """Adjust capacity live. Shrinking never discards queued items."""
+    async def resize(self, *, max_bytes: int | None = None, max_items: int | None = None) -> None:
+        """Adjust capacity live. Shrinking never discards queued items.
+
+        Wakes every blocked producer, because widening a queue that nobody is
+        told about is not widening it — finding X6. Producers already parked on
+        `_not_full` used to sit out their full `offer_timeout` and then take a
+        `BackPressureError` against a queue with room in it, which contradicts
+        the reason this method exists: "an operator can widen a queue under load
+        without a restart."
+        """
         if max_bytes is not None:
             if max_bytes <= 0:
                 raise ValueError("max_bytes must be positive")
@@ -246,6 +265,8 @@ class BoundedQueue(Generic[T]):
         if max_items is not None:
             self._max_items = max_items
             self._stats.max_items = max_items
+        async with self._not_full:
+            self._not_full.notify_all()
 
     async def close(self) -> None:
         """Close for production and wake every waiter."""

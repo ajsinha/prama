@@ -156,10 +156,23 @@ class RunReport:
 class ControlRun:
     """Executes the live controls for one tenant and writes the evidence.
 
-    Takes a unit of work rather than a database: a run is one transaction, so
-    the run row, its records and its samples commit together. A control result
-    recorded without the run it belongs to — or a run recorded without its
-    results — is worse than neither, because both look complete.
+    Takes a unit of work rather than a database: the records and samples are
+    one transaction, so a control result recorded without its samples cannot
+    happen. A control result recorded without the run it belongs to — or a run
+    recorded without its results — is worse than neither, because both look
+    complete.
+
+    **The run row is the deliberate exception**, and it has to be. It is opened
+    and closed in transactions of their own, because a marker written inside
+    the run's transaction does not survive the process dying: the database
+    rolls it back, and there is no `running` row for `unfinished()` to find.
+    The module docstring promised exactly that recovery and this class promised
+    one transaction; they were mutually exclusive as implemented, and the
+    marker is the half that has to outlive a crash.
+
+    A run row with no records does not "look complete" — it looks unfinished,
+    which is what it is, and what an operator reading "0 unfinished runs"
+    needed to be told.
     """
 
     def __init__(
@@ -203,6 +216,13 @@ class ControlRun:
     async def execute_all(self) -> RunReport:
         """Run every live control, recording each outcome as it goes."""
         started = self._clock.now()
+        # Committed on its own, before anything else happens. Written inside
+        # this run's transaction the row would not survive the process dying —
+        # the database rolls the transaction back, so there is no `running` row
+        # to find and `unfinished()` returns nothing (finding X5). The module
+        # docstring promises the opposite, and the class docstring promises one
+        # transaction; both cannot be true, and the marker is the half that has
+        # to outlive a crash.
         run = await self._uow.evidence_runs.start(
             tenant_id=self._tenant,
             triggered_by=self._triggered_by,
@@ -211,6 +231,17 @@ class ControlRun:
             started_at=started.isoformat(),
         )
         run_id = str(run.id)
+        # Committed here, before any control runs. A row written and left
+        # pending does not survive the process dying — the database rolls the
+        # transaction back, so there is no `running` row and `unfinished()`
+        # returns nothing (finding X5).
+        #
+        # On the same session rather than a second one: SQLite permits a single
+        # writer, and a second connection trying to write while this
+        # transaction holds the lock deadlocks rather than helping. The cost is
+        # that a caller with pending work of its own has it committed here too,
+        # which is why this is the first thing `execute_all` does.
+        await self._uow.commit()
 
         live = await self._uow.controls.live(self._tenant)
         elsewhere: list[Any] = []
@@ -237,13 +268,16 @@ class ControlRun:
 
         report = RunReport(run_id=run_id, outcomes=tuple(outcomes), skipped=skipped)
         finished = self._clock.now()
+        # Closed in its own transaction too, for the same reason the opening
+        # was: a run marked complete inside a transaction that then fails to
+        # commit is a run that looks finished and wrote nothing.
         await self._uow.evidence_runs.finish(
             run_id,
             finished_at=finished.isoformat(),
-            # 'complete' means the run finished, not that everything passed.
-            # A run in which every control errored still completed; the
-            # verdicts say what happened, and conflating the two would hide a
-            # total outage behind a green run.
+            # 'complete' means the run finished, not that everything passed. A
+            # run in which every control errored still completed; the verdicts
+            # say what happened, and conflating the two would hide a total
+            # outage behind a green run.
             status="complete",
             detail=report.describe(),
         )

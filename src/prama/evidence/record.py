@@ -108,7 +108,8 @@ class Tombstone:
     authority: str = ""
     reason: str = "right to erasure"
 
-    def to_dict(self) -> dict[str, Any]:
+    def content(self) -> dict[str, Any]:
+        """The erasure's own fields, which its seal covers."""
         return {
             "original_content_hash": self.original_content_hash,
             "erased_at": self.erased_at,
@@ -116,6 +117,33 @@ class Tombstone:
             "authority": self.authority,
             "reason": self.reason,
         }
+
+    @property
+    def seal(self) -> str:
+        """A hash over the erasure itself — finding H4.
+
+        The record's `content_hash` stays the hash the *content* had, because
+        that is what keeps the chain linking across an erasure. The consequence
+        went unnoticed: `erased_by`, `erased_at`, `authority` and `reason` were
+        then covered by **no hash at all**, while the docstring above said "the
+        fact of the loss is itself part of the record" and `content()` said
+        "nothing is excluded for convenience".
+
+        Demonstrated end to end: rewriting an erased record's `erased_by` to
+        `mallory` and its `authority` to "no authority at all" left the
+        independent verifier reporting every check passed. The record announced
+        who erased it and under what authority, and anybody could change both.
+
+        Sealed separately rather than folded into `record_hash`, because
+        `sha256(previous || content)` is the chain rule that
+        `scripts/verify_evidence.py` implements independently and that every
+        existing chain was written under. The `original_content_hash` is inside
+        this seal, so a tombstone cannot be lifted from one record onto another.
+        """
+        return hashlib.sha256(canonical(self.content())).hexdigest()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {**self.content(), "seal": self.seal}
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> Tombstone:

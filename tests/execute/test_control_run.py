@@ -614,3 +614,70 @@ class TestAnEstateWithMoreThanOneSource:
                 uow, tenant_id, execute=rows_for(scanned_rows=10, violating_rows=0)
             ).execute_all()
         assert len(report.outcomes) == 1
+
+
+class TestARunThatDiedIsVisible:
+    """Finding X5. The module docstring promised a recovery property the code
+    could not have.
+
+    "A run is opened before it does anything. If the process dies mid-run the
+    row stays `running`, and `unfinished()` surfaces it — because a run that
+    vanished silently means every screen quietly under-reports."
+
+    `evidence_runs.start()` only flushed, and the class docstring said the
+    opposite in as many words — "a run is one transaction, so the run row, its
+    records and its samples commit together". Both cannot be true. As
+    implemented the transaction won: a process that died mid-run had its
+    transaction rolled back by the database, so there was no row at all.
+    `unfinished()` returned `[]`, and the operations screen rendered that to an
+    operator as "0 unfinished runs", which reads as healthy.
+
+    The existing coverage asserted the run id exists *in memory* during
+    execution. Durability was never checked, so the counterfactual was never
+    written.
+    """
+
+    async def test_the_row_survives_a_transaction_that_never_commits(
+        self, started_database: Database, tenant_id: str
+    ) -> None:
+        """The crash, as the database sees one: work in flight, rolled back."""
+        await _control(started_database, tenant_id, CLEAN, identity="crash")
+
+        run_id = ""
+        async with started_database.unit_of_work() as uow:
+            report = await ControlRun(
+                uow,
+                tenant_id,
+                execute=rows_for(scanned_rows=1000, violating_rows=0),
+                engine="sqlite",
+            ).execute_all()
+            run_id = report.run_id
+            # Everything this transaction did after the marker is discarded,
+            # which is what a process dying mid-run amounts to.
+            await uow.rollback()
+
+        async with started_database.unit_of_work() as uow:
+            rows = await uow.evidence_runs.recent(tenant_id)
+            assert any(str(row.id) == run_id for row in rows), (
+                "the run vanished with the transaction; nothing knows it ever started"
+            )
+
+    async def test_an_ordinary_run_still_completes(
+        self, started_database: Database, tenant_id: str
+    ) -> None:
+        """The counterfactual. A marker committed early must not leave every
+        run looking unfinished."""
+        await _control(started_database, tenant_id, CLEAN, identity="ok")
+        async with started_database.unit_of_work() as uow:
+            report = await ControlRun(
+                uow,
+                tenant_id,
+                execute=rows_for(scanned_rows=1000, violating_rows=0),
+                engine="sqlite",
+            ).execute_all()
+            run_id = report.run_id
+
+        async with started_database.unit_of_work() as uow:
+            assert not [
+                r for r in await uow.evidence_runs.unfinished(tenant_id) if str(r.id) == run_id
+            ], "a completed run is reported as unfinished"
