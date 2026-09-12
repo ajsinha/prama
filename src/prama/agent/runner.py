@@ -33,7 +33,7 @@ from typing import Any
 from prama.agent.capability import AgentCapabilities
 from prama.agent.protocol import Assignment, Hello, Receipt, Refusal, Report, Response
 from prama.agent.residency import Boundary, ResidencyPolicy
-from prama.agent.spool import Spool
+from prama.agent.spool import Gap, Spool
 from prama.backend.execute import judge, judge_segments
 from prama.core.clock import Clock, SystemClock
 from prama.core.log import get_logger
@@ -87,6 +87,10 @@ class Agent:
         # falsy and `or` would discard the durable spool the caller configured
         # — the agent would buffer to memory and lose everything on restart.
         self._spool = Spool() if spool is None else spool
+        #: Gaps handed to the control plane in the last report and not yet
+        #: acknowledged. Tracked so a receipt clears exactly what was sent —
+        #: see Spool.forget_gaps and finding X3.
+        self._gaps_in_flight: tuple[Gap, ...] = ()
         self._snapshotter = snapshotter
         self._clock = clock or SystemClock()
         self._version = version
@@ -232,10 +236,14 @@ class Agent:
 
     def report(self, batch_size: int = 500) -> tuple[Report, str]:
         """Everything waiting to be sent, redacted by the zone's policy."""
+        # Remembered, so the receipt clears exactly what this report carried
+        # and not whatever the spool happens to hold when it arrives. See
+        # Spool.forget_gaps and finding X3.
+        self._gaps_in_flight = self._spool.gaps
         message = Report(
             agent_id=self.agent_id,
             records=tuple(self._spool.batch(batch_size)),
-            gaps=self._spool.gaps,
+            gaps=self._gaps_in_flight,
             residency={
                 "zone": self.residency.zone,
                 "samples": self.residency.samples.value,
@@ -259,7 +267,13 @@ class Agent:
         assert isinstance(response, Receipt)
         if response.accepted_through >= 0:
             self._spool.acknowledge(response.accepted_through)
-            self._spool.take_gaps()
+            # Only what was actually sent. A `hello` receipt reaches this same
+            # method and carries the previously accepted sequence, so clearing
+            # unconditionally here deleted gaps that had never been reported —
+            # a hole in the evidence, forgotten without anyone being told.
+            if self._gaps_in_flight:
+                self._spool.forget_gaps(self._gaps_in_flight)
+                self._gaps_in_flight = ()
         for entry in response.unassignable:
             _log.warning(
                 "no agent in this zone can run %s: %s",

@@ -170,6 +170,9 @@ python scripts/check_file_length.py      # the 1500-line ceiling
 python3 scripts/verify_evidence.py bundle/   # check evidence without importing Prama
 prama bundle seal ./offline --sign-with k.pem  # Ed25519 provenance for an air-gapped host
 pytest -q tests/web/test_axe.py           # axe-core in Chrome; needs pip install -e ".[audit]"
+PRAMA_MEASURE_ESTATE_MAP=1 pytest -q tests/web/test_estate_map_scale.py
+                                         # how large an estate the map can draw; timing-sensitive,
+                                         # so opt-in rather than part of the default suite
 pytest -q tests/security/test_oidc.py     # ID-token forgeries; needs pip install -e ".[sso]"
 docker run -d --name prama-pg -e POSTGRES_PASSWORD=prama -e POSTGRES_USER=prama \
   -e POSTGRES_DB=prama -p 55432:5432 postgres:16-alpine

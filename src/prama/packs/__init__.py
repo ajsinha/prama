@@ -30,9 +30,23 @@ def install_shipped() -> None:
     global _installed
     if _installed:
         return
-    from prama.packs.banking.crossfield import install
+    from prama.packs.banking.calendars import install as install_calendars
+    from prama.packs.banking.crossfield import install as install_functions
 
-    install()
+    install_functions()
+    # The calendars too, and for the same reason. `prama.schedule.spec` refuses
+    # `'06:30 TARGET2'` — an example its *own* remedy tells the user to copy —
+    # because the registry is seeded with `always` and `weekdays` and nothing
+    # in `src/` ever materialised the rest (finding H7). A remedy whose example
+    # the code rejects is worse than no remedy: the reader follows it exactly
+    # and is told they are wrong.
+    from prama.core.calendars import default_calendars
+
+    # Into the *default* registry, which is what `prama.schedule.spec.parse`
+    # resolves through. `install()` defaults to a fresh registry and returns
+    # it, so calling it without one materialises every calendar into an object
+    # nobody holds — which is indistinguishable from not calling it at all.
+    install_calendars(default_calendars(), replace=True)
     _installed = True
 
 

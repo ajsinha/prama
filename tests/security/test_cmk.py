@@ -10,6 +10,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import dataclasses
+from typing import Any
 
 import pytest
 
@@ -216,3 +217,76 @@ class TestWhoHoldsWhat:
         from prama.security import cmk
 
         assert "No cloud KMS has been exercised" in (cmk.__doc__ or "")
+
+
+class TestAnEnvelopeCannotBeMovedBetweenEstates:
+    """Finding S6. The module promises that "a ciphertext moved from one
+    tenant's row to another's fails to decrypt".
+
+    The AAD does bind ciphertext to context — but the context travels *inside*
+    the envelope, and `decrypt` reconstructed the AAD from the envelope itself.
+    Its signature was `decrypt(envelope, *, provider)`: there was no parameter
+    with which a caller could say which estate it believed it was reading, so
+    the check the docstring describes could not be expressed at all.
+
+    The existing tests exercised the two weaker claims — editing the `context`
+    field, and swapping the ciphertext while keeping the context. Copying the
+    whole serialised envelope, which is what "moved from one tenant's row to
+    another's" means, was never tried, and it worked.
+    """
+
+    def sealed(self, tenant: str = "tenant-a", purpose: str = "payroll") -> tuple[Any, Any]:
+        provider = LocalTestKeyProvider()
+        envelope = encrypt(
+            b"tenant-A payroll", provider=provider, tenant_id=tenant, purpose=purpose
+        )
+        return envelope, provider
+
+    def test_reading_it_as_its_own_estate_works(self) -> None:
+        """The positive control. A check that refuses every read is not a
+        tenant boundary, it is an outage."""
+        envelope, provider = self.sealed()
+        assert decrypt(envelope, provider=provider, tenant_id="tenant-a") == b"tenant-A payroll"
+
+    def test_a_whole_envelope_copied_into_another_estate_is_refused(self) -> None:
+        """The attack the docstring describes, and the one nothing tried.
+
+        Serialised and rehydrated, because that is how a row moves: through
+        `to_dict()` and back, carrying its context with it.
+        """
+        envelope, provider = self.sealed()
+        moved = Envelope.from_dict(envelope.to_dict())
+        with pytest.raises(KeyRevoked, match="different estate"):
+            decrypt(moved, provider=provider, tenant_id="tenant-b")
+
+    def test_it_is_refused_before_any_key_is_unwrapped(self) -> None:
+        """Refused on the context, not by a failed decryption. A provider that
+        is asked to unwrap a key for the wrong estate has already been asked
+        one question too many."""
+        envelope, provider = self.sealed()
+        asked: list[Any] = []
+        original = provider.unwrap
+
+        def watching(*arguments: Any, **keywords: Any) -> Any:
+            asked.append(arguments)
+            return original(*arguments, **keywords)
+
+        provider.unwrap = watching  # type: ignore[method-assign]
+        with pytest.raises(KeyRevoked):
+            decrypt(envelope, provider=provider, tenant_id="tenant-b")
+        assert not asked, "the key provider was asked to unwrap for the wrong estate"
+
+    def test_a_purpose_it_was_not_sealed_for_is_refused(self) -> None:
+        """The same argument one level down: a key scoped to one purpose must
+        not open another's data."""
+        envelope, provider = self.sealed()
+        with pytest.raises(KeyRevoked, match="different purpose"):
+            decrypt(envelope, provider=provider, tenant_id="tenant-a", purpose="reporting")
+
+    def test_omitting_the_tenant_still_works_and_still_checks_nothing(self) -> None:
+        """Stated rather than implied. The parameter is optional, so a caller
+        that does not pass it gets the old behaviour — which is why
+        `tests/architecture` should grow a rule about it before the first
+        production caller lands."""
+        envelope, provider = self.sealed()
+        assert decrypt(envelope, provider=provider) == b"tenant-A payroll"

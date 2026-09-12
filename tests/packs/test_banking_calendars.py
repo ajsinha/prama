@@ -274,10 +274,49 @@ class TestInstallation:
     def test_it_is_explicit_rather_than_on_import(self) -> None:
         """A calendar that appears because a module was imported somewhere is
         one whose presence depends on import order, and the first symptom is a
-        control that resolves in one process and refuses in another."""
-        from prama.core.calendars import default_calendars
+        control that resolves in one process and refuses in another.
 
-        assert "target2" not in default_calendars().names()
+        Checked in a **subprocess**. This used to assert that `target2` is
+        absent from the default registry, full stop — which held only because
+        nothing in `src/` installed it, and stopped holding the moment
+        `prama.packs.install_shipped()` did (finding H7). That is not a
+        regression: the property was never "nobody installs these", it was
+        "importing does not". In this process another test has almost certainly
+        run the bootstrap already, so asking here measures test order rather
+        than the code.
+        """
+        import subprocess
+        import sys
+
+        probe = (
+            "import prama.packs.banking.calendars\n"
+            "from prama.core.calendars import default_calendars\n"
+            "print('target2' in default_calendars().names())\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", probe], capture_output=True, text=True, check=True
+        )
+        assert result.stdout.strip() == "False", (
+            "importing the calendars module installed them; presence now depends on import order"
+        )
+
+    def test_the_bootstrap_does_install_them(self) -> None:
+        """The other half. A module that installs nothing on import and nothing
+        anywhere else is a module whose calendars never exist — which is what
+        finding H7 was."""
+        import subprocess
+        import sys
+
+        probe = (
+            "from prama.packs import install_shipped\n"
+            "install_shipped()\n"
+            "from prama.core.calendars import default_calendars\n"
+            "print('target2' in default_calendars().names())\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", probe], capture_output=True, text=True, check=True
+        )
+        assert result.stdout.strip() == "True", result.stdout + result.stderr
 
     def test_installing_twice_is_refused_unless_asked(self) -> None:
         registry = install()
@@ -311,3 +350,61 @@ class TestObservanceItself:
         assert observed([first, second], [2021]) == frozenset(
             {date(2021, 12, 27), date(2021, 12, 28)}
         )
+
+
+class TestTheRemedysOwnExampleParses:
+    """Finding H7. `prama.schedule.spec` refuses `'06:30 TARGET2'` — an example
+    its own error message tells the reader to copy.
+
+        "Use one of: 'every 15 minutes', 'every 4 hours', 'daily', '06:30',
+         '06:30 TARGET2', 'on arrival', 'manual'."
+
+    Every listed form parsed except the one naming a calendar. `parse()`
+    resolves through `default_calendars()`, seeded with `always` and `weekdays`
+    alone, and `packs.banking.calendars.install()` — deliberately not called on
+    import — was called from nowhere in `src/`. A user following the message
+    exactly is told they are wrong, which is worse than no message.
+
+    Two things had to be true, and only the first was obvious: the bootstrap
+    has to run, *and* it has to install into the default registry. `install()`
+    defaults to a fresh one and returns it, so calling it bare materialises
+    every calendar into an object nobody holds — indistinguishable from not
+    calling it.
+    """
+
+    def test_every_form_the_remedy_names_is_accepted(self) -> None:
+        from prama.packs import install_shipped
+        from prama.schedule.spec import parse
+
+        install_shipped()
+        for form in (
+            "every 15 minutes",
+            "every 4 hours",
+            "daily",
+            "06:30",
+            "06:30 TARGET2",
+            "on arrival",
+            "manual",
+        ):
+            parse(form)  # raises if the remedy is lying
+
+    def test_every_shipped_calendar_can_be_named_in_a_schedule(self) -> None:
+        from prama.packs import install_shipped
+        from prama.packs.banking.calendars import SPECS
+        from prama.schedule.spec import parse
+
+        install_shipped()
+        for shipped in SPECS:
+            parse(f"06:30 {shipped.name}")
+
+    def test_a_calendar_nobody_ships_is_still_refused(self) -> None:
+        """The counterfactual. Installing everything must not turn the check
+        into a formality — a typo in a calendar name is a control that fires on
+        the wrong days, silently."""
+        from prama.core.errors import ValidationError
+        from prama.packs import install_shipped
+        from prama.schedule.spec import parse
+
+        install_shipped()
+        with pytest.raises(ValidationError, match="no calendar named"):
+            parse("06:30 TARGET3")

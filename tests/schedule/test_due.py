@@ -52,9 +52,17 @@ class TestParsing:
 
     def test_an_unknown_calendar_is_refused_rather_than_assumed(self) -> None:
         """A control declared against a calendar nobody loaded would look right
-        and fire on the wrong days."""
+        and fire on the wrong days.
+
+        The name here used to be TARGET2, which is a calendar Prama *ships* —
+        and the assertion held only because nothing in `src/` ever installed
+        it, while `spec.py`'s own remedy told the reader to write exactly that
+        (finding H7). The test and the error message asserted opposite things
+        about the same string. TARGET3 does not exist and never will, which is
+        what this test needs.
+        """
         with pytest.raises(ValidationError, match="no calendar named"):
-            parse("06:30 TARGET2")
+            parse("06:30 TARGET3")
 
     def test_cron_is_refused_with_the_reason(self) -> None:
         """It cannot express a business calendar, and a schedule that is wrong

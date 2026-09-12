@@ -30,6 +30,7 @@ from __future__ import annotations
 import json
 import math
 import multiprocessing
+import os
 import threading
 from collections.abc import Iterator
 from pathlib import Path
@@ -64,7 +65,27 @@ KILL_GRACE_SECONDS = 20
 RESULTS = Path(__file__).parent / "estate-map-scale.json"
 
 
+#: Opt-in, by environment variable, and not because it is slow.
+#:
+#: This is a *measurement*, and a measurement competes for the machine with
+#: whatever else is running. Inside the general suite it draws 2,000 nodes in
+#: ~15 s on an idle laptop and blows the 60 s budget on a busy one, so it fails
+#: for a reason that has nothing to do with the code — which is the worst kind
+#: of test to leave in a gate, because the first response to a flaky failure is
+#: to stop reading it.
+#:
+#: Skipped loudly rather than silently: the reason names the variable, so a run
+#: that did not measure says so instead of looking like a run that did.
+MEASURE = "PRAMA_MEASURE_ESTATE_MAP"
+
+
 def _playwright():
+    if not os.environ.get(MEASURE):
+        pytest.skip(
+            f"the estate map was NOT measured: set {MEASURE}=1 to run it. "
+            "It competes for the machine and is timing-sensitive, so it is "
+            "opt-in rather than part of the default suite."
+        )
     return pytest.importorskip(
         "playwright.sync_api",
         reason="needs the audit extra: pip install -e '.[audit]'",

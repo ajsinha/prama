@@ -45,14 +45,14 @@ boundary to exist.
 | X2 | A failed `open()` leaked a thread and a JVM attachment | **High** | **Fixed** |
 | S3 | The prompt-injection fence can be broken by interleaving the marker | **High** | **Fixed** |
 | S4 | RBAC scopes are computed, stored, and never enforced | **High** | **Fixed** |
-| X3 | An agent deletes the record of gaps in its own evidence | **High** | Open |
+| X3 | An agent deletes the record of gaps in its own evidence | **High** | **Fixed** |
 | C4 | Reference interpreter and SQL disagree on `%` and `/`; corpus has no case | **High** | **Fixed** |
 | H1 | Banking cross-field functions are advertised and never installed | **High** | **Fixed** |
 | C5 | A dataset that scanned zero rows scores 100% | **High** | **Fixed** |
 | X4 | A ledger failure strands a work unit and its lease permanently | **Medium** | **Fixed** |
 | X5 | `unfinished()` cannot see a run that died mid-flight | **Medium** | **Fixed** |
-| S5 | ClickHouse and BigQuery quoting escapes the backtick, not the backslash | **Medium** | Open |
-| S6 | CMK `decrypt()` offers no way to assert the expected tenant | **Medium** | Open |
+| S5 | ClickHouse and BigQuery quoting escapes the backtick, not the backslash | **Medium** | **Fixed** |
+| S6 | CMK `decrypt()` offers no way to assert the expected tenant | **Medium** | **Fixed** |
 | S7 | Open redirect on sign-in via `/\` | **Medium** | **Fixed** |
 | S8 | Sessions are never revalidated; sign-out revokes nothing | **Medium** | **Fixed** |
 | C6 | `CountMin` depth is decorative; error bound violated ~750× | **Medium** | **Fixed** |
@@ -61,12 +61,12 @@ boundary to exist.
 | C9 | The Fed calendar closes a Friday the Fed is open | **Medium** | **Fixed** |
 | C10 | `Diff.columns_that_changed` derives from the capped example set | **Medium** | **Fixed** |
 | X6 | `BoundedQueue.try_put` never wakes a waiting consumer | **Medium** | **Fixed** |
-| H2 | Six documents assert CI enforcement; there is no CI | **Medium** | Open |
-| H3 | Plugin purity does not ban `import time` or dynamic imports | **Medium** | Open |
+| H2 | Six documents assert CI enforcement; there is no CI | **Medium** | **Fixed** |
+| H3 | Plugin purity does not ban `import time` or dynamic imports | **Medium** | **Fixed** |
 | H4 | The tombstone is outside the content hash it claims to be inside | **Medium** | **Fixed** |
 | H5 | Two capability vocabularies the comment insists are one | **Medium** | **Fixed** |
-| H6 | Four `remedy=` strings name configuration nothing reads | **Low** | Open |
-| H7 | `'06:30 TARGET2'` — a remedy's own example is rejected | **Low** | Open |
+| H6 | Four `remedy=` strings name configuration nothing reads | **Low** | **Fixed** |
+| H7 | `'06:30 TARGET2'` — a remedy's own example is rejected | **Low** | **Fixed** |
 | T1 | The egress guard passes on prose; `llm/providers` never consults the gate | **High** | **Fixed** |
 | T2 | `test_every_tenant_scoped_dao_is_covered` covers 3 of 25 DAOs and cannot fail | **High** | **Fixed** |
 | T3 | Batch/stream equivalence compares the reference interpreter with itself | **High** | **Fixed** |
@@ -833,6 +833,91 @@ repository by a working-directory-relative path.
 and never referenced, leaving the docstring's claim — "the holiday moves; it
 does not multiply" — asserted nowhere. It now asserts the Friday before is a
 business day, which is the Fed rule from C9 and the thing the parameter is for.
+
+## The last of them
+
+**X3 — an agent deleting the record of a hole in its own evidence.** `apply()`
+called `take_gaps()`, which cleared *every* gap the spool held, and the caller
+had no idea which had been delivered. Two ways that lost one, both real. A gap
+recorded between building a report and receiving its receipt was deleted having
+never been sent. And `apply()` is the single handler for both `Hello` and
+`Report` responses, while `Coordinator.hello` returns the previously accepted
+sequence — so once an agent had delivered anything, *every subsequent poll*
+cleared every gap it held.
+
+A `Gap` exists so that findings dropped on spool overflow reach the control
+plane "in the same channel as the evidence, not only in a log". Losing one does
+not lose a log line: it makes the estate under-report while looking complete.
+The spool now forgets exactly what was delivered, and the runner remembers what
+it sent. The spool coalescing a continuing overflow into one growing gap is what
+makes this work cleanly — the hole that was reported is no longer the hole the
+spool holds, and identity by range says so.
+
+**S5 — a backtick dialect that escaped the backtick and not the backslash.**
+Both ClickHouse and BigQuery honour backslash escapes inside backtick-quoted
+identifiers, so a name ending in a backslash escaped its own closing delimiter
+and broke delimiter parity for the rest of the statement. The threat model is
+the module's own: "object names arrive from a catalogue that a customer
+controls, and they reach a query string." The existing test derived the
+delimiter from `quote("x")` and tried a name containing *that* — never a
+trailing backslash. MySQL and SQL Server were already right.
+
+**S6 — a cross-tenant guarantee that could not be expressed.** The module
+promises "a ciphertext moved from one tenant's row to another's fails to
+decrypt". The AAD does bind ciphertext to context, but the context travels
+*inside* the envelope and `decrypt` rebuilt the AAD from the envelope itself.
+Its signature was `decrypt(envelope, *, provider)` — no parameter with which a
+caller could say which estate it believed it was reading. The guarantee held
+against editing the context and against swapping the ciphertext, which is what
+the tests exercised, and not against moving the pair together, which is what the
+sentence describes. `decrypt` now takes an optional `tenant_id` and `purpose`,
+and refuses **before** the key provider is asked to unwrap anything.
+
+**H2 — six documents asserted CI enforcement and there was none.**
+`.github/workflows/gate.yml` now runs `scripts/gate.sh` on every push and pull
+request to `main` and `develop`, plus the conformance suite against a real
+PostgreSQL service and `axe-core` in a real Chromium. It calls the gate script
+rather than restating its steps, because a second list of checks is a second
+thing to keep in step.
+
+Two claims were corrected rather than implemented. `docs/19` said the
+accessibility guarantee is "held by axe-core in CI" on one page and listed
+"running it in CI" under **Not done** on another; the first is now true and the
+second is replaced by the thing that is still outstanding — screen-reader
+testing, which needs a person. And "benchmark suite in CI; >10% regression
+blocks release" is marked ⏳: the corpus and `prama bench run` exist, nothing
+compares a run against a stored baseline, and inventing a baseline to make the
+sentence true would be the defect this review is about.
+
+**H3 — three ways past the plugin purity gate.** `docs/19` and `docs/08` both
+record "a plugin that imports a clock, a socket or a model is refused at
+registration" as built. `time` was not on the ban list, so `import time;
+time.gmtime()` was admitted — the call ban covered `now`/`today`/`utcnow`/
+`monotonic`/`perf_counter` and not `time()`, `gmtime()` or `localtime()`.
+Dynamic imports were invisible to a scan keyed on `ast.Import`. And the scan
+read only the validator's *own* file, so `import socket` in a helper beside it
+was never seen — the simplest evasion of the three.
+
+All three are closed, and closing the second one taught something worth keeping:
+banning `compile` by name refused **every shipped validator**, because
+`re.compile` is the ordinary thing a format check does. The builtin and the
+method are told apart by shape — a bare `Name` versus an `Attribute` — and a
+test now pins that an ordinary regex is not refused. A gate that refuses the
+honest case is not a stricter gate, it is a broken one.
+
+**H7 — a remedy whose own example the code rejects.** `prama.schedule.spec`
+told the reader to use `'06:30 TARGET2'` and then refused it: `parse()` resolves
+through `default_calendars()`, seeded with `always` and `weekdays`, and
+`packs.banking.calendars.install()` was called from nowhere in `src/`. Fixed by
+the same bootstrap that fixed H1 — and it needed two things, only one of which
+was obvious. `install()` defaults to a *fresh* registry and returns it, so
+calling it bare materialises every calendar into an object nobody holds, which
+is indistinguishable from not calling it.
+
+The test that guarded this asserted TARGET2 is *refused*. It held only because
+nothing installed the calendar, while the error message told the reader to write
+exactly that string: the test and the remedy asserted opposite things about the
+same value. It now uses a name that does not exist and never will.
 
 ---
 

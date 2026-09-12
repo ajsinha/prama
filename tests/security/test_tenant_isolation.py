@@ -25,7 +25,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, ClassVar
 
 import httpx
 import pytest

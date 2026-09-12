@@ -64,6 +64,13 @@ FORBIDDEN: dict[str, str] = {
     "pathlib": "reading a file makes a control unreplayable",
     "openai": "a model output would decide a verdict (CON-007)",
     "anthropic": "a model output would decide a verdict (CON-007)",
+    # Finding H3. Absent from this list for four releases, while `docs/19` and
+    # `docs/08` both recorded "a plugin that imports a clock, a socket or a
+    # model is refused at registration" as built. `time` is the clock, and a
+    # validator doing `import time; time.gmtime()` was admitted — the call ban
+    # below covers `now`/`today`/`utcnow`/`monotonic`/`perf_counter` and not
+    # `time()`, `gmtime()` or `localtime()`.
+    "time": "reading the clock makes a control unreplayable",
 }
 
 #: Prama packages a validator may not reach into. Listed separately because a
@@ -84,6 +91,31 @@ FORBIDDEN_CALLS: dict[str, str] = {
     "utcnow": "reading the clock makes a control unreplayable",
     "monotonic": "reading the clock makes a control unreplayable",
     "perf_counter": "reading the clock makes a control unreplayable",
+    "gmtime": "reading the clock makes a control unreplayable",
+    "localtime": "reading the clock makes a control unreplayable",
+    "time_ns": "reading the clock makes a control unreplayable",
+}
+
+#: Ways to import a module without an ``import`` statement, which an AST scan
+#: keyed on `ast.Import` cannot see. Banned outright rather than resolved: the
+#: argument is an expression, so what it names is not knowable without running
+#: it, and a gate that has to run the thing it is gating is not a gate.
+#: Called *bare*, as builtins. `re.compile` is an ordinary thing for a format
+#: validator to do and `compile` the builtin is not, so the two are told apart
+#: by shape: a bare Name here, an Attribute below. Conflating them refused
+#: every shipped validator, which is how this distinction was found.
+FORBIDDEN_DYNAMIC: dict[str, str] = {
+    "__import__": "a dynamic import hides what a validator reaches for",
+    "exec": "running generated code is arbitrary code execution",
+    "eval": "running generated code is arbitrary code execution",
+    "compile": "running generated code is arbitrary code execution",
+}
+
+#: Called as a method on something — `importlib.import_module(...)`. No
+#: legitimate validator reaches for these under any spelling.
+FORBIDDEN_DYNAMIC_ATTRIBUTES: dict[str, str] = {
+    "import_module": "a dynamic import hides what a validator reaches for",
+    "load_module": "a dynamic import hides what a validator reaches for",
 }
 
 #: Inputs every registered validator is run against, twice, at registration.
@@ -155,6 +187,21 @@ def scan_source(path: str) -> list[tuple[str, str]]:
         return []
     found: list[tuple[str, str]] = []
     for node in python_ast.walk(tree):
+        # Dynamic imports first: `__import__("socket")` and
+        # `importlib.import_module(name)` are invisible to a scan that only
+        # looks at `ast.Import`, and a validator using either was admitted.
+        if isinstance(node, python_ast.Call):
+            why = None
+            called = ""
+            if isinstance(node.func, python_ast.Name):
+                called = node.func.id
+                why = FORBIDDEN_DYNAMIC.get(called)
+            elif isinstance(node.func, python_ast.Attribute):
+                called = node.func.attr
+                why = FORBIDDEN_DYNAMIC_ATTRIBUTES.get(called)
+            if why is not None:
+                found.append((f"{called}()", why))
+
         names: list[str] = []
         if isinstance(node, python_ast.Import):
             names = [alias.name for alias in node.names]
@@ -182,14 +229,65 @@ def scan_source(path: str) -> list[tuple[str, str]]:
 
 
 def forbidden_imports(validator: Any) -> list[tuple[str, str]]:
-    """Everything the validator's own module does that it may not.
+    """Everything the validator's module — and the modules it pulls in — does
+    that it may not.
 
     Scanned rather than trusted: a declaration of purity from the thing being
     checked is not evidence of purity.
+
+    **Its first-party imports are followed**, one level of the package tree at
+    a time, because reading only the validator's own file left the simplest
+    evasion open (finding H3): put `import socket, os, random` in a helper
+    beside it and import the helper. The helper is where the impurity lives and
+    the scan never opened it.
+
+    Only modules inside the validator's own distribution are followed. The
+    standard library and third-party packages are not walked — that is an
+    unbounded scan, and the ban list already names the ones that matter at the
+    point the validator reaches for them.
     """
     module = inspect.getmodule(type(validator))
     path = getattr(module, "__file__", None) if module else None
-    return scan_source(path) if path else []
+    if not path:
+        return []
+
+    found = list(scan_source(path))
+    root = Path(path).parent
+    seen = {Path(path).resolve()}
+    pending = [Path(path)]
+    while pending:
+        current = pending.pop()
+        for helper in _local_imports(current, root):
+            resolved = helper.resolve()
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            pending.append(helper)
+            found.extend(
+                (f"{helper.stem}.{name}", f"{why} (reached through {helper.name})")
+                for name, why in scan_source(str(helper))
+            )
+    return found
+
+
+def _local_imports(path: Path, root: Path) -> list[Path]:
+    """Sibling modules this file imports, as paths that exist."""
+    try:
+        tree = python_ast.parse(path.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError):
+        return []
+    names: set[str] = set()
+    for node in python_ast.walk(tree):
+        if isinstance(node, python_ast.Import):
+            names.update(alias.name.split(".")[-1] for alias in node.names)
+        elif isinstance(node, python_ast.ImportFrom):
+            if node.level:  # a relative import is by definition local
+                names.update(alias.name for alias in node.names)
+                if node.module:
+                    names.add(node.module.split(".")[-1])
+            elif node.module:
+                names.add(node.module.split(".")[-1])
+    return [candidate for name in sorted(names) if (candidate := root / f"{name}.py").is_file()]
 
 
 def check_determinism(validator: Any) -> None:

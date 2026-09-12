@@ -492,8 +492,81 @@ class TestGapsAreOneHoleNotMany:
         _, assignment = an_assignment()
         for _ in range(10):
             agent.run(assignment)
-        assert agent.spool.take_gaps()
+        delivered = agent.spool.gaps
+        assert delivered
+        assert agent.spool.forget_gaps(delivered) == len(delivered)
         assert agent.spool.gaps == ()
         for _ in range(10):
             agent.run(assignment)
         assert len(agent.spool.gaps) == 1
+
+    def test_a_gap_recorded_after_the_report_is_not_forgotten_with_it(self) -> None:
+        """Finding X3, the first of its two halves.
+
+        `apply()` called `take_gaps()`, which cleared *every* gap the spool
+        held. A gap recorded between building a report and receiving its
+        receipt had therefore never been sent to anybody, and was deleted as
+        though it had.
+
+        A gap is the record of evidence this agent dropped. Losing it does not
+        lose a log line — it makes the estate under-report while looking
+        complete, which is the failure `Gap` exists to prevent.
+        """
+        registry = AgentRegistry()
+        _, agent = an_agent(registry, spool=Spool(capacity=5))
+        _, assignment = an_assignment()
+        for _ in range(10):
+            agent.run(assignment)
+
+        agent.report()  # the gaps so far are now in flight
+        reported = agent.spool.gaps
+        assert reported
+        reported_through = reported[-1].last_sequence
+
+        # More overflow, after the report was built and before its receipt. The
+        # spool coalesces a continuing overflow into the *same* gap rather than
+        # accumulating one per dropped finding — "one hole, not many" — so what
+        # grows is its range, and the hole the control plane was told about is
+        # no longer the hole the spool holds.
+        for _ in range(10):
+            agent.run(assignment)
+        assert agent.spool.gaps[-1].last_sequence > reported_through
+
+        agent.apply(Receipt(accepted_through=0))
+        assert agent.spool.gaps, "a gap that was never reported was deleted anyway"
+        assert agent.spool.gaps[-1].last_sequence > reported_through
+
+    def test_a_hello_receipt_does_not_delete_an_unreported_gap(self) -> None:
+        """The second half, and the worse one.
+
+        `apply()` is the single handler for both `Hello` and `Report`
+        responses, and `Coordinator.hello` returns the previously accepted
+        sequence — so once an agent had delivered anything, *every subsequent
+        poll* cleared every gap it held, whether or not a report had carried
+        them.
+        """
+        registry = AgentRegistry()
+        _, agent = an_agent(registry, spool=Spool(capacity=5))
+        _, assignment = an_assignment()
+        for _ in range(10):
+            agent.run(assignment)
+        assert agent.spool.gaps
+
+        # A receipt arriving without a report having been sent.
+        agent.apply(Receipt(accepted_through=0))
+        assert agent.spool.gaps, "a hello receipt deleted gaps nobody had been told about"
+
+    def test_a_reported_gap_is_still_forgotten_once_acknowledged(self) -> None:
+        """The counterfactual. A spool that never forgets a delivered gap
+        reports the same hole for ever, and the control plane cannot tell a
+        recurring problem from an old one."""
+        registry = AgentRegistry()
+        _, agent = an_agent(registry, spool=Spool(capacity=5))
+        _, assignment = an_assignment()
+        for _ in range(10):
+            agent.run(assignment)
+        assert agent.spool.gaps
+
+        agent.report()
+        agent.apply(Receipt(accepted_through=0))
+        assert agent.spool.gaps == (), "a delivered gap was reported twice"
