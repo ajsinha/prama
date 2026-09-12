@@ -934,7 +934,7 @@ only caller is a test.
 
 **Removed rather than wired.** Plumbing a `Configuration` into `PasswordHasher`,
 `Registry` and `BoundedQueue` to make three decorative keys live would add
-coupling to three core primitives in order to preserve a设 that never worked.
+coupling to three core primitives in order to preserve a knob that never worked.
 The keys are gone from `defaults.py` and `application.yaml`, and each remedy now
 names the real lever — a constructor argument, or the code that called
 `disable()`. `generate_docs.py --check` caught the configuration reference
