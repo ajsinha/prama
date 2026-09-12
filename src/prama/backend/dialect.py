@@ -90,6 +90,35 @@ class SqlDialect:
         """
         return f"CAST({expression} AS VARCHAR)"
 
+    def as_real(self, expression: str) -> str:
+        """The expression as a floating-point number.
+
+        Emitted around the left operand of ``/`` so that division means the
+        same thing everywhere. Without it the engines disagree *with each
+        other*: SQLite and PostgreSQL do integer division on two integers, so
+        ``row_id / 2`` is 0 for row 1, while DuckDB and the reference
+        interpreter give 0.5. A control reading ``(row_id / 2) > 0`` therefore
+        passed on two engines and failed on the third — finding C4.
+
+        True division is the meaning Prama defines, because silent truncation
+        is a defect a data-quality tool exists to find rather than commit, and
+        because a business reader writing ``amount / count`` means the
+        quotient.
+        """
+        return f"CAST({expression} AS DOUBLE PRECISION)"
+
+    def modulo(self, left: str, right: str) -> str:
+        """Remainder, with the sign of the *dividend*.
+
+        Every SQL engine here truncates; Python floors. ``-10 % 3`` is -1 in
+        SQL and 2 in Python, so the reference interpreter reported a violation
+        the engines did not. Prama defines the SQL meaning — all three engines
+        already agree on it, and it is what a reader gets if they run the
+        emitted SQL themselves. The reference interpreter is the side that
+        changed.
+        """
+        return f"({left} % {right})"
+
     def literal(self, value: Any) -> str:
         if value is None:
             return "NULL"
@@ -222,6 +251,11 @@ class SqliteDialect(SqlDialect):
 
     name = "sqlite"
     capabilities = frozenset({FILTER, AGGREGATION, CROSS_OBJECT_JOIN, REGEX})
+
+    def as_real(self, expression: str) -> str:
+        """SQLite has no ``DOUBLE PRECISION``; the affinity is spelled ``REAL``."""
+        return f"CAST({expression} AS REAL)"
+
     #: Python's ``re``, not POSIX and not RE2. SQLite ships no regular
     #: expression engine at all: it reserves the ``REGEXP`` operator and calls
     #: a function of that name if the host has registered one, which is exactly

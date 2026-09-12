@@ -46,7 +46,7 @@ boundary to exist.
 | S3 | The prompt-injection fence can be broken by interleaving the marker | **High** | **Fixed** |
 | S4 | RBAC scopes are computed, stored, and never enforced | **High** | **Fixed** |
 | X3 | An agent deletes the record of gaps in its own evidence | **High** | Open |
-| C4 | Reference interpreter and SQL disagree on `%` and `/`; corpus has no case | **High** | Open |
+| C4 | Reference interpreter and SQL disagree on `%` and `/`; corpus has no case | **High** | **Fixed** |
 | H1 | Banking cross-field functions are advertised and never installed | **High** | Open |
 | C5 | A dataset that scanned zero rows scores 100% | **High** | **Fixed** |
 | X4 | A ledger failure strands a work unit and its lease permanently | **Medium** | Open |
@@ -432,6 +432,43 @@ breaks the streaming side deliberately — once by forgetting the unknown policy
 once by skipping the second stage, which is the shipped defect reintroduced —
 and requires the comparison to notice, with a positive control so it cannot pass
 by always reporting a difference.
+
+**C4 — two operators meant different things on different engines, and the gate
+had no case for either.** `INFIX` in the compiler passed `%` and `/` straight
+through on the assumption that every engine agrees. Measured, neither does:
+
+| control | reference | sqlite | duckdb |
+|---|---|---|---|
+| `CHECK corpus SATISFIES (notional % 3) <> 2` | **3** violations | 2 | 2 |
+| `CHECK corpus SATISFIES (row_id / 2) > 0` | PASS (0) | **FAIL (1)** | PASS (0) |
+
+`%` — Python floors, every SQL engine truncates. Row 5 has `notional = -10`:
+`-10 % 3` is 2 here and -1 there, so the reference interpreter reported a
+violation none of the three engines did.
+
+`/` — the worse of the two, because the **engines disagree with each other**.
+SQLite and PostgreSQL divide two integers as integers, so `row_id / 2` is 0 for
+row 1; DuckDB and the interpreter give 0.5. The same control passed on two
+engines and failed on the third.
+
+Prama now defines both meanings rather than inheriting whichever the engine
+happens to have.
+
+- **Modulo takes the sign of the dividend**, which is what all three engines
+  already did and what a reader gets if they run the emitted SQL themselves.
+  The reference interpreter is the side that changed — `math.fmod`, not `%`.
+- **Division is true division**, forced by casting the left operand
+  (`CAST(… AS REAL)` on SQLite, `DOUBLE PRECISION` elsewhere). Silent
+  truncation is a defect a data-quality tool exists to find rather than commit,
+  and a business reader writing `amount / count` means the quotient.
+
+Both decisions live in the dialect, which is where a question of "what does this
+engine do" belongs, and the emitted SQL shows the cast — visible to the DBA who
+reads it before granting access.
+
+The corpus now carries a case for each. That is the half of this finding that
+mattered most: the divergence was not subtle, it was simply never asked about.
+Reverting the fixes with the cases in place turns three conformance tests red.
 
 ---
 

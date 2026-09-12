@@ -322,6 +322,14 @@ class SqlCompiler:
                     remedy="This is a defect in the compiler rather than in the control.",
                     context={"operator": operator, "operands": len(arguments)},
                 )
+            # Two operators do not mean the same thing on every engine and are
+            # asked, rather than assumed, of the dialect. The rest are passed
+            # through because all three agree on them. See finding C4.
+            if operator == "/":
+                left, *rest = arguments
+                return "(" + " / ".join([self.dialect.as_real(left), *rest]) + ")"
+            if operator == "%" and len(arguments) == 2:
+                return self.dialect.modulo(arguments[0], arguments[1])
             return "(" + f" {operator} ".join(arguments) + ")"
         if operator == "NOT":
             return f"NOT ({arguments[0]})"

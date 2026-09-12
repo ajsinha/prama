@@ -29,6 +29,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import dataclasses
+import math
 import re
 from collections.abc import Iterable, Mapping
 from typing import Any
@@ -399,5 +400,11 @@ def _arithmetic(operator: str, values: list[Any]) -> Any:
         "-": left - right,
         "*": left * right,
         "/": left / right if right else UNKNOWN,
-        "%": left % right if right else UNKNOWN,
+        # `math.fmod`, not `%`. Python floors and every SQL engine truncates:
+        # -10 % 3 is 2 here and -1 there, so this interpreter reported a
+        # violation none of the three engines did (finding C4). The engines
+        # already agreed with each other, and the emitted SQL is what a DBA
+        # reads, so the SQL meaning is the one Prama defines and this is the
+        # side that changed.
+        "%": math.fmod(left, right) if right else UNKNOWN,
     }[operator]

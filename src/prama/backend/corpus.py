@@ -131,6 +131,26 @@ CASES: tuple[Case, ...] = (
         ),
     ),
     Case(
+        name="modulo_on_a_negative",
+        pql="CHECK corpus SATISFIES (notional % 3) <> 2",
+        catches=(
+            "the sign of a remainder. Row 5 has notional -10: Python floors and "
+            "gives 2, every SQL engine truncates and gives -1. The reference "
+            "interpreter reported a violation none of the three engines did, and "
+            "the corpus had no arithmetic case at all, so the gate never saw it"
+        ),
+    ),
+    Case(
+        name="division_is_not_integer_division",
+        pql="CHECK corpus SATISFIES (row_id / 2) > 0",
+        catches=(
+            "the one case where the engines disagreed with *each other*: SQLite "
+            "and PostgreSQL divide two integers as integers, so row 1 gives 0, "
+            "while DuckDB and the interpreter give 0.5. Same control, PASS on two "
+            "engines and FAIL on the third"
+        ),
+    ),
+    Case(
         name="row_count",
         pql="CHECK corpus HAS ROW COUNT BETWEEN 1 AND 8",
         catches="a dataset-level assertion with no per-row predicate",
