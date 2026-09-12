@@ -164,7 +164,15 @@ BANKING_FUNCTIONS: tuple[Function, ...] = (
         arity=(2, 2),
         returns=BOOLEAN,
         argument_types=(TEXT, TEXT),
-        sql="(SUBSTR(UPPER({0}), 1, 2) = SUBSTR(UPPER({1}), 5, 2))",
+        sql=(
+            # NULL, not a verdict, when either identifier is too short to carry
+            # a country — exactly where `_iban_bic_consistent` returns UNSET.
+            # The template used to answer `'' = ''` with TRUE, so a row with two
+            # empty identifiers passed a consistency check on the strength of
+            # having nothing to compare.
+            "(CASE WHEN LENGTH({0}) < 2 OR LENGTH({1}) < 6 THEN NULL "
+            "ELSE SUBSTR(UPPER({0}), 1, 2) = SUBSTR(UPPER({1}), 5, 2) END)"
+        ),
         evaluate=_iban_bic_consistent,
     ),
     Function(
@@ -181,7 +189,12 @@ BANKING_FUNCTIONS: tuple[Function, ...] = (
         # join would make every row's check depend on a second table being
         # present in whatever schema the control runs against.
         sql=(
-            "(CASE WHEN UPPER({1}) IN (" + ", ".join(f"'{c}'" for c in _zero_decimal()) + ") "
+            # The malformed-input guard comes first, as it does in
+            # `_minor_units_ok`: a two-letter code such as 'JP' is not a
+            # currency, and the original template fell through to its ELSE and
+            # answered TRUE — so a mistyped currency made the check pass.
+            "(CASE WHEN {0} IS NULL OR LENGTH({1}) <> 3 THEN NULL "
+            "WHEN UPPER({1}) IN (" + ", ".join(f"'{c}'" for c in _zero_decimal()) + ") "
             "THEN {0} = CAST({0} AS INTEGER) ELSE 1 = 1 END)"
         ),
         evaluate=_minor_units_ok,
@@ -192,7 +205,10 @@ BANKING_FUNCTIONS: tuple[Function, ...] = (
         arity=(2, 2),
         returns=BOOLEAN,
         argument_types=(TEMPORAL, TEMPORAL),
-        sql="({1} >= {0})",
+        sql=(
+            "(CASE WHEN {0} IS NULL OR {1} IS NULL OR LENGTH({0}) = 0 "
+            "OR LENGTH({1}) = 0 THEN NULL ELSE {1} >= {0} END)"
+        ),
         evaluate=_settles_after_trade,
     ),
     Function(
@@ -205,9 +221,14 @@ BANKING_FUNCTIONS: tuple[Function, ...] = (
         returns=BOOLEAN,
         argument_types=(TEXT, NUMBER),
         sql=(
-            "(CASE WHEN {1} = 0 THEN NULL "
-            "WHEN UPPER(SUBSTR({0}, 1, 1)) = 'B' THEN {1} > 0 "
-            "WHEN UPPER(SUBSTR({0}, 1, 1)) = 'S' THEN {1} < 0 "
+            # Matched on the whole side, not its first letter. The original
+            # tested `SUBSTR({0}, 1, 1) = 'B'`, so 'BORROW' was read as a buy
+            # and a securities-lending row was judged against an equity
+            # convention. `_sign_matches_side` accepts BUY/SELL/B/S and nothing
+            # else, and this now accepts the same four.
+            "(CASE WHEN {1} IS NULL OR {1} = 0 THEN NULL "
+            "WHEN UPPER({0}) IN ('BUY', 'B') THEN {1} > 0 "
+            "WHEN UPPER({0}) IN ('SELL', 'S') THEN {1} < 0 "
             "ELSE NULL END)"
         ),
         evaluate=_sign_matches_side,
@@ -218,7 +239,13 @@ BANKING_FUNCTIONS: tuple[Function, ...] = (
         arity=(2, 2),
         returns=BOOLEAN,
         argument_types=(TEXT, TEXT),
-        sql="(UPPER({0}) = UPPER({1}))",
+        sql=(
+            # Alpha-2, as the name says. 'GBR' = 'GBR' is not two countries
+            # agreeing, it is two alpha-3 codes in a field that expects alpha-2
+            # — which `_same_country` reports as UNSET and this answered TRUE.
+            "(CASE WHEN LENGTH({0}) <> 2 OR LENGTH({1}) <> 2 THEN NULL "
+            "ELSE UPPER({0}) = UPPER({1}) END)"
+        ),
         evaluate=_same_country,
     ),
     Function(
@@ -227,7 +254,7 @@ BANKING_FUNCTIONS: tuple[Function, ...] = (
         arity=(1, 1),
         returns=TEXT,
         argument_types=(TEXT,),
-        sql="SUBSTR(UPPER({0}), 1, 2)",
+        sql="(CASE WHEN LENGTH({0}) < 2 THEN NULL ELSE SUBSTR(UPPER({0}), 1, 2) END)",
         evaluate=_iban_country,
     ),
     Function(
@@ -236,7 +263,7 @@ BANKING_FUNCTIONS: tuple[Function, ...] = (
         arity=(1, 1),
         returns=TEXT,
         argument_types=(TEXT,),
-        sql="SUBSTR(UPPER({0}), 5, 2)",
+        sql="(CASE WHEN LENGTH({0}) < 6 THEN NULL ELSE SUBSTR(UPPER({0}), 5, 2) END)",
         evaluate=_bic_country,
     ),
     Function(
@@ -248,7 +275,7 @@ BANKING_FUNCTIONS: tuple[Function, ...] = (
         arity=(1, 1),
         returns=TEXT,
         argument_types=(TEXT,),
-        sql="SUBSTR(UPPER({0}), 1, 2)",
+        sql="(CASE WHEN LENGTH({0}) < 2 THEN NULL ELSE SUBSTR(UPPER({0}), 1, 2) END)",
         evaluate=_isin_country,
     ),
 )

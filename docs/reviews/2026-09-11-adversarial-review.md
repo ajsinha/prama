@@ -47,7 +47,7 @@ boundary to exist.
 | S4 | RBAC scopes are computed, stored, and never enforced | **High** | **Fixed** |
 | X3 | An agent deletes the record of gaps in its own evidence | **High** | Open |
 | C4 | Reference interpreter and SQL disagree on `%` and `/`; corpus has no case | **High** | **Fixed** |
-| H1 | Banking cross-field functions are advertised and never installed | **High** | Open |
+| H1 | Banking cross-field functions are advertised and never installed | **High** | **Fixed** |
 | C5 | A dataset that scanned zero rows scores 100% | **High** | **Fixed** |
 | X4 | A ledger failure strands a work unit and its lease permanently | **Medium** | Open |
 | X5 | `unfinished()` cannot see a run that died mid-flight | **Medium** | Open |
@@ -469,6 +469,52 @@ reads it before granting access.
 The corpus now carries a case for each. That is the half of this finding that
 mattered most: the divergence was not subtle, it was simply never asked about.
 Reverting the fixes with the cases in place turns three conformance tests red.
+
+**H1 — one CLI command sold eight checks another refused, and when installed
+they disagreed with themselves.** Two defects, and the first hid the second.
+
+`prama pack list` printed eight cross-field checks. `prama control check` on
+`CHECK payments SATISFIES IBAN_BIC_CONSISTENT(iban, bic)` answered *"there is no
+function called IBAN_BIC_CONSISTENT"*. `crossfield.install()` was written,
+tested, and called **only from `tests/`** — never once from `src/`. Documentation
+drifting from behaviour is ordinary; an advertisement and a refusal in the same
+CLI is two halves of one product disagreeing.
+
+The module's reason for requiring explicit installation is good and is kept:
+"a function that exists because a module was imported is one whose availability
+depends on import order, and a control that compiles in one process and refuses
+in another is the worst kind of intermittent." What was missing was any
+deterministic place to do it. `prama.packs.install_shipped()` is now called from
+exactly two — the CLI entry point and `create_app` — and a test asserts by AST
+scan that at least two production call sites exist, because the defect was
+structural rather than a typo.
+
+**The second half is worse and only became reachable once the first was fixed.**
+Every SQL template disagreed with its own `evaluate` on malformed input, and
+every disagreement ran the unsafe way — SQL answered TRUE where the reference
+answered UNKNOWN:
+
+| function | input | SQL | its own reference |
+|---|---|---|---|
+| `IBAN_BIC_CONSISTENT` | `'', ''` | `True` | UNKNOWN |
+| `MINOR_UNITS_OK` | `1050.75, 'JP'` | `True` | UNKNOWN |
+| `SIGN_MATCHES_SIDE` | `'BORROW', 10` | `True` | UNKNOWN |
+| `SAME_COUNTRY` | `'GBR', 'GBR'` | `True` | UNKNOWN |
+| `ISIN_COUNTRY` | `'X'` | `'X'` | UNKNOWN |
+
+Each reference declines to judge a malformed identifier on purpose — the finding
+belongs to the format control, and answering "consistent" reports one defect as
+a pass. The templates had no guard at all, so two empty identifiers "agreed",
+`'JP'` was accepted as a currency, `'BORROW'` was read as a buy because the
+template matched on the first letter, and two alpha-3 codes "agreed" in an
+alpha-2 comparison. Under the default policy an unknown is a violation, so the
+reference routes these rows to a human and the SQL — the side that actually runs
+in production — passed them silently.
+
+All eight templates now guard exactly what their reference guards, and the tests
+execute the SQL on DuckDB rather than inspecting the string, with a positive
+control asserting the reference really does decline first. Ten fail against the
+old code.
 
 ---
 

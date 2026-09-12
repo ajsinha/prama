@@ -21,6 +21,7 @@ from prama.core.config import Configuration, load_configuration
 from prama.core.errors import PramaError
 from prama.core.log import LoggingConfigurator, get_logger
 from prama.db import Database
+from prama.packs import install_shipped
 from prama.version import PRODUCT_TAGLINE, VERSION
 
 _log = get_logger(__name__)
@@ -95,6 +96,11 @@ def create_app(config: Configuration | None = None, *, database: Database | None
         response: Response = await call_next(request)
         response.headers["X-Correlation-Id"] = cid
         return response
+
+    # The console and the API author and check controls too, so the shipped
+    # packs' functions must resolve here for the same reason they must in the
+    # CLI — see prama.packs.install_shipped.
+    install_shipped()
 
     app.include_router(meta.router, prefix=API_PREFIX)
     app.include_router(semantic.router, prefix=API_PREFIX)
