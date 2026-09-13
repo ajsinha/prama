@@ -148,6 +148,44 @@ class TestWhatCountsAsABreach:
         assert code == EXIT_DRIFT
         assert "no rows, so nothing was checked" in text
 
+    def test_no_rows_is_a_breach_in_json_mode_too(self, files: Path) -> None:
+        """The two output modes must reach the same verdict.
+
+        They did not. The empty-rows guard sat below the `--json` early return,
+        so `contract check` refused an empty file and `--json contract check`
+        did not — and `--json` is the spelling a build uses, which made the hole
+        exactly the shape of the thing the gate exists to stop. The text-mode
+        test above passed throughout.
+
+        A contract declaring no properties is the sharpest version: with columns
+        promised, an empty file trips the missing-column check by accident and
+        the exit code comes out right for the wrong reason.
+        """
+        empty_schema = dict(CONTRACT, schema=[{"name": "positions_eod", "properties": []}])
+        (files / "no_properties.json").write_text(json.dumps(empty_schema))
+
+        for contract in ("contract.json", "no_properties.json"):
+            text_code, _ = run(
+                ["contract", "check", str(files / contract), "--data", str(files / "empty.json")]
+            )
+            json_code, out = run(
+                [
+                    "--json",
+                    "contract",
+                    "check",
+                    str(files / contract),
+                    "--data",
+                    str(files / "empty.json"),
+                ]
+            )
+            assert text_code == EXIT_DRIFT, contract
+            assert json_code == text_code, f"{contract}: json exited {json_code}, text {text_code}"
+            payload = pjson.loads(out)
+            assert payload["breached"] is True, contract
+            # And the payload says *why*, rather than blaming absent columns.
+            assert payload["checked"] is False, contract
+            assert payload["missing_columns"] == [], contract
+
     def test_json_output_carries_the_verdict(self, files: Path) -> None:
         code, text = run(
             [

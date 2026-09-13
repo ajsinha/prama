@@ -94,7 +94,9 @@ class LspCatalogueCommand(Command):
                     versions = await uow.datasets.list_current(tenant, limit=5000)
                     out: dict[str, dict[str, str]] = {}
                     for version in versions:
-                        attributes = await uow.attributes.for_dataset(version.dataset_id)
+                        attributes = await uow.attributes.for_dataset(
+                            version.dataset_id, tenant_id=tenant
+                        )
                         out[version.slug] = {
                             a.name: (getattr(a, "physical_type", "") or "") for a in attributes
                         }

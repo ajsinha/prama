@@ -102,7 +102,13 @@ where = ["src"]
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+# `tests` is the suite written alongside the code. `qa/regression-suite` is
+# the one derived from QA findings — every entry a defect that was observed to
+# fail before it was fixed. Both are gates, so both are collected; a regression
+# suite nobody runs is a directory, not a guard. The raw QA harnesses in
+# `qa/harness` are deliberately NOT here: they print rather than assert, and
+# collecting them would add thousands of tests that pass unconditionally.
+testpaths = ["tests", "qa/regression-suite"]
 # Without this, two test files sharing a basename in different directories
 # collide on import and the whole run aborts during collection — not with a
 # failure, with an *error*, which is easy to miss if the output is piped. It
@@ -113,7 +119,21 @@ testpaths = ["tests"]
 addopts = "--import-mode=importlib"
 asyncio_mode = "auto"
 filterwarnings = ["error::DeprecationWarning:prama.*"]
-markers = ["postgres: requires a reachable PostgreSQL instance"]
+markers = [
+    "postgres: requires a reachable PostgreSQL instance",
+    # Kept as a marker so they can be selected — `pytest -m casestudy` — but
+    # NOT excluded from the default run. Measured at ~2.5s each, and they are
+    # the product's own demonstration that it works. QA found all four dead on
+    # committed code because nothing under tests/ exercised them; ten seconds
+    # is a cheap price for never repeating that.
+    "casestudy: runs a case study end to end",
+    # QA regression cases whose cost is measured in tens of seconds — trust
+    # propagation over a wide lineage graph, conformal calibration over 100k
+    # points. Marked so `-m "not slow"` stays quick during a fix cycle; the
+    # full gate runs them, because the defects they guard were performance
+    # defects and a performance guard that is always skipped guards nothing.
+    "slow: takes seconds rather than milliseconds",
+]
 
 [tool.ruff]
 line-length = 100

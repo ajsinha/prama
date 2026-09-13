@@ -309,3 +309,55 @@ class TestBootstrapAndVerify:
         report = Database.from_config(config).verify()
         assert not report.ok  # every table is missing, and it says so
         assert len(report.blocking_drifts) >= 9
+
+
+class TestSqliteDoesNotInventColumns:
+    """QA finding Q-08. A control on a column that does not exist reported
+    **pass over the whole table** on SQLite.
+
+    SQLite accepts a double-quoted identifier it cannot resolve as a *string
+    literal*, for MySQL compatibility. So `"no_such_column" IS NOT NULL` is the
+    constant string `'no_such_column'` — not null on every row — and the
+    control passes 1,000 rows without looking at anything. The identical control
+    is an `error` on DuckDB: two engines, opposite verdicts, and the wrong one
+    is silent.
+
+    A typo in a column name is the commonest way a control stops checking
+    anything, and this made it the least visible failure in the product.
+    """
+
+    def prepared(self, database: Database) -> Any:
+        """A table with two rows, through the engine Prama actually opens."""
+        from sqlalchemy import text
+
+        with database.sync_engine().begin() as conn:
+            conn.execute(text("CREATE TABLE dqs_probe (a TEXT)"))
+            conn.execute(text("INSERT INTO dqs_probe VALUES ('x'), ('y')"))
+        return text
+
+    def test_an_unknown_column_is_an_error_not_a_string(self, started_database: Database) -> None:
+        from sqlalchemy.exc import OperationalError
+
+        text = self.prepared(started_database)
+        with (
+            started_database.sync_engine().connect() as conn,
+            pytest.raises(OperationalError, match="no such column"),
+        ):
+            conn.execute(text('SELECT COUNT(*) FROM dqs_probe WHERE "no_such_column" IS NOT NULL'))
+
+    def test_a_real_column_still_works(self, started_database: Database) -> None:
+        """The counterfactual. Turning the fallback off must not break quoting
+        of columns that do exist — which is every query Prama emits."""
+        text = self.prepared(started_database)
+        with started_database.sync_engine().connect() as conn:
+            found = conn.execute(
+                text('SELECT COUNT(*) FROM dqs_probe WHERE "a" IS NOT NULL')
+            ).scalar()
+        assert found == 2
+
+    def test_a_genuine_string_literal_still_works(self, started_database: Database) -> None:
+        """Single quotes are how you mean a string, and always were."""
+        text = self.prepared(started_database)
+        with started_database.sync_engine().connect() as conn:
+            found = conn.execute(text("SELECT COUNT(*) FROM dqs_probe WHERE a = 'x'")).scalar()
+        assert found == 1

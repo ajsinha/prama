@@ -68,6 +68,15 @@ class Lowerer:
         #: over its permitted values. Resolving at run time instead would mean
         #: a codelist edited on Tuesday silently changes what Monday's evidence
         #: was asserting — and the plan hash would not move to say so.
+        #:
+        #: Empty by default, and deliberately: resolving the shipped lists is
+        #: `prama.ir.resolve.resolved`'s job, and that module exists because
+        #: "each caller remembering is how three of six call sites end up
+        #: subtly different". `prama control compile` was one of the callers
+        #: that did not use it, so it answered "the codelist 'iso4217' is not
+        #: registered" about a list the product ships (QA finding Q-14) — the
+        #: fix belongs at that call site, not in a default here that would make
+        #: bare lowering quietly reach for a registry.
         self._codelists = codelists or {}
 
     def control(self, control: ast.Control, *, source: str = "") -> ControlPlan:
@@ -122,6 +131,8 @@ class Lowerer:
 
     def _assertion(self, assertion: ast.Assertion) -> tuple[Expr | None, str, dict[str, Any]]:
         if isinstance(assertion, ast.PredicateAssertion):
+            if assertion.operator == "is_unique":
+                return self._is_unique(assertion)
             return self._predicate(assertion), "predicate", {}
         if isinstance(assertion, ast.ExpressionAssertion):
             return self._expression(assertion.condition), "predicate", {}
@@ -199,7 +210,6 @@ class Lowerer:
         built = {
             "is_null": lambda: Expr.operation("IS NULL", subject),
             "is_not_null": lambda: Expr.operation("IS NOT NULL", subject),
-            "is_unique": lambda: Expr.operation("IS NOT NULL", subject),
             "in": lambda: Expr.operation("IN", subject, argument or Expr.values()),
             "in_codelist": lambda: self._codelist(subject, argument),
             "between": lambda: Expr.operation(
@@ -222,11 +232,50 @@ class Lowerer:
                 "IS OF TYPE", subject, argument or Expr.literal("")
             ),
         }[operator]()
-        # A unique-key predicate cannot be a row predicate; the caller handles
-        # it, and the positive form here only guards against nulls.
-        if operator == "is_unique":
-            return built
         return Expr.operation("NOT", built) if assertion.negated else built
+
+    def _is_unique(self, assertion: ast.PredicateAssertion) -> tuple[None, str, dict[str, Any]]:
+        """``col IS UNIQUE`` — the same assertion as ``HAS UNIQUE KEY (col)``.
+
+        It used to lower to ``IS NOT NULL``, under a comment saying a unique-key
+        predicate cannot be a row predicate and "the caller handles it". No
+        caller did. ``assertion_kind`` stayed ``"predicate"``, so the plan was a
+        null check wearing a uniqueness control's description: the compiled SQL
+        for ``CHECK trades.uti IS UNIQUE`` counted nulls, while the English
+        above it read "every uti is different from every other". A column
+        holding one value repeated a million times passed, green, with evidence.
+
+        That spelling is not obscure — the banking pack's regime templates ship
+        it, and the ODCS importer maps ``duplicateCount``, ``duplicatePercent``
+        and ``uniqueCount`` onto it — so the controls most likely to be trusted
+        without reading were the ones not being run.
+
+        Uniqueness is a property of the set, not of a row, so there is no row
+        predicate to return. It becomes the one-column unique key it always
+        meant, and takes that path's real ``COUNT(DISTINCT …)`` test.
+        """
+        subject = assertion.subject
+        if not isinstance(subject, ast.ColumnRef):
+            raise ValidationError(
+                "IS UNIQUE applies to a column, not to an expression",
+                remedy=(
+                    "Name the column — `CHECK orders.id IS UNIQUE`. To assert "
+                    "uniqueness of several columns together, write "
+                    "`CHECK orders HAS UNIQUE KEY (a, b)`."
+                ),
+                context={"subject": subject.render()},
+            )
+        if assertion.negated:
+            raise ValidationError(
+                "IS NOT UNIQUE is not a control",
+                remedy=(
+                    "A control states what must be true of good data, and "
+                    "'this column contains duplicates' is not that. Write "
+                    "`IS UNIQUE` for the assertion you mean."
+                ),
+                context={"column": subject.name},
+            )
+        return None, "unique_key", {"key_columns": [subject.name]}
 
     def _valid(self, subject: Expr, argument: Expr | None) -> Expr:
         """A semantic type, resolved into what an engine can actually test.

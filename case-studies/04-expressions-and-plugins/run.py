@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from typing import Any
 import csv
 import dataclasses
 import shutil
@@ -245,7 +246,7 @@ def build(workspace: Path) -> tuple[Path, DefectLog, int]:
     return catalogue, log, len(rows)
 
 
-async def main(serve: bool, port: int) -> None:
+async def main(serve: bool, port: int) -> Any:
     workspace = HERE / "workspace"
     banner(
         "Case study 4 — Excel formulas, and a validator somebody else wrote",
@@ -313,8 +314,12 @@ async def main(serve: bool, port: int) -> None:
     finally:
         await harness.stop()
 
-    if serve:
-        harness.serve(port=port)
+    # Returned rather than served here. `harness.serve` calls `uvicorn.run`,
+    # which calls `asyncio.run`, and this function is already inside one — so
+    # the console never started and the study died on
+    # "asyncio.run() cannot be called from a running event loop". Found by a QA
+    # pass; nothing under tests/ exercises case-studies/.
+    return harness if serve else None
 
 
 async def _declare_formulas(harness: Harness) -> None:
@@ -351,7 +356,9 @@ async def _declare_formulas(harness: Harness) -> None:
                 schedule="06:30",
                 authored_by="alice",
             )
-            await uow.controls.activate(str(entity.id), approved_by="bob")
+            await uow.controls.activate(
+                str(entity.id), tenant_id=harness.tenant_id, approved_by="bob"
+            )
             harness.accepted += 1
 
 
@@ -395,4 +402,7 @@ if __name__ == "__main__":
     parser.add_argument("--no-serve", action="store_true")
     parser.add_argument("--port", type=int, default=8804)
     args = parser.parse_args()
-    asyncio.run(main(serve=not args.no_serve, port=args.port))
+    started = asyncio.run(main(serve=not args.no_serve, port=args.port))
+    if started is not None:
+        # Outside the loop, where uvicorn can own one of its own.
+        started.serve(port=args.port)

@@ -201,3 +201,70 @@ class TestTheDictionaryForm:
         payload = compare(LEFT, RIGHT).to_dict()
         assert payload["comparable"] is False
         assert payload["changed"] == 0
+
+
+class TestTheColumnTallyCoversEveryRow:
+    """Finding C10. `columns_that_changed` was derived from `changed_examples`,
+    which is capped at `DETAIL_LIMIT`.
+
+    The docstring makes this summary the headline value of the tool — "four
+    thousand rows differing in one column is one bug, and in forty columns is a
+    different conversation" — and it was computed from the first hundred rows by
+    key. The trailing note on `describe()` then told the reader that "examples
+    are capped and the counts are not", which was true of the counts and not of
+    this.
+    """
+
+    def corpus(self) -> tuple[list[dict], list[dict]]:
+        """The shape that hides the real finding.
+
+        The first hundred rows by key change only `settlement_date`; the other
+        9,900 change only `notional`. Anything reading the capped examples sees
+        the rare column and misses the common one.
+        """
+        left = [
+            {"id": f"{i:05d}", "settlement_date": "2026-01-01", "notional": 100.0}
+            for i in range(10_000)
+        ]
+        right = [
+            {
+                "id": row["id"],
+                "settlement_date": "2026-01-02" if index < 100 else row["settlement_date"],
+                "notional": 100.0 if index < 100 else 200.0,
+            }
+            for index, row in enumerate(left)
+        ]
+        return left, right
+
+    def test_the_common_column_is_named(self) -> None:
+        left, right = self.corpus()
+        result = compare(left, right, key=("id",))
+        assert result.changed == 10_000
+        assert "notional" in result.columns_that_changed, (
+            "the column that changed in 99% of rows was never mentioned"
+        )
+
+    def test_the_common_column_is_named_first(self) -> None:
+        """Most common first, as the docstring says. Ordering by a capped
+        sample puts the rare column at the top."""
+        left, right = self.corpus()
+        assert compare(left, right, key=("id",)).columns_that_changed[0] == "notional"
+
+    def test_the_rare_column_is_still_named(self) -> None:
+        """A tally that only reported the winner would be a different defect."""
+        left, right = self.corpus()
+        assert "settlement_date" in compare(left, right, key=("id",)).columns_that_changed
+
+    def test_the_summary_does_not_contradict_itself(self) -> None:
+        """`describe()` promises the counts are not capped. It has to be true
+        of everything the sentence carries."""
+        left, right = self.corpus()
+        sentence = compare(left, right, key=("id",)).describe()
+        assert "notional" in sentence
+
+    def test_a_small_diff_is_unchanged(self) -> None:
+        """The counterfactual: below the cap, the old and new answers agree, so
+        this cannot be passing because the tally changed meaning."""
+        left = [{"id": "1", "a": 1, "b": 2}]
+        right = [{"id": "1", "a": 9, "b": 2}]
+        assert compare(left, right, key=("id",)).columns_that_changed == ("a",)

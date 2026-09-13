@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -188,12 +188,29 @@ class Spool:
             self._persist()
         return removed
 
-    def take_gaps(self) -> tuple[Gap, ...]:
-        """Report the gaps and forget them, once they have been delivered."""
-        gaps = tuple(self._gaps)
-        self._gaps = []
-        self._persist()
-        return gaps
+    def forget_gaps(self, delivered: Iterable[Gap]) -> int:
+        """Forget exactly the gaps that were delivered, and no others.
+
+        Finding X3. The method this replaces, `take_gaps()`, cleared *every*
+        gap the spool held, and its caller had no idea which had actually been
+        delivered. Two ways that lost a hole in the evidence: a gap recorded
+        between building a report and receiving its receipt was cleared without
+        ever being sent, and a `hello` receipt — handled by the same `apply()`
+        — cleared gaps that had never been in any report at all.
+
+        A gap is the record of evidence this agent dropped. Losing it does not
+        lose a log line; it makes the estate under-report and look complete
+        while doing so, which is the failure `Gap` exists to prevent.
+        """
+        seen = {(gap.first_sequence, gap.last_sequence) for gap in delivered}
+        before = len(self._gaps)
+        self._gaps = [
+            gap for gap in self._gaps if (gap.first_sequence, gap.last_sequence) not in seen
+        ]
+        removed = before - len(self._gaps)
+        if removed:
+            self._persist()
+        return removed
 
     # -- durability --------------------------------------------------------
 

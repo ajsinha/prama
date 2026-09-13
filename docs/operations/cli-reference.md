@@ -20,6 +20,7 @@ need different people.
 
 | Command | What it does |
 |---|---|
+| [`prama apikey`](#prama-apikey) | API keys: the credential the HTTP API requires |
 | [`prama bench`](#prama-bench) | the labelled defect corpus, and what scores on it |
 | [`prama bundle`](#prama-bundle) | seal and verify an offline install |
 | [`prama config`](#prama-config) | inspect configuration |
@@ -38,6 +39,38 @@ need different people.
 | [`prama version`](#prama-version) | print version information |
 
 ---
+
+## `prama apikey`
+
+API keys: the credential the HTTP API requires
+
+| Subcommand | What it does |
+|---|---|
+| `prama apikey create` | issue an API key; the plaintext is printed once and never stored |
+| `prama apikey list` | the keys this estate holds, by prefix — never the key itself |
+| `prama apikey revoke` | stop a key working, without deleting the record that it existed |
+
+**`prama apikey create`**
+
+| Argument | Meaning |
+|---|---|
+| `name` **required** | what this key is for, e.g. 'ci' or 'etl-nightly' |
+| `--tenant` | slug or id; defaults to the configured one |
+| `--principal` **required** | username the key acts as. Required: every key is attributable, so an audit trail names a person and not just a credential. The principal's roles are NOT inherited — scopes are explicit. |
+| `--scope` | repeatable; one of admin, attestation:read, attestation:sign, break:read, break:write, control:approve, control:propose, control:read, declaration:read, declaration:write, evidence:read, incident:read, incident:write, relationship:read, relationship:write, report:read, or '*' |
+| `--expires-in-days` | 0 means no expiry, which is a decision rather than a default |
+| `--environment` | prefix tag: live \| test |
+**`prama apikey list`**
+
+| Argument | Meaning |
+|---|---|
+| `--tenant` | slug or id; defaults to the configured one |
+**`prama apikey revoke`**
+
+| Argument | Meaning |
+|---|---|
+| `prefix` **required** | the key's prefix, as shown by `apikey list` |
+| `--tenant` | slug or id; defaults to the configured one |
 
 ## `prama bench`
 

@@ -276,18 +276,78 @@ def test_a_corroborated_proposal_outranks_the_same_rule_from_one_source() -> Non
     assert scorer.score(together, context).score > scorer.score(alone, context).score
 
 
+def with_a_real_dependency(days: int = 20) -> Sample:
+    """An extract where a rule genuinely holds and nobody declared it.
+
+    A counterparty's credit rating does not change from day to day, so
+    `counterparty_lei → rating` is a functional dependency in any real
+    exposures table. `extract()` draws the rating at random per *row*, so no
+    dependency exists in it to find — which is why the acceptance test for
+    mining passed while mining found nothing (finding T9).
+    """
+    rng = random.Random(19)
+    rating_of = {lei: rng.choice(["AAA", "AA", "A", "BBB"]) for lei in COUNTERPARTIES}
+    data = [
+        {
+            "counterparty_lei": lei,
+            "business_date": f"2026-03-{day + 1:02d}",
+            "exposure_amount": round(rng.uniform(0, 1_000_000), 2),
+            "exposure_ccy": rng.choice(["EUR", "USD", "GBP"]),
+            "rating": rating_of[lei],
+        }
+        for day in range(days)
+        for lei in COUNTERPARTIES
+    ]
+    return Sample.of(
+        "exposures",
+        data,
+        total_rows=len(data),
+        partition_column="business_date",
+        method="full scan",
+    )
+
+
 def test_mining_finds_a_rule_the_declaration_did_not_state() -> None:
     """The other half of fusion: mining covers ground nobody declared, which is
-    what makes it worth running against a thin semantic layer."""
-    findings = DependencyMiner().mine(extract())
-    assert findings.dependencies or findings.discarded
+    what makes it worth running against a thin semantic layer.
+
+    Finding T9. This asserted `findings.dependencies or findings.discarded`,
+    and against `extract()` the answer is 0 dependencies and 2 discarded — so
+    it passed entirely on the second disjunct, having found nothing. The third
+    assertion sits inside `for dependency in findings.dependencies` and never
+    executed. The acceptance test for the capability did not demonstrate the
+    capability.
+    """
+    sample = with_a_real_dependency()
+    findings = DependencyMiner().mine(sample)
+    assert findings.dependencies, (
+        "mining found no rule at all, which is what this test is named for"
+    )
+    assert any(
+        "counterparty_lei" in dependency.describe() and "rating" in dependency.describe()
+        for dependency in findings.dependencies
+    ), [d.describe() for d in findings.dependencies]
+
     # Whatever it finds, none of it may activate on its own.
     assert not Origin.MINING.may_auto_activate
     for dependency in findings.dependencies:
         # A full scan spanning twenty partitions has nothing to caveat, which
         # is the point of computing caveats from the sample rather than
         # attaching a boilerplate warning to everything.
-        assert dependency.evidence.rows_examined == extract().size
+        assert dependency.evidence.rows_examined == sample.size
+
+
+def test_mining_finds_nothing_where_there_is_nothing() -> None:
+    """The counterfactual, and the reason the corpus above had to change.
+
+    `extract()` draws its rating per row, so no functional dependency exists.
+    A miner reporting one here would be inventing rules, which is worse than
+    finding none — and is the failure the test above could not have caught,
+    because it accepted "found nothing" as a pass.
+    """
+    findings = DependencyMiner().mine(extract())
+    assert not findings.dependencies, [d.describe() for d in findings.dependencies]
+    assert findings.discarded, "candidates were considered and rejected, which is the work"
 
 
 # -- the review path ---------------------------------------------------------

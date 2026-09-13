@@ -43,7 +43,12 @@ calling them so would be the exact failure this product exists to prevent.
 
 ## 0. Engineering constraints that hold in every wave
 
-These are not preferences. They are enforced by hooks, by architecture tests, and by CI.
+These are not preferences. They are enforced by hooks, by architecture tests, and by CI —
+`.github/workflows/gate.yml`, which runs `scripts/gate.sh` on every push and pull request to
+`main` and `develop`, plus the IR conformance suite against a real PostgreSQL and `axe-core` in a
+real browser. For four waves this sentence named a CI that did not exist (finding H2); a hook is
+enforcement only for somebody who installed it, and a script only for somebody who remembered to
+run it.
 
 | # | Constraint | Enforcement |
 |---|---|---|
@@ -716,7 +721,7 @@ configuration or the error taxonomy.
 | Relationships end to end: declare, confirm, reject; pick-then-pick on the map | Attribute-level relationship editing |
 | Charts as server-rendered SVG (`prama.report`), one renderer for screen and print | Wiring them into scorecards, which have no measurements to draw |
 | Contrast measured, not eyeballed; every derived colour legible on all three grounds — card, page, striped row | Keyboard-only walkthroughs and a screen-reader pass, which are judgement rather than a rule engine |
-| **`axe-core` in Chrome** over sixteen pages and five themes, WCAG 2.2 AA, with a counterfactual proving the audit can fail | Running it in CI, which needs a browser on the runner |
+| **`axe-core` in Chrome** over sixteen pages and five themes, WCAG 2.2 AA, with a counterfactual proving the audit can fail, **run in CI** on a runner with Chromium installed | Screen-reader testing, which needs a person with NVDA or VoiceOver |
 | Print artefacts: declaration pack, control pack and **attestation pack**, self-contained, coverage stated on every one | Batch export of a period's packs as one bundle |
 | `prama mcp` — the MCP server on the assistant's own registry, fenced and scanned | Streamable-HTTP transport; stdio only for now |
 | Proposal queue with accept and reject, `Unsatisfiable` first, rejections recorded so nothing is re-proposed | Batch approve; backtest and expected alert volume beside each proposal |
@@ -758,7 +763,13 @@ programmatically can. Found by the rule builder's `parse(render(c)) == c` guard.
 - [ ] `NFR-USA-001`…`008` met in a study with **≥ 12 participants per persona**.
 - [ ] ≥ 90% unaided task success on the eight core business tasks.
 - [ ] ≤ 3 min median to a reviewed control via chat or induction (`S4`).
-- [ ] Estate map: 50,000 nodes at 60 fps pan/zoom.
+- [◑] Estate map: 50,000 nodes at 60 fps pan/zoom. **Measured, and not met — by more than
+      an order of magnitude.** 500 nodes: 5.3 s to first draw. 2,000 nodes: 15.5 s. 4,000
+      nodes: no draw within 60 s, with the browser's main thread blocked throughout. Pan and
+      zoom hold 60 fps once drawn; the frame rate was never what failed. Harness:
+      `tests/web/test_estate_map_scale.py`; numbers: `tests/web/estate-map-scale.json`; cause:
+      the synchronous all-pairs `relax()` in `estate-map.js`. Marked ◑ rather than ✅ or ⏳
+      because the capability exists and the target does not.
 - [◑] WCAG 2.2 AA, zero critical findings — axe-core in real Chrome, 26 checks, zero critical.
       **Screen-reader testing is not done**: it needs a person with NVDA or VoiceOver, and an
       automated pass is not evidence of it.
@@ -921,8 +932,8 @@ Run continuously rather than inside a wave:
 | Workstream | Cadence | Owner |
 |---|---|---|
 | Architecture tests: layering, dialect branching, migrations, concurrency, model verdicts, file length | Every commit | All |
-| Benchmark suite in CI; > 10% regression blocks release | Every release | Research |
-| Documentation kept in step with code; docs build and link-check in CI | Every commit | All |
+| Benchmark suite in CI; > 10% regression blocks release | Every release | Research | ⏳ The corpus and `prama bench run` exist; nothing compares a run against a stored baseline, so nothing blocks a release. Marked outstanding rather than claimed. |
+| Documentation kept in step with code; docs build and link-check in CI | Every commit | All | ✅ `tests/architecture/test_documentation.py` and `scripts/generate_docs.py --check`, both inside `scripts/gate.sh` and therefore inside CI. |
 | Security scanning, SBOM, dependency updates, parser fuzzing | Weekly | Security |
 | Soak tests and chaos drills: source failure, control-plane outage, poison input | Per wave | SRE |
 | DishtaYantra provenance audit — ported files re-checked against upstream | Per wave | Platform |

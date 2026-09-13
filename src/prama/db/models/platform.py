@@ -109,17 +109,13 @@ class Principal(UlidPrimaryKey, Timestamped, Base):
     def has_permission(self, permission: str) -> bool:
         """True if any granted role carries *permission*.
 
-        Wildcards are supported one level deep: a role holding ``control:*``
-        satisfies ``control:approve``. Deeper globbing is deliberately absent —
-        a permission model nobody can hold in their head is one nobody audits.
+        The matching rule lives in :mod:`prama.security.scopes`, because an API
+        key's scopes are answered by the same question and the two had begun to
+        be written separately.
         """
-        for role in self.roles:
-            for granted in role.permissions_json:
-                if granted in ("*", permission):
-                    return True
-                if granted.endswith(":*") and permission.startswith(granted[:-1]):
-                    return True
-        return False
+        from prama.security.scopes import permits
+
+        return any(permits(role.permissions_json, permission) for role in self.roles)
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "username", name="uq_principal_tenant_username"),

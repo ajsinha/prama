@@ -24,7 +24,6 @@ security:
   # Deliberately empty. Prama refuses to serve without it, so that a fresh
   # clone can never run on a value that is in a public repository.
   session_secret: ""
-  api_key_hash_rounds: 210000
   cookies_https_only: true          # false only for local http development
 
 tenancy:
@@ -88,13 +87,6 @@ database:
   echo: false
 
 concurrency:
-  queue:
-    # Queues are bounded by BYTES, not item count: ten million small records and
-    # ten large ones are not the same memory risk, and an item-bounded "bounded"
-    # queue behaves like a leak.
-    max_bytes: 256mb
-    max_items: 100000
-    offer_timeout: 5s
   supervisor:
     shutdown_grace: 30s
   lease:

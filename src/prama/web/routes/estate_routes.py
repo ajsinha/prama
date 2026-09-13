@@ -113,8 +113,8 @@ class EstateRoutes(UiRoutes):
     async def dataset_detail(
         self, request: Request, dataset_id: str, caller: Caller, uow: Uow
     ) -> Any:
-        version = await uow.datasets.require_current(dataset_id)
-        attributes = await uow.attributes.for_dataset(dataset_id)
+        version = await uow.datasets.require_current(dataset_id, tenant_id=caller.tenant_id)
+        attributes = await uow.attributes.for_dataset(dataset_id, tenant_id=caller.tenant_id)
         relationships = await uow.relationships.touching(caller.tenant_id, dataset_id)
         return render(
             request,
@@ -122,5 +122,5 @@ class EstateRoutes(UiRoutes):
             dataset=DatasetCard.of(version),
             attributes=attributes,
             relationships=[RelationshipEdge.of(r) for r in relationships],
-            history_count=len(await uow.datasets.history(dataset_id)),
+            history_count=len(await uow.datasets.history(dataset_id, tenant_id=caller.tenant_id)),
         )

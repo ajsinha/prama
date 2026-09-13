@@ -241,3 +241,90 @@ class TestTheQueue:
         queue.take(unit, current)
         queue.release(Claim(unit=unit, worker_id="old", fencing_token=1))
         assert queue.claimed_by("new")
+
+
+class TestALedgerFailureDoesNotStrandTheWork:
+    """Finding X4. The one path that stranded work permanently had no cleanup.
+
+    `_run` carefully wraps the runner, and the claim check, and turns each into
+    an outcome. It does not wrap the recorder — and `take_one` had no
+    `try/finally` around `_run`, so a transiently unreachable evidence ledger
+    raised straight out of both.
+
+    The unit had already been removed from `_pending` by `queue.take()` and was
+    never returned. `queue.release()` never ran, so the queue still recorded it
+    as claimed. `release_claim()` never ran, so the lease holder's background
+    task renewed the lease indefinitely. The unit was invisible to every worker
+    in the fleet, nobody could ever claim its resource again, and `drain()`
+    returned no outcome for it — so the fleet report did not mention it either.
+    Not lost, not failed: gone.
+
+    The existing coverage exercises a *runner* that explodes, which `_run`
+    already handled. A recorder that explodes was never written.
+    """
+
+    def exploding_recorder(self) -> Recorder:
+        class Unreachable(Recorder):
+            def record(self, *arguments: Any, **keywords: Any) -> Any:
+                raise RuntimeError("the ledger is unreachable")
+
+        return Unreachable(Ledger(), SampleStore(), engine="sqlite")
+
+    async def test_the_unit_comes_back_to_the_queue(self) -> None:
+        queue = WorkQueue()
+        queue.offer(a_unit())
+        worker = Worker(
+            queue,
+            self.exploding_recorder(),
+            lease_provider=MemoryLeaseProvider(),
+            runner=a_runner(),
+        )
+        outcome = await worker.take_one()
+        assert outcome is not None
+        assert outcome.status == "stranded"
+        assert outcome.should_requeue
+        assert len(queue) == 1, "the unit was claimed and never returned"
+
+    async def test_the_resource_can_be_claimed_again(self) -> None:
+        """The part that makes it permanent. A held lease nobody releases is a
+        resource no worker in the fleet can ever take."""
+        queue = WorkQueue()
+        queue.offer(a_unit())
+        leases = MemoryLeaseProvider()
+        failing = Worker(queue, self.exploding_recorder(), lease_provider=leases, runner=a_runner())
+        await failing.take_one()
+
+        healthy = Worker(
+            queue,
+            Recorder(Ledger(), SampleStore(), engine="sqlite"),
+            lease_provider=leases,
+            runner=a_runner(),
+        )
+        outcome = await healthy.take_one()
+        assert outcome is not None, "no worker could claim the resource afterwards"
+        assert outcome.status == "done"
+
+    async def test_the_fleet_report_names_it(self) -> None:
+        """It used to appear in no category at all."""
+        queue = WorkQueue()
+        queue.offer(a_unit())
+        worker = Worker(
+            queue,
+            self.exploding_recorder(),
+            lease_provider=MemoryLeaseProvider(),
+            runner=a_runner(),
+        )
+        outcome = await worker.take_one()
+        assert outcome is not None
+        assert "the ledger is unreachable" in outcome.render()
+
+    async def test_an_ordinary_unit_is_unaffected(self) -> None:
+        """The counterfactual: a try/finally that requeued everything would
+        make every unit run for ever."""
+        queue = WorkQueue()
+        queue.offer(a_unit())
+        worker, _ = a_worker(queue)
+        outcome = await worker.take_one()
+        assert outcome is not None and outcome.status == "done"
+        assert not outcome.should_requeue
+        assert len(queue) == 0

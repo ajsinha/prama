@@ -431,11 +431,18 @@ class TestSamples:
             )
             assert await uow.samples.forget("e" * 64) is True
             [record] = await uow.evidence.chain(tenant_id)
+            [stored] = await uow.evidence.as_stored(tenant_id)
 
         assert record.verdict == "fail"
         assert record.sample_count == 1
-        verification = verify([record.to_dict()])
-        assert verification.is_intact
+        # `as_stored`, not `record.to_dict()` — finding T11. `content_hash` and
+        # `record_hash` are computed properties, so `to_dict()` emits hashes
+        # over whatever the object currently holds and `verify` compares them
+        # against themselves. It is intact for any content at all:
+        # `replace(r, verdict="pass", dataset="TAMPERED")` verifies clean. The
+        # file's own `TestVerificationUsesStoredHashes` explains this trap; this
+        # line reached for the wrong helper.
+        assert verify([stored]).is_intact
 
     async def test_forgetting_what_is_not_there_is_not_an_error(
         self, started_database: Database
@@ -520,3 +527,28 @@ class TestTheDaoHasNoUpdatePath:
             assert stored is not None
             with pytest.raises(ConflictError, match="cannot be deleted"):
                 await uow.evidence.delete(stored)
+
+
+class TestToDictCannotBeUsedToVerify:
+    """Finding T11, pinned. `verify([record.to_dict()])` proves nothing.
+
+    `content_hash` and `record_hash` are computed properties. `to_dict()`
+    therefore emits hashes over whatever the object currently holds, and
+    `verify` compares them against themselves — a tautology that reads exactly
+    like tamper-evidence.
+    """
+
+    def test_a_reconstructed_record_verifies_whatever_it_says(self) -> None:
+        import dataclasses
+
+        original = _record()
+        tampered = dataclasses.replace(
+            original, verdict="pass", dataset="TAMPERED", sample_count=99
+        )
+        assert verify([tampered.to_dict()]).is_intact, (
+            "if this ever fails, to_dict() has stopped recomputing its hashes "
+            "and the warning below can go"
+        )
+        assert tampered.content_hash != original.content_hash, (
+            "the content differs, and only the *stored* hash can reveal it"
+        )

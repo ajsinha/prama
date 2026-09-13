@@ -140,7 +140,9 @@ Two further rules specific to this codebase:
 ```bash
 uv venv --python 3.13 && uv pip install -e ".[dev]"   # the interpreter is pinned in .python-version
 pip install -e ".[dev]"                  # or plain venv, if the interpreter is already right
-pytest -q                                # full suite
+pytest -q                                # full suite: tests/ and qa/regression-suite/
+pytest -q qa/regression-suite            # only the QA-derived regressions
+pytest -q -m "not slow"                  # skip the tens-of-seconds performance guards
 pytest -q tests/architecture             # layering, file length, no-model-verdict guards
 prama config show                        # effective merged configuration, secrets redacted
 prama control check suite.pql            # parse, type-check and lint; non-zero on error
@@ -170,6 +172,9 @@ python scripts/check_file_length.py      # the 1500-line ceiling
 python3 scripts/verify_evidence.py bundle/   # check evidence without importing Prama
 prama bundle seal ./offline --sign-with k.pem  # Ed25519 provenance for an air-gapped host
 pytest -q tests/web/test_axe.py           # axe-core in Chrome; needs pip install -e ".[audit]"
+PRAMA_MEASURE_ESTATE_MAP=1 pytest -q tests/web/test_estate_map_scale.py
+                                         # how large an estate the map can draw; timing-sensitive,
+                                         # so opt-in rather than part of the default suite
 pytest -q tests/security/test_oidc.py     # ID-token forgeries; needs pip install -e ".[sso]"
 docker run -d --name prama-pg -e POSTGRES_PASSWORD=prama -e POSTGRES_USER=prama \
   -e POSTGRES_DB=prama -p 55432:5432 postgres:16-alpine
@@ -177,7 +182,7 @@ PRAMA_TEST_POSTGRES_DSN=postgresql://prama:prama@127.0.0.1:55432/prama pytest -q
                                          # conformance on three real engines, not two
 PRAMA_TEST_KAFKA_BOOTSTRAP=127.0.0.1:19092 pytest -q tests/execute/test_kafka.py
                                          # offset semantics; needs pip install -e ".[kafka]"
-ruff check src tests && ruff format --check src tests
+ruff check src tests qa/regression-suite    # qa/harness is deliberately not linted
 mypy src
 ```
 

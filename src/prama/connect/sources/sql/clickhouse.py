@@ -74,7 +74,17 @@ class ClickHouseDialect(SqlDialect):
     has_native_sampling = False
 
     def quote(self, identifier: str) -> str:
-        return "`" + identifier.replace("`", "\\`") + "`"
+        # Backslash **first**, then backtick. Reversing them, or omitting the
+        # backslash as this did (finding S5), leaves a name ending in a
+        # backslash escaping its own closing delimiter: `a\` is an identifier
+        # that never closes, and delimiter parity is broken for the rest of the
+        # statement. Both engines honour backslash escapes inside backticks, so
+        # doubling the backtick alone is not enough here the way it is for
+        # MySQL. The threat model is this module's own: "object names arrive
+        # from a catalogue that a customer controls, and they reach a query
+        # string."
+        escaped = identifier.replace("\\", "\\\\").replace("`", "\\`")
+        return f"`{escaped}`"
 
     def list_objects_sql(self, *, include_views: bool) -> str:
         kinds = "" if include_views else " AND engine NOT LIKE '%View'"
@@ -212,7 +222,7 @@ class ClickHouseConnector(SqlConnector):
                 code="CONNECT.NOT_OPEN",
                 remedy="Use the connector as an async context manager, or call open() first.",
             )
-        return await self._worker.call(lambda: function(*arguments, **keywords))
+        return await self._worker.call(function, *arguments, **keywords)
 
     async def _fetch(self, sql: str, *params: Any) -> list[tuple[Any, ...]]:
         statement, arguments = _bind(sql, params)

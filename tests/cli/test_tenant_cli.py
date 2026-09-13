@@ -18,7 +18,10 @@ import pytest
 
 from prama.cli.base import EXIT_ERROR, EXIT_OK, Application
 from prama.cli.commands import all_commands
+from prama.cli.principal import _resolve_tenant
 from prama.core import pjson
+from prama.core.errors import ValidationError
+from prama.db import Database
 
 
 def run(argv: list[str]) -> tuple[int, str]:
@@ -178,3 +181,107 @@ class TestTheNextStepIsSpelledOut:
         _, text = run(["--config", str(config), "tenant", "create", "acme-bank"])
         assert "prama principal create" in text
         assert "has no sign-in yet" not in text
+
+
+class TestTheFirstTwoCommandsAgree:
+    """`prama tenant create` prints, as its next step:
+
+        prama principal create <username> --admin --tenant acme-bank
+
+    and until this was pinned, that command failed with a raw
+    `FOREIGN KEY constraint failed`. `--tenant` took an id; the message told
+    the operator to pass a slug. The first two commands anybody runs, and the
+    first one told them to type something the second refused.
+
+    Found by standing the product up, not by the suite — the same way the
+    sign-in redirect loop was. Both are the shape a suite is worst at: two
+    components that are each correct and disagree at the seam.
+    """
+
+    async def _tenant(self, database: Database, slug: str = "acme-bank") -> str:
+        async with database.unit_of_work() as uow:
+            tenant = uow.tenants.create(slug=slug, display_name="Acme")
+            await uow.flush()
+            return str(tenant.id)
+
+    async def test_a_slug_is_accepted(self, started_database: Database) -> None:
+        expected = await self._tenant(started_database)
+        async with started_database.unit_of_work() as uow:
+            assert await _resolve_tenant(uow, "acme-bank") == expected
+
+    async def test_an_id_is_still_accepted(self, started_database: Database) -> None:
+        """Scripts pass ids and people pass slugs; both have to work."""
+        identifier = await self._tenant(started_database)
+        async with started_database.unit_of_work() as uow:
+            assert await _resolve_tenant(uow, identifier) == identifier
+
+    async def test_an_unknown_estate_is_named_not_a_constraint(
+        self, started_database: Database
+    ) -> None:
+        """An integrity error names a constraint. A person needs the mistake."""
+        await self._tenant(started_database)
+        async with started_database.unit_of_work() as uow:
+            with pytest.raises(ValidationError, match="no estate called"):
+                await _resolve_tenant(uow, "nosuchbank")
+
+    async def test_the_refusal_lists_the_estates_that_do_exist(
+        self, started_database: Database
+    ) -> None:
+        await self._tenant(started_database)
+        async with started_database.unit_of_work() as uow:
+            with pytest.raises(ValidationError) as caught:
+                await _resolve_tenant(uow, "nope")
+        assert "acme-bank" in str(caught.value)
+
+
+class TestAPipedPasswordIsTheOneThatWasPiped:
+    """QA found `principal create` storing a password nobody typed.
+
+    `_read_password` did `sys.stdin.read().strip()` — the *whole* stream as one
+    value. Piping the password twice, which is the natural thing to do because
+    the interactive path asks twice, stored a password containing a newline.
+    The account was created, the command printed `created alice`, and nobody
+    could ever sign in to it.
+
+    Silent in both directions, which is what made it expensive: the CLI said
+    "created" and the console said "invalid credentials", and neither of them
+    was lying about what it saw.
+    """
+
+    def read(self, piped: str) -> str:
+        import io
+        import sys
+        from unittest.mock import patch
+
+        from prama.cli.principal import _read_password
+
+        with patch.object(sys, "stdin", io.StringIO(piped)):
+            return _read_password()
+
+    def test_one_line(self) -> None:
+        assert self.read("hunter2-and-long-enough\n") == "hunter2-and-long-enough"
+
+    def test_one_line_without_a_newline(self) -> None:
+        """`printf '%s'`, which is the form the error message recommends."""
+        assert self.read("hunter2-and-long-enough") == "hunter2-and-long-enough"
+
+    def test_the_same_password_twice_is_a_confirmation(self) -> None:
+        """The natural thing to pipe, and what used to produce a password with
+        a newline in the middle of it."""
+        assert self.read("hunter2-and-long-enough\nhunter2-and-long-enough\n") == (
+            "hunter2-and-long-enough"
+        )
+
+    def test_two_different_lines_are_refused(self) -> None:
+        """If it looks like a confirmation, it has to behave like one."""
+        with pytest.raises(ValidationError, match="did not match"):
+            self.read("one-password-here\nanother-one-here\n")
+
+    def test_a_file_piped_by_mistake_is_refused(self) -> None:
+        """Rather than setting a password nobody can type."""
+        with pytest.raises(ValidationError, match="a password is one"):
+            self.read("line one\nline two\nline three\n")
+
+    def test_nothing_is_refused(self) -> None:
+        with pytest.raises(ValidationError, match="no password on stdin"):
+            self.read("   \n\n")

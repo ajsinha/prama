@@ -74,21 +74,22 @@ TARGET2_RULES: tuple[Rule, ...] = (
 
 #: US Federal Reserve. Saturday holidays are *not* observed — the Fed is shut on
 #: Saturday anyway and does not grant the Friday — while Sunday rolls to Monday.
-#: That asymmetry is why NEAREST_WEEKDAY is wrong here and a Sunday-only rule is
-#: right, so these carry NONE and the weekend does the rest, except where the
-#: Monday substitute is real.
+#: That asymmetry is why NEAREST_WEEKDAY is wrong here, and for four releases
+#: this comment said so while every rule below carried NEAREST_WEEKDAY anyway
+#: (finding C9). The calendar closed 2021-12-24, 2023-11-10 and 2026-07-03 —
+#: Fridays on which Fedwire was open.
 FEDERAL_RESERVE_RULES: tuple[Rule, ...] = (
-    _fixed("New Year's Day", 1, 1, Obs.NEAREST_WEEKDAY),
+    _fixed("New Year's Day", 1, 1, Obs.SUNDAY_TO_MONDAY),
     _nth("Martin Luther King Jr. Day", 1, 3),
     _nth("Washington's Birthday", 2, 3),
     _last("Memorial Day", 5),
-    _fixed("Juneteenth", 6, 19, Obs.NEAREST_WEEKDAY, since=2021),
-    _fixed("Independence Day", 7, 4, Obs.NEAREST_WEEKDAY),
+    _fixed("Juneteenth", 6, 19, Obs.SUNDAY_TO_MONDAY, since=2021),
+    _fixed("Independence Day", 7, 4, Obs.SUNDAY_TO_MONDAY),
     _nth("Labor Day", 9, 1),
     _nth("Columbus Day", 10, 2),
-    _fixed("Veterans Day", 11, 11, Obs.NEAREST_WEEKDAY),
+    _fixed("Veterans Day", 11, 11, Obs.SUNDAY_TO_MONDAY),
     _nth("Thanksgiving", 11, 4, THU),
-    _fixed("Christmas Day", 12, 25, Obs.NEAREST_WEEKDAY),
+    _fixed("Christmas Day", 12, 25, Obs.SUNDAY_TO_MONDAY),
 )
 
 #: England and Wales bank holidays. ROLL_FORWARD throughout, which is what

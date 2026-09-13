@@ -279,8 +279,54 @@ def encrypt(plaintext: bytes, *, provider: KeyProvider, tenant_id: str, purpose:
     )
 
 
-def decrypt(envelope: Envelope, *, provider: KeyProvider) -> bytes:
-    """Decrypt, or raise :class:`KeyRevoked`."""
+def decrypt(
+    envelope: Envelope,
+    *,
+    provider: KeyProvider,
+    tenant_id: str | None = None,
+    purpose: str | None = None,
+) -> bytes:
+    """Decrypt, or raise :class:`KeyRevoked`.
+
+    *tenant_id* is the estate the caller believes this ciphertext belongs to.
+    Supply it, and an envelope from another estate is refused before any key is
+    unwrapped — finding S6.
+
+    The module docstring promises "a ciphertext moved from one tenant's row to
+    another's fails to decrypt". The AAD does bind ciphertext to context, but
+    the context travels **inside the envelope**: `decrypt` reconstructed the AAD
+    from the envelope itself, so a whole serialised envelope copied from one
+    tenant's row into another's decrypted perfectly for anyone holding it. The
+    guarantee held against editing the context and against swapping the
+    ciphertext — the two things the tests exercised — and not against moving the
+    pair together, which is the attack the sentence describes.
+
+    Optional rather than required because the parameter is new and a caller
+    that cannot name the tenant is better served by an explicit `None` than by
+    a value invented to satisfy a signature. A caller that *can* name it and
+    does not is the case `tests/security/test_cmk.py` now makes visible.
+    """
+    sealed_tenant = str(envelope.context.get("tenant", ""))
+    sealed_purpose = str(envelope.context.get("purpose", ""))
+    if tenant_id is not None and sealed_tenant != tenant_id:
+        raise KeyRevoked(
+            "this envelope belongs to a different estate",
+            remedy=(
+                "The ciphertext is sealed to the tenant it was written for. "
+                "Read it as that tenant, or investigate how a row from one "
+                "estate came to be read as another's."
+            ),
+            context={"expected": tenant_id, "sealed_for": sealed_tenant},
+        )
+    if purpose is not None and sealed_purpose != purpose:
+        raise KeyRevoked(
+            "this envelope was sealed for a different purpose",
+            remedy=(
+                "A key scoped to one purpose must not open another's data. "
+                "Use the purpose the envelope was written under."
+            ),
+            context={"expected": purpose, "sealed_for": sealed_purpose},
+        )
     aesgcm = _aesgcm()
     data_key = provider.unwrap(envelope.wrapped_key, context=envelope.context)
     try:

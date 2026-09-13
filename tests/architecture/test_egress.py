@@ -26,16 +26,55 @@ def module_path(dotted: str) -> Path:
     return SRC / Path(*dotted.split(".")).with_suffix(".py")
 
 
-def reaches_the_gate(path: Path) -> bool:
-    """Whether this module consults residency at all.
+#: Names that count as consulting the gate, matched against *executable* code.
+#: `Gate` alone is deliberately absent: `prama.induce.validate` defines an
+#: unrelated enum of that name, and a module importing it would have passed.
+GATE_NAMES = frozenset(
+    {"residency_gate", "permit_residency", "ResidencyRefused", "require", "decide"}
+)
 
-    Deliberately coarse: it asks whether the module names the gate, not whether
-    every branch reaches it. A tighter check would need to know which functions
-    perform the movement, and a guard that claims more precision than it has is
-    worse than one that states its limit.
+
+def executable_source(path: Path) -> str:
+    """The module with its comments and docstrings removed.
+
+    `ast.unparse` of the parsed tree drops comments outright; the docstring of
+    every module, class and function is then stripped explicitly. What is left
+    is code that runs.
     """
-    source = path.read_text(encoding="utf-8")
-    return "Gate" in source or "residency" in source or "ResidencyRefused" in source
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
+            continue
+        body = node.body
+        if (
+            body
+            and isinstance(body[0], ast.Expr)
+            and isinstance(body[0].value, ast.Constant)
+            and isinstance(body[0].value.value, str)
+        ):
+            node.body = body[1:] or [ast.Pass()]
+    return ast.unparse(tree)
+
+
+def reaches_the_gate(path: Path) -> bool:
+    """Whether this module consults residency **in code that runs**.
+
+    Deliberately coarse about *where*: it asks whether the module reaches the
+    gate, not whether every branch does. A tighter check would need to know
+    which functions perform the movement, and a guard that claims more
+    precision than it has is worse than one that states its limit.
+
+    It is not coarse about *what*, any more. The original matched the raw file
+    text for "Gate", "residency" or "ResidencyRefused" — comments and
+    docstrings included. Three of the seven registered points matched on prose
+    alone, and one of them, `prama.secrets.vault`, was held green by a comment
+    reading "under a residency rule that somewhere is checked like any other
+    egress". A sentence about a control is not the control. Worse, the guard
+    would have stayed green had the gate call been deleted and the comment
+    kept, which is the precise failure it exists to prevent.
+    """
+    source = executable_source(path)
+    return any(name in source for name in GATE_NAMES)
 
 
 class TestTheRegistryIsTrue:
@@ -189,3 +228,54 @@ class TestTheGateRefusesRatherThanReports:
         """An operator triaging a failed export needs to tell "may not go
         there" from "the request was malformed"."""
         assert ResidencyRefused.code == "RESIDENCY.REFUSED"
+
+
+class TestTheModelPathCannotBeBypassed:
+    """`ModelProvider.ask` is where residency and sensitivity are enforced.
+
+    `complete()` is the transport underneath it and enforces nothing — its own
+    docstring says so. A caller reaching past `ask()` to `complete()` therefore
+    sends the prompt with no check of either kind, and would do it while the
+    egress registry still listed `model-inference` as a gated point.
+    """
+
+    #: `spi.py` is where `ask` legitimately delegates to `complete`.
+    ALLOWED: ClassVar[frozenset[str]] = frozenset({"llm/spi.py"})
+
+    def call_sites(self) -> list[str]:
+        found = []
+        for path in (SRC / "prama").rglob("*.py"):
+            relative = path.relative_to(SRC / "prama").as_posix()
+            if relative in self.ALLOWED:
+                continue
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if (
+                    isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "complete"
+                ):
+                    found.append(f"{relative}:{node.lineno}")
+        return found
+
+    def test_nothing_calls_complete_directly(self) -> None:
+        sites = self.call_sites()
+        assert not sites, (
+            "these call a model provider's complete() rather than ask(), which "
+            "skips both the sensitivity check and the residency gate: "
+            f"{', '.join(sites)}. Call ask()."
+        )
+
+    def test_the_guard_would_notice(self) -> None:
+        """The counterfactual. A scan that finds nothing because it is looking
+        in the wrong place passes identically to one that finds nothing because
+        there is nothing to find."""
+        tree = ast.parse("provider.complete(request)")
+        calls = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "complete"
+        ]
+        assert len(calls) == 1

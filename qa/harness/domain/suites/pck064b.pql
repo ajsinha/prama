@@ -1,0 +1,1 @@
+CHECK pacs008 SATISFIES MINOR_UNITS_OK(currency, amount) BECAUSE 'test'

@@ -18,6 +18,8 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import pytest
 
 from prama.backend import compile_for
@@ -284,3 +286,107 @@ class TestRegistration:
     def test_every_function_names_what_it_is_for(self) -> None:
         for function in BANKING_FUNCTIONS:
             assert len(function.summary) > 30, function.name
+
+
+class TestWhatIsAdvertisedExists:
+    """Finding H1, first half. `prama pack list` printed eight cross-field
+    checks and `prama control check` refused every one as an unknown function.
+
+    `install()` was written, tested, and called only from `tests/` — never once
+    from `src/`. Documentation drifting from behaviour is ordinary; an
+    advertisement and a refusal in the same CLI is two halves of one product
+    disagreeing.
+    """
+
+    def test_every_advertised_function_resolves(self) -> None:
+        from prama.packs import install_shipped
+        from prama.pql.library import FUNCTIONS
+
+        install_shipped()
+        missing = [f.name for f in BANKING_FUNCTIONS if FUNCTIONS.get(f.name) is None]
+        assert not missing, f"advertised by `prama pack list` and not installed: {missing}"
+
+    def test_the_bootstrap_is_reachable_from_src(self) -> None:
+        """The defect was structural, not a typo: nothing outside tests called
+        it. This pins that a production entry point still does."""
+        import ast
+        from pathlib import Path
+
+        src = Path(__file__).resolve().parents[2] / "src" / "prama"
+        callers = [
+            path.relative_to(src).as_posix()
+            for path in src.rglob("*.py")
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "install_shipped"
+        ]
+        assert len(callers) >= 2, (
+            f"install_shipped() is called from {callers or 'nowhere in src/'}; "
+            "the CLI and the app must both install what the packs advertise"
+        )
+
+
+class TestTheSqlAgreesWithItsOwnReference:
+    """Finding H1, second half. Five of eight templates disagreed with the
+    function's own `evaluate`, every one of them in the unsafe direction: SQL
+    said TRUE where the reference said UNKNOWN.
+
+    That is the worst possible direction. Under Prama's default policy an
+    unknown is a violation, so the reference routes a malformed row to a human
+    and the SQL passed it silently — on the engine that actually runs in
+    production.
+
+    Each case below is a row that is *malformed*, not wrong: the finding belongs
+    to the format control, and answering TRUE reports a defect as a pass.
+    """
+
+    #: (function, arguments, why this input is not a judgement)
+    ADVERSARIAL: ClassVar[tuple[tuple[str, tuple[object, ...], str], ...]] = (
+        ("IBAN_BIC_CONSISTENT", ("", ""), "two empty identifiers compare equal"),
+        ("IBAN_BIC_CONSISTENT", ("GB", "DEUT"), "a BIC too short to carry a country"),
+        ("MINOR_UNITS_OK", (1050.75, "JP"), "'JP' is not a currency code"),
+        ("SIGN_MATCHES_SIDE", ("BORROW", 10), "a lending side read as a buy"),
+        ("SAME_COUNTRY", ("GBR", "GBR"), "alpha-3 codes in an alpha-2 comparison"),
+        ("IBAN_COUNTRY", ("X",), "one character cannot be a country"),
+        ("BIC_COUNTRY", ("DEUT",), "too short to reach the country position"),
+        ("ISIN_COUNTRY", ("X",), "one character cannot be a country"),
+    )
+
+    @pytest.mark.parametrize(
+        ("name", "arguments", "why"), ADVERSARIAL, ids=[c[0] + ":" + c[2][:18] for c in ADVERSARIAL]
+    )
+    def test_the_reference_declines_to_judge(
+        self, name: str, arguments: tuple[object, ...], why: str
+    ) -> None:
+        """First, that the reference really does decline. Without this the test
+        below would be satisfied by a reference that was itself wrong."""
+        function = next(f for f in BANKING_FUNCTIONS if f.name == name)
+        assert function.evaluate is not None
+        assert function.evaluate(list(arguments)) is UNSET, why
+
+    @pytest.mark.parametrize(
+        ("name", "arguments", "why"), ADVERSARIAL, ids=[c[0] + ":" + c[2][:18] for c in ADVERSARIAL]
+    )
+    def test_the_sql_declines_too(self, name: str, arguments: tuple[object, ...], why: str) -> None:
+        """And that the SQL agrees, executed rather than inspected.
+
+        NULL is how SQL says UNKNOWN, and the IR's Kleene handling turns it
+        into a violation under the default policy — which is the answer the
+        reference gives.
+        """
+        import duckdb
+
+        function = next(f for f in BANKING_FUNCTIONS if f.name == name)
+        literals = [
+            "NULL" if a is None else (f"'{a}'" if isinstance(a, str) else repr(a))
+            for a in arguments
+        ]
+        expression = function.sql.format(*literals)
+        answer = duckdb.sql(f"SELECT {expression} AS answer").fetchone()
+        assert answer is not None
+        assert answer[0] is None, (
+            f"{name}{arguments} -> {answer[0]!r} in SQL but UNKNOWN in its own "
+            f"reference implementation: {why}. SQL passing a row the reference "
+            "sends to a human is the unsafe direction of a disagreement."
+        )

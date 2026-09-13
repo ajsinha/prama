@@ -205,6 +205,16 @@ The two hardest requirements — the IDE surface and the 50,000-node WebGL map �
 answered by *choosing the right library*, which was always the real requirement, rather than by
 choosing a framework to host it. Attributing them to React was a category error.
 
+**One correction, from measurement.** The objection above predicted that a canvas renderer would
+"degrade past ~5–10k elements". A Playwright harness in real Chrome now puts the built map at
+**5.3 s to draw 500 nodes, 15.5 s for 2,000, and no draw at all for 4,000 within 60 s** — a cliff
+an order of magnitude *below* what the objection predicted, and below what Sigma's WebGL renderer
+is capable of. The prediction was directionally right and picking the right library was necessary
+and not sufficient, but it also mislocated the cost: what binds is not the renderer at all. It is
+`relax()` in `estate-map.js`, an all-pairs O(n²) force layout run synchronously before Sigma is
+constructed — a cost that would be paid identically under React. See `docs/10` §1 and
+`tests/web/estate-map-scale.json`.
+
 **Three are answered by HTMX.** Live preview, sub-300 ms navigation and streaming chat are
 partial-page updates over a persistent connection, which is exactly what HTMX and server-sent
 events do. A full-page reload was never the only alternative to a single-page app.

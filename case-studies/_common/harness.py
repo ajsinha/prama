@@ -149,8 +149,8 @@ class Harness:
         generator = ControlGenerator()
         async with self.database.unit_of_work() as uow:
             for slug, dataset_id in self.dataset_ids.items():
-                version = await uow.datasets.require_current(dataset_id)
-                attributes = await uow.attributes.for_dataset(dataset_id)
+                version = await uow.datasets.require_current(dataset_id, tenant_id=self.tenant_id)
+                attributes = await uow.attributes.for_dataset(dataset_id, tenant_id=self.tenant_id)
                 generation = generator.generate(
                     dataset_declaration_of(version, attributes)
                 )
@@ -169,7 +169,10 @@ class Harness:
                     # estate reviews them: the queue is on /proposals, and a
                     # control nobody accepted does not run.
                     await uow.controls.activate(
-                        str(entity.id), approved_by="bob", reason="accepted for the study"
+                        str(entity.id),
+                        tenant_id=self.tenant_id,
+                        approved_by="bob",
+                        reason="accepted for the study",
                     )
                     self.accepted += 1
                 for item in generation.unsatisfiable:
@@ -239,7 +242,9 @@ class Harness:
                         schedule="06:30",
                         authored_by="gamma",
                     )
-                    await uow.controls.activate(str(entity.id), approved_by="bob")
+                    await uow.controls.activate(
+                        str(entity.id), tenant_id=self.tenant_id, approved_by="bob"
+                    )
                     self.accepted += 1
                     say(f"      → {derived.content.splitlines()[0][:88]}")
                 for spec in generation.comparisons:

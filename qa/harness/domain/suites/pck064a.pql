@@ -1,0 +1,1 @@
+CHECK pacs008 SATISFIES IBAN_BIC_CONSISTENT(creditor_iban) BECAUSE 'test'

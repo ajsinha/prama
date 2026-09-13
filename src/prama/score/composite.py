@@ -87,8 +87,28 @@ class Measurement:
     ran: bool = True
 
     @property
+    def measured(self) -> bool:
+        """Whether this control produced evidence about anything.
+
+        A control that ran over zero rows did not. It is the same claim as
+        ``ran=False`` wearing a different hat, and the commoner one: a delivery
+        that did not arrive, a partition filter that matched nothing, an
+        extract that failed in a way the connector reported as success.
+        """
+        return self.ran and self.scanned > 0
+
+    @property
     def rate(self) -> float:
-        return 1.0 - (self.violations / self.scanned if self.scanned else 0.0)
+        """Pass rate, and **zero** when nothing was scanned.
+
+        Not 1.0, which is what this returned and what made an empty scan a
+        perfect score. Callers that should not be averaging a no-evidence
+        control at all use :attr:`measured`; the zero is the safe answer for
+        anything that reaches for the rate regardless.
+        """
+        if not self.scanned:
+            return 0.0
+        return 1.0 - self.violations / self.scanned
 
     @property
     def weight(self) -> float:
@@ -102,6 +122,7 @@ class Measurement:
             "violations": self.violations,
             "criticality": int(self.criticality),
             "ran": self.ran,
+            "measured": self.measured,
             "rate": round(self.rate, 6),
         }
 
@@ -143,11 +164,25 @@ class Score:
     #: dataset scoring 100% on half its controls is the most misleading number
     #: this module could produce.
     not_run: int = 0
+    #: Controls that ran and scanned nothing. Counted separately from
+    #: :attr:`not_run` because the two need different remedies — one is a
+    #: scheduling or connectivity problem, the other is a delivery that did not
+    #: arrive or a filter that matched no rows — but they make the same claim
+    #: about the score, which is that it does not cover this control.
+    scanned_nothing: int = 0
     controls: int = 0
 
     @property
     def coverage(self) -> float:
-        return (self.controls - self.not_run) / self.controls if self.controls else 0.0
+        """The share of intended controls this score actually describes.
+
+        Both a control that did not run and one that scanned nothing are
+        outside it. A score covering half the controls is not a score of the
+        dataset, and coverage is the number that says so.
+        """
+        if not self.controls:
+            return 0.0
+        return (self.controls - self.not_run - self.scanned_nothing) / self.controls
 
     @property
     def worst(self) -> DimensionScore | None:
@@ -171,6 +206,11 @@ class Score:
 
     def describe(self) -> str:
         if not self.dimensions:
+            if self.scanned_nothing:
+                return (
+                    f"{self.dataset}: {self.scanned_nothing} control(s) ran and scanned no "
+                    "rows, so nothing has been measured — an empty result is not a clean one"
+                )
             return f"{self.dataset}: nothing has been measured"
         parts = [f"{self.dataset}: " + ", ".join(item.describe() for item in self.dimensions)]
         if self.methods_disagree:
@@ -187,6 +227,12 @@ class Score:
                 f"{self.not_run} of {self.controls} controls did not run, so this "
                 f"score describes {self.coverage:.0%} of what was meant to be checked"
             )
+        if self.scanned_nothing:
+            parts.append(
+                f"{self.scanned_nothing} of {self.controls} controls ran and scanned no rows, "
+                "so they say nothing about this dataset either way — an empty result is not "
+                "a clean one"
+            )
         return ". ".join(parts)
 
     def to_dict(self) -> dict[str, Any]:
@@ -198,6 +244,7 @@ class Score:
             },
             "methods_disagree": self.methods_disagree,
             "not_run": self.not_run,
+            "scanned_nothing": self.scanned_nothing,
             "controls": self.controls,
             "coverage": round(self.coverage, 6),
             "summary": self.describe(),
@@ -205,12 +252,19 @@ class Score:
 
 
 def score(dataset: str, measurements: Sequence[Measurement]) -> Score:
-    """Every dimension, and every composite, from one set of measurements."""
-    ran = [item for item in measurements if item.ran]
+    """Every dimension, and every composite, from one set of measurements.
+
+    A control that scanned no rows is excluded from the arithmetic and counted,
+    exactly as one that did not run is. Including it scored it 100% — see
+    `tests/score/test_composite.py::TestScanningNothingIsNotPassing`.
+    """
+    empty = sum(1 for item in measurements if item.ran and not item.scanned)
+    ran = [item for item in measurements if item.measured]
     if not ran:
         return Score(
             dataset=dataset,
-            not_run=len(measurements),
+            not_run=sum(1 for item in measurements if not item.ran),
+            scanned_nothing=empty,
             controls=len(measurements),
         )
 
@@ -239,7 +293,8 @@ def score(dataset: str, measurements: Sequence[Measurement]) -> Score:
         dataset=dataset,
         dimensions=dimensions,
         composites=composites,
-        not_run=len(measurements) - len(ran),
+        not_run=sum(1 for item in measurements if not item.ran),
+        scanned_nothing=empty,
         controls=len(measurements),
     )
 
@@ -284,10 +339,13 @@ def _rows_weighted(items: Sequence[Measurement]) -> float:
     the same class of thing, and a control over four million rows says more
     about the tier than one over four.
     """
-    total = sum(max(1, item.scanned) for item in items)
+    # No `max(1, scanned)` guard: a control that scanned nothing never reaches
+    # here, because `score` excludes it. The guard used to give such a control
+    # weight 1 and rate 1.0, which is how an empty scan diluted a real failure.
+    total = sum(item.scanned for item in items)
     if not total:
-        return 1.0
-    return sum(max(1, item.scanned) * item.rate for item in items) / total
+        return 0.0
+    return sum(item.scanned * item.rate for item in items) / total
 
 
 # ---------------------------------------------------------------------------

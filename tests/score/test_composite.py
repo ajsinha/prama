@@ -153,3 +153,69 @@ def test_a_budget_running_out_warns_before_it_does() -> None:
 def test_a_comfortable_budget_says_so_without_alarm() -> None:
     slo = ServiceLevel("positions", ast.Dimension.VALIDITY, 0.995)
     assert "comfortably inside" in slo.describe(1_000_000, 100)
+
+
+class TestScanningNothingIsNotPassing:
+    """Finding C5. A control that ran and looked at zero rows scored 100%.
+
+    `Measurement.rate` read `1.0 - (violations / scanned if scanned else 0.0)`,
+    so an empty scan produced a perfect rate — and the comment three lines above
+    the field it depends on already names this exact defect in its other guise:
+    "A control that did not run contributes nothing and is not a pass. The
+    distinction matters: a dataset scoring 100% because half its controls were
+    skipped is the most misleading output this module could produce."
+
+    A control that *ran* and scanned nothing is the same claim wearing a
+    different hat, and it is the commoner one: a delivery that did not arrive, a
+    partition filter that matched no rows, an extract that failed in a way the
+    connector reported as success. Each produces zero rows and zero violations,
+    and the estate reported a green Tier 1 dataset.
+
+    It is also the module's own thesis applied to itself. Prama's two-stage
+    validation exists to insist that a lower bound of zero is not a pass; a
+    scorecard that turns no evidence into full marks says the opposite.
+    """
+
+    def empty_scan(self, criticality: Criticality = Criticality.TIER_1) -> Measurement:
+        return Measurement("lei_valid", ast.Dimension.VALIDITY, 0, 0, criticality)
+
+    def test_an_empty_scan_is_not_a_pass(self) -> None:
+        assert self.empty_scan().rate == 0.0
+
+    def test_an_empty_scan_is_not_counted_as_measured(self) -> None:
+        assert self.empty_scan().measured is False
+
+    def test_a_dataset_that_scanned_nothing_does_not_score_full_marks(self) -> None:
+        result = score("positions", [self.empty_scan()])
+        assert result.composite() == 0.0
+        assert result.scanned_nothing == 1
+
+    def test_its_coverage_reflects_that_nothing_was_checked(self) -> None:
+        """Coverage is the honest headline here: not "we checked and it was
+        fine" but "we checked nothing"."""
+        result = score("positions", [self.empty_scan()])
+        assert result.coverage == 0.0
+        assert "scanned no rows" in result.describe()
+
+    def test_an_empty_scan_does_not_dilute_a_real_failure(self) -> None:
+        """The dangerous shape: one control finds a genuine problem and another
+        finds nothing to look at. Averaging a real 60% with a phantom 100%
+        reports 80%, and the dataset looks better for having been measured
+        less."""
+        real = Measurement("completeness", ast.Dimension.COMPLETENESS, 1_000, 400)
+        result = score("positions", [real, self.empty_scan(Criticality.TIER_4)])
+        assert result.composite(Method.MEAN) == pytest.approx(0.6)
+        assert result.scanned_nothing == 1
+
+    def test_a_control_that_scanned_rows_and_found_none_bad_still_passes(self) -> None:
+        """The counterfactual. "No violations" and "no rows" must not be
+        conflated in either direction — a control that genuinely examined a
+        million rows and found nothing wrong is a pass, and treating it as
+        unknown would make the scorecard useless."""
+        clean = Measurement("lei_valid", ast.Dimension.VALIDITY, 1_000_000, 0)
+        assert clean.rate == 1.0
+        assert clean.measured is True
+        result = score("positions", [clean])
+        assert result.composite() == 1.0
+        assert result.scanned_nothing == 0
+        assert result.coverage == 1.0

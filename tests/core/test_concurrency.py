@@ -59,9 +59,9 @@ class TestBoundedQueue:
     async def test_resize_widens_capacity_live(self) -> None:
         queue = BoundedQueue[bytes](max_bytes=256, max_items=1, offer_timeout=0.01)
         await queue.put(b"a")
-        assert queue.try_put(b"b") is False
-        queue.resize(max_items=10)
-        assert queue.try_put(b"b") is True
+        assert await queue.try_put(b"b") is False
+        await queue.resize(max_items=10)
+        assert await queue.try_put(b"b") is True
 
 
 class TestSupervisor:
@@ -200,3 +200,57 @@ class TestLeases:
     def test_renew_interval_must_be_shorter_than_ttl(self) -> None:
         with pytest.raises(ValueError, match="shorter than ttl"):
             LeaseSettings(ttl_seconds=5, renew_interval_seconds=10).validate()
+
+
+class TestAWaiterIsAlwaysWoken:
+    """Finding X6. `try_put` enqueued and notified nobody; `resize` widened the
+    queue and notified nobody.
+
+    Both are correct-looking in isolation and wrong the moment somebody is
+    waiting, which is the only time a queue matters. `tests/architecture/
+    test_layering.py` requires every queue in the codebase to be this one, so
+    the first caller to reach for either would have found a consumer that never
+    wakes or a producer that takes back-pressure against a queue with room.
+
+    Each test below pairs the call with a waiter that is genuinely parked. The
+    existing coverage called both methods and never did.
+    """
+
+    async def test_try_put_wakes_a_waiting_consumer(self) -> None:
+        queue: BoundedQueue[bytes] = BoundedQueue(name="q", max_bytes=1024, max_items=4)
+        got: list[bytes] = []
+
+        async def consume() -> None:
+            got.append(await queue.get())
+
+        async with asyncio.TaskGroup() as group:
+            group.create_task(consume())
+            await asyncio.sleep(0)  # let the consumer park on _not_empty
+            assert await queue.try_put(b"x") is True
+
+        assert got == [b"x"], "the consumer was never woken"
+
+    async def test_resize_wakes_a_blocked_producer(self) -> None:
+        queue: BoundedQueue[bytes] = BoundedQueue(
+            name="q", max_bytes=1024, max_items=1, offer_timeout=5.0
+        )
+        await queue.put(b"first")
+        delivered: list[bool] = []
+
+        async def produce() -> None:
+            await queue.put(b"second")
+            delivered.append(True)
+
+        async with asyncio.TaskGroup() as group:
+            group.create_task(produce())
+            await asyncio.sleep(0)  # let the producer park on _not_full
+            await queue.resize(max_items=10)
+
+        assert delivered == [True], "the producer sat out its timeout against a widened queue"
+
+    async def test_a_full_queue_still_refuses(self) -> None:
+        """The counterfactual. A `try_put` that notified by always accepting
+        would pass the first test and break the budget."""
+        queue: BoundedQueue[bytes] = BoundedQueue(name="q", max_bytes=1024, max_items=1)
+        assert await queue.try_put(b"a") is True
+        assert await queue.try_put(b"b") is False

@@ -284,13 +284,30 @@ class Threshold(IrNode):
         """
         if self.metric not in metrics:
             return Verdict.INDETERMINATE
+
+        # No rows to judge. Not a pass and not a failure: an empty scope is a
+        # fact about the scope, and calling it a pass is how a broken feed
+        # reports green.
+        #
+        # This guard used to live inside the `relative_to` branch alone, so a
+        # *percentage* threshold refused an empty scan and an *absolute* one —
+        # the default every predicate control lowers to — reported PASS, since
+        # zero rows give zero violations and `0 <= 0` holds. Same scan, same
+        # metrics, opposite verdicts, and the one that said PASS was the common
+        # path. Found by QA (Q-09); it is finding C5 again, one layer down: C5
+        # was the scorecard turning no evidence into full marks, and this is the
+        # engine doing it first.
+        #
+        # `row_count` does not come through here. An empty table genuinely is a
+        # row count of zero and `HAS ROW COUNT BETWEEN 1 AND 8` must fail on it,
+        # which `_row_count_verdict` decides separately.
+        if float(metrics.get("scanned_rows", -1.0)) == 0.0:
+            return Verdict.INDETERMINATE
+
         observed = float(metrics[self.metric])
         if self.relative_to:
             denominator = float(metrics.get(self.relative_to, 0.0))
             if denominator == 0:
-                # No rows to judge. Not a pass and not a failure: an empty
-                # scope is a fact about the scope, and calling it a pass is how
-                # a broken feed reports green.
                 return Verdict.INDETERMINATE
             observed /= denominator
         return Verdict.PASS if self.comparator.holds(observed, self.value) else Verdict.FAIL

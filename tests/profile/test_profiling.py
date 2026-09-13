@@ -326,3 +326,110 @@ class TestEndToEndProfiling:
         assert profile.rows == 500
         assert "trade_id" in profile.key_candidates
         assert profile.column("ccy").distinct_estimate == 2
+
+
+class TestTheSketchesKeepTheirStatedBounds:
+    """Findings C6, C7 and C8. Each of the three sketches documented a property
+    it did not have, and each existing test asserted the loose direction only.
+
+    `test_countmin_never_underestimates` asserts `estimate("frequent") >= 5_000`
+    — which *any* sketch satisfies, including one that returns the total. The
+    one-sided error is the easy half: over-counting is what the bound is for,
+    and nothing tested it.
+    """
+
+    def test_countmin_rows_are_genuinely_independent(self) -> None:
+        """Finding C6. The rows were one hash plus a constant offset, modulo a
+        power-of-two width: two values colliding in one row collided in every
+        row, because adding the same constant cannot separate them. `min()`
+        eliminated nothing and the sketch was depth-1 with five times the
+        memory.
+        """
+        from prama.profile.sketches import _hash64
+
+        sketch = CountMin()
+        collisions = sum(
+            1
+            for row in range(sketch._depth)
+            if _hash64(151, row) % sketch._width == _hash64(154, row) % sketch._width
+        )
+        assert collisions < sketch._depth, (
+            "151 and 154 land in the same bucket in every row, so min() over "
+            "the rows cannot separate them"
+        )
+
+    def test_countmin_respects_its_own_error_bound(self) -> None:
+        """The measured case the finding used: a heavy hitter and a singleton
+        that used to share every bucket. 1,000,001 was reported for a true
+        count of 1, against a stated bound of 1,327."""
+        sketch = CountMin()
+        sketch.add(151, 1_000_000)
+        sketch.add(154, 1)
+        estimate = sketch.estimate(154)
+        assert estimate >= 1, "the sketch must never underestimate"
+        assert estimate - 1 <= sketch.error_bound, (
+            f"estimate {estimate} for a true count of 1 exceeds the stated "
+            f"bound of {sketch.error_bound:.1f}"
+        )
+
+    def test_a_weighted_point_is_mass_not_a_counter(self) -> None:
+        """Finding C7. `_count` took the weight and the buffer took one point,
+        so `quantile()` hunted for `q * count` in centroids holding
+        `n_points` — a target it could never reach — and fell through to the
+        maximum. Ten values 0…9 at weight 100 reported a median of 9.0."""
+        digest = TDigest()
+        for value in range(10):
+            digest.add(float(value), weight=100)
+        assert digest.count == 1000
+        assert digest.quantile(0.5) == pytest.approx(4.0, abs=1.0)
+        assert digest.quantile(0.9) == pytest.approx(8.0, abs=1.0)
+        assert digest.quantile(0.5) != digest.maximum
+
+    def test_the_digest_is_sharper_at_the_tails_than_in_the_middle(self) -> None:
+        """Finding C8, and the property the class is *chosen* for: "accurate at
+        the tails … a structure that is accurate in the middle and vague at the
+        edges is precisely wrong for this job."
+
+        It was uniformly accurate, because every centroid got the same mass cap
+        — which is the property an equi-width histogram already has. The
+        `q(1-q)` scale function that shrinks centroids at the tails was absent.
+        Measured on this distribution before the fix: p99 out by 12.7%, p999 by
+        17.2%.
+
+        Asserted as a *relationship* rather than an absolute threshold: a fixed
+        bound here would pass on a lucky seed and fail on an unlucky one and
+        prove neither. The tail must be at least as sharp as the middle, which
+        is the claim, and no seed makes that true by accident.
+        """
+        random.seed(42)
+        values = [random.lognormvariate(0.0, 1.0) for _ in range(50_000)]
+        digest = TDigest()
+        for value in values:
+            digest.add(value)
+        ordered = sorted(values)
+
+        def error(q: float) -> float:
+            exact = ordered[min(len(ordered) - 1, int(q * len(ordered)))]
+            approximate = digest.quantile(q)
+            assert approximate is not None
+            return abs(approximate - exact) / exact
+
+        middle = error(0.5)
+        assert error(0.99) <= max(middle, 0.02), "p99 is vaguer than the median"
+        assert error(0.999) <= max(middle, 0.02), "p999 is vaguer than the median"
+        assert error(0.01) <= max(middle, 0.02), "p1 is vaguer than the median"
+
+    def test_the_digest_is_accurate_enough_to_be_worth_having(self) -> None:
+        """The absolute check, kept loose. The test above is a relationship and
+        would be satisfied by a sketch that is uniformly terrible."""
+        random.seed(7)
+        values = [random.lognormvariate(0.0, 1.0) for _ in range(50_000)]
+        digest = TDigest()
+        for value in values:
+            digest.add(value)
+        ordered = sorted(values)
+        for q in (0.01, 0.5, 0.99, 0.999):
+            exact = ordered[min(len(ordered) - 1, int(q * len(ordered)))]
+            approximate = digest.quantile(q)
+            assert approximate is not None
+            assert abs(approximate - exact) / exact < 0.05, f"q={q} is out by more than 5%"

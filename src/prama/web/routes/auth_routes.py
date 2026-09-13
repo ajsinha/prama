@@ -36,6 +36,7 @@ from typing import Annotated, Any
 from fastapi import Form, Query, Request
 from fastapi.responses import RedirectResponse
 
+from prama.core.clock import utc_now
 from prama.core.log import get_logger
 from prama.web.deps import Uow
 from prama.web.rendering import render
@@ -54,9 +55,17 @@ class AuthRoutes(UiRoutes):
     """The sign-in page and the two things that change a session."""
 
     def register(self) -> None:
-        self.page("/sign-in", self.sign_in_form, name="sign_in")
-        self.page("/sign-in", self.sign_in, name="sign_in_post", methods=["POST"])
-        self.page("/sign-out", self.sign_out, name="sign_out", methods=["POST"])
+        # `scope=None`, and this is the one place it is right. A page that
+        # demands a permission before you can sign in is a page that redirects
+        # you to itself, for ever: `ui_caller` raises NotSignedIn, the handler
+        # turns that into a 303 to /sign-in, and /sign-in asks again. Nobody
+        # can ever get in.
+        self.page("/sign-in", self.sign_in_form, name="sign_in", scope=None)
+        self.page("/sign-in", self.sign_in, name="sign_in_post", methods=["POST"], scope=None)
+        # Signing out needs no permission either. A principal whose roles were
+        # just removed holds nothing, and telling them they may not leave is
+        # both absurd and a way to strand a session that ought to be revoked.
+        self.page("/sign-out", self.sign_out, name="sign_out", methods=["POST"], scope=None)
 
     async def sign_in_form(
         self,
@@ -89,7 +98,7 @@ class AuthRoutes(UiRoutes):
         tenant: Annotated[str, Form()] = "",
     ) -> Any:
         config = request.app.state.config
-        tenant_id = tenant.strip() or config.get_str("tenancy.default_tenant", "")
+        tenant_id = await _sign_in_tenant(uow, tenant, config)
         principal = None
         if tenant_id:
             principal = await uow.principals.authenticate(tenant_id, username.strip(), password)
@@ -119,23 +128,95 @@ class AuthRoutes(UiRoutes):
         request.session["scopes"] = sorted(
             permission for role in principal.roles for permission in role.permissions_json
         )
+        # When, so the session can be refused if the account changes underneath
+        # it. Flushed first and read from the row rather than from the clock:
+        # `authenticate` stamps `last_login_at`, which moves `updated_at`, and a
+        # session stamped before that flush would be refused by the request
+        # immediately after it. See prama.web.deps.ui_caller.
+        await uow.flush()
+        request.session["issued_at"] = (principal.updated_at or utc_now()).isoformat()
         _log.info("signed in %s on tenant %s", principal.username, principal.tenant_id)
         return RedirectResponse(url=_safe_next(next_url) or LANDING, status_code=303)
 
-    async def sign_out(self, request: Request) -> Any:
+    async def sign_out(self, request: Request, uow: Uow) -> Any:
+        """Clear the cookie, and invalidate every session this account holds.
+
+        Clearing alone left a captured cookie usable for Starlette's default
+        fourteen days — finding S8. Touching the principal moves its
+        ``updated_at`` past the ``issued_at`` of every session already minted,
+        which `ui_caller` refuses. It revokes the other browser the user forgot
+        about too, which is what somebody clicking "sign out" on a shared
+        machine actually means.
+        """
+        principal_id = request.session.get("principal_id")
         request.session.clear()
+        if principal_id:
+            principal = await uow.principals.get(principal_id)
+            if principal is not None:
+                principal.updated_at = utc_now()
+                await uow.flush()
         return RedirectResponse(url="/sign-in", status_code=303)
 
 
+#: Characters a browser removes from a URL before resolving it. Left in place,
+#: they hide the shape of the target from a check that reads the raw string:
+#: ``/\tevil.example`` is ``//evil.example`` by the time it reaches the network.
+_URL_IGNORED = str.maketrans({"\t": None, "\n": None, "\r": None})
+
+
+async def _sign_in_tenant(uow: Any, given: str, config: Any) -> str:
+    """The estate this sign-in is against, or "" if it cannot be known.
+
+    Three sources, in order, and the third is the one that was missing.
+
+    The form field, resolved as a **slug or an id** — a person knows
+    `acme-bank`, the schema knows a ULID, and passing the slug straight to
+    `authenticate` compares it against a tenant id and refuses every password.
+
+    Then `tenancy.default_tenant`, which is the single-tenant deployment.
+
+    Then, if there is exactly **one** estate, that one. A single-estate install
+    is the overwhelmingly common case, and requiring somebody to name the only
+    tenant there is — in a field the form did not render — is how this console
+    became unenterable: the form posted no tenant, the default was unset, and
+    every correct password was answered 401 (QA finding, console).
+    """
+    for candidate in (given.strip(), str(config.get_str("tenancy.default_tenant", "")).strip()):
+        if not candidate:
+            continue
+        if await uow.tenants.get(candidate) is not None:
+            return candidate
+        by_slug = await uow.tenants.by_slug(candidate)
+        if by_slug is not None:
+            return str(by_slug.id)
+    only = await uow.tenants.list_active(limit=2)
+    return str(only[0].id) if len(only) == 1 else ""
+
+
 def _safe_next(target: str) -> str:
-    """A redirect target, or nothing.
+    r"""A redirect target, or nothing.
 
     Only a path on this site. ``next=https://elsewhere/`` in a link is how a
     sign-in page becomes somebody else's phishing redirect, and the check is
     "starts with exactly one slash" rather than a URL parse — ``//evil.example``
     is a protocol-relative URL that a parser will happily call a path.
+
+    **The string is normalised the way a browser normalises it before the check
+    runs**, which the original did not do and is finding S7. Under the WHATWG
+    URL spec a backslash is a path separator for special schemes, so Chrome,
+    Firefox and Safari all resolve ``/\evil.example`` to ``//evil.example`` and
+    then to ``http://evil.example``. The check saw one leading slash and passed
+    it through to a 303 ``Location`` header. The attack is two characters:
+
+        https://prama.customer/sign-in?next=/\attacker.example/prama-sso
+
+    The victim authenticates against the genuine host and is bounced to a page
+    that looks like a continuation of the login flow. Checking the raw string
+    against a rule the browser will not apply to it is the defect; anything that
+    changes the target's meaning has to be applied here first.
     """
-    candidate = (target or "").strip()
+    candidate = (target or "").strip().translate(_URL_IGNORED)
+    candidate = candidate.replace("\\", "/")
     if not candidate.startswith("/") or candidate.startswith("//"):
         return ""
     return candidate
@@ -150,10 +231,18 @@ async def _no_way_in(uow: Any, request: Request) -> bool:
     it will try their password four more times before suspecting the
     installation.
     """
-    tenant = request.app.state.config.get_str("tenancy.default_tenant", "")
-    if not tenant:
-        return True
-    return not await uow.principals.any_for(tenant)
+    tenant = await _sign_in_tenant(uow, "", request.app.state.config)
+    if tenant:
+        return not await uow.principals.any_for(tenant)
+    # No tenant resolved, and that means one of two opposite things. No estates
+    # at all is a fresh `db init` and nothing else: nobody can sign in, and
+    # saying so is the whole point of this function. Several estates and no
+    # default is the other case — this installation has principals and we
+    # simply do not know which estate the person in front of us belongs to.
+    # Claiming "nobody has been created" there is a lie, and it said exactly
+    # that while four principals existed, sending an operator to look for a bug
+    # in `principal create`.
+    return not await uow.tenants.list_active(limit=1)
 
 
 __all__ = ["LANDING", "REFUSED", "AuthRoutes"]

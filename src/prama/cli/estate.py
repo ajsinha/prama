@@ -139,7 +139,9 @@ async def _collect(ctx: CommandContext, tenant_id: str) -> dict[str, str]:
             files: dict[str, str] = {}
 
             for dataset in datasets:
-                attributes = await uow.attributes.for_dataset(dataset.dataset_id)
+                attributes = await uow.attributes.for_dataset(
+                    dataset.dataset_id, tenant_id=tenant_id
+                )
                 files[serialiser.path_for("Dataset", dataset.slug)] = serialiser.dump(
                     serialiser.dataset_document(dataset, attributes, slug_of=slugs)
                 )

@@ -98,7 +98,9 @@ class ReportRoutes(UiRoutes):
         covered: set[str] = set()
 
         for version in reported:
-            attributes = await uow.attributes.for_dataset(version.dataset_id)
+            attributes = await uow.attributes.for_dataset(
+                version.dataset_id, tenant_id=caller.tenant_id
+            )
             generation = generator.generate(dataset_declaration_of(version, attributes))
             for derived in generation.controls:
                 covered.add(version.dataset_id)

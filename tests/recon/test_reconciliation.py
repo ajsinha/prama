@@ -118,6 +118,74 @@ def test_mapping_gaps_can_be_found_before_a_run_rather_than_during_one() -> None
     assert mapper.covers({"GB", "FR", "DE"}) == ("DE", "FR")
 
 
+# -- tolerance ---------------------------------------------------------------
+
+
+class TestWhicheverIsLarger:
+    """Finding C2. `Tolerance.permits` computed "whichever is **smaller**".
+
+    Three separate statements of intent said otherwise and disagreed with the
+    code they describe: the class docstring ("a difference must breach **both**
+    to count"), `render()`, which prints "within 1 EUR or 0.1%", and the inline
+    comment on the return statement itself. Only the expression was wrong, and
+    it returned `absolute_ok and relative_ok` — permitted only if within *both*
+    bounds, which is the intersection, not the union.
+
+    The consequence is not a subtle one. A 500 EUR difference on a 1,000,000 EUR
+    position, under a declared materiality of "1 EUR or 10 bps", was a break —
+    though 10 bps of that position is 1,000 EUR. Every large position generates
+    a break the declaration says is immaterial, which is the phantom-break flood
+    this module exists to prevent.
+
+    No existing test exercised both bounds at once; the one place `permits` was
+    asserted used an absolute bound alone.
+    """
+
+    #: "A penny or a basis point, whichever is larger" — the convention the
+    #: class docstring names, as a bank's operations team states it.
+    BOTH = Tolerance(absolute=1.00, relative=0.001, currency="EUR")
+
+    def test_the_relative_bound_governs_a_large_position(self) -> None:
+        """10 bps of a million is a thousand, and the declaration says so."""
+        assert self.BOTH.permits(500.00, 1_000_000) is True
+
+    def test_the_absolute_bound_governs_a_small_position(self) -> None:
+        """10 bps of ten is a penny; the declared floor of 1 EUR is larger."""
+        assert self.BOTH.permits(0.50, 10) is True
+
+    def test_a_difference_breaching_both_is_still_a_break(self) -> None:
+        assert self.BOTH.permits(2_000.00, 1_000_000) is False
+        assert self.BOTH.permits(5.00, 10) is False
+
+    def test_render_says_what_permits_does(self) -> None:
+        """The sentence a data owner reads has to be the rule that runs."""
+        assert self.BOTH.render() == "within 1 EUR or 0.1%"
+
+    def test_one_bound_alone_is_unchanged(self) -> None:
+        """The union must not become a licence when only one bound is set."""
+        only_absolute = Tolerance(absolute=1.00)
+        assert only_absolute.permits(0.50, 1_000_000) is True
+        assert only_absolute.permits(1.50, 1_000_000) is False
+
+        only_relative = Tolerance(relative=0.001)
+        assert only_relative.permits(500.00, 1_000_000) is True
+        assert only_relative.permits(2_000.00, 1_000_000) is False
+
+    def test_a_relative_bound_against_nothing_permits_only_an_exact_match(self) -> None:
+        """There is no percentage of zero.
+
+        Taking a relative bound as satisfied when the magnitude is zero — which
+        is what the old expression did — would, under a union, make a declared
+        absolute bound unreachable on precisely the rows where a difference is
+        most obviously real: something against nothing.
+        """
+        assert Tolerance(relative=0.001).permits(0.0, 0) is True
+        assert Tolerance(relative=0.001).permits(0.01, 0) is False
+        # With an absolute bound present, that bound still governs.
+        assert self.BOTH.permits(0.50, 0) is True
+        assert self.BOTH.permits(5.00, 0) is False
+
+
 # -- matching ----------------------------------------------------------------
 
 
@@ -126,6 +194,26 @@ def test_a_key_typed_differently_on_each_side_still_matches() -> None:
     column as an integer and the other as text."""
     report = Matcher(MatchKey(left=("id",), right=("id",))).match([{"id": 1}], [{"id": "1"}])
     assert len(report.pairs) == 1
+
+
+@pytest.mark.parametrize("number", [1, 10, 1000, 100000, 1234000, 250])
+def test_a_round_number_key_matches_its_text_form(number: int) -> None:
+    """Finding C3. The normaliser used ``Decimal.normalize()``, which renders a
+    round number in scientific notation: 1000 became ``'1E+3'`` while the text
+    side stayed ``'1000'``, and the two never collided.
+
+    It bit *only* numbers with trailing zeros, which is why it survived — the
+    test above uses ``1``, one of the values that happens to work. Account
+    numbers, trade ids and quantities ending in zeros are not rare, so a
+    reconciliation would match most of its rows and report the rest as breaks
+    on both sides: the exact failure ``_key_part`` exists to prevent, arriving
+    as a partial result that looks like a genuine finding.
+    """
+    report = Matcher(MatchKey(left=("id",), right=("id",))).match(
+        [{"id": number}], [{"id": str(number)}]
+    )
+    assert len(report.pairs) == 1, f"{number} did not match its own text form"
+    assert not report.unmatched_left and not report.unmatched_right
 
 
 def test_a_repeated_key_compares_totals_rather_than_pairing_rows() -> None:

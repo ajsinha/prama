@@ -217,18 +217,22 @@ class SnowflakeConnector(SqlConnector):
                 )
         driver = self._driver()
         self._worker = DedicatedThread(name="snowflake")
-        self._connection = await self._worker.call(
-            driver.connect,
-            **{
-                "account": self._account,
-                "user": self._user,
-                "password": self._password,
-                "warehouse": self._warehouse,
-                "database": self._database,
-                "schema": self._schema,
+        try:
+            self._connection = await self._worker.call(
+                driver.connect,
+                account=self._account,
+                user=self._user,
+                password=self._password,
+                warehouse=self._warehouse,
+                database=self._database,
+                schema=self._schema,
                 **({"role": self._role} if self._role else {}),
-            },
-        )
+            )
+        except Exception:
+            # __aexit__ does not run when __aenter__ raises, so nothing else
+            # closes the worker. A rotated password should not leak a thread.
+            await self.close()
+            raise
 
     async def close(self) -> None:
         if self._connection is not None:

@@ -229,16 +229,29 @@ class Tolerance:
             )
 
     def permits(self, difference: float, magnitude: float) -> bool:
-        """Whether *difference* is within tolerance for a value of *magnitude*."""
+        """Whether *difference* is within tolerance for a value of *magnitude*.
+
+        Both bounds must be breached for a difference to count as a break — the
+        "a penny or a basis point, whichever is larger" convention that finance
+        operations already use. Expressed as the larger of the allowances the
+        declaration sets, which is what "whichever is larger" says; an earlier
+        version wrote it as ``absolute_ok and relative_ok``, the intersection,
+        and so made a 500 EUR difference on a million-EUR position a break under
+        a declared materiality of 10 bps.
+        """
         difference = abs(difference)
-        absolute_ok = self.absolute is None or difference <= self.absolute
-        relative_ok = (
-            self.relative is None or not magnitude or difference / abs(magnitude) <= self.relative
-        )
-        # Both bounds must be breached for a difference to count as a break —
-        # the "a penny or a basis point, whichever is larger" convention that
-        # finance operations already use.
-        return absolute_ok and relative_ok
+        allowances: list[float] = []
+        if self.absolute is not None:
+            allowances.append(self.absolute)
+        if self.relative is not None and magnitude:
+            allowances.append(self.relative * abs(magnitude))
+        if not allowances:
+            # A relative bound alone, against a zero magnitude: there is no
+            # percentage of nothing, so the bound is not applicable rather than
+            # satisfied. Treating it as satisfied would permit any difference
+            # at all on precisely the rows where one is most obviously real.
+            return difference == 0
+        return difference <= max(allowances)
 
     def render(self) -> str:
         parts = []

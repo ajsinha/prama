@@ -176,6 +176,10 @@ class StreamAssertion:
         # Read once. An attribute lookup through two objects, per message, per
         # assertion, is not free at this rate.
         self._unknown_is_violation = plan.unknown_is_violation
+        #: Whether this control has a second stage at all. Read once for the
+        #: same reason as the line above, and checked before every residual
+        #: call so a single-stage control pays nothing for the branch.
+        self._has_residual = bool(plan.residual_validators)
         self._messages = 0
         self._violations = 0
         self._unknowns = 0
@@ -198,9 +202,14 @@ class StreamAssertion:
     def judge(self, message: Message) -> MessageVerdict:
         """Judge one message. No allocation beyond the evaluation itself.
 
-        The same semantics the reference interpreter uses, imported rather than
-        reimplemented — so an unknown counts as a violation here for the same
-        reason and by the same code as in a nightly batch.
+        The same semantics the reference interpreter uses, so an unknown counts
+        as a violation here for the same reason as in a nightly batch, and a
+        two-stage control's second stage decides here too.
+
+        This docstring used to say "imported rather than reimplemented", and the
+        method reimplemented them and dropped the residual check — which is the
+        shape the claim was there to prevent. The residual rule is now genuinely
+        shared: :meth:`ReferenceEvaluator.fails_residual`.
         """
         predicate = self._plan.predicate
         if predicate is None:
@@ -208,7 +217,14 @@ class StreamAssertion:
         outcome = self._evaluator.evaluate(predicate, message)
         if outcome is UNKNOWN:
             return MessageVerdict(passed=not self._plan.unknown_is_violation, unknown=True)
-        return MessageVerdict(passed=bool(outcome))
+        if not outcome:
+            return MessageVerdict(passed=False)
+        # The screen said the message *might* be valid, which for a two-stage
+        # control is not a pass. Omitting this is how the same control caught a
+        # fabricated identifier overnight and passed it in flight.
+        if self._has_residual and self._evaluator.fails_residual(self._plan, message):
+            return MessageVerdict(passed=False)
+        return MessageVerdict(passed=True)
 
     def offer(self, message: Message, *, at: datetime | None = None) -> WindowVerdict | None:
         """Accept one message; return a verdict when the window closes.
@@ -233,6 +249,9 @@ class StreamAssertion:
                 if self._unknown_is_violation:
                     self._violations += 1
             elif not outcome:
+                self._violations += 1
+            elif self._has_residual and self._evaluator.fails_residual(self._plan, message):
+                # See judge(): the second stage decides, here as in a batch.
                 self._violations += 1
         if self._should_close(at):
             return self.close(at=at)

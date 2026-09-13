@@ -69,6 +69,13 @@ class Case:
     #: Capabilities without which an engine may legitimately refuse this case.
     requires: frozenset[str] = frozenset()
     catches: str = ""
+    #: For a two-stage control, how many violations the **SQL screen alone**
+    #: must find. Declared as a number rather than left in the prose of
+    #: `catches`, because the conformance suite previously required only that an
+    #: engine find no *more* than the exact check — so a screen that rejected
+    #: nothing at all was excused, and a neutered screen was indistinguishable
+    #: from a working one. See finding T4.
+    screen_violations: float | None = None
 
 
 CASES: tuple[Case, ...] = (
@@ -113,6 +120,7 @@ CASES: tuple[Case, ...] = (
     Case(
         name="semantic_type_two_stage",
         pql="CHECK corpus.lei IS VALID 'lei'",
+        screen_violations=2.0,
         catches=(
             "the row every engine gets wrong on its own: AAAAAAAAAAAAAAAAAA00 has an "
             "LEI's exact shape and check characters that do not verify. SQL applies the "
@@ -120,6 +128,26 @@ CASES: tuple[Case, ...] = (
             "are not required to agree here — they are required to differ in one "
             "direction only, because a screen that rejected a valid value would report "
             "a violation on good reference data"
+        ),
+    ),
+    Case(
+        name="modulo_on_a_negative",
+        pql="CHECK corpus SATISFIES (notional % 3) <> 2",
+        catches=(
+            "the sign of a remainder. Row 5 has notional -10: Python floors and "
+            "gives 2, every SQL engine truncates and gives -1. The reference "
+            "interpreter reported a violation none of the three engines did, and "
+            "the corpus had no arithmetic case at all, so the gate never saw it"
+        ),
+    ),
+    Case(
+        name="division_is_not_integer_division",
+        pql="CHECK corpus SATISFIES (row_id / 2) > 0",
+        catches=(
+            "the one case where the engines disagreed with *each other*: SQLite "
+            "and PostgreSQL divide two integers as integers, so row 1 gives 0, "
+            "while DuckDB and the interpreter give 0.5. Same control, PASS on two "
+            "engines and FAIL on the third"
         ),
     ),
     Case(

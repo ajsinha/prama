@@ -59,7 +59,9 @@ class DatabaseEstate:
             version = await uow.datasets.by_slug(self._tenant_id, name)
             if version is None:
                 return {}
-            attributes = await uow.attributes.for_dataset(version.dataset_id)
+            attributes = await uow.attributes.for_dataset(
+                version.dataset_id, tenant_id=self._tenant_id
+            )
             return {
                 "name": version.slug,
                 "description": version.description or "",

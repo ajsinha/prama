@@ -22,6 +22,7 @@ from __future__ import annotations
 import decimal
 import os
 import shutil
+from typing import Any
 
 import pytest
 
@@ -354,3 +355,70 @@ class TestAValueTooBigForItsNaturalType:
         from prama.connect.arrow import to_array
 
         assert to_array([10**40, None]).to_pylist() == [str(10**40), None]
+
+
+class TestABacktickDialectDoublesTheBackslashToo:
+    """Finding S5. ClickHouse and BigQuery escaped the backtick and not the
+    backslash.
+
+        return "`" + identifier.replace("`", "\\`") + "`"
+
+    Both engines honour backslash escapes inside backtick-quoted identifiers, so
+    a name ending in a backslash escapes its own closing delimiter: `a\\`
+    renders as an identifier that never closes, and delimiter parity is broken
+    for the rest of the statement. MySQL and SQL Server get it right by
+    doubling the delimiter, and the base class by doubling the double-quote.
+
+    The threat model is the module's own: "object names arrive from a catalogue
+    that a customer controls, and they reach a query string." Anyone who can
+    create a column in a connected ClickHouse source could corrupt the
+    structure of the SQL Prama generates and runs there, under Prama's
+    credentials.
+
+    The existing coverage derived the delimiter from `quote("x")` and tested a
+    name containing *that* delimiter. A trailing backslash was never tried.
+    """
+
+    def dialects(self) -> list[Any]:
+        from prama.connect.sources.sql.clickhouse import ClickHouseDialect
+        from prama.connect.sources.sql.dialects import BigQueryDialect
+
+        return [ClickHouseDialect(), BigQueryDialect()]
+
+    @pytest.mark.parametrize(
+        "identifier",
+        [
+            "a\\",
+            "a\\\\",
+            "a\\`b",
+            "`a\\",
+            "trade\\",
+        ],
+    )
+    def test_the_quoted_form_closes(self, identifier: str) -> None:
+        for dialect in self.dialects():
+            quoted = dialect.quote(identifier)
+            assert quoted.startswith("`") and quoted.endswith("`"), quoted
+            # Walk it the way the engine does: a backslash escapes whatever
+            # follows, so the first *unescaped* backtick after the opening one
+            # has to be the last character. If it is not, the identifier has
+            # ended early and everything after it is being read as SQL.
+            body = quoted[1:]
+            index = 0
+            while index < len(body):
+                if body[index] == "\\":
+                    index += 2
+                    continue
+                if body[index] == "`":
+                    break
+                index += 1
+            assert index == len(body) - 1, (
+                f"{type(dialect).__name__}.quote({identifier!r}) -> {quoted!r} closes at "
+                f"character {index} of {len(body) - 1}; the rest is read as SQL"
+            )
+
+    def test_an_ordinary_name_is_untouched(self) -> None:
+        """The counterfactual. Escaping everything would also 'close', and
+        would break every real query."""
+        for dialect in self.dialects():
+            assert dialect.quote("positions_eod") == "`positions_eod`"

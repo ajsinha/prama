@@ -55,10 +55,46 @@ def test_a_small_sample_is_refused_rather_than_reported() -> None:
 
 
 def test_disagreement_between_measures_is_reported_as_the_signal_it_is() -> None:
+    """Finding T8. This test executed **zero** of its two assertions.
+
+    They sat inside `if report.material and len(report.material) <
+    len(report.measures)`, and with a shift from spread 50 to spread 130 every
+    measure finds it material, so the condition was always false. Traced at the
+    line level: neither assertion ever ran, and `DriftReport.disagreement` was
+    referenced by no other test in the suite. Replacing its whole body with
+    `return ""` left all 106 tests in `tests/monitor` passing.
+
+    Spread 60 is the corpus that actually produces a split: two of the five
+    measures see it and three do not, which is the case the property exists to
+    describe.
+    """
+    report = compare(draws(300, 1000, 50, 1), draws(300, 1000, 60, 2))
+    assert report.measures, "nothing was measured, so nothing can disagree"
+    assert 0 < len(report.material) < len(report.measures), (
+        f"this corpus no longer splits the measures: {report.material} of "
+        f"{[m.name for m in report.measures]}. The assertions below would not run."
+    )
+    assert report.disagreement
+    assert "only some of them look at" in report.disagreement
+    assert report.disagreement in report.describe(), (
+        "the disagreement is computed and never shown to anybody"
+    )
+
+
+def test_unanimous_measures_report_no_disagreement() -> None:
+    """The other half. A property that returned a sentence unconditionally
+    would pass the test above and be wrong every other time."""
     report = compare(draws(300, 1000, 50, 1), draws(300, 1000, 130, 2))
-    if report.material and len(report.material) < len(report.measures):
-        assert report.disagreement
-        assert "only some of them look at" in report.disagreement
+    assert len(report.material) == len(report.measures), "this corpus is meant to be unanimous"
+    assert report.disagreement == ""
+
+
+def test_no_measurement_at_all_reports_no_disagreement() -> None:
+    """A refused comparison has nothing to disagree about, and must not invent
+    a sentence saying so."""
+    report = compare(draws(20, 1000, 50, 1), draws(20, 1000, 50, 2))
+    assert report.refusal
+    assert report.disagreement == ""
 
 
 def test_the_earth_movers_distance_is_in_the_units_of_the_data() -> None:

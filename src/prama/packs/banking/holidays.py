@@ -62,8 +62,18 @@ class Observance(enum.Enum):
 
     #: The holiday is simply lost. Most European fixed dates work this way.
     NONE = "none"
-    #: Saturday → Friday before, Sunday → Monday after. US federal practice.
+    #: Saturday → Friday before, Sunday → Monday after. US federal *employee*
+    #: practice, and the rule the NYSE follows.
     NEAREST_WEEKDAY = "nearest_weekday"
+    #: Sunday → Monday after; a Saturday holiday is simply lost. What the
+    #: Federal Reserve Banks actually do, and not the same thing as
+    #: :attr:`NEAREST_WEEKDAY` — see finding C9. The Fed's published schedule
+    #: says "for holidays falling on Saturday, Federal Reserve Bank offices …
+    #: will be open the preceding Friday", because the Fed is shut on Saturday
+    #: anyway and does not hand back a business day for it. Fedwire is open
+    #: that Friday, so a settlement or timeliness control on the Fed calendar
+    #: that skips it misses a real business day once or twice a year.
+    SUNDAY_TO_MONDAY = "sunday_to_monday"
     #: Both weekend days roll forward, so Christmas on Saturday gives Monday
     #: *and* Tuesday off. UK bank-holiday practice.
     ROLL_FORWARD = "roll_forward"
@@ -131,6 +141,10 @@ class Rule:
     def _observed(self, base: date) -> tuple[date, ...]:
         if self.observance is Observance.NONE or base.weekday() < SATURDAY:
             return (base,)
+        if self.observance is Observance.SUNDAY_TO_MONDAY:
+            # Saturday is lost, Sunday moves to Monday. The asymmetry is the
+            # whole point of having this separately from NEAREST_WEEKDAY.
+            return (base,) if base.weekday() == SATURDAY else (base + timedelta(days=1),)
         if self.observance is Observance.NEAREST_WEEKDAY:
             # Saturday back to Friday, Sunday forward to Monday. The holiday
             # moves; it does not multiply.

@@ -90,7 +90,9 @@ class ControlRoutes(UiRoutes):
         """
         catalogue = Catalogue()
         for version in await uow.datasets.list_current(caller.tenant_id, limit=5000):
-            attributes = await uow.attributes.for_dataset(version.dataset_id)
+            attributes = await uow.attributes.for_dataset(
+                version.dataset_id, tenant_id=caller.tenant_id
+            )
             catalogue = catalogue.with_dataset(
                 DatasetSchema(
                     name=version.slug,
@@ -198,7 +200,10 @@ class ControlRoutes(UiRoutes):
         self, request: Request, control_id: str, caller: Caller, uow: Uow
     ) -> Any:
         await uow.controls.activate(
-            control_id, approved_by=caller.principal_id or "console", reason="accepted"
+            control_id,
+            tenant_id=caller.tenant_id,
+            approved_by=caller.principal_id or "console",
+            reason="accepted",
         )
         return redirect_to(request, "control_list", flash_message="The control is now running.")
 
@@ -213,7 +218,11 @@ class ControlRoutes(UiRoutes):
     ) -> Any:
         try:
             await uow.controls.suppress(
-                control_id, until=until, because=because, by=caller.principal_id
+                control_id,
+                tenant_id=caller.tenant_id,
+                until=until,
+                because=because,
+                by=caller.principal_id,
             )
         except PramaError as exc:
             flash_error_and_log(request, "That control could not be suppressed", exc)
@@ -228,7 +237,12 @@ class ControlRoutes(UiRoutes):
             questions=builder.QUESTIONS,
             datasets=sorted(v.slug for v in versions),
             columns={
-                v.slug: [a.name for a in await uow.attributes.for_dataset(v.dataset_id)]
+                v.slug: [
+                    a.name
+                    for a in await uow.attributes.for_dataset(
+                        v.dataset_id, tenant_id=caller.tenant_id
+                    )
+                ]
                 for v in versions
             },
             submitted={},

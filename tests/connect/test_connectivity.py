@@ -93,7 +93,7 @@ class TestConnectivity:
             assert result["usable"] is True
             assert result["needs_access_request"] is False
             # And the outcome is recorded against the declaration.
-            stored = await uow.connections.current(connection_id)
+            stored = await uow.connections.current(connection_id, tenant_id=tenant_id)
             assert stored.health_state == "healthy"
             assert stored.is_usable
 
@@ -226,7 +226,7 @@ class TestCredentialResolution:
         # Git, diffed in a pull request and shown in the UI.
         async with started_database.unit_of_work() as uow:
             connection_id = await _connection(uow, tenant_id, source)
-            declared = await uow.connections.current(connection_id)
+            declared = await uow.connections.current(connection_id, tenant_id=tenant_id)
             assert declared is not None
             assert "password" not in json.dumps(declared.config_json or {})
 
@@ -236,7 +236,7 @@ class TestCredentialResolution:
         resolver = SecretResolver([MemorySecretProvider({"pg": "from-the-vault"})])
         async with started_database.unit_of_work() as uow:
             connection_id = await _connection(uow, tenant_id, source)
-            declared = await uow.connections.current(connection_id)
+            declared = await uow.connections.current(connection_id, tenant_id=tenant_id)
             assert declared is not None
             declared.credential_ref = "memory://pg"
             connector = await ConnectivityService(
@@ -255,7 +255,7 @@ class TestCredentialResolution:
             resolver = SecretResolver([MemorySecretProvider({"creds": '{"password": "9"}'})])
             async with started_database.unit_of_work() as uow:
                 connection_id = await _connection(uow, tenant_id, source)
-                declared = await uow.connections.current(connection_id)
+                declared = await uow.connections.current(connection_id, tenant_id=tenant_id)
                 assert declared is not None
                 declared.credential_ref = "memory://creds#password"
                 connector = await ConnectivityService(
@@ -285,7 +285,7 @@ class TestCredentialResolution:
         resolver = SecretResolver([MemorySecretProvider({})])
         async with started_database.unit_of_work() as uow:
             connection_id = await _connection(uow, tenant_id, source)
-            declared = await uow.connections.current(connection_id)
+            declared = await uow.connections.current(connection_id, tenant_id=tenant_id)
             assert declared is not None
             declared.credential_ref = "memory://absent"
             with pytest.raises(SecretResolutionError):

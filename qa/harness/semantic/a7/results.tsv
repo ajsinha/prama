@@ -1,0 +1,67 @@
+PRP-001	PASS	control.rule='grain.uniqueness'; checks={'identity': True, 'content': True, 'content_hash': True, 'provenance': True, 'description': True, 'dataset': True, 'rule': True, 'severity': True}; subject=''
+PRP-002	PASS	p1.content='COMPARE subledger WITH gl ON (account_id) MATCHING amount WITHIN 1 AS RECONCILIATION'; p1.subject='amount'; p2.subject(no-compare)='gl' right='gl'
+PRP-003	PASS	predicate.subject='account_id'; reference.subject='account_id' (expected 'account_id'); unique_key.subject=''
+PRP-004	PASS	controls=0, comparisons=3, kinds=['row_count_parity', 'value_parity', 'staleness'], proposals=3
+PRP-005	PASS	ValueError: a rejection must say why: the reason decides whether the rule comes back with new evidence, and whether the generator that produced it has a defect
+PRP-006	PASS	indicts_the_rule True for: ['coincidental', 'incorrect']
+PRP-007	PASS	may_be_reconsidered True for: ['not_material', 'pending_remediation', 'too_noisy']
+PRP-008	PASS	describe()='would have flagged 410 of 1,000 rows (41.00%), about 14 a day, concentrated in EMEA, APAC'; violation_rate=0.41; alerts_per_day=13.666666666666666
+PRP-009	PASS	a.rate=0.2, a.is_unactionable=False; b.rate=0.21, b.is_unactionable=True
+PRP-010	PASS	unavailable.describe()='not backtested: the column does not exist in retained snapshots'; zero.describe()='no rows were available to test it against'; unavailable.ran=False; zero.ran=False
+PRP-011	PASS	alerts_per_day=5.0
+PRP-012	PASS	needs_review by origin: {'declaration': False, 'import': True, 'document': True, 'mining': True, 'example': True, 'induction': True}
+PRP-013	PASS	backtest.is_unactionable=True; needs_review=True
+PRP-014	PASS	authorities=[('declaration', 100), ('document', 80), ('import', 60), ('mining', 40), ('example', 30), ('induction', 20)]
+PRP-015	PASS	ValueError: a rule attributed to a document must carry the passage it came from; without one it cannot be checked, and an unfalsifiable rule will not be approved
+PRP-016	PASS	outcome='already_live', proposal=None, admitted=False
+PRP-017	PASS	outcome='superseded', supersedes='h:old-content', detail='a control for this already runs; this is a revision of it, and approving it replaces rather than adds'
+PRP-018	PASS	outcome='suppressed', detail='rejected as not_material by a.sinha on 2026-09-08'
+PRP-019	FAIL	a(5.9%)='suppressed' detail='rejected as not_material by a.sinha on 2026-09-08'; b(6.0%)='reopened' detail='you rejected this when 3.0% of rows failed it; 6.0% fail it now'; c(40%)='duplicate' detail='the same proposal from the same source'
+PRP-020	FAIL	19%='reopened' detail='you rejected this as too noisy at 40.0%; it would now flag 19.0%'; 21%='duplicate' detail='the same proposal from the same source'
+PRP-021	PASS	outcome='suppressed'
+PRP-022	PASS	no-bt-then-bt='suppressed'; bt-then-no-bt='suppressed'
+PRP-023	PASS	0%='suppressed'; 0.5%='reopened' detail='it was rejected when nothing failed it, and 0.5% of rows fail it now'
+PRP-024	PASS	outcome='duplicate', proposal_identity='P1', queue_unchanged=True
+PRP-025	PASS	outcome='corroborated', origin='declaration', corroborations=['mining']
+PRP-026	PASS	survivor_origin='declaration'
+PRP-027	PASS	outcome='corroborated', corroborations=['mining'], mining_count=1
+PRP-028	PASS	outcome='superseded', supersedes='h:CHECK t.x IS NOT NULL'
+PRP-029	PASS	decided_error='"no open proposal \'P1\'. It was already decided."'; never_offered_error='"no open proposal \'nope\'. It was never offered, or was suppressed."'
+PRP-030	PASS	pending=[]; decided_ids=['A', 'B']; suppressed_ids=['B']
+PRP-031	PASS	pending=[]; deferred_because='waiting on the grain declaration'; is_open=True
+PRP-032	PASS	auto_activatable identities=['D']
+PRP-033	PASS	reloaded_offer_outcome='suppressed'; accepted_suppression_error='only a rejected proposal produces a suppression'
+PRP-034	PASS	summary={'pending': 2, 'deferred': 1, 'decided': 1, 'suppressed': 0, 'auto_activatable': 1, 'would_be_too_noisy': 1, 'by_origin': {'mining': 2}, 'suspect_rules': ['bad.rule'], 'top': ['A', 'B']}
+PRP-035	PASS	WEIGHTS={'criticality': 0.35, 'coverage_gap': 0.25, 'confidence': 0.2, 'acceptance_prior': 0.2}; PRIOR_CEILING=0.2; sum=1.0 (module docstring claims 'more than 1'; actual sum is exactly 1.0, not > 1)
+PRP-036	PASS	tiers={1: 1.0, 2: 0.75, 3: 0.5, 4: 0.25}; tier2_cde=1.0; tier1_cde_clamped=1.0
+PRP-037	PASS	coverage_gap=0.0
+PRP-038	PASS	confidence_by_origin={o.value: v for o, v in actual.items()}; boosted=1.0
+PRP-039	PASS	KeyError: <__main__.prp039.<locals>.FakeOrigin object at 0x7ff0a9cc5550>
+PRP-040	PASS	penalties=[0.0, 0.0, -0.051, -0.3, -0.5] expected=[0.0, 0.0, -0.051, -0.3, -0.5]
+PRP-041	PASS	no_backtest_penalty=0.0; unavailable_backtest_penalty=0.0
+PRP-042	PASS	score=0.0; components={'score': 0.0, 'criticality': 0.25, 'coverage_gap': 0.0, 'confidence': 0.55, 'acceptance_prior': 0.2, 'noise_penalty': -0.5, 'explanation': 'this subject already has a control, so it adds less; ranked down because it would flag 90% of rows'}
+PRP-043	PASS	before=0.5; after=0.3333333333333333
+PRP-044	PASS	tier4_great_rule.prior=0.2, score=0.3975; tier1_cde_poor_rule.score=0.7281818181818182; PRIOR_CEILING=0.2
+PRP-045	PASS	rate=0.5; observations=0
+PRP-046	PASS	prior_with_rule=0.6785714285714286; prior_without_rule=0.5; origin_rate=0.5; rule_rate=0.8571428571428571; mean=0.6785714285714286
+PRP-047	PASS	before=0.5; after=0.5; observations=0
+PRP-048	PASS	suspect_rules=('rule.b',); indicted_rules=(('rule.b', 5),)
+PRP-049	PASS	explanation='Tier 1 data and a declared CDE; 80% of this dataset is unprotected; 80% of proposals from this rule have been accepted (3 decided); ranked down because it would flag 30% of rows'
+PRP-050	PASS	explanation1='100% of this dataset is unprotected'; explanation2='Tier 1 data and a declared CDE; 100% of this dataset is unprotected'
+PRP-051	PASS	at_two='Tier 1 data; 100% of this dataset is unprotected'; at_three='Tier 1 data; 100% of this dataset is unprotected; 80% of proposals from this rule have been accepted (3 decided)'
+PRP-052	PASS	first=['P0', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8', 'P9']; second=['P0', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8', 'P9']; equal=True
+PRP-053	PASS	ranked_score=0.6475; default_context_score=0.6475
+PRP-054	PASS	arms=['treatment', 'treatment', 'treatment', 'treatment', 'treatment', 'treatment', 'treatment', 'treatment', 'treatment', 'treatment']; reassigned=treatment
+PRP-055	PASS	holdout=0.1 -> 0.098; holdout=0.0 -> 0.0; holdout=1.0 -> 1.0
+PRP-056	PASS	different_assignments=True; salt_a_stable=True; num_differences=38
+PRP-057	PASS	surfaced=18; reviewed=8; accepted=5; pending=10; precision=0.625
+PRP-058	PASS	precision=None; describe()='treatment: 5 surfaced, none reviewed yet'
+PRP-059	PASS	treatment.precision=0.5, mean_rank=1.5; control.precision=0.5, mean_rank=5.5; rank_gain=4.0
+PRP-060	PASS	29_measurable=False, describe='not measurable yet: 29 treatment and 29 control reviews, and an interval on this much data is wider than any effect worth claiming'; 30_measurable=True
+PRP-061	PASS	(-0.01,0.09)->False; (0.01,0.09)->True; (-0.09,-0.01)->True
+PRP-062	PASS	interval=(-0.019219954858942317, 0.2192199548589425); center=0.10000000000000009; expected=(-0.019219954858942317,0.2192199548589425); zero_reviews_case=(0.0, 0.0), (0.0, 0.0)
+PRP-063	PASS	holdout_cost=40; describe()='the learning arm is 10.0% better on precision (+1.0% to +19.0%). The holdout cost 40 reviews ranked by a model that stopped learning, which is the price of knowing any of this'
+PRP-064	PASS	should_promote=False; reason='the difference is +8.0% and the interval covers zero. Promoting on a point estimate is how a loop that is doing nothing accumulates a series of promotions'
+PRP-065	PASS	should_promote=False; reason='the learning arm is significantly *worse* (-22.0%). Something in the feedback is teaching it the wrong thing, and the labels are the place to look'; is_significant=True
+PRP-066	PASS	diff1=0.0290 significant=True should_promote=False reason='the gain is real but small (+2.9%), below the 3% that makes refreezing worth restarting the experiment for'; diff2=0.0310 significant=True should_promote=True
+PRP-067	PASS	should_promote=True; reason='+20.0% precision, interval +10.6% to +29.4%, on 200 and 200 reviews'

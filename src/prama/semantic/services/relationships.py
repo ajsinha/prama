@@ -42,7 +42,7 @@ class RelationshipService(SemanticService):
             ("from", declaration.from_dataset_id),
             ("to", declaration.to_dataset_id),
         ):
-            if await self._uow.datasets.current(dataset_id) is None:
+            if await self._uow.datasets.current(dataset_id, tenant_id=tenant_id) is None:
                 raise NotFoundError(
                     f"the {side} dataset {dataset_id!r} does not exist",
                     remedy="Declare both datasets before relating them.",
@@ -126,11 +126,14 @@ class RelationshipService(SemanticService):
         self, *, tenant_id: str, relationship_id: str, confirmed_by: str, reason: str = ""
     ) -> Any:
         """A human asserts a proposed relationship is true."""
-        current = await self._uow.relationships.require_current(relationship_id)
+        current = await self._uow.relationships.require_current(
+            relationship_id, tenant_id=tenant_id
+        )
         if current.status == "confirmed":
             return current
         version = await self._uow.relationships.amend(
             relationship_id,
+            tenant_id=tenant_id,
             status="confirmed",
             provenance=Provenance(
                 authored_by=confirmed_by,
@@ -159,6 +162,7 @@ class RelationshipService(SemanticService):
         """
         version = await self._uow.relationships.amend(
             relationship_id,
+            tenant_id=tenant_id,
             status="rejected",
             provenance=Provenance(authored_by=rejected_by, reason=reason),
         )

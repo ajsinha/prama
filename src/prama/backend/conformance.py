@@ -201,49 +201,113 @@ class ConformanceRun:
           rejected a value the standard accepts, and the control would be
           reporting a violation on good reference data.
 
-        The second direction is the one worth a conformance gate. It is how a
-        screen tightened by somebody who read a standard too confidently gets
-        caught here rather than in a stewardship queue.
+        That much was true and was all this checked, and it left the gate open
+        at the bottom. "Fewer" includes **none**: a screen that rejects nothing
+        is excused unconditionally, so a neutered predicate and a working one
+        produce the same green report. Neutering the ``FILTER (WHERE …)``
+        clause of every two-stage plan left all 119 backend tests passing while
+        DuckDB reported PASS on data the reference reports three violations for
+        (finding T4).
+
+        So the case now declares what the screen alone must find
+        (:attr:`Case.screen_violations`) and that number is required exactly.
+        It is the one figure a screen cannot fake: too low and it is not
+        screening, too high and it rejects values the standard accepts.
         """
         reference = ran.get("reference")
         if reference is None or reference.result is None:
             return []
         exact = reference.result.violating_rows
-        overshooting = {
-            engine: outcome.comparable
+        found: list[Disagreement] = []
+
+        if case.screen_violations is None:
+            found.append(
+                Disagreement(
+                    case=case.name,
+                    outcomes={
+                        "corpus": (
+                            "this is a two-stage control and declares no screen_violations, "
+                            "so an engine finding nothing would be excused. Declare what the "
+                            "SQL screen alone must find."
+                        )
+                    },
+                )
+            )
+            return found
+
+        expected = case.screen_violations
+        wrong = {
+            engine: (
+                f"{outcome.result.violating_rows:g} from the screen, expected {expected:g}"
+                if outcome.result is not None
+                else outcome.comparable
+            )
             for engine, outcome in ran.items()
             if engine != "reference"
-            and outcome.result is not None
-            and outcome.result.violating_rows > exact
+            and (outcome.result is None or outcome.result.violating_rows != expected)
         }
-        if not overshooting:
-            return []
-        return [
-            Disagreement(
-                case=case.name,
-                outcomes={
-                    **overshooting,
-                    "reference": (
-                        f"{exact:g} violations exactly; an engine finding more means its "
-                        f"screen rejects a value the standard accepts"
-                    ),
-                },
+        if wrong:
+            found.append(
+                Disagreement(
+                    case=case.name,
+                    outcomes={
+                        **wrong,
+                        "reference": (
+                            f"{exact:g} violations exactly. The screen must find "
+                            f"{expected:g}: fewer means it is not screening, more means it "
+                            f"rejects a value the standard accepts"
+                        ),
+                    },
+                )
             )
-        ]
+        if expected > exact:
+            found.append(
+                Disagreement(
+                    case=case.name,
+                    outcomes={
+                        "corpus": (
+                            f"the declared screen count {expected:g} exceeds the exact check's "
+                            f"{exact:g}; a screen is a necessary condition and cannot reject "
+                            "more than the standard does"
+                        )
+                    },
+                )
+            )
+        return found
 
     def summarise(self, runners: dict[str, Runner]) -> dict[str, Any]:
-        """A report worth putting in front of somebody, pass or fail."""
+        """A report worth putting in front of somebody, pass or fail.
+
+        ``engines`` is who was *offered* the corpus; ``engines_that_ran`` is who
+        actually executed a case, and ``cases_compared`` is how many cases at
+        least two of them answered. The difference is the whole value of the
+        report — finding T7. An engine that refuses every control is filtered
+        out before comparison, so a compiler change that made SQLite refuse
+        everything left the gate green while it compared one SQL engine against
+        the interpreter, and the tests asserted `len(engines) >= 2` against a
+        dict built from three hard-coded keys and `len(CASES) == len(CASES)`.
+        """
         rows: list[dict[str, Any]] = []
+        ran_at_least_once: set[str] = set()
+        compared = 0
         for case in CASES:
             entry: dict[str, Any] = {"case": case.name, "catches": case.catches}
+            answered = 0
             for engine, runner in runners.items():
                 outcome = self.run_case(case, engine, runner)
                 entry[engine] = outcome.result.verdict.value if outcome.result else outcome.status
+                if outcome.status == "ran":
+                    ran_at_least_once.add(engine)
+                    answered += 1
+            if answered >= 2:
+                compared += 1
             rows.append(entry)
         disagreements = self.compare(runners)
         return {
             "engines": sorted(runners),
+            "engines_that_ran": sorted(ran_at_least_once),
             "cases": len(CASES),
+            "cases_compared": compared,
             "disagreements": [d.render() for d in disagreements],
             "conforming": not disagreements,
             "rows": rows,

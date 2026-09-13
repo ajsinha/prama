@@ -14,7 +14,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
@@ -112,24 +112,90 @@ class TestTheFederalReserveIsNotTheExchange:
 
 
 class TestUsObservance:
+    """Finding C9. The Fed and the NYSE do *not* observe weekends the same way,
+    and the calendar applied the exchange's rule to both.
+
+    The Federal Reserve's published schedule: "For holidays falling on Saturday,
+    Federal Reserve Bank offices ... will be open the preceding Friday." The Fed
+    is shut on Saturday anyway and does not hand back a business day for it.
+    Sunday still rolls to Monday, and that asymmetry is the whole rule.
+
+    The source comment above `FEDERAL_RESERVE_RULES` said exactly this, and
+    every rule beneath it carried `NEAREST_WEEKDAY` regardless — while the test
+    here asserted the behaviour the comment called wrong. Two files, two
+    opposite claims, and a passing suite. The external authority sides with the
+    comment.
+
+    NYSE's use of `NEAREST_WEEKDAY` is correct and stays: the exchange does
+    close the preceding Friday.
+    """
+
     @pytest.mark.parametrize(
         "holiday,observed_on",
         [
             # 2021-07-04 was a Sunday: observed Monday the 5th.
             (date(2021, 7, 4), date(2021, 7, 5)),
-            # 2020-07-04 was a Saturday: observed Friday the 3rd.
-            (date(2020, 7, 4), date(2020, 7, 3)),
             # 2022-12-25 was a Sunday: observed Monday the 26th.
             (date(2022, 12, 25), date(2022, 12, 26)),
+            # 2021-12-25 was a Saturday. Christmas itself is still a closure;
+            # what does not happen is the Friday before.
+            (date(2021, 12, 25), date(2021, 12, 25)),
         ],
     )
-    def test_a_weekend_holiday_moves_to_the_nearest_weekday(
+    def test_a_sunday_holiday_moves_to_the_monday(
         self, calendars: CalendarRegistry, holiday: date, observed_on: date
     ) -> None:
-        """Saturday back to Friday, Sunday forward to Monday. The holiday moves;
-        it does not multiply."""
+        """The holiday moves; it does not multiply.
+
+        `holiday` used to be accepted and never referenced (finding T13), which
+        left the second half of that sentence asserted nowhere — the test would
+        have passed just as well had the calendar closed the whole week.
+        """
         fed = calendars.get("FederalReserve")
         assert not fed.is_business_day(observed_on)
+        # Exactly one weekday lost. The Friday before the holiday is a business
+        # day: that is the Fed rule, and it is the assertion `holiday` exists
+        # to make.
+        friday = holiday - timedelta(days=holiday.weekday() - 4 if holiday.weekday() >= 4 else 3)
+        while friday.weekday() != 4:
+            friday -= timedelta(days=1)
+        assert fed.is_business_day(friday), f"the Friday before {holiday} should be open"
+
+    @pytest.mark.parametrize(
+        "open_friday,because",
+        [
+            (date(2021, 12, 24), "Christmas Day 2021 fell on the Saturday"),
+            (date(2023, 11, 10), "Veterans Day 2023 fell on the Saturday"),
+            (date(2026, 7, 3), "Independence Day 2026 falls on the Saturday"),
+            (date(2020, 7, 3), "Independence Day 2020 fell on the Saturday"),
+            (date(2021, 6, 18), "Juneteenth 2021 fell on the Saturday"),
+        ],
+    )
+    def test_the_fed_is_open_the_friday_before_a_saturday_holiday(
+        self, calendars: CalendarRegistry, open_friday: date, because: str
+    ) -> None:
+        """Fedwire settles on these days. A timeliness control that treats one
+        as a closure gives the feed an extra day it was never owed, and a
+        settlement control skips a real business day — once or twice a year,
+        silently."""
+        fed = calendars.get("FederalReserve")
+        assert fed.is_business_day(open_friday), f"{because}, but the Fed is open"
+
+    @pytest.mark.parametrize(
+        "closed_friday,because",
+        [
+            (date(2020, 7, 3), "Independence Day 2020 fell on the Saturday"),
+            (date(2021, 12, 24), "Christmas Day 2021 fell on the Saturday"),
+        ],
+    )
+    def test_the_nyse_does_close_that_friday(
+        self, calendars: CalendarRegistry, closed_friday: date, because: str
+    ) -> None:
+        """The counterfactual, and the reason the two calendars are separate.
+        A fix that made every US calendar Sunday-only would be as wrong in the
+        other direction, and this is the assertion that would catch it."""
+        nyse = calendars.get("NYSE")
+        assert not nyse.is_business_day(closed_friday), f"{because}, and the NYSE shuts"
 
     def test_juneteenth_is_absent_before_it_existed(self, calendars: CalendarRegistry) -> None:
         """It became a federal holiday in 2021. A calendar that back-dated it
@@ -208,10 +274,49 @@ class TestInstallation:
     def test_it_is_explicit_rather_than_on_import(self) -> None:
         """A calendar that appears because a module was imported somewhere is
         one whose presence depends on import order, and the first symptom is a
-        control that resolves in one process and refuses in another."""
-        from prama.core.calendars import default_calendars
+        control that resolves in one process and refuses in another.
 
-        assert "target2" not in default_calendars().names()
+        Checked in a **subprocess**. This used to assert that `target2` is
+        absent from the default registry, full stop — which held only because
+        nothing in `src/` installed it, and stopped holding the moment
+        `prama.packs.install_shipped()` did (finding H7). That is not a
+        regression: the property was never "nobody installs these", it was
+        "importing does not". In this process another test has almost certainly
+        run the bootstrap already, so asking here measures test order rather
+        than the code.
+        """
+        import subprocess
+        import sys
+
+        probe = (
+            "import prama.packs.banking.calendars\n"
+            "from prama.core.calendars import default_calendars\n"
+            "print('target2' in default_calendars().names())\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", probe], capture_output=True, text=True, check=True
+        )
+        assert result.stdout.strip() == "False", (
+            "importing the calendars module installed them; presence now depends on import order"
+        )
+
+    def test_the_bootstrap_does_install_them(self) -> None:
+        """The other half. A module that installs nothing on import and nothing
+        anywhere else is a module whose calendars never exist — which is what
+        finding H7 was."""
+        import subprocess
+        import sys
+
+        probe = (
+            "from prama.packs import install_shipped\n"
+            "install_shipped()\n"
+            "from prama.core.calendars import default_calendars\n"
+            "print('target2' in default_calendars().names())\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", probe], capture_output=True, text=True, check=True
+        )
+        assert result.stdout.strip() == "True", result.stdout + result.stderr
 
     def test_installing_twice_is_refused_unless_asked(self) -> None:
         registry = install()
@@ -245,3 +350,61 @@ class TestObservanceItself:
         assert observed([first, second], [2021]) == frozenset(
             {date(2021, 12, 27), date(2021, 12, 28)}
         )
+
+
+class TestTheRemedysOwnExampleParses:
+    """Finding H7. `prama.schedule.spec` refuses `'06:30 TARGET2'` — an example
+    its own error message tells the reader to copy.
+
+        "Use one of: 'every 15 minutes', 'every 4 hours', 'daily', '06:30',
+         '06:30 TARGET2', 'on arrival', 'manual'."
+
+    Every listed form parsed except the one naming a calendar. `parse()`
+    resolves through `default_calendars()`, seeded with `always` and `weekdays`
+    alone, and `packs.banking.calendars.install()` — deliberately not called on
+    import — was called from nowhere in `src/`. A user following the message
+    exactly is told they are wrong, which is worse than no message.
+
+    Two things had to be true, and only the first was obvious: the bootstrap
+    has to run, *and* it has to install into the default registry. `install()`
+    defaults to a fresh one and returns it, so calling it bare materialises
+    every calendar into an object nobody holds — indistinguishable from not
+    calling it.
+    """
+
+    def test_every_form_the_remedy_names_is_accepted(self) -> None:
+        from prama.packs import install_shipped
+        from prama.schedule.spec import parse
+
+        install_shipped()
+        for form in (
+            "every 15 minutes",
+            "every 4 hours",
+            "daily",
+            "06:30",
+            "06:30 TARGET2",
+            "on arrival",
+            "manual",
+        ):
+            parse(form)  # raises if the remedy is lying
+
+    def test_every_shipped_calendar_can_be_named_in_a_schedule(self) -> None:
+        from prama.packs import install_shipped
+        from prama.packs.banking.calendars import SPECS
+        from prama.schedule.spec import parse
+
+        install_shipped()
+        for shipped in SPECS:
+            parse(f"06:30 {shipped.name}")
+
+    def test_a_calendar_nobody_ships_is_still_refused(self) -> None:
+        """The counterfactual. Installing everything must not turn the check
+        into a formality — a typo in a calendar name is a control that fires on
+        the wrong days, silently."""
+        from prama.core.errors import ValidationError
+        from prama.packs import install_shipped
+        from prama.schedule.spec import parse
+
+        install_shipped()
+        with pytest.raises(ValidationError, match="no calendar named"):
+            parse("06:30 TARGET3")

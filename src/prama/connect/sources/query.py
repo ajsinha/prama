@@ -91,18 +91,24 @@ def register_regexp(connection: Any) -> None:
     does regex. Prama's SQLite dialect declares the capability on the strength
     of this function, so every SQLite connection Prama opens must call it.
 
-    A ``None`` value matches nothing rather than raising: SQL's three-valued
+    A ``None`` value yields ``NULL`` rather than ``False``: SQL's three-valued
     logic makes a null neither matching nor non-matching, and the control's
     ``TREAT UNKNOWN`` policy — not this function — decides what that means.
+
+    That sentence was already here and the code returned ``False``, which is a
+    definite *non-match* and not an unknown (QA finding Q-12). So a null
+    reaching a validity check was a certain violation, the unknown policy never
+    saw it, and ``TREAT UNKNOWN AS PASS`` could not rescue it: 11 violations on
+    SQLite against 4 on DuckDB, for the same control over the same rows.
     """
     import re
 
-    def regexp(pattern: str, value: Any) -> bool:
+    def regexp(pattern: str, value: Any) -> bool | None:
         # SQLite calls REGEXP with the pattern first: `x REGEXP y` is
         # `regexp(y, x)`. Getting this backwards matches nothing, silently, and
         # every validity control passes.
         if value is None:
-            return False
+            return None
         return re.search(pattern, str(value)) is not None
 
     connection.create_function("regexp", 2, regexp)

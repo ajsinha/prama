@@ -33,6 +33,7 @@ from typing import Any, ClassVar
 from prama.core.errors import ValidationError
 from prama.llm.spi import Grammar, Hosting, ModelProvider, Request, Response
 from prama.secrets.value import SecretValue
+from prama.security.egress import Gate
 
 
 class NullProvider(ModelProvider):
@@ -118,6 +119,8 @@ class _HttpProvider(ModelProvider):
         timeout: float = 60.0,
         hosting: Hosting | None = None,
         opener: Callable[[urllib.request.Request, float], bytes] | None = None,
+        gate: Gate | None = None,
+        region: str = "",
     ) -> None:
         if not endpoint:
             raise ValidationError(
@@ -135,6 +138,14 @@ class _HttpProvider(ModelProvider):
         #: Injected so the wire format can be tested without a network. The
         #: request construction is the part with bugs in it; the socket is not.
         self._open = opener or _urlopen
+        #: Residency is enforced in `ModelProvider.ask`, which is why these are
+        #: set rather than checked here: a provider that carried its own check
+        #: would be a second place for the rule to live, and the one that gets
+        #: forgotten. Absent, and hosted, `ask` refuses.
+        self.residency_gate = gate
+        #: A jurisdiction ("EU"), not a cloud region ("eu-west-1"): it is
+        #: matched against the tenant's residency list.
+        self.residency_region = region
 
     def _post(self, path: str, body: dict[str, Any], headers: dict[str, str]) -> Any:
         request = urllib.request.Request(

@@ -62,8 +62,9 @@ class WorkOutcome:
 
     unit: WorkUnit
     records: tuple[EvidenceRecord, ...] = ()
-    #: ``done``, ``skipped``, ``lost`` or ``failed``. Four, because they lead
-    #: to four different next actions and collapsing them would hide which.
+    #: ``done``, ``skipped``, ``lost``, ``failed`` or ``stranded``. Five,
+    #: because they lead to five different next actions and collapsing them
+    #: would hide which.
     status: str = "done"
     detail: str = ""
 
@@ -74,8 +75,16 @@ class WorkOutcome:
         A lost claim requeues: the work was not recorded, so somebody must do
         it. A failure does not: it produced an error verdict, which is a
         finding, and rerunning it immediately would produce the same one.
+
+        ``stranded`` is the third case and it requeues. The unit ran and the
+        *recording* failed — a ledger briefly unreachable — so there is no
+        verdict anywhere and nobody knows the work was done. That is not a
+        finding about the data, it is a finding about Prama, and the work still
+        needs doing. Kept distinct from ``failed`` because an operator triaging
+        a queue needs to tell "this control errored" from "we could not write
+        down what it said".
         """
-        return self.status == "lost"
+        return self.status in ("lost", "stranded")
 
     def render(self) -> str:
         return (
@@ -130,10 +139,40 @@ class Worker:
             if claim is None:
                 continue
             self._queue.take(unit, claim)
-            outcome = await self._run(claim)
-            self._queue.release(claim, requeue=outcome.should_requeue)
-            await release_claim(claim)
-            return outcome
+            # try/finally, and not because `_run` is expected to raise: it
+            # catches a failing runner and a lost lease and turns both into an
+            # outcome. What it does *not* guard is the recorder, and finding X4
+            # is what that costs. A transiently unreachable evidence ledger
+            # raised out of `_run`, so `queue.release` never ran and the unit
+            # stayed claimed, `release_claim` never ran and the lease renewed
+            # itself for ever, and the unit was invisible to every worker in
+            # the fleet — not lost, not failed, absent from the report
+            # entirely. The one path that strands work permanently was the one
+            # path with no cleanup.
+            outcome: WorkOutcome | None = None
+            try:
+                outcome = await self._run(claim)
+                return outcome
+            except Exception as exc:
+                _log.exception(
+                    "%s could not complete %s; requeuing: %s",
+                    self.worker_id,
+                    claim.resource,
+                    exc,
+                )
+                # Requeued rather than dropped. The unit was claimed, so
+                # something meant to run it; a failure to record is a reason to
+                # try again, not a reason for the work to vanish.
+                return WorkOutcome(
+                    unit=claim.unit,
+                    status="stranded",
+                    detail=f"{type(exc).__name__}: {exc}",
+                )
+            finally:
+                self._queue.release(
+                    claim, requeue=outcome.should_requeue if outcome is not None else True
+                )
+                await release_claim(claim)
         return None
 
     async def drain(self, limit: int = 0) -> list[WorkOutcome]:

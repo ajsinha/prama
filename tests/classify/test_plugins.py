@@ -10,6 +10,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+import sys
 import textwrap
 from pathlib import Path
 from typing import Any
@@ -22,6 +23,7 @@ from prama.classify.plugins import (
     FORBIDDEN_PRAMA,
     PROBES,
     PluginRegistry,
+    forbidden_imports,
     implementation_hash,
     scan_source,
 )
@@ -350,3 +352,89 @@ class TestThePlanCarriesIt:
                 PLUGINS._provenance["isin"] = before
             else:
                 PLUGINS._provenance.pop("isin", None)
+
+
+class TestTheThreeEvasionsThatWorked:
+    """Finding H3. `docs/19` and `docs/08` both record "a plugin that imports a
+    clock, a socket or a model is refused at registration" as built.
+
+    Three independent holes, none covered: `time` was not on the ban list, a
+    dynamic import was invisible to a scan keyed on `ast.Import`, and the scan
+    read only the validator's *own* file — so a helper module beside it could
+    import anything at all. A validator doing `import time`,
+    `__import__("socket")` and `time.gmtime()` was admitted.
+    """
+
+    def scan(self, tmp_path: Path, source: str, name: str = "impure.py") -> list[tuple[str, str]]:
+        path = tmp_path / name
+        path.write_text(source, encoding="utf-8")
+        return scan_source(str(path))
+
+    def test_the_clock_is_refused(self, tmp_path: Path) -> None:
+        found = self.scan(tmp_path, "import time\n\ndef judge(v):\n    return time.time()\n")
+        assert found, "`import time` is a clock, and a clock makes a control unreplayable"
+        assert any("time" in name for name, _ in found)
+
+    def test_reading_the_clock_by_another_name_is_refused(self, tmp_path: Path) -> None:
+        """The call ban covered now/today/utcnow/monotonic/perf_counter and not
+        gmtime, localtime or time_ns."""
+        for call in ("gmtime", "localtime", "time_ns"):
+            found = self.scan(tmp_path, f"import calendar\n\ndef judge(v):\n    return {call}()\n")
+            assert found, f"{call}() reads the clock and was admitted"
+
+    def test_a_dynamic_import_is_refused(self, tmp_path: Path) -> None:
+        found = self.scan(tmp_path, 'def judge(v):\n    return __import__("socket")\n')
+        assert found, "__import__ hides what the validator reaches for"
+
+    def test_importlib_is_refused(self, tmp_path: Path) -> None:
+        found = self.scan(
+            tmp_path,
+            'import importlib\n\ndef judge(v):\n    return importlib.import_module("socket")\n',
+        )
+        assert found
+
+    def test_generated_code_is_refused(self, tmp_path: Path) -> None:
+        for spelling in ('eval("1")', 'exec("x=1")', 'compile("1", "<s>", "eval")'):
+            found = self.scan(tmp_path, f"def judge(v):\n    return {spelling}\n")
+            assert found, f"{spelling} is arbitrary code execution"
+
+    def test_an_ordinary_regex_is_not_refused(self, tmp_path: Path) -> None:
+        """The counterfactual, and not a hypothetical: banning `compile` by name
+        alone refused every shipped validator, because `re.compile` is the
+        ordinary thing a format check does. A gate that refuses the honest case
+        is not a stricter gate, it is a broken one."""
+        found = self.scan(
+            tmp_path,
+            'import re\n\nPATTERN = re.compile("^[0-9]+$")\n\ndef judge(v):\n'
+            "    return bool(PATTERN.match(v))\n",
+        )
+        assert not found, found
+
+    def test_a_helper_module_cannot_launder_an_import(self, tmp_path: Path) -> None:
+        """The simplest evasion of all: put it in the file next door.
+
+        `forbidden_imports` read `inspect.getmodule(type(validator)).__file__`
+        and nothing else, so the helper — where the impurity actually lives —
+        was never opened.
+        """
+        (tmp_path / "helper.py").write_text(
+            "import socket\n\ndef reach():\n    return socket.gethostname()\n", encoding="utf-8"
+        )
+        (tmp_path / "validator.py").write_text(
+            "import helper\n\n\nclass Sneaky:\n    name = 'sneaky'\n\n"
+            "    def judge(self, value):\n        return helper.reach()\n",
+            encoding="utf-8",
+        )
+        sys.path.insert(0, str(tmp_path))
+        try:
+            import importlib
+
+            module = importlib.import_module("validator")
+            found = forbidden_imports(module.Sneaky())
+        finally:
+            sys.path.remove(str(tmp_path))
+            sys.modules.pop("validator", None)
+            sys.modules.pop("helper", None)
+
+        assert found, "the socket lived one file away and the scan never opened it"
+        assert any("helper" in reason for _, reason in found), found

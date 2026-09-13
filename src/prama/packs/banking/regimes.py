@@ -532,9 +532,15 @@ REGIME_OBLIGATIONS: Final[tuple[Obligation, ...]] = (
         templates=(
             Template(
                 identity="gdpr-retention-floor",
+                # `$business_date`, not `CURRENT_DATE`. A retention control that
+                # reads the clock gives a different verdict every time it runs,
+                # so its evidence cannot be replayed — which is why PQL refuses
+                # the clock, and why this template never parsed once the refusal
+                # covered the bare spelling as well as the call (QA finding
+                # Q-16). It shipped for four waves as PQL that cannot compile.
                 pql=(
                     "CHECK {dataset}.{created_date} >= "
-                    "DATE_SUB(CURRENT_DATE, {retention_days}) "
+                    "DATE_SUB($business_date, {retention_days}) "
                     "SEVERITY critical DIMENSION validity "
                     "BECAUSE 'personal data held past its retention period is a breach'"
                 ),

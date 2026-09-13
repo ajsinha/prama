@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Query
 
-from prama.api.deps import Caller, Uow
+from prama.api.deps import Reader, Uow
 from prama.api.schemas import ConflictOut, MaturityOut
 from prama.semantic.services import EstateService
 
@@ -20,7 +20,7 @@ router = APIRouter(prefix="/estate", tags=["estate"])
 
 @router.get("/maturity", response_model=MaturityOut)
 async def estate_maturity(
-    caller: Caller,
+    caller: Reader,
     uow: Uow,
     domain_id: str | None = Query(default=None),
     scope: str = Query(default="estate"),
@@ -35,7 +35,7 @@ async def estate_maturity(
 
 
 @router.get("/conflicts", response_model=list[ConflictOut])
-async def semantic_conflicts(caller: Caller, uow: Uow) -> list[ConflictOut]:
+async def semantic_conflicts(caller: Reader, uow: Uow) -> list[ConflictOut]:
     """Attributes claiming one canonical meaning while disagreeing about it.
 
     Reported, never resolved: which definition is right is a business decision.
@@ -45,7 +45,7 @@ async def semantic_conflicts(caller: Caller, uow: Uow) -> list[ConflictOut]:
 
 
 @router.get("/coverage-gaps", response_model=dict[str, list[str]])
-async def coverage_gaps(caller: Caller, uow: Uow) -> dict[str, list[str]]:
+async def coverage_gaps(caller: Reader, uow: Uow) -> dict[str, list[str]]:
     """What is declared but unreachable, unowned, or unshaped.
 
     The honest list. A physical-first tool cannot produce it at all, because it

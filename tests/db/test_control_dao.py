@@ -91,7 +91,7 @@ class TestRegenerationIsIdempotent:
             first, _ = await uow.controls.declare(tenant_id=tenant_id, identity="i1", pql=UNIQUE)
             second, _ = await uow.controls.declare(tenant_id=tenant_id, identity="i1", pql=UNIQUE)
             assert first.id == second.id
-            assert len(await uow.controls.history(str(first.id))) == 1
+            assert len(await uow.controls.history(str(first.id), tenant_id=tenant_id)) == 1
 
     async def test_an_unchanged_redeclaration_writes_no_new_version(
         self, started_database: Database, tenant_id: str
@@ -104,7 +104,7 @@ class TestRegenerationIsIdempotent:
             )
             _, again = await uow.controls.declare(tenant_id=tenant_id, identity="i1", pql=UNIQUE)
             assert again.version == first.version
-            assert len(await uow.controls.history(str(control.id))) == 1
+            assert len(await uow.controls.history(str(control.id), tenant_id=tenant_id)) == 1
 
     async def test_a_changed_control_amends_rather_than_duplicating(
         self, started_database: Database, tenant_id: str
@@ -118,7 +118,7 @@ class TestRegenerationIsIdempotent:
                 identity="i1",
                 pql=UNIQUE.replace("critical", "major"),
             )
-            history = await uow.controls.history(str(control.id))
+            history = await uow.controls.history(str(control.id), tenant_id=tenant_id)
 
         assert changed.version == 2
         assert changed.severity == "major"
@@ -155,7 +155,7 @@ class TestLifecycle:
     ) -> None:
         async with started_database.unit_of_work() as uow:
             control, _ = await uow.controls.declare(tenant_id=tenant_id, identity="i1", pql=UNIQUE)
-            await uow.controls.activate(str(control.id), approved_by="alice")
+            await uow.controls.activate(str(control.id), tenant_id=tenant_id, approved_by="alice")
             live = await uow.controls.live(tenant_id)
 
         assert [version.status for version in live] == ["active"]
@@ -169,10 +169,12 @@ class TestLifecycle:
         async with started_database.unit_of_work() as uow:
             control, _ = await uow.controls.declare(tenant_id=tenant_id, identity="i1", pql=UNIQUE)
             with pytest.raises(ValidationError, match="expiry and a reason"):
-                await uow.controls.suppress(str(control.id), until="", because="noisy")
+                await uow.controls.suppress(
+                    str(control.id), tenant_id=tenant_id, until="", because="noisy"
+                )
             with pytest.raises(ValidationError, match="expiry and a reason"):
                 await uow.controls.suppress(
-                    str(control.id), until="2026-10-01T00:00:00Z", because="  "
+                    str(control.id), tenant_id=tenant_id, until="2026-10-01T00:00:00Z", because="  "
                 )
 
     async def test_a_suppression_past_its_expiry_is_reported_not_lifted(
@@ -183,9 +185,12 @@ class TestLifecycle:
         Naming them is the only honest option."""
         async with started_database.unit_of_work() as uow:
             control, _ = await uow.controls.declare(tenant_id=tenant_id, identity="i1", pql=UNIQUE)
-            await uow.controls.activate(str(control.id), approved_by="alice")
+            await uow.controls.activate(str(control.id), tenant_id=tenant_id, approved_by="alice")
             await uow.controls.suppress(
-                str(control.id), until="2026-01-01T00:00:00Z", because="upstream migration"
+                str(control.id),
+                tenant_id=tenant_id,
+                until="2026-01-01T00:00:00Z",
+                because="upstream migration",
             )
             overdue = await uow.controls.silenced_past_expiry(tenant_id, "2026-09-09T00:00:00Z")
             still_live = await uow.controls.live(tenant_id)
@@ -201,9 +206,9 @@ class TestLifecycle:
         hole in it."""
         async with started_database.unit_of_work() as uow:
             control, _ = await uow.controls.declare(tenant_id=tenant_id, identity="i1", pql=UNIQUE)
-            await uow.controls.retire(str(control.id))
+            await uow.controls.retire(str(control.id), tenant_id=tenant_id)
             assert await uow.controls.live(tenant_id) == []
-            assert await uow.controls.current(str(control.id)) is not None
+            assert await uow.controls.current(str(control.id), tenant_id=tenant_id) is not None
 
 
 class TestRejections:

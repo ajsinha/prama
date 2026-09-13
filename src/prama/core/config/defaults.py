@@ -30,7 +30,6 @@ DEFAULTS: dict[str, Any] = {
         # Empty on purpose: a fresh clone must refuse to serve rather than run
         # on a public secret. Put the real value in application.local.yaml.
         "session_secret": "",
-        "api_key_hash_rounds": 210000,
         # Off in development only because a developer on http://localhost would
         # otherwise never receive the cookie at all and would spend an afternoon
         # on it. Any real deployment sets it true.
@@ -86,11 +85,6 @@ DEFAULTS: dict[str, Any] = {
         "echo": False,
     },
     "concurrency": {
-        "queue": {
-            "max_bytes": "256mb",
-            "max_items": 100000,
-            "offer_timeout": "5s",
-        },
         "supervisor": {
             "shutdown_grace": "30s",
         },
@@ -113,6 +107,5 @@ DEFAULTS: dict[str, Any] = {
             # folded into the plan id of every control that names it.
             "prama.validators",
         ],
-        "disabled": [],
     },
 }

@@ -295,17 +295,21 @@ class ControlCompileCommand(Command):
     def run(self, ctx: CommandContext) -> int:
         from prama.backend.fuse import Fuser
         from prama.backend.sql import SqlCompiler
-        from prama.ir.lower import Lowerer
+        from prama.ir.resolve import resolved
         from prama.pql.errors import PqlUnsupportedError
 
         controls, _, failure = _read(ctx)
         if failure is not None:
             return failure
-        lowerer = Lowerer()
         plans = []
         for control in controls:
             try:
-                plans.append(lowerer.control(control))
+                # `resolved`, not a bare `Lowerer`. Its module says why: it is
+                # the one function that lowers a control properly, and every
+                # call site uses it. This one did not, so every
+                # `IN CODELIST` control was refused as "not registered" against
+                # lists the product ships (QA finding Q-14).
+                plans.append(resolved(control))
             except Exception as exc:  # a control with no plan is reported, not fatal
                 ctx.emit(f"-- {_head(control)}")
                 ctx.emit(f"--   cannot be compiled: {exc}")
