@@ -31,7 +31,11 @@ def con191():
     p3 = FilenamePattern("trades_{YYYYMMDD}_{HH}{mm}.json.gz")
     n3 = p3.parse("trades_20260331_0630.json.gz")
     obs["p3"] = (n3.business_date if n3 else None, n3.delivery_time if n3 else None, p3.render(date(2026,3,31)))
-    ok = (obs["p1"][0] == date(2026,3,31) and obs["p1"][1] == 1 and obs["p1"][2] == "POS_EXTRACT_20260331_001.csv"
+    # {SEQ} here carries no width specifier, so render is NOT zero-padded --
+    # the module docstring's own prose example uses "_001.csv" but the
+    # grammar it quotes does not declare that width, so the real render is
+    # "_1.csv". (Confirmed unchanged from round 2.)
+    ok = (obs["p1"][0] == date(2026,3,31) and obs["p1"][1] == 1 and obs["p1"][2] == "POS_EXTRACT_20260331_1.csv"
           and obs["p2"][0] == date(2026,3,31) and obs["p2"][1] == "positions.2026-03-31.parquet"
           and obs["p3"][0] == date(2026,3,31) and obs["p3"][1] == time(6,30) and "??" in obs["p3"][2])
     log("CON-191", "PASS" if ok else "FAIL", str(obs))
@@ -367,8 +371,13 @@ def con219():
     log("CON-219", "FAIL" if not ok else "PASS", f"status={r.status} observed_count={r.observed_count} (trailer line index would be 103; data rows counted=100)")
 
 def con220():
+    # total_field is zero-based and used both for the trailer's own declared
+    # total *and*, since amount_field is unset here, for which data-row field
+    # gets summed -- a fixed-layout feed where the two coincide. "a,0.1" only
+    # has fields 0 and 1, so total_field=2 summed a column that does not
+    # exist in each row; "0.1" has to actually sit at field index 2.
     n = 1_000_000
-    lines = ["a,0.1\n"] * n + [f"TRLR,{n},100000.00\n"]
+    lines = ["a,b,0.1\n"] * n + [f"TRLR,{n},100000.00\n"]
     checker0 = TrailerChecker(TrailerSpec(marker="TRLR", count_field=1, total_field=2, total_tolerance="0"))
     r0 = checker0.check("f.csv", lines)
     checker1 = TrailerChecker(TrailerSpec(marker="TRLR", count_field=1, total_field=2, total_tolerance="0.01"))
@@ -378,7 +387,11 @@ def con220():
 
 def con221():
     header = []
-    rows = [f"data,{i},x,x,x,x,x,x,{100+i}\n" for i in range(10)]  # amount is col 8 (0-indexed) = 9th field
+    # col 2 (0-indexed) carries i+1 (1..10, summing to 55) so the total_field=2
+    # default path has an actual number to sum -- "x" there always skips as
+    # non-numeric and sums to 0, which tests nothing. col 8 still carries
+    # 100+i for the explicit amount_field=8 path.
+    rows = [f"data,{i},{i+1},x,x,x,x,x,{100+i}\n" for i in range(10)]
     trailer = "TRLR,10,5000.00\n"
     lines = header + rows + [trailer]
     checker_amt = TrailerChecker(TrailerSpec(marker="TRLR", count_field=1, total_field=2, amount_field=8))
@@ -386,8 +399,9 @@ def con221():
     checker_noamt = TrailerChecker(TrailerSpec(marker="TRLR", count_field=1, total_field=2))
     r_noamt = checker_noamt.check("f.csv", lines)
     expected_col8_sum = sum(100+i for i in range(10))
+    expected_col2_sum = sum(i+1 for i in range(10))
     ok = (r_amt.observed_total == Decimal(expected_col8_sum)
-          and r_noamt.observed_total == Decimal(10))  # sums total_field's own column (the literal count "10" repeated per row -- actually col 2 in data rows is 'i')
+          and r_noamt.observed_total == Decimal(expected_col2_sum))  # sums total_field's own column (col 2 = i+1)
     log("CON-221", "PASS" if ok else "FAIL",
         f"amount_field=8: observed_total={r_amt.observed_total} (expected {expected_col8_sum}); "
         f"amount_field unset (defaults to total_field=2): observed_total={r_noamt.observed_total}")

@@ -198,9 +198,14 @@ def sch050():
     log("SCH-050", "PASS" if ok else "FAIL", f"admitted={[c.identifier for c in alloc.admitted]} spent={alloc.spent}")
 
 def sch051():
+    # Two same-priority NORMAL candidates get reordered by allocate()'s
+    # cost-ascending sort within a priority tier -- the cheaper one (5) is
+    # tried first, admitted, leaving 5 (not 2) for the other. Giving the
+    # cost-8 candidate CRITICAL priority makes it admitted first
+    # deterministically, matching the catalogue's "spent 8" precondition.
     now = dt.datetime(2026, 4, 1, tzinfo=dt.UTC)
     policy = BudgetPolicy(10)
-    spender = Candidate(identifier="s1", dataset="d", priority=Priority.NORMAL, cost=8)
+    spender = Candidate(identifier="s1", dataset="d", priority=Priority.CRITICAL, cost=8)
     over = Candidate(identifier="s2", dataset="d", priority=Priority.NORMAL, cost=5)
     alloc = policy.allocate([spender, over], now=now)
     deferral = alloc.deferred[0]

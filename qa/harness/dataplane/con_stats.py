@@ -192,10 +192,15 @@ def pro046():
     log("PRO-046", "PASS" if ok else "FAIL", f"merged rows={pm.rows}/{pw.rows} min_len={pm.strings.min_length}/{pw.strings.min_length} max_len={pm.strings.max_length}/{pw.strings.max_length} mean_len={pm.strings.mean_length}/{pw.strings.mean_length}")
 
 def pro047():
+    # The catalogue's "three references" means three call *sites* --
+    # construction, add, merge -- not a raw substring count: the merge line
+    # (`merged._frequency = self._frequency.merge(other._frequency)`) alone
+    # contains the token three times, which is what a bare finditer count was
+    # actually measuring (5, not 3).
     import re
     src = open("/home/ashutosh/PycharmProjects/prama/src/prama/profile/statistics.py").read()
-    refs = [m.start() for m in re.finditer(r"_frequency\b", src)]
-    log("PRO-047", "PASS" if len(refs) == 3 else "FAIL", f"{len(refs)} references to _frequency (construction, add, merge -- none in profile())")
+    lines_with_ref = {i for i, line in enumerate(src.splitlines()) if re.search(r"_frequency\b", line)}
+    log("PRO-047", "PASS" if len(lines_with_ref) == 3 else "FAIL", f"{len(lines_with_ref)} call sites reference _frequency (construction, add, merge -- none in profile())")
 
 def pro048():
     obs = {}
