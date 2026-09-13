@@ -325,7 +325,21 @@ def _threshold(operator: str, value: str, *, percent: bool) -> str | None:
     if number == 0 and not percent:
         return ""  # the strict default
     if percent:
+        if operator == "<":
+            # A strict bound on a rate has no representable predecessor, so
+            # treating it as inclusive would widen the control silently. The
+            # contract importer refuses the same shape for the same reason.
+            return None
         return f"BELOW {number:g}%"
+    if operator == "<":
+        # `< 5` failures means at most four. Reading it as `<=` accepted one
+        # more bad row than the suite it came from did, every time (QA finding
+        # IMP-028) — and always in the direction that passes.
+        if number != int(number):
+            return None
+        number = int(number) - 1
+        if number < 0:
+            return None
     return f"AT MOST {number:g} ROWS"
 
 

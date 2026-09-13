@@ -330,8 +330,19 @@ def _render(rule: Rule, block: Mapping[str, Any], column: str) -> tuple[str, str
         predicate = predicate.replace("{pattern}", str(pattern))
 
     if "{minimum}" in predicate:
-        low = block.get("mustBeGreaterOrEqualTo", block.get("mustBeGreaterThan"))
-        high = block.get("mustBeLessOrEqualTo", block.get("mustBeLessThan"))
+        # Strict bounds are converted, not borrowed. `HAS ROW COUNT BETWEEN` is
+        # inclusive on both ends, and `mustBeLessThan: 1200000` means a maximum
+        # of 1,199,999 — so copying the number straight in accepted a row count
+        # the contract forbids (QA finding CTR-029). `_threshold` in this same
+        # module already makes exactly this adjustment; the row-count branch
+        # did not, which is how one file came to be right and wrong about the
+        # same word.
+        low, low_error = _inclusive(block, "mustBeGreaterOrEqualTo", "mustBeGreaterThan", +1)
+        if low_error:
+            return "", low_error
+        high, high_error = _inclusive(block, "mustBeLessOrEqualTo", "mustBeLessThan", -1)
+        if high_error:
+            return "", high_error
         between = block.get("mustBeBetween")
         if isinstance(between, Sequence) and not isinstance(between, str) and len(between) == 2:
             low, high = between[0], between[1]
@@ -343,9 +354,50 @@ def _render(rule: Rule, block: Mapping[str, Any], column: str) -> tuple[str, str
         window = block.get("mustBeLessThan") or block.get("window")
         if window is None:
             return "", "a freshness rule needs a window"
-        predicate = predicate.replace("{window}", f"{window} day")
+        # The unit is read, not assumed. `4` with a unit of hours became
+        # `WITHIN 4 day` — a window twenty-four times longer than the contract
+        # states, in the direction that lets stale data pass (QA finding
+        # CTR-031). An unrecognised unit is refused rather than guessed,
+        # because a freshness control that is wrong by a factor is worse than
+        # one that was never generated.
+        unit = str(block.get("unit", "day")).strip().lower().rstrip("s") or "day"
+        if unit not in _FRESHNESS_UNITS:
+            return "", (
+                f"the freshness unit {block.get('unit')!r} is not one PQL expresses. "
+                f"Use one of: {', '.join(sorted(_FRESHNESS_UNITS))}"
+            )
+        predicate = predicate.replace("{window}", f"{window} {unit}")
 
     return predicate, ""
+
+
+#: Units `IS FRESH WITHIN` accepts, singular. Kept beside the mapping that
+#: needs them so a unit PQL stops supporting shows up here as a refusal rather
+#: than as a control that does not parse.
+_FRESHNESS_UNITS: frozenset[str] = frozenset({"minute", "hour", "day"})
+
+
+def _inclusive(
+    block: Mapping[str, Any], inclusive_key: str, strict_key: str, adjust: int
+) -> tuple[Any, str]:
+    """A bound as an inclusive integer, whichever way the contract stated it.
+
+    ODCS has both spellings and they differ by one. Reading the strict one as
+    inclusive widens or narrows the control by a row — always in the direction
+    that accepts data the contract rejects, because the strict bound is the
+    tighter of the two.
+    """
+    if inclusive_key in block:
+        return block[inclusive_key], ""
+    if strict_key not in block:
+        return None, ""
+    value = block[strict_key]
+    if not isinstance(value, int) or isinstance(value, bool):
+        return None, (
+            f"{strict_key} is {value!r}; a strict row-count bound has to be a whole "
+            "number, because the inclusive equivalent is one away from it"
+        )
+    return value + adjust, ""
 
 
 def _threshold(rule: Rule, block: Mapping[str, Any]) -> tuple[str, str]:
