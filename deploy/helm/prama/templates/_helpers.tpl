@@ -30,6 +30,9 @@ SQLite writers means corruption.
 {{- if and (eq .Values.database.dialect "sqlite") (gt (int .Values.replicaCount) 1) -}}
 {{- fail "prama: sqlite with replicaCount > 1 is corruption, not high availability. Two pods writing one file will interleave. Use database.dialect=postgres, or set replicaCount=1." -}}
 {{- end -}}
+{{- if and (eq .Values.database.dialect "sqlite") (not .Values.persistence.enabled) (not .Values.persistence.existingClaim) -}}
+{{- fail "prama: database.dialect=sqlite needs somewhere to write. readOnlyRootFilesystem is on, so set persistence.enabled=true (or persistence.existingClaim). An emptyDir is deliberately not the default: it would start, and lose the evidence ledger on every restart." -}}
+{{- end -}}
 {{- if and (eq .Values.database.dialect "postgres") (not .Values.database.postgres.host) -}}
 {{- fail "prama: database.dialect=postgres needs database.postgres.host." -}}
 {{- end -}}

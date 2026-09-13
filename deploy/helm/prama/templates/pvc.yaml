@@ -1,0 +1,19 @@
+{{- include "prama.validate" . -}}
+{{- if and (eq .Values.database.dialect "sqlite") .Values.persistence.enabled (not .Values.persistence.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "prama.fullname" . }}-data
+  labels: {{- include "prama.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    # ReadWriteOnce, and the chart already refuses sqlite above one replica —
+    # two pods writing one file is corruption, not high availability.
+    - {{ .Values.persistence.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }}
+  {{- with .Values.persistence.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+{{- end }}

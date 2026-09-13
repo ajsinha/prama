@@ -30,6 +30,10 @@ spec:
                   key: session-secret
             - name: PRAMA_DATABASE__DIALECT
               value: {{ .Values.database.dialect | quote }}
+            {{- if eq .Values.database.dialect "sqlite" }}
+            - name: PRAMA_DATABASE__SQLITE__PATH
+              value: {{ .Values.database.sqlite.path | quote }}
+            {{- end }}
             - name: PRAMA_WEB__ENABLED
               value: {{ .Values.web.enabled | quote }}
             {{- if .Values.tenancy.defaultTenant }}
@@ -72,9 +76,22 @@ spec:
             # real security property for one line of YAML.
             - name: tmp
               mountPath: /tmp
+            {{- if eq .Values.database.dialect "sqlite" }}
+            - name: data
+              mountPath: {{ dir .Values.database.sqlite.path | quote }}
+            {{- end }}
       volumes:
         - name: tmp
           emptyDir: {}
+        {{- if eq .Values.database.dialect "sqlite" }}
+        # A claim, never an emptyDir. The evidence ledger is the product; a
+        # volume that empties on restart would take the chain back to sequence
+        # zero silently, and `prama db verify` would then report a perfectly
+        # intact chain about nothing.
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim | default (printf "%s-data" (include "prama.fullname" .)) }}
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector: {{- toYaml . | nindent 8 }}
       {{- end }}

@@ -23,6 +23,15 @@ database:
   # corruption, and the deployment refuses that combination rather than
   # producing it.
   dialect: postgres
+  sqlite:
+    # Where the database file lives *inside the container*. Under
+    # readOnlyRootFilesystem the only writable paths are the ones mounted, so
+    # this has to be one of them — see persistence below. The default was a
+    # relative `data/prama.db`, which resolves under the read-only working
+    # directory, so a single-replica sqlite install — a combination this
+    # chart's own validation explicitly allows — could not write its database
+    # at all (QA finding OPS-014).
+    path: /var/lib/prama/prama.db
   postgres:
     host: ""
     port: 5432
@@ -45,6 +54,20 @@ ingress:
   className: ""
   host: ""
   tls: false
+
+# Durable storage for the sqlite database. Required when dialect is sqlite,
+# and unused otherwise — postgres keeps its data in postgres.
+#
+# An emptyDir would satisfy readOnlyRootFilesystem and silently discard the
+# evidence ledger on every restart, which is worse than failing to start: the
+# chain would begin again at sequence zero and nothing would say so.
+persistence:
+  enabled: false
+  # Use a claim you already have, rather than letting the chart create one.
+  existingClaim: ""
+  size: 8Gi
+  storageClass: ""
+  accessMode: ReadWriteOnce
 
 resources:
   requests:
