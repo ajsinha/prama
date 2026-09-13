@@ -177,6 +177,44 @@ was inaudible on the path most likely to be piped somewhere.
 
 ---
 
+### Q-57 · A valid evidence window verifies as broken — **blocker**
+
+I recorded EVD-049 as "not a defect" during the catalogue pass. That was
+wrong, and the correction is worth stating precisely because the reasoning
+failed in an instructive way.
+
+`ledger.verify()` contains two checks. The **genesis** check is guarded —
+`if str(payload.get("previous_hash", "")) != GENESIS and sequence == 0` — and
+I verified that guard, at `ledger.py:197` and `verify_evidence.py:198`, and
+concluded the finding was a misreading. It was the wrong check. Immediately
+above the loop, `previous_hash` is seeded to `GENESIS` unconditionally, and
+the **link** check at the bottom of the loop has no `sequence == 0` guard at
+all. So the first record of any window whose sequence is not 0 is compared
+against `GENESIS`, does not match, and is reported as breaking the chain.
+
+Reproduced: a six-record chain verifies with no breaches; the untouched
+window `[2:5]` of that same chain reports `link at seq 2 — this record does
+not follow the one before it; the chain is broken here`.
+
+This is not hypothetical. `Archivist.bundle()` (`retention.py:259`) exists to
+export a *range* — its manifest carries `from_sequence` and `to_sequence`,
+fields that have no meaning otherwise — and line 293 calls `verify()` on
+exactly that range. Every archive bundle that does not begin at sequence 0
+therefore reports itself as broken evidence.
+
+The product's whole asset is that a verifier's word can be taken. A verifier
+that cries wolf on valid evidence is one an operator learns to ignore, and an
+ignored verifier is worse than none: it produces the habit of dismissing the
+alarm that eventually matters. A false alarm and a false pass are the same
+defect wearing different clothes.
+
+The lesson for how I check these: I confirmed a guard existed, saw it was
+correct, and stopped. The finding named a symptom, not a line; confirming one
+plausible mechanism is sound is not the same as confirming the symptom does
+not occur. Reproducing the symptom first would have cost one command.
+
+---
+
 ## Open
 
 Ranked. Each was reported by the agent named, and awaits reproduction before
