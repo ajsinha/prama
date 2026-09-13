@@ -85,16 +85,22 @@ async def con148():
         f"csv: kind={snap_b.kind} exact={snap_b.exact}")
 
 async def con149():
+    # MinIO persists across harness runs; a fixed "cache_ds" prefix picks up
+    # objects left behind by an earlier run and obj_count_1 is no longer 1
+    # through no fault of the connector under test. A unique prefix per
+    # invocation keeps this hermetic without needing an S3 delete client.
+    import uuid
+    prefix = f"cache_ds_{uuid.uuid4().hex[:8]}"
     c = duck()
-    c.execute(f"COPY (SELECT i AS id FROM range(3) t(i)) TO 's3://{BUCKET}/cache_ds/part-0.csv' (HEADER, FORMAT CSV)")
+    c.execute(f"COPY (SELECT i AS id FROM range(3) t(i)) TO 's3://{BUCKET}/{prefix}/part-0.csv' (HEADER, FORMAT CSV)")
     c.close()
-    cfg = dict(CFG_BASE, uri=f"s3://{BUCKET}/cache_ds")
+    cfg = dict(CFG_BASE, uri=f"s3://{BUCKET}/{prefix}")
     conn = ObjectStoreConnector(cfg)
     async with conn:
         found1 = await conn.discover()
         n1 = found1[0].estimated_bytes if found1 else None
         c2 = duck()
-        c2.execute(f"COPY (SELECT i AS id FROM range(3) t(i)) TO 's3://{BUCKET}/cache_ds/part-1.csv' (HEADER, FORMAT CSV)")
+        c2.execute(f"COPY (SELECT i AS id FROM range(3) t(i)) TO 's3://{BUCKET}/{prefix}/part-1.csv' (HEADER, FORMAT CSV)")
         c2.close()
         found2 = await conn.discover()  # same connector, listing cached
         n2 = len(found2[0].comment) if found2 else None

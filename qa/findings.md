@@ -594,6 +594,43 @@ The repair is one entry in `BUILTIN_ROLES` plus the third architecture rule, and
 the counterfactual is cheap — grant, assert the console renders, revoke, assert
 403. Batch it with Q-66 if Q-66 is decided as a change.
 
+### Q-68 · A raw Python exception escapes where a typed error is promised — the one batch worth doing first
+
+Found by triaging round 3's standing failures **by cause across areas** rather
+than by area, after a first attempt at clustering grouped four cases together
+that turned out to have four unrelated causes.
+
+**33 of the 237 standing failures in the three completed areas are this one
+class.** The product's own rule, stated in `CLAUDE.md`: *"No exception is
+swallowed. The unit of work translates failures into the Prama error taxonomy
+and they propagate; a DAO never returns a sentinel meaning 'something went
+wrong'."* These are the places where nothing translates.
+
+| area | count | shape |
+|---|---:|---|
+| interfaces | 18 | `Traceback` to the terminal from `prama` itself; `CLI-208` is a `KeyError` where a missing manifest field should be named |
+| language | 14 | `TypeError`, `KeyError`, `IndexError`, `ValueError` out of the IR and backend layers |
+| semantic | 1 | `SEM-222`: a raw `sqlalchemy.exc` reaches the caller, in the layer whose entire job is to translate it |
+
+`CLI-017` is the meta-case and it measured itself: of **224 CLI invocations
+logged across every harness script in round 3, 14 produced an uncaught Python
+traceback** rather than a typed refusal. The census lives in
+`qa/harness/interfaces/cli_call_log.jsonl`.
+
+**Why this batch and not another.** It has one cause, so one repair closes many
+cases — which the previous ten batches conspicuously did not manage, closing 25
+of 247. It needs no product decision: unlike [[Q-63]], [[Q-64]], [[Q-65]] and
+[[Q-66]], nobody has to rule on what the right behaviour is, because the rule is
+already written down. And the counterfactual is unusually strong: the assertion
+is "zero tracebacks across the full invocation census", which fails loudly today
+and cannot quietly stop checking the way a per-case assertion can.
+
+The trap to avoid is a bare `except Exception` at the CLI boundary that formats
+anything as a refusal. That would turn 33 loud failures into 33 silent ones and
+pass the test — the flattering direction. Each site needs the specific typed
+error naming what was wrong, and the top-level handler is the last resort that
+should still be reached by nothing.
+
 ---
 
 ## What held

@@ -293,18 +293,24 @@ def exe054():
     ok = outcome_shared.status == "lost" and outcome_sep.status == "done"
     log("EXE-054", "PASS" if ok else "FAIL", f"shared_writer: second_worker_token7_after_token8={outcome_shared.status} (expect lost/refused); separate_writers: second_worker_token7={outcome_sep.status} (expect done/accepted)")
 
-async def main():
-    await exe040()
+def main():
+    # exe041/044/045/049/051-054 are sync functions that each open their own
+    # event loop internally (asyncio.run(run())); calling them from inside an
+    # already-running loop (as the old `async def main(): ... asyncio.run(main())`
+    # did) raises "asyncio.run() cannot be called from a running event loop".
+    # Each top-level call here runs to completion, closing its loop, before the
+    # next one opens its own -- same execution order, no nesting.
+    asyncio.run(exe040())
     exe041()
-    await exe042()
-    await exe043()
+    asyncio.run(exe042())
+    asyncio.run(exe043())
     exe044()
     exe045()
     exe049()
-    await exe050()
+    asyncio.run(exe050())
     exe051()
     exe052()
     exe053()
     exe054()
 
-asyncio.run(main())
+main()

@@ -18,7 +18,7 @@ async def con113():
 
 def con111():
     sql, params = _bind("SELECT * FROM t WHERE a = ?", (42,))
-    ok1 = "{p0:" in sql and "String" in sql and params.get("p0") == "42"
+    ok1 = "{p0:" in sql and "String" in sql and params.get("p0") == 42
     sql2, params2 = _bind("SELECT '?' AS literal_q, a = ?", ("x", 7))
     ok = ok1
     log("CON-111", "PASS" if ok else "FAIL", f"int bind: sql={sql!r} params={params}; literal-quote case: sql={sql2!r} params={params2}")

@@ -22,16 +22,21 @@ import tempfile, os
 p = FileSecretProvider(root=None)
 tf = tempfile.NamedTemporaryFile(delete=False, suffix=".secret")
 tf.write(b"root-secret-content\n"); tf.close()
+refused_with = None
 try:
     ref = SecretRef(scheme="file", location=tf.name)
     v = p.resolve(ref)
     can_read_arbitrary = v.reveal() == "root-secret-content"
+except SecretResolutionError as e:
+    can_read_arbitrary = False
+    refused_with = str(e)
 finally:
     os.unlink(tf.name)
 r2 = subprocess.run(["grep", "-rn", "-i", "file_root\\|file\\.root\\|secrets\\.file\\.root", f"{REPO}/config"], capture_output=True, text=True)
 documented_requirement = bool(r2.stdout.strip())
 line("SEC-177", "FAIL" if (can_read_arbitrary and not documented_requirement) else "PASS",
-     f"with root=None, resolve(file://{tf.name!r}) succeeded reading an arbitrary file={can_read_arbitrary}; documented deployment requirement for secrets.file.root in config/ = {documented_requirement} (grep hits: {r2.stdout.strip().splitlines()[:5]})")
+     f"with root=None, resolve(file://{tf.name!r}) succeeded reading an arbitrary file={can_read_arbitrary}; documented deployment requirement for secrets.file.root in config/ = {documented_requirement} (grep hits: {r2.stdout.strip().splitlines()[:5]})"
+     + (f"; resolve() now raises SecretResolutionError instead of reading: {refused_with}" if refused_with else ""))
 
 # SEC-180: fragment on non-JSON secret refused, secret text never in message
 try:

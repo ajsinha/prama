@@ -8,10 +8,15 @@ from prama.connect.capability import PushdownFeature
 from prama.connect.registry import ConnectorRegistry
 from prama.connect.builtin import register_builtin
 
+import sys
+sys.path.insert(0, ".")
+import qa_common
+
 results = []
 def log(id_, res, obs):
     results.append((id_, res, obs))
     print(f"{id_}: {res} :: {obs}")
+    qa_common.log(id_, res, obs)  # this script's own log() never wrote results.jsonl
 
 # CON-001
 try:

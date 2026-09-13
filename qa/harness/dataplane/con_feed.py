@@ -406,7 +406,7 @@ def con222():
     ok = (r1.status is IntegrityStatus.TRAILER_UNREADABLE and "1" in r1.detail
           and r2.status is IntegrityStatus.TRAILER_UNREADABLE
           and r3.status is IntegrityStatus.TRAILER_UNREADABLE
-          and all(f.next_action == "confirm the trailer layout with the sender, or correct the declaration" for f in (r1,r2,r3)))
+          and all(f.status.next_action == "confirm the trailer layout with the sender, or correct the declaration" for f in (r1,r2,r3)))
     log("CON-222", "PASS" if ok else "FAIL", str(obs))
 
 def con223():

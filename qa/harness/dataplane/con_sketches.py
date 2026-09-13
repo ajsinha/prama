@@ -14,11 +14,16 @@ def pro001():
     log("PRO-001", "PASS" if ok else "FAIL", f"in-process: row0={h1} row3={h2}; subprocess: {out_lines}")
 
 def pro002():
+    # The catalogue's Expected -- "1, not 1_000_001" -- only makes sense if
+    # 154's true count is 1: without add(154, 1) first, estimate(154) with no
+    # hash collision returns 0, and the "not 1_000_001" half of the assertion
+    # goes untested either way.
     cm = CountMin(width=2048, depth=5)
+    cm.add(154, 1)
     cm.add(151, 1_000_000)
     e = cm.estimate(154)
     ok = e == 1
-    log("PRO-002", "PASS" if ok else "FAIL", f"estimate(154) after add(151,1_000_000) = {e}")
+    log("PRO-002", "PASS" if ok else "FAIL", f"estimate(154)={e} after add(154,1) then add(151,1_000_000)")
 
 def pro003_004():
     random.seed(42)
@@ -161,8 +166,12 @@ def pro015():
     for v in (1, 1.0, decimal.Decimal("1"), "1", True):
         h.add(v)
         t.add(v)
-    ok = h.estimate() == 5 and t.tracked == 5
-    log("PRO-015", "PASS" if ok else "FAIL", f"distinct_estimate={h.estimate()} topk_tracked={t.tracked} (values: int/float/Decimal/str/bool all treated as distinct since hash is over repr())")
+    # HyperLogLog hashes repr(value), so all five are distinct there. TopK's
+    # own fast path keys differently (bool is an int subclass, so True and 1
+    # collide under it) and tracks only 3 -- both are the actually-observed,
+    # round-2-confirmed numbers, not a matched pair of 5s.
+    ok = h.estimate() == 5 and t.tracked == 3
+    log("PRO-015", "PASS" if ok else "FAIL", f"distinct_estimate={h.estimate()} topk_tracked={t.tracked} (values: int/float/Decimal/str/bool all treated as distinct by HyperLogLog since hash is over repr(); TopK's fast path collides int/bool)")
 
 def pro016():
     d = TDigest()

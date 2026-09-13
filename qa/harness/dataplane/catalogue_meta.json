@@ -1,0 +1,2702 @@
+{
+  "CON-001": {
+    "title": "Every abstract method is abstract",
+    "priority": "P1",
+    "expected": "`TypeError` naming all five unimplemented methods"
+  },
+  "CON-002": {
+    "title": "`open` and `close` default to doing nothing",
+    "priority": "P2",
+    "expected": "both return `None`, raise nothing"
+  },
+  "CON-003": {
+    "title": "`__aenter__` opens and `__aexit__` closes",
+    "priority": "P1",
+    "expected": "`open` called once before the body, `close` called once after,   `c` is the connector itself"
+  },
+  "CON-004": {
+    "title": "`__aexit__` closes when the body raises",
+    "priority": "P1",
+    "expected": "the `RuntimeError` propagates and `close` was still called"
+  },
+  "CON-005": {
+    "title": "`close` is safe to call twice",
+    "priority": "P2",
+    "expected": "no exception on the second call; no second driver-level close"
+  },
+  "CON-006": {
+    "title": "Using a connector before `open` names the mistake",
+    "priority": "P1",
+    "expected": "`ConnectorError` with code `CONNECT.NOT_OPEN` and the remedy   \"use the connector as an async context manager, or call open() first\""
+  },
+  "CON-007": {
+    "title": "`run_metric_query` refuses by default, with the alternative",
+    "priority": "P1",
+    "expected": "`ConnectorError` naming the connector class, whose remedy says   the controls are evaluated locally over `read` and to check   `can_run_controls` first"
+  },
+  "CON-008": {
+    "title": "`can_run_controls` is False by default",
+    "priority": "P1",
+    "expected": "`False`"
+  },
+  "CON-009": {
+    "title": "Declaring no capabilities is legal only alongside `can_run_controls = False`",
+    "priority": "P1",
+    "expected": "holds for all nine; `rest` and `mongodb` are the empty-matrix   cases and both report `False`"
+  },
+  "CON-010": {
+    "title": "`execute_plan` refuses with its own code",
+    "priority": "P2",
+    "expected": "`ConnectorError` with code `CONNECT.NO_PUSHDOWN`, distinct from   `CONNECT.ERROR`, remedy naming the Arrow backend"
+  },
+  "CON-011": {
+    "title": "`supports` matches a capability by name",
+    "priority": "P2",
+    "expected": "`True`, `False`, `False`"
+  },
+  "CON-012": {
+    "title": "A predicate on a connector that cannot filter is refused",
+    "priority": "P1",
+    "expected": "`ConnectorError`, code `CONNECT.NO_PREDICATE`, context carrying   the predicate, remedy explaining that reading everything and calling it one   segment would attribute the whole object's data to that segment"
+  },
+  "CON-013": {
+    "title": "An empty predicate is never refused",
+    "priority": "P2",
+    "expected": "returns `None`"
+  },
+  "CON-014": {
+    "title": "A connector that declares `pushdown.predicate` must actually apply it",
+    "priority": "P1",
+    "expected": "exactly that day's rows; never the whole object"
+  },
+  "CON-015": {
+    "title": "`SamplePlan.is_complete` is False as soon as a predicate is present",
+    "priority": "P1",
+    "expected": "`True`, `False`, `False`"
+  },
+  "CON-016": {
+    "title": "`SamplingStrategy.HEAD` is the only unrepresentative strategy",
+    "priority": "P1",
+    "expected": "`False` only for `HEAD`"
+  },
+  "CON-017": {
+    "title": "`SamplePlan.describe` renders each shape as a sentence",
+    "priority": "P3",
+    "expected": "`full scan`; `full scan where \u2026`; `systematic sample at 1.5%`;   `reservoir sample of 1,000 rows`; `stratified`"
+  },
+  "CON-018": {
+    "title": "`SnapshotKind.is_exact` excludes exactly two kinds",
+    "priority": "P1",
+    "expected": "`False` for `WALL_CLOCK` and `OBJECT_LISTING` only"
+  },
+  "CON-019": {
+    "title": "`Snapshot.to_dict` always carries `exact`",
+    "priority": "P2",
+    "expected": "`kind`, `id`, `captured_at`, `exact` always present; `detail`   only when non-empty"
+  },
+  "CON-020": {
+    "title": "`HealthReport` distinguishes who has to fix it",
+    "priority": "P1",
+    "expected": "`is_usable` true for HEALTHY and DEGRADED only;   `needs_access_request` true for UNAUTHORISED *and* for any report carrying   missing permissions; `needs_reconfiguration` true only for MISCONFIGURED"
+  },
+  "CON-021": {
+    "title": "`ReadPolicy.permits_path` treats an empty allow-list as \"everything\"",
+    "priority": "P1",
+    "expected": "`True`; then `True`, `True`, **`True`** (the prefix is   `\"risk.\"` after `rstrip(\"*\")` \u2014 check whether `riskier.positions` matches and   record which), `True` for the empty path"
+  },
+  "CON-022": {
+    "title": "`ReadPolicy.permits_now` treats no permitted hours as \"any hour\"",
+    "priority": "P2",
+    "expected": "`True`; `True`, `False`; `False`, `False`"
+  },
+  "CON-023": {
+    "title": "`Verification` defaults to the weaker claim",
+    "priority": "P2",
+    "expected": "`verification == \"code_complete\"` and the description carries   `CODE COMPLETE \u2014 written and unit-tested; no live source has answered it`"
+  },
+  "CON-024": {
+    "title": "`DiscoveredObject.qualified_name` and `.leaf` survive an empty path",
+    "priority": "P3",
+    "expected": "`qualified_name == \"\"`, `leaf == \"\"`, no `IndexError`"
+  },
+  "CON-025": {
+    "title": "`require` refuses at compile time rather than degrading",
+    "priority": "P1",
+    "expected": "`ConnectorError`, code `CONNECT.CAPABILITY_MISSING`, message   containing \"regex\", context `{\"feature\": \"pushdown.regex\"}`, remedy stating   that Prama will not substitute a construct that means almost the same thing"
+  },
+  "CON-026": {
+    "title": "`require` passes silently for a declared feature",
+    "priority": "P2",
+    "expected": "all return `None`"
+  },
+  "CON-027": {
+    "title": "`PushdownFeature.label` strips the namespace",
+    "priority": "P3",
+    "expected": "`approx distinct`, `exact` (the value is `snapshot.exact`, so the   label is the part after the first dot), `sql`"
+  },
+  "CON-028": {
+    "title": "A matrix is immutable and never probed",
+    "priority": "P2",
+    "expected": "`AttributeError` on both mutations; `pushdown_capabilities` makes   no round trip"
+  },
+  "CON-029": {
+    "title": "`to_capabilities` is deterministically ordered",
+    "priority": "P2",
+    "expected": "identical, sorted by `feature.value`"
+  },
+  "CON-030": {
+    "title": "Every capability in the rendered tuple carries the same attributes",
+    "priority": "P3",
+    "expected": "both carry `{\"regex_flavour\": \"posix\"}`, and each is a distinct   dict (mutating one must not change the other)"
+  },
+  "CON-031": {
+    "title": "`regex_flavour` defaults to `none`, not to a flavour",
+    "priority": "P1",
+    "expected": "`\"none\"`"
+  },
+  "CON-032": {
+    "title": "`nulls_sort_first` distinguishes unknown from False",
+    "priority": "P1",
+    "expected": "`None`, `True`, `False`, `False`"
+  },
+  "CON-033": {
+    "title": "`max_decimal_precision` returns an int or `None`",
+    "priority": "P2",
+    "expected": "`None`, `38`, `38`, `None`"
+  },
+  "CON-034": {
+    "title": "Every shipped connector's declared matrix matches its dialect's",
+    "priority": "P2",
+    "expected": "identical for `postgresql`, `clickhouse`, `snowflake`;   `jdbc` deliberately declares the generic matrix and narrows per configured   dialect at construction"
+  },
+  "CON-035": {
+    "title": "Arrow's own inference is tried first",
+    "priority": "P1",
+    "expected": "`int64`, `string`, `double`, `bool` \u2014 not string"
+  },
+  "CON-036": {
+    "title": "An unsigned 64-bit value survives",
+    "priority": "P1",
+    "expected": "a `uint64` array whose sole value is exactly   `18446744073709551615` \u2014 not a float, not a string, not an exception"
+  },
+  "CON-037": {
+    "title": "A column mixing int and str falls back to text, not to a raise",
+    "priority": "P1",
+    "expected": "a `string` array `[\"100\", \"one hundred\"]`"
+  },
+  "CON-038": {
+    "title": "The fallback is never a float",
+    "priority": "P1",
+    "expected": "`string`, and the decimal's element is exactly   `\"1953193.464900000000\"` \u2014 every digit preserved"
+  },
+  "CON-039": {
+    "title": "Nulls survive every fallback level",
+    "priority": "P1",
+    "expected": "length 2, 2, 3; the null positions are Arrow nulls in every case   \u2014 never the string `\"None\"`"
+  },
+  "CON-040": {
+    "title": "An empty list produces an empty array",
+    "priority": "P2",
+    "expected": "a zero-length array; no exception"
+  },
+  "CON-041": {
+    "title": "A value whose `str()` raises is not swallowed",
+    "priority": "P2",
+    "expected": "the original exception propagates; the read fails loudly rather   than producing a column of nothing"
+  },
+  "CON-042": {
+    "title": "A signed negative value is not coerced through `uint64`",
+    "priority": "P1",
+    "expected": "**not** a `uint64` array containing `18446744073709551615` and a   wrapped `-1`; either a string array, or an exception \u2014 record which"
+  },
+  "CON-043": {
+    "title": "`to_array` is used by every connector that builds a batch by hand",
+    "priority": "P1",
+    "expected": "all four route through it"
+  },
+  "CON-044": {
+    "title": "A mixed-type column read over SQLite does not raise",
+    "priority": "P1",
+    "expected": "a string column of both values"
+  },
+  "CON-045": {
+    "title": "Every field a connector reads appears in its form",
+    "priority": "P1",
+    "expected": "identical sets"
+  },
+  "CON-046": {
+    "title": "The MRO is walked, so inherited fields are offered",
+    "priority": "P1",
+    "expected": "all three present"
+  },
+  "CON-047": {
+    "title": "A subclass's default wins over its base's",
+    "priority": "P2",
+    "expected": "default `2`"
+  },
+  "CON-048": {
+    "title": "A read with no default is required",
+    "priority": "P1",
+    "expected": "`True`"
+  },
+  "CON-049": {
+    "title": "A computed default is real but not rendered",
+    "priority": "P2",
+    "expected": "the field exists, `required=False`, `default=None`"
+  },
+  "CON-050": {
+    "title": "The deriver is deliberately syntactic",
+    "priority": "P2",
+    "expected": "neither field is derived; no exception"
+  },
+  "CON-051": {
+    "title": "`audit()` reports an overlay key the code never reads",
+    "priority": "P1",
+    "expected": "one finding naming the key and saying the connector never reads   it"
+  },
+  "CON-052": {
+    "title": "The shipped overlays are clean",
+    "priority": "P1",
+    "expected": "`[]`"
+  },
+  "CON-053": {
+    "title": "An overlay may annotate but not invent",
+    "priority": "P1",
+    "expected": "the invented key appears in `unknown_overlay_keys` and in **no**   form group"
+  },
+  "CON-054": {
+    "title": "A secret's default is never emitted",
+    "priority": "P1",
+    "expected": "`\"default\": None`, `\"secret\": true`, `\"input\": \"password\"`"
+  },
+  "CON-055": {
+    "title": "`validate` refuses a supplied secret outright",
+    "priority": "P1",
+    "expected": "`ValidationError` naming `password`, remedy \"Reference a vault   entry with credential_ref instead. Connection configuration is exported to Git   and shown in the UI.\""
+  },
+  "CON-056": {
+    "title": "`validate` refuses a missing required field with the field named",
+    "priority": "P1",
+    "expected": "`ValidationError` in all three, context listing `root_path`,   remedy \"Fill in the highlighted fields; the connector reads them with no   default.\""
+  },
+  "CON-057": {
+    "title": "A missing *secret* field is not reported as missing",
+    "priority": "P2",
+    "expected": "no `ValidationError` for that field"
+  },
+  "CON-058": {
+    "title": "`create` validates before constructing",
+    "priority": "P1",
+    "expected": "the `ValidationError` from the schema, not the connector's own   `__init__` error"
+  },
+  "CON-059": {
+    "title": "An unknown connector key lists the available ones",
+    "priority": "P2",
+    "expected": "an error naming the available keys"
+  },
+  "CON-060": {
+    "title": "`capabilities` on an unknown key raises rather than returning empty",
+    "priority": "P2",
+    "expected": "the same registry error as CON-059, not `CapabilityMatrix()`"
+  },
+  "CON-061": {
+    "title": "`register(replace=False)` refuses a duplicate key",
+    "priority": "P2",
+    "expected": "a registry error; the original class is still returned by `get`"
+  },
+  "CON-062": {
+    "title": "`register_builtin` is idempotent",
+    "priority": "P2",
+    "expected": "nine keys each time, no error"
+  },
+  "CON-063": {
+    "title": "A re-registration invalidates the cached schema",
+    "priority": "P2",
+    "expected": "the new field is present"
+  },
+  "CON-064": {
+    "title": "`of_kind` partitions the registry",
+    "priority": "P3",
+    "expected": "`RELATIONAL` \u2192 sqlite, postgresql, jdbc, clickhouse, snowflake;   `FILESYSTEM` \u2192 filesystem; `OBJECT_STORE` \u2192 objectstore; `API` \u2192 rest;   `DOCUMENT` \u2192 mongodb; every other kind empty; the union is all nine with no   duplicates"
+  },
+  "CON-065": {
+    "title": "An estimate makes no round trip",
+    "priority": "P1",
+    "expected": "zero queries issued"
+  },
+  "CON-066": {
+    "title": "Unknown is a valid answer and renders as one",
+    "priority": "P1",
+    "expected": "`rows is None`, `byte_count is None`,   `duration_seconds is None`, all three bases `UNKNOWN`, and the sentence ends   \"\u2014 duration unknown, nothing has been read through this connection yet.\""
+  },
+  "CON-067": {
+    "title": "A derived byte count says it was derived",
+    "priority": "P1",
+    "expected": "`byte_count == 128_000`, `bytes_basis is DERIVED`, and a warning   reading \"the source reports rows but not size; volume assumes 128 bytes per   row\""
+  },
+  "CON-068": {
+    "title": "Duration comes from rows, not from bytes, when both are available",
+    "priority": "P1",
+    "expected": "`duration_seconds == rows / throughput.rows_per_second`,   `duration_basis is MEASURED`"
+  },
+  "CON-069": {
+    "title": "Duration from bytes alone is marked derived",
+    "priority": "P2",
+    "expected": "a duration, with `duration_basis is DERIVED` rather than   `MEASURED`"
+  },
+  "CON-070": {
+    "title": "A zero throughput does not divide by zero",
+    "priority": "P2",
+    "expected": "`duration_seconds is None`, basis `UNKNOWN`; no   `ZeroDivisionError`"
+  },
+  "CON-071": {
+    "title": "A budget breach is named, not merely flagged",
+    "priority": "P1",
+    "expected": "`within_budget is False`; `exceeds` names both limits with the   numbers formatted (`1,000 rows`, `1.0 MB`); the sentence ends \"This exceeds   \u2026\""
+  },
+  "CON-072": {
+    "title": "At exactly the limit nothing is exceeded",
+    "priority": "P2",
+    "expected": "`exceeds == ()`, `within_budget is True`"
+  },
+  "CON-073": {
+    "title": "`plan_that_fits` offers a plan rather than a refusal",
+    "priority": "P2",
+    "expected": "`SamplePlan(strategy=SYSTEMATIC, rows=1000, fraction=0.2)`"
+  },
+  "CON-074": {
+    "title": "`plan_that_fits` returns None when it cannot help",
+    "priority": "P2",
+    "expected": "`None` in all three"
+  },
+  "CON-075": {
+    "title": "`plan_that_fits` derives a row cap from a byte budget",
+    "priority": "P2",
+    "expected": "`rows == 1000`, `fraction == 0.1`"
+  },
+  "CON-076": {
+    "title": "A short read accumulates instead of being discarded",
+    "priority": "P2",
+    "expected": "`None` for the first four; after the fifth (0.05s total, the   `MINIMUM_TIMED_SECONDS` floor) a `Throughput` of 1,000 rows/s and   100,000 bytes/s"
+  },
+  "CON-077": {
+    "title": "A read of zero rows teaches nothing",
+    "priority": "P2",
+    "expected": "nothing recorded, nothing pending; `from_read` returns `None`"
+  },
+  "CON-078": {
+    "title": "Merged throughput is weighted by sample count",
+    "priority": "P2",
+    "expected": "\u2248 990 rows/s, `samples == 101`, `measured_at` the later of the   two"
+  },
+  "CON-079": {
+    "title": "`_render_bytes` and `_render_duration` at the boundaries",
+    "priority": "P3",
+    "expected": "`0 B`, `1,023 B`, `1.0 KB`, a TB figure (never a PB);   `under a second`, `1 seconds`, `89 seconds`, `2 minutes`, `90 minutes`,   `1.5 hours`"
+  },
+  "CON-080": {
+    "title": "`LoadPacer.pause_after` implements the duty cycle",
+    "priority": "P2",
+    "expected": "\u2248 1.9 s \u2014 `work * (1/c - 1)`, so a 100 ms batch is followed by   waiting until roughly two seconds have passed"
+  },
+  "CON-081": {
+    "title": "Pacing is inactive at a ceiling of 0 or 1",
+    "priority": "P2",
+    "expected": "inactive with a pause of 0.0 for all but `0.999`, which is active"
+  },
+  "CON-082": {
+    "title": "A capped pause is counted and logged",
+    "priority": "P2",
+    "expected": "the actual wait is 30 s, `report.capped_pauses == 1`, and the   debug log says the read will exceed its share"
+  },
+  "CON-083": {
+    "title": "Reading cannot write, and the server enforces it",
+    "priority": "P1",
+    "expected": "the server refuses \u2014 `default_transaction_read_only = on` is set   in the pool's `setup`"
+  },
+  "CON-084": {
+    "title": "Every statement carries a timeout",
+    "priority": "P1",
+    "expected": "the server cancels it; `classify_failure` reports `DEGRADED`   with \"the source did not respond in time\""
+  },
+  "CON-085": {
+    "title": "The connection identifies itself",
+    "priority": "P2",
+    "expected": "`prama`, or whatever was configured"
+  },
+  "CON-086": {
+    "title": "A DSN and explicit fields are alternatives, not a merge",
+    "priority": "P2",
+    "expected": "only `dsn`, `timeout` and `server_settings` \u2014 the explicit fields   are silently ignored"
+  },
+  "CON-087": {
+    "title": "`ssl_mode` of `disable` means no TLS argument at all",
+    "priority": "P2",
+    "expected": "`None` for the first two, the literal string for the rest \u2014 and   the invented value reaches asyncpg unvalidated"
+  },
+  "CON-088": {
+    "title": "Health separates \"cannot connect\" from \"cannot read the catalogue\"",
+    "priority": "P1",
+    "expected": "(a) `UNAUTHORISED` with `missing_permissions=(\"catalogue read\",)`;   (b) `DEGRADED` with \"This is not a permissions failure \u2014 the connection and   the credential both worked.\""
+  },
+  "CON-089": {
+    "title": "`classify_failure` keys off words in the driver's message",
+    "priority": "P2",
+    "expected": "UNAUTHORISED, UNAUTHORISED, UNAUTHORISED, UNAUTHORISED,   DEGRADED, DEGRADED, UNREACHABLE \u2014 and record that the last case is   misclassified as UNAUTHORISED because a *table named* `permissions` contains   the substring"
+  },
+  "CON-090": {
+    "title": "`_split` defaults an unqualified path to the `public` schema",
+    "priority": "P2",
+    "expected": "`(\"public\",\"t\")`, `(\"s\",\"t\")`, `(\"s\",\"t\")` \u2014 the catalogue   segment of a three-part Databricks or BigQuery name is dropped"
+  },
+  "CON-091": {
+    "title": "A row estimate is never bought with a scan",
+    "priority": "P1",
+    "expected": "`estimated_rows is None`; no `count(*)` issued"
+  },
+  "CON-092": {
+    "title": "A failed row estimate is a debug line, not an error",
+    "priority": "P2",
+    "expected": "the schema is still returned with `estimated_rows is None`"
+  },
+  "CON-093": {
+    "title": "A negative catalogue estimate becomes unknown",
+    "priority": "P2",
+    "expected": "`None`, not `-1` and not `0`"
+  },
+  "CON-094": {
+    "title": "A row budget caps exactly; a byte budget overshoots by one batch",
+    "priority": "P1",
+    "expected": "exactly 10,000 under the row cap; under the byte cap, exactly one   batch and then a stop"
+  },
+  "CON-095": {
+    "title": "`batch_rows` never fetches more than the read will keep",
+    "priority": "P2",
+    "expected": "10,000; 25; 10,000; 1"
+  },
+  "CON-096": {
+    "title": "A truncated read says so in the log and in `last_read`",
+    "priority": "P1",
+    "expected": "an INFO line naming the object, the row count and the byte   count; `last_read` carries `rows`, `bytes`, `seconds` and a `pacing` report"
+  },
+  "CON-097": {
+    "title": "Pacing time is excluded from the recorded read duration",
+    "priority": "P2",
+    "expected": "the recorded seconds are the *working* time only, roughly a   twentieth of the elapsed"
+  },
+  "CON-098": {
+    "title": "`run_metric_query` refuses rows with no column names",
+    "priority": "P1",
+    "expected": "`ConnectorError` saying \"the source returned rows without column   names\", remedy attributing it to the driver rather than the control"
+  },
+  "CON-099": {
+    "title": "`_column_names` is stale between a `_fetch` and a `_stream`",
+    "priority": "P1",
+    "expected": "keys C,D"
+  },
+  "CON-100": {
+    "title": "Every identifier from a catalogue is quoted",
+    "priority": "P1",
+    "expected": "the embedded delimiter is doubled (or backslash-escaped for   ClickHouse/BigQuery, backslash first); the result is a single identifier and   delimiter parity holds for the rest of the statement"
+  },
+  "CON-101": {
+    "title": "The placeholder style belongs to the driver, not the database",
+    "priority": "P1",
+    "expected": "the JDBC copy yields `?`; the native one still yields `$1`"
+  },
+  "CON-102": {
+    "title": "A JDBC source refuses to open without a dialect",
+    "priority": "P1",
+    "expected": "`ConnectorError`, code `CONNECT.NO_DIALECT`, remedy listing   `DIALECTS` and explaining that guessing would send one database's SQL to   another"
+  },
+  "CON-103": {
+    "title": "An unknown dialect name lists the known ones at construction",
+    "priority": "P2",
+    "expected": "`ConnectorError`, code `CONNECT.UNKNOWN_DIALECT`, remedy listing   all twelve; raised from `__init__`, before any connection attempt"
+  },
+  "CON-104": {
+    "title": "Each of the three JDBC connection fields is refused by name",
+    "priority": "P2",
+    "expected": "`ConnectorError` code `CONNECT.INCOMPLETE` naming the missing   field, remedy \"Prama does not ship drivers and will not fetch one\""
+  },
+  "CON-105": {
+    "title": "`fetch_size` is read, offered in the form, and never used",
+    "priority": "P1",
+    "expected": "the docstring says \"`fetchmany` rather than `fetchall`, **and the   JDBC fetch size set on the statement**: without both, the driver materialises   the whole result set in the JVM heap and a table read fails on memory\". No   code sets it \u2014 `self._fetch_size` has exactly one reference, its assignment"
+  },
+  "CON-106": {
+    "title": "A JDBC decimal arrives as a `Decimal`",
+    "priority": "P1",
+    "expected": "a `decimal.Decimal` with every digit intact \u2014 never a float"
+  },
+  "CON-107": {
+    "title": "Converters are replaced in both tables the bridge keeps",
+    "priority": "P1",
+    "expected": "still a `Decimal`"
+  },
+  "CON-108": {
+    "title": "A `BigInteger` row count does not break discovery",
+    "priority": "P1",
+    "expected": "every table listed with an int row estimate"
+  },
+  "CON-109": {
+    "title": "A failed `open` leaks neither a thread nor a JVM attachment",
+    "priority": "P1",
+    "expected": "the error propagates each time, the worker thread count returns   to its baseline, and the interpreter exits promptly"
+  },
+  "CON-110": {
+    "title": "`close` detaches the JDBC thread from the JVM",
+    "priority": "P2",
+    "expected": "the interpreter exits without hanging; `_detach_from_jvm` runs   *on the worker thread*, not the caller's"
+  },
+  "CON-111": {
+    "title": "ClickHouse binds `?` as a String, whatever the value is",
+    "priority": "P2",
+    "expected": "the integer arrives as `{p0:String}`; the literal question mark   is consumed as a placeholder and the parameter indices shift"
+  },
+  "CON-112": {
+    "title": "ClickHouse pages a stream with LIMIT/OFFSET",
+    "priority": "P2",
+    "expected": "every row exactly once, no duplicates across page boundaries,   and the predicate's `WHERE` sits before the appended `LIMIT \u2026 OFFSET \u2026`"
+  },
+  "CON-113": {
+    "title": "A dialect with no snapshot marker says wall-clock and admits it",
+    "priority": "P1",
+    "expected": "`kind is WALL_CLOCK`, `exact is False`, and `detail[\"note\"]`   reading \"<dialect> offers no point-in-time marker; this snapshot cannot be   replayed exactly\""
+  },
+  "CON-114": {
+    "title": "PostgreSQL's snapshot follows recovery state",
+    "priority": "P2",
+    "expected": "the primary's identifier advances via `pg_current_wal_lsn`; the   standby's via `pg_last_wal_replay_lsn` and also advances"
+  },
+  "CON-115": {
+    "title": "`sample_from` is BERNOULLI, not SYSTEM",
+    "priority": "P1",
+    "expected": "`TABLESAMPLE BERNOULLI (1)` in the SQL; the sample's date   distribution matches the table's; the two samples are identical"
+  },
+  "CON-116": {
+    "title": "A fraction is clamped into a legal percentage",
+    "priority": "P2",
+    "expected": "percentages of `1e-06`, `1e-06`, `100`, `100`, and `1` (the   0.01 default); never `0` and never above `100`"
+  },
+  "CON-117": {
+    "title": "Stratified sampling is refused rather than quietly unstratified",
+    "priority": "P2",
+    "expected": "`False` \u2014 and **no caller in `src/`**, so a stratified plan   reaches `sample_from` and returns an unstratified sample"
+  },
+  "CON-118": {
+    "title": "The base `select_sql` drops a predicate",
+    "priority": "P1",
+    "expected": "the predicate appears in both"
+  },
+  "CON-119": {
+    "title": "`stream_sql` with a sample and a predicate composes legally",
+    "priority": "P2",
+    "expected": "valid SQL in every case"
+  },
+  "CON-120": {
+    "title": "Every \"never run\" dialect still says so",
+    "priority": "P2",
+    "expected": "every warning is still present, and every one of the ten   connectors or dialects reachable from `DIALECTS` that no live database has   answered is `code_complete` rather than `verified`"
+  },
+  "CON-121": {
+    "title": "`_as_bool` reads nullability in all three shapes",
+    "priority": "P2",
+    "expected": "`True, False, True, False, True, True, True, True, False, False,   False, False`"
+  },
+  "CON-122": {
+    "title": "The file is opened read-only by the driver",
+    "priority": "P1",
+    "expected": "`sqlite3.OperationalError` matching \"readonly\""
+  },
+  "CON-123": {
+    "title": "`snapshot` is size, mtime and page count \u2014 not `data_version`",
+    "priority": "P1",
+    "expected": "the two identifiers differ"
+  },
+  "CON-124": {
+    "title": "An unchanged file snapshots identically",
+    "priority": "P1",
+    "expected": "the same identifier, and `exact is True`"
+  },
+  "CON-125": {
+    "title": "A change that preserves size and mtime is not detected",
+    "priority": "P2",
+    "expected": "the identifiers match \u2014 record this as the stated limit"
+  },
+  "CON-126": {
+    "title": "A view that cannot be evaluated still appears in discovery",
+    "priority": "P2",
+    "expected": "the view is listed with `estimated_rows is None`; no exception"
+  },
+  "CON-127": {
+    "title": "`sqlite_%` internal tables are excluded",
+    "priority": "P2",
+    "expected": "`sqlite_sequence` absent"
+  },
+  "CON-128": {
+    "title": "A read with no object named is refused",
+    "priority": "P2",
+    "expected": "`ConnectorError` code `CONNECT.OBJECT_MISSING`, remedy \"Give the   table or view name.\""
+  },
+  "CON-129": {
+    "title": "A non-FULL, non-HEAD plan produces a deterministic ordering",
+    "priority": "P2",
+    "expected": "identical both times at seed 42; a different set at 43"
+  },
+  "CON-130": {
+    "title": "A seed of 0 does not collapse the ordering",
+    "priority": "P2",
+    "expected": "`ORDER BY (rowid * 1 % 1000003)` \u2014 the `or 1` fallback \u2014 which is   rowid order for any table under a million rows, i.e. effectively HEAD"
+  },
+  "CON-131": {
+    "title": "Paging a systematic sample repeats the ORDER BY per batch",
+    "priority": "P2",
+    "expected": "25,000 distinct ids, none repeated across the three batches"
+  },
+  "CON-132": {
+    "title": "A path outside the root is refused",
+    "priority": "P1",
+    "expected": "refused \u2014 record whether the refusal comes from the read policy,   from `is_file()`, or not at all"
+  },
+  "CON-133": {
+    "title": "A filename containing a quote does not break the reader expression",
+    "priority": "P1",
+    "expected": "both succeed; the DuckDB expression has the quote doubled"
+  },
+  "CON-134": {
+    "title": "An unsupported extension is refused with the supported list",
+    "priority": "P2",
+    "expected": "`ConnectorError` code `CONNECT.FORMAT_UNSUPPORTED`; the second   message reads \"cannot read a file with no extension\"; both remedies list the   eight supported extensions"
+  },
+  "CON-135": {
+    "title": "Non-data files are invisible to discovery",
+    "priority": "P2",
+    "expected": "only the CSV"
+  },
+  "CON-136": {
+    "title": "The digest ceiling bounds the hashing",
+    "priority": "P2",
+    "expected": "unset hashes 64 MB (the default) and reports   `detail[\"hashed_bytes\"] == 67_108_864`; at 1 MB it hashes 1 MB and says so"
+  },
+  "CON-137": {
+    "title": "Two files with the same prefix and different tails snapshot differently",
+    "priority": "P2",
+    "expected": "different identifiers \u2014 size and mtime are folded in after the   truncated content hash"
+  },
+  "CON-138": {
+    "title": "`snapshot` reports `hashed_bytes` no larger than the file",
+    "priority": "P3",
+    "expected": "`detail[\"hashed_bytes\"] == 10`, not the 1 MB chunk size"
+  },
+  "CON-139": {
+    "title": "An empty file is readable, not an error",
+    "priority": "P1",
+    "expected": "the header-only file describes its columns with   `estimated_rows == 0` and reads zero batches; the zero-byte file's behaviour is   recorded (DuckDB's `read_csv_auto` on an empty file)"
+  },
+  "CON-140": {
+    "title": "Concurrent reads do not close each other's streams",
+    "priority": "P1",
+    "expected": "both complete with every row"
+  },
+  "CON-141": {
+    "title": "A read does not block the event loop",
+    "priority": "P2",
+    "expected": "the ticker keeps ticking throughout"
+  },
+  "CON-142": {
+    "title": "The filesystem connector ignores the read policy's budgets",
+    "priority": "P1",
+    "expected": "record the actual count"
+  },
+  "CON-143": {
+    "title": "A prefix of daily partitions is one dataset",
+    "priority": "P1",
+    "expected": "exactly one `DiscoveredObject` whose `tags == (\"booked\",)` and   whose comment names the partition column"
+  },
+  "CON-144": {
+    "title": "Only *trailing* directories are partitions",
+    "priority": "P1",
+    "expected": "the first is one dataset at `risk/2026/positions` with depth 0;   the second is one dataset at `risk/positions` with depth 1 and **no** named   column"
+  },
+  "CON-145": {
+    "title": "A bare-partition pattern does not swallow an ordinary name",
+    "priority": "P2",
+    "expected": "the first six match (`\\d{1,4}` catches `7` and `1234`), the last   three do not"
+  },
+  "CON-146": {
+    "title": "More objects than the ceiling is a refusal, not a truncation",
+    "priority": "P1",
+    "expected": "`ConnectorError` code `CONNECT.TOO_MANY_OBJECTS`, remedy naming   a narrower prefix or a higher ceiling and explaining that a partial listing   would profile part of the data as though it were all of it"
+  },
+  "CON-147": {
+    "title": "Exactly the ceiling is allowed",
+    "priority": "P2",
+    "expected": "every object listed, no refusal"
+  },
+  "CON-148": {
+    "title": "A rewritten object changes the snapshot only when rows are known",
+    "priority": "P1",
+    "expected": "(a) `kind is FILE_DIGEST`, `exact is True`, identifier changes;   (b) `kind is OBJECT_LISTING`, `exact is False`"
+  },
+  "CON-149": {
+    "title": "The object listing is cached for the life of the connector",
+    "priority": "P1",
+    "expected": "record whether the new object appears"
+  },
+  "CON-150": {
+    "title": "A dataset mixing formats uses the first object's reader",
+    "priority": "P2",
+    "expected": "record what happens \u2014 objects are sorted by key, so the reader is   chosen by whichever name sorts first, and the glob passes both to it"
+  },
+  "CON-151": {
+    "title": "Credentials never reach a stored string",
+    "priority": "P1",
+    "expected": "the secret appears only in the transient DuckDB statement, with   its quotes doubled; the schema refuses to store it (CON-055)"
+  },
+  "CON-152": {
+    "title": "No access key means the instance's own role",
+    "priority": "P2",
+    "expected": "`PROVIDER credential_chain` present as the second clause; no   `KEY_ID`, `SECRET` or `SESSION_TOKEN` clause even if a session token was   supplied"
+  },
+  "CON-153": {
+    "title": "A URI that is not an object store is MISCONFIGURED, not UNREACHABLE",
+    "priority": "P1",
+    "expected": "MISCONFIGURED for the first three, listing the six accepted   schemes; HEALTHY or a network state for the last"
+  },
+  "CON-154": {
+    "title": "Access denied is UNAUTHORISED and names the permission",
+    "priority": "P2",
+    "expected": "UNAUTHORISED with `missing_permissions=(\"s3:ListBucket\",)` for   the first three; MISCONFIGURED for the fourth; UNREACHABLE for the last"
+  },
+  "CON-155": {
+    "title": "Health truncates the driver's message",
+    "priority": "P3",
+    "expected": "`detail` is the first line, capped at 300 characters"
+  },
+  "CON-156": {
+    "title": "Pagination is followed to the end",
+    "priority": "P1",
+    "expected": "40,000; `last_read_pages == 400`; `last_read_truncated is False`"
+  },
+  "CON-157": {
+    "title": "A `next` link pointing at a page already read stops the read",
+    "priority": "P1",
+    "expected": "the read stops; pages 1\u20133 appear once each; no duplicates"
+  },
+  "CON-158": {
+    "title": "A page cap stops the read and says so",
+    "priority": "P1",
+    "expected": "10 pages read, `last_read_truncated is True`"
+  },
+  "CON-159": {
+    "title": "A row limit reached before the cap is not truncation",
+    "priority": "P2",
+    "expected": "exactly 50 records and `last_read_truncated is False`"
+  },
+  "CON-160": {
+    "title": "A page parameter is not replaced by an empty dict",
+    "priority": "P1",
+    "expected": "each `next` URL is fetched with `params=None`, so its own query   string survives"
+  },
+  "CON-161": {
+    "title": "429 is honoured, not treated as a failure",
+    "priority": "P1",
+    "expected": "waits 2 s, 1 s (the unparseable fallback), 60 s (the clamp), 1 s;   `last_read_waited_seconds` records the total"
+  },
+  "CON-162": {
+    "title": "Five consecutive 429s is a refusal naming the total wait",
+    "priority": "P2",
+    "expected": "`UnreachableError` \"asked us to slow down five times running\",   remedy quoting the accumulated seconds and suggesting reading less or less   often"
+  },
+  "CON-163": {
+    "title": "401 and 403 are UNAUTHORISED, 5xx is DEGRADED",
+    "priority": "P1",
+    "expected": "HEALTHY, UNAUTHORISED, UNAUTHORISED, HEALTHY (health treats   anything under 500 that is not 401/403 as healthy), DEGRADED, DEGRADED; read   raises `UnauthorisedError` for 401 and `UnreachableError` for 404"
+  },
+  "CON-164": {
+    "title": "The credential goes in a header, never a query string",
+    "priority": "P1",
+    "expected": "`Authorization: Bearer <token>` by default; a custom header and   scheme honoured; an empty scheme produces no leading space; the token appears   in no URL"
+  },
+  "CON-165": {
+    "title": "A predicate is refused rather than ignored",
+    "priority": "P1",
+    "expected": "`ConnectorError` code `CONNECT.NO_PREDICATE` before any HTTP call"
+  },
+  "CON-166": {
+    "title": "The schema is inferred across the sample and disagreements land on the column",
+    "priority": "P1",
+    "expected": "`amount`'s comment reads \"arrives as double and as string across   the sample\"; `settled_at` is `nullable`; the columns come from the whole   sample, not record one"
+  },
+  "CON-167": {
+    "title": "A mixed-type column can still be read as Arrow",
+    "priority": "P1",
+    "expected": "a batch is produced; the `amount` column holds both values"
+  },
+  "CON-168": {
+    "title": "A nested value becomes JSON text, deterministically",
+    "priority": "P2",
+    "expected": "one string column; two structurally identical values render   identically (`sort_keys=True`)"
+  },
+  "CON-169": {
+    "title": "A response that is not JSON is refused by name",
+    "priority": "P2",
+    "expected": "`ConnectorError` code `CONNECT.NOT_JSON` naming the URL"
+  },
+  "CON-170": {
+    "title": "`_records` and `_next_link` survive a missing path",
+    "priority": "P2",
+    "expected": "the list; a one-element list holding the dict; the items; **the   whole body** (a missing path falls back to `node = body`); an empty list;   an empty list"
+  },
+  "CON-171": {
+    "title": "An endpoint's whole result set is held in memory",
+    "priority": "P3",
+    "expected": "record the peak"
+  },
+  "CON-172": {
+    "title": "A declared predicate is applied to the query",
+    "priority": "P1",
+    "expected": "only that date's documents"
+  },
+  "CON-173": {
+    "title": "A read with no row limit materialises the collection",
+    "priority": "P1",
+    "expected": "record peak memory"
+  },
+  "CON-174": {
+    "title": "A `Decimal128` stays exact",
+    "priority": "P1",
+    "expected": "a `decimal.Decimal` with every digit; never a float"
+  },
+  "CON-175": {
+    "title": "A type disagreement is reported on the field it is about",
+    "priority": "P1",
+    "expected": "`notional`'s comment reads \"arrives as double and as string   across 200 sampled document(s)\"; `settled_at`'s reads \"absent from 50 of 200   sampled\" and it is nullable"
+  },
+  "CON-176": {
+    "title": "A sampled schema carries its sample size",
+    "priority": "P1",
+    "expected": "`200`"
+  },
+  "CON-177": {
+    "title": "A nested document becomes JSON text, not columns",
+    "priority": "P2",
+    "expected": "type `json`; the value is sorted JSON text; a `datetime` inside   it is stringified rather than raising"
+  },
+  "CON-178": {
+    "title": "An `ObjectId` renders as its hex string",
+    "priority": "P2",
+    "expected": "type name `objectid`; the Arrow value is the 24-character hex   string"
+  },
+  "CON-179": {
+    "title": "A Mongo source refuses to open without a database",
+    "priority": "P1",
+    "expected": "`ConnectorError` code `CONNECT.INCOMPLETE`, remedy \"an estate   declared against the wrong database is worse than one that failed to connect\""
+  },
+  "CON-180": {
+    "title": "A catalogue read failure is distinguished from a connection failure",
+    "priority": "P2",
+    "expected": "health HEALTHY (ping succeeds); discover raises   `UnreachableError` whose remedy names `listCollections`"
+  },
+  "CON-181": {
+    "title": "Credentials in a built URI are percent-encoded",
+    "priority": "P1",
+    "expected": "the password is escaped so the host is parsed correctly"
+  },
+  "CON-182": {
+    "title": "A write statement is refused",
+    "priority": "P1",
+    "expected": "`ConnectorError` \"a control may only run a read-only query\" for   the first five, listing SELECT and WITH as permitted; the last two return the   stripped statement"
+  },
+  "CON-183": {
+    "title": "Two statements are refused",
+    "priority": "P1",
+    "expected": "refusal for the first; the second and third are accepted (the   trailing semicolons are stripped); the fourth is **refused** because the   semicolon is inside a string literal"
+  },
+  "CON-184": {
+    "title": "An empty query is refused as a compiler defect",
+    "priority": "P2",
+    "expected": "`ConnectorError` \"an empty query cannot be run\", remedy \"This is   a compiler defect; the control produced no SQL.\""
+  },
+  "CON-185": {
+    "title": "A refusal truncates the SQL it quotes",
+    "priority": "P3",
+    "expected": "`context[\"sql\"]` is 120 characters"
+  },
+  "CON-186": {
+    "title": "SQLite's REGEXP is registered on every connection Prama opens",
+    "priority": "P1",
+    "expected": "no \"no such function: REGEXP\""
+  },
+  "CON-187": {
+    "title": "REGEXP on a NULL yields NULL, not False",
+    "priority": "P1",
+    "expected": "identical; the nulls are unknown, and the control's policy \u2014 not   this function \u2014 decides what that means"
+  },
+  "CON-188": {
+    "title": "REGEXP takes the pattern first",
+    "priority": "P1",
+    "expected": "1"
+  },
+  "CON-189": {
+    "title": "`executor_for` refuses a missing file and an unknown engine",
+    "priority": "P2",
+    "expected": "`ValidationError` \"there is no file at \u2026\"; `ValidationError`   listing `duckdb, sqlite` and explaining that a caller may supply its own   executor; record what the directory case does"
+  },
+  "CON-190": {
+    "title": "`executor_from` refuses a source with no query engine up front",
+    "priority": "P1",
+    "expected": "`ConnectorError` before any control runs, remedy explaining local   evaluation"
+  },
+  "CON-191": {
+    "title": "Every documented token parses and renders",
+    "priority": "P1",
+    "expected": "the business date, delivery time and sequence are read; `render`   reproduces the name (with `??` for `{HH}`/`{mm}`)"
+  },
+  "CON-192": {
+    "title": "An unrecognised token is refused, not left as a literal",
+    "priority": "P1",
+    "expected": "`ValidationError` naming the token, listing the eleven legal   ones plus `{ANY}`, and saying that left as literal text it \"would match no file   at all and the feed would report a missing delivery every day\""
+  },
+  "CON-193": {
+    "title": "A day token with no month token is refused",
+    "priority": "P1",
+    "expected": "the first raises; the second is accepted and reads as the first   of the month"
+  },
+  "CON-194": {
+    "title": "An empty pattern is refused with an example",
+    "priority": "P2",
+    "expected": "`ValidationError` whose remedy shows   `POS_EXTRACT_{YYYYMMDD}_{SEQ}.csv`"
+  },
+  "CON-195": {
+    "title": "A padded sequence renders padded",
+    "priority": "P2",
+    "expected": "sequence 7 parsed; `POS_20260331_007.csv` and   `POS_20260331_001.csv` rendered"
+  },
+  "CON-196": {
+    "title": "A padded sequence does not match the wrong width",
+    "priority": "P2",
+    "expected": "`None` for both \u2014 `\\d{3}` is exact"
+  },
+  "CON-197": {
+    "title": "`*` and `?` remain wildcards; everything else is escaped",
+    "priority": "P2",
+    "expected": "first matches; second does not (`*` is `[^/]*`); third does not   (the dot is escaped)"
+  },
+  "CON-198": {
+    "title": "Matching is case-insensitive",
+    "priority": "P3",
+    "expected": "`True`"
+  },
+  "CON-199": {
+    "title": "A shaped-but-impossible date is read as no date",
+    "priority": "P2",
+    "expected": "a `ParsedName` in each case with `business_date is None`"
+  },
+  "CON-200": {
+    "title": "`{DDMMYYYY}` and `{YYYYMMDD}` are not confused",
+    "priority": "P1",
+    "expected": "both yield 2026-03-31; and `31032026` under `{YYYYMMDD}` yields   `None` rather than a plausible wrong date"
+  },
+  "CON-201": {
+    "title": "A two-digit year uses the declared century",
+    "priority": "P3",
+    "expected": "2026-03-31 and 1926-03-31"
+  },
+  "CON-202": {
+    "title": "A feed expecting more than one file a day needs a sequence token",
+    "priority": "P1",
+    "expected": "`ValidationError` whose remedy names `{SEQ}` and `{SEQ:3}` and   explains that the deliveries could not otherwise be told apart"
+  },
+  "CON-203": {
+    "title": "`files_per_day` below one is refused",
+    "priority": "P2",
+    "expected": "`ValidationError` \"A feed that never delivers is not a feed\""
+  },
+  "CON-204": {
+    "title": "An earliest time with no due time is refused",
+    "priority": "P2",
+    "expected": "`ValidationError` \"an open-ended window cannot be late\""
+  },
+  "CON-205": {
+    "title": "`can_detect_missing` needs both a deadline and a readable date",
+    "priority": "P1",
+    "expected": "`True` only for the first; a `MISSING` finding only for the first"
+  },
+  "CON-206": {
+    "title": "`from_dict` loses half the definition",
+    "priority": "P1",
+    "expected": "an equal definition"
+  },
+  "CON-207": {
+    "title": "A file arriving after the deadline is LATE, measured from the due time",
+    "priority": "P1",
+    "expected": "06:40 is ON_TIME (inside the grace); 06:50 is LATE with   `lateness_seconds == 1200` \u2014 twenty minutes from **06:30**, not five from 06:45"
+  },
+  "CON-208": {
+    "title": "Nothing is MISSING before the deadline passes",
+    "priority": "P1",
+    "expected": "no finding, no finding, `MISSING`"
+  },
+  "CON-209": {
+    "title": "A missing file is named",
+    "priority": "P1",
+    "expected": "one `MISSING` finding whose `expected_filename` is the *second*   expected name, and whose detail reads \"2 of 3 deliveries have not arrived\""
+  },
+  "CON-210": {
+    "title": "Arrivals are ordered by arrival, not by sequence",
+    "priority": "P1",
+    "expected": "an `OUT_OF_SEQUENCE` finding"
+  },
+  "CON-211": {
+    "title": "A resend is told from a restatement by digest",
+    "priority": "P2",
+    "expected": "DUPLICATE in all three, with details \"identical bytes \u2026 a resend,   not a restatement\", \"same name, different content: this is a restatement, not   a resend\", and \"a second delivery for <date>\""
+  },
+  "CON-212": {
+    "title": "Under LATEST_WINS a second delivery produces no duplicate finding",
+    "priority": "P2",
+    "expected": "record what is emitted \u2014 both files are judged for timeliness and   neither is flagged"
+  },
+  "CON-213": {
+    "title": "A file for a non-business day is UNEXPECTED_DAY, not MISSING",
+    "priority": "P2",
+    "expected": "an `UNEXPECTED_DAY` finding naming the calendar, severity   `minor`, next action \"confirm the calendar: either the feed now runs on this   day, or the sender used the wrong date\""
+  },
+  "CON-214": {
+    "title": "A file too small is TRUNCATED before it is judged for timeliness",
+    "priority": "P2",
+    "expected": "TRUNCATED, TRUNCATED, LATE"
+  },
+  "CON-215": {
+    "title": "Every status carries a severity and a next action",
+    "priority": "P2",
+    "expected": "no `KeyError`; MISSING and TRUNCATED are `critical`; ON_TIME and   EARLY are `info`; every action is a sentence a person can act on"
+  },
+  "CON-216": {
+    "title": "`summarise` reports the worst severity across unhealthy findings",
+    "priority": "P2",
+    "expected": "`worst_severity == \"critical\"` and only the two unhealthy   findings listed; `worst_severity is None` for the second"
+  },
+  "CON-217": {
+    "title": "A trailer count mismatch is a count mismatch, with the shortfall",
+    "priority": "P1",
+    "expected": "`COUNT_MISMATCH`, `shortfall == 3`, and a rendered message   \"trailer declares 1,000 records, 997 arrived (-3)\""
+  },
+  "CON-218": {
+    "title": "Headers and blank lines are excluded from the count",
+    "priority": "P1",
+    "expected": "`MATCHED` both times"
+  },
+  "CON-219": {
+    "title": "The reported `observed_count` on a total mismatch is the line index",
+    "priority": "P2",
+    "expected": "the number of data rows counted (100)"
+  },
+  "CON-220": {
+    "title": "A total is compared as Decimal, within the declared tolerance",
+    "priority": "P1",
+    "expected": "exact Decimal arithmetic; the `\"0\"` case reflects the true   difference rather than a floating-point artefact"
+  },
+  "CON-221": {
+    "title": "`amount_field` and `total_field` are separate settings",
+    "priority": "P2",
+    "expected": "the first sums column 9; the second sums column 2"
+  },
+  "CON-222": {
+    "title": "A malformed trailer is unreadable, not a mismatch",
+    "priority": "P2",
+    "expected": "`TRAILER_UNREADABLE` in all three, naming the field number and   quoting up to 80 characters of the line; next action \"confirm the trailer   layout with the sender, or correct the declaration\""
+  },
+  "CON-223": {
+    "title": "A malformed tolerance is not swallowed",
+    "priority": "P3",
+    "expected": "record what happens \u2014 `Decimal(\"a bit\")` raises   `InvalidOperation`, which is caught only around the *declared* total"
+  },
+  "CON-224": {
+    "title": "No declared trailer is MATCHED, and says why",
+    "priority": "P2",
+    "expected": "`MATCHED` with detail \"no trailer declared for this feed\""
+  },
+  "CON-225": {
+    "title": "A missing trailer is TRAILER_MISSING",
+    "priority": "P1",
+    "expected": "`TRAILER_MISSING` \"no line beginning 'TRLR' was found\" for the   first; the second finds the last such line and counts everything above it"
+  },
+  "CON-226": {
+    "title": "A manifest naming a file that has not landed is incomplete",
+    "priority": "P1",
+    "expected": "`MANIFEST_INCOMPLETE` naming the missing file, with   `declared_count=5` and `observed_count=4`; then `MATCHED`; then `MATCHED`   (an extra file is not reported)"
+  },
+  "PRO-001": {
+    "title": "The hash is stable across processes and runs",
+    "priority": "P1",
+    "expected": "identical digests"
+  },
+  "PRO-002": {
+    "title": "Each row hashes independently",
+    "priority": "P1",
+    "expected": "`1` \u2014 not `1_000_001`"
+  },
+  "PRO-003": {
+    "title": "The CountMin error bound holds",
+    "priority": "P1",
+    "expected": "the over-count bound `e \u00b7 total / width` holds for all but at   most a `2^-5` share; no estimate is ever below the truth"
+  },
+  "PRO-004": {
+    "title": "CountMin never underestimates",
+    "priority": "P1",
+    "expected": "`estimate >= true` always"
+  },
+  "PRO-005": {
+    "title": "CountMin ignores nulls",
+    "priority": "P2",
+    "expected": "`0`, `0`, `0`"
+  },
+  "PRO-006": {
+    "title": "CountMin merges only sketches of the same shape",
+    "priority": "P2",
+    "expected": "`ValueError` \"cannot merge CountMin sketches of different shape\""
+  },
+  "PRO-007": {
+    "title": "A merged CountMin equals the sketch of the concatenation",
+    "priority": "P1",
+    "expected": "identical"
+  },
+  "PRO-008": {
+    "title": "The HyperLogLog standard error is `1.04 / sqrt(2^p)`",
+    "priority": "P1",
+    "expected": "\u2248 0.26, \u2248 0.0163 (\"about 1.6% at the default\"), \u2248 0.002; the   measured relative error is within three standard errors"
+  },
+  "PRO-009": {
+    "title": "Small cardinalities use linear counting and are near-exact",
+    "priority": "P1",
+    "expected": "exact or within one at the low end"
+  },
+  "PRO-010": {
+    "title": "An empty HyperLogLog estimates zero",
+    "priority": "P1",
+    "expected": "`0` both times; no `ZeroDivisionError` and no `math.log(inf)`"
+  },
+  "PRO-011": {
+    "title": "A null is not a distinct value",
+    "priority": "P1",
+    "expected": "`0`"
+  },
+  "PRO-012": {
+    "title": "Precision is bounded at construction",
+    "priority": "P2",
+    "expected": "`ValueError` at 3 and 19; success at 4 and 18"
+  },
+  "PRO-013": {
+    "title": "HyperLogLogs of different precision do not merge",
+    "priority": "P2",
+    "expected": "`ValueError`"
+  },
+  "PRO-014": {
+    "title": "A merged HyperLogLog is the register-wise maximum",
+    "priority": "P1",
+    "expected": "identical estimates; neither input is mutated"
+  },
+  "PRO-015": {
+    "title": "Distinct counting treats `1` and `1.0` as different values",
+    "priority": "P2",
+    "expected": "record the distinct count"
+  },
+  "PRO-016": {
+    "title": "A weighted TDigest point is mass, not a count",
+    "priority": "P1",
+    "expected": "\u2248 4.5 \u2014 not 9.0"
+  },
+  "PRO-017": {
+    "title": "The digest is accurate at the tails",
+    "priority": "P1",
+    "expected": "the tail errors are **no worse than** the median's \u2014 that is the   relationship, not a fixed number"
+  },
+  "PRO-018": {
+    "title": "Quantiles of an empty digest are None",
+    "priority": "P1",
+    "expected": "`None` for all three \u2014 never `inf` or `-inf`"
+  },
+  "PRO-019": {
+    "title": "A quantile outside [0,1] is refused",
+    "priority": "P2",
+    "expected": "`ValueError` for the first two; the minimum and the maximum for   the last two"
+  },
+  "PRO-020": {
+    "title": "Non-finite and non-positive-weight values are ignored",
+    "priority": "P1",
+    "expected": "`count == 2`, `minimum == 1.0`, `maximum == 2.0`"
+  },
+  "PRO-021": {
+    "title": "A merged TDigest answers like the digest of the whole",
+    "priority": "P1",
+    "expected": "within the structure's own stated accuracy; `count` is the sum;   `minimum`/`maximum` are the extremes of both"
+  },
+  "PRO-022": {
+    "title": "TopK is exact for its capacity",
+    "priority": "P1",
+    "expected": "the true top 20, in descending count, with exact counts"
+  },
+  "PRO-023": {
+    "title": "TopK ordering is deterministic on a tie",
+    "priority": "P2",
+    "expected": "identical lists \u2014 the secondary key is `repr(value)`"
+  },
+  "PRO-024": {
+    "title": "Eviction bounds the map on a high-cardinality column",
+    "priority": "P1",
+    "expected": "`tracked` never exceeds 1,000"
+  },
+  "PRO-025": {
+    "title": "Eviction can lose a value that later becomes dominant",
+    "priority": "P2",
+    "expected": "the value is present with a count that under-reports by one"
+  },
+  "PRO-026": {
+    "title": "A merged TopK keeps the capacity bound",
+    "priority": "P2",
+    "expected": "`tracked <= 1000`"
+  },
+  "PRO-027": {
+    "title": "An unhashable value is tracked by its repr",
+    "priority": "P3",
+    "expected": "no `TypeError`; they appear keyed by `repr`"
+  },
+  "PRO-028": {
+    "title": "Every statistic on an empty column",
+    "priority": "P1",
+    "expected": "`rows == 0`, `nulls == 0`, `null_rate == 0.0`,   `distinct_estimate == 0`, `distinct_ratio == 0.0`,   `is_key_candidate is False`, `is_constant is False`,   `dominant_value is None`, `numeric is None`, `strings is None`"
+  },
+  "PRO-029": {
+    "title": "Every statistic on an all-null column",
+    "priority": "P1",
+    "expected": "`rows == 1000`, `nulls == 1000`, `null_rate == 1.0`,   `distinct_estimate == 0` (the `rows > nulls` guard), `is_key_candidate is   False`, `numeric is None`, `strings is None`; the column appears in   `DatasetProfile.empty_columns`"
+  },
+  "PRO-030": {
+    "title": "A one-row column",
+    "priority": "P2",
+    "expected": "`distinct_ratio == 1.0`; `is_key_candidate is True`;   `is_constant is True`; `numeric.stddev == 0.0`; every quantile is `42.0`;   `dominant_value == (42, 1.0)`"
+  },
+  "PRO-031": {
+    "title": "An all-identical column is constant, not a key",
+    "priority": "P1",
+    "expected": "`is_constant is True`, `is_key_candidate is False`,   `dominant_value == (\"N\", 1.0)`"
+  },
+  "PRO-032": {
+    "title": "`dominant_value` has a 90% floor",
+    "priority": "P2",
+    "expected": "`None`, a tuple, a tuple"
+  },
+  "PRO-033": {
+    "title": "Key candidacy allows three standard errors of slack",
+    "priority": "P1",
+    "expected": "all 50"
+  },
+  "PRO-034": {
+    "title": "A nullable column is never a key candidate",
+    "priority": "P1",
+    "expected": "`False`"
+  },
+  "PRO-035": {
+    "title": "NaN counts as a null",
+    "priority": "P2",
+    "expected": "`nulls == 1`, `numeric.mean == 2.0`, no `nan` in any quantile"
+  },
+  "PRO-036": {
+    "title": "A bool is not averaged",
+    "priority": "P2",
+    "expected": "`numeric is None`, `strings is None`; the distinct estimate is 2;   `top_values` holds `True` and `False`"
+  },
+  "PRO-037": {
+    "title": "A datetime is summarised as a number",
+    "priority": "P2",
+    "expected": "numeric summaries with sensible min/max; record what   `datetime.timestamp()` does with the naive values (it applies the host's local   time zone)"
+  },
+  "PRO-038": {
+    "title": "A `Decimal` is neither numeric nor string",
+    "priority": "P1",
+    "expected": "record the result \u2014 `Decimal` is not `int`, `float`, `str` or   `datetime`, so neither `_add_numeric` nor `_add_string` runs and both summaries   are `None`"
+  },
+  "PRO-039": {
+    "title": "A string mask is bounded",
+    "priority": "P2",
+    "expected": "masks for lengths 1 and 64 only; the empty string and the two   long ones contribute none"
+  },
+  "PRO-040": {
+    "title": "Masks generalise the right character classes",
+    "priority": "P2",
+    "expected": "`AA9999999999`, `aaa-999`, `\u00c4\u00d6\u00dc` unchanged (non-ASCII letters are   not in the table), `\u00a39.99`"
+  },
+  "PRO-041": {
+    "title": "Blank strings are counted separately from nulls",
+    "priority": "P1",
+    "expected": "`nulls == 1`, `blank_count == 3`, `min_length == 0`"
+  },
+  "PRO-042": {
+    "title": "`is_fixed_length` requires a positive common length",
+    "priority": "P2",
+    "expected": "`True`, `False`, `False`, `False`"
+  },
+  "PRO-043": {
+    "title": "The variance is clamped at zero",
+    "priority": "P2",
+    "expected": "a real number, never `nan`"
+  },
+  "PRO-044": {
+    "title": "Merging refuses a column-name mismatch",
+    "priority": "P1",
+    "expected": "`ValidationError` naming both, remedy \"Merge accumulators column   by column, matching on name.\""
+  },
+  "PRO-045": {
+    "title": "Merging columns of different types records both",
+    "priority": "P2",
+    "expected": "`TEXT|VARCHAR` \u2014 sorted and joined, not one of the two"
+  },
+  "PRO-046": {
+    "title": "A merged accumulator's counts are exact",
+    "priority": "P1",
+    "expected": "`rows`, `nulls`, `blank_count`, `min_length`, `max_length`,   `mean_length`, `mean` and `stddev` identical; the sketched quantities within   their own declared error"
+  },
+  "PRO-047": {
+    "title": "The CountMin a profile builds is never read",
+    "priority": "P2",
+    "expected": "three references \u2014 construction, `add`, and the merge; none in   `profile()`"
+  },
+  "PRO-048": {
+    "title": "`character_classes` reports every family present",
+    "priority": "P3",
+    "expected": "`{upper,digit}`; `{lower}`; `{lower,punctuation}`;   `{lower,non_ascii}`; `set()`; `{punctuation}`"
+  },
+  "PRO-049": {
+    "title": "A profile records how it was produced",
+    "priority": "P1",
+    "expected": "`computed_at`, `snapshot` (with its `exact` flag), `sampling`,   `representative`, `rows_examined`, `complete`, `duration_seconds` and   `confidence` all present"
+  },
+  "PRO-050": {
+    "title": "The confidence note matches the plan",
+    "priority": "P1",
+    "expected": "\"measured over all 1,000 rows\"; an estimated-from note (because   `is_complete` is False); \"read the first 1,000 rows only \u2014 indicative of shape,   not of any rate\"; \"estimated from 1,000 sampled rows (systematic sample at 1%)\""
+  },
+  "PRO-051": {
+    "title": "A truncated profile is not complete",
+    "priority": "P1",
+    "expected": "`truncated is True`, `is_complete is False`, an INFO log naming   the budget, and `rows_examined` recorded as what was actually read"
+  },
+  "PRO-052": {
+    "title": "The row budget is a floor, not a ceiling",
+    "priority": "P2",
+    "expected": "10,000 \u2014 the check is after the batch is consumed"
+  },
+  "PRO-053": {
+    "title": "Columns are ordered by the schema, with extras appended",
+    "priority": "P2",
+    "expected": "the schema's order first, then the extra"
+  },
+  "PRO-054": {
+    "title": "A column's declared type is preferred over Arrow's",
+    "priority": "P2",
+    "expected": "the source's declared type, not `string`"
+  },
+  "PRO-055": {
+    "title": "`capture_snapshot=False` takes no snapshot",
+    "priority": "P2",
+    "expected": "zero calls; `provenance.snapshot is None`"
+  },
+  "PRO-056": {
+    "title": "A profile of an unreadable object does not stop a source sweep",
+    "priority": "P1",
+    "expected": "four profiles returned and a WARNING naming the failed object"
+  },
+  "PRO-057": {
+    "title": "A source sweep profiles the largest first",
+    "priority": "P2",
+    "expected": "the three largest, in size order"
+  },
+  "PRO-058": {
+    "title": "`suggest_sample_plan` reads everything below the ceiling",
+    "priority": "P1",
+    "expected": "FULL for the first four; for the last, SYSTEMATIC at   `fraction == 0.01` with `seed=1`"
+  },
+  "PRO-059": {
+    "title": "A suggested sample carries a non-zero seed",
+    "priority": "P1",
+    "expected": "`1`"
+  },
+  "PRO-060": {
+    "title": "`detectable_rate` is the rule of three",
+    "priority": "P1",
+    "expected": "`1.0`, `1.0`, `1.0` (clamped), `1.0`, `0.0003`, `0.000003`;   the 0.9 case uses 2.3 as the multiplier"
+  },
+  "PRO-061": {
+    "title": "`from_rows` requires a plan",
+    "priority": "P1",
+    "expected": "`TypeError` \u2014 it is keyword-only with no default"
+  },
+  "PRO-062": {
+    "title": "A column absent from a row is absent, not null",
+    "priority": "P1",
+    "expected": "`a.rows == 2`, `b.rows == 1`, `b.nulls == 0`,   `b.null_rate == 0.0`, and `provenance.rows_examined == 2`"
+  },
+  "PRO-063": {
+    "title": "`from_rows` is not exported",
+    "priority": "P3",
+    "expected": "it resolves \u2014 but the name is absent from `__all__` while   `points_from_profile`, `detectable_rate` and `suggest_sample_plan` are present"
+  },
+  "PRO-064": {
+    "title": "A daily segmentation covers the range inclusively",
+    "priority": "P1",
+    "expected": "three segments keyed `2026-03-30`\u2026`2026-04-01`, each with   `lower` the day and `upper` the next; one segment for the single day"
+  },
+  "PRO-065": {
+    "title": "A monthly segmentation crosses a year boundary",
+    "priority": "P1",
+    "expected": "four segments `2026-11`, `2026-12`, `2027-01`, `2027-02`; the   December segment's `upper` is 2027-01-01"
+  },
+  "PRO-066": {
+    "title": "A reversed range is refused",
+    "priority": "P2",
+    "expected": "`ValidationError` \"the segmentation range ends before it begins\",   remedy \"Give the earlier date first.\""
+  },
+  "PRO-067": {
+    "title": "Too many segments is a refusal, not a truncation",
+    "priority": "P1",
+    "expected": "2,000 succeeds; both 2,001 cases raise `ValidationError` naming   the count and the maximum"
+  },
+  "PRO-068": {
+    "title": "A non-temporal grain cannot be built from dates",
+    "priority": "P2",
+    "expected": "`ValidationError` pointing at `over_values()`"
+  },
+  "PRO-069": {
+    "title": "A segmentation with no column is refused",
+    "priority": "P2",
+    "expected": "the first raises with a remedy naming the business date; the   second is allowed"
+  },
+  "PRO-070": {
+    "title": "`over_values` deduplicates, sorts and drops nulls",
+    "priority": "P2",
+    "expected": "four segments, ordered by `str(value)`, no null segment; `3` and   `\"3\"` are distinct segments whose keys are both `\"3\"`"
+  },
+  "PRO-071": {
+    "title": "A segment predicate quotes the column and escapes the value",
+    "priority": "P1",
+    "expected": "the column double-quoted with its quote doubled; the value   single-quoted with its quote doubled"
+  },
+  "PRO-072": {
+    "title": "`_literal` renders each type as legal SQL",
+    "priority": "P2",
+    "expected": "`NULL`, `1`, `0`, `7`, `7.5`, **`nan`**, **`inf`** \u2014 neither is   valid SQL \u2014 then `'2026-04-01'`, `'2026-04-01T06:30:00'`, `'x'`"
+  },
+  "PRO-073": {
+    "title": "A `NONE`-grain segment's predicate matches nothing",
+    "priority": "P2",
+    "expected": "`\"c\" >= NULL AND \"c\" < NULL` \u2014 which matches no row"
+  },
+  "PRO-074": {
+    "title": "A segmented refresh refuses a connector that cannot filter",
+    "priority": "P1",
+    "expected": "`ConnectorError` code `CONNECT.NO_PREDICATE` before any read"
+  },
+  "PRO-075": {
+    "title": "A refresh with no segments is refused",
+    "priority": "P2",
+    "expected": "`ValidationError` naming the object, remedy \"Declare the   segmentation \u2014 usually by business date \u2014 or profile the dataset whole.\""
+  },
+  "PRO-076": {
+    "title": "Segment reads are bounded by the declared concurrency",
+    "priority": "P1",
+    "expected": "never more than 4"
+  },
+  "PRO-077": {
+    "title": "One failing segment fails the refresh",
+    "priority": "P1",
+    "expected": "record what happens \u2014 `asyncio.gather` with no   `return_exceptions` propagates the first exception, the other nine reads are   cancelled mid-flight, and nothing is recorded in the ledger"
+  },
+  "PRO-078": {
+    "title": "A folded profile is as current as its oldest part",
+    "priority": "P1",
+    "expected": "the *oldest* segment's time"
+  },
+  "PRO-079": {
+    "title": "A folded profile drops the segment predicate",
+    "priority": "P1",
+    "expected": "`predicate == \"\"`, so `is_complete` reflects the strategy alone"
+  },
+  "PRO-080": {
+    "title": "A folded profile equals a single scan",
+    "priority": "P1",
+    "expected": "counts identical; sketched values within their declared error"
+  },
+  "PRO-081": {
+    "title": "A column present in only some segments folds with a short denominator",
+    "priority": "P1",
+    "expected": "record both"
+  },
+  "PRO-082": {
+    "title": "`divergent` compares against the median",
+    "priority": "P1",
+    "expected": "exactly the tenth"
+  },
+  "PRO-083": {
+    "title": "Fewer than three segments cannot diverge",
+    "priority": "P2",
+    "expected": "`[]`, `[]`, `[]`, a result"
+  },
+  "PRO-084": {
+    "title": "`compare` returns None for a column a segment does not have",
+    "priority": "P2",
+    "expected": "`(key, None)` for that segment, and `divergent` excludes it"
+  },
+  "PRO-085": {
+    "title": "A never-profiled segment is NEW",
+    "priority": "P1",
+    "expected": "all five `NEW`, all `needs_read`, `saved_fraction == 0.0`, and   `render()` reads \"Reading all 5 segments \u2014 never profiled.\""
+  },
+  "PRO-086": {
+    "title": "An inexact snapshot makes every segment UNVERIFIABLE",
+    "priority": "P1",
+    "expected": "every segment `UNVERIFIABLE` and read again, with the reason   \"this source offers no exact snapshot, so no segment can be assumed unchanged\""
+  },
+  "PRO-087": {
+    "title": "A settled segment is reused",
+    "priority": "P1",
+    "expected": "`SETTLED`, not read, `saved_fraction` reflecting them"
+  },
+  "PRO-088": {
+    "title": "One changed row re-reads every segment",
+    "priority": "P1",
+    "expected": "record how many segments are `CHANGED`"
+  },
+  "PRO-089": {
+    "title": "The mutable window is inclusive of its boundary day",
+    "priority": "P1",
+    "expected": "the cutoff is 2026-04-07; a segment is mutable when its *upper*   bound is after it, so 2026-04-06 (upper 04-07) is `SETTLED` and 2026-04-07   (upper 04-08) is `MUTABLE`"
+  },
+  "PRO-090": {
+    "title": "A categorical segment never settles",
+    "priority": "P1",
+    "expected": "every segment `MUTABLE`"
+  },
+  "PRO-091": {
+    "title": "A segment recorded against an inexact snapshot is CHANGED",
+    "priority": "P2",
+    "expected": "`CHANGED`, not `SETTLED`"
+  },
+  "PRO-092": {
+    "title": "`forget` forces a full re-read of one dataset only",
+    "priority": "P2",
+    "expected": "every `a` segment `NEW`; every `b` segment unchanged"
+  },
+  "PRO-093": {
+    "title": "`render` generalises one segment's reason to all of them",
+    "priority": "P2",
+    "expected": "record the sentence \u2014 it reads `Reading all 5 segments \u2014   <decisions[0].state.reason>`, i.e. \"never profiled\", which is true of one"
+  },
+  "PRO-094": {
+    "title": "`saved_fraction` of an empty plan is zero, not one",
+    "priority": "P3",
+    "expected": "`0.0`; \"Nothing to examine: the segmentation produced no   segments.\""
+  },
+  "PRO-095": {
+    "title": "Every recorded point carries the profile's provenance",
+    "priority": "P1",
+    "expected": "`snapshot_id`, `snapshot_exact`, `sampling`, `representative`   and `rows_examined` on every point"
+  },
+  "PRO-096": {
+    "title": "Only the statistics a monitor tracks become series",
+    "priority": "P2",
+    "expected": "`row_count`, `duration_seconds`, the four column metrics per   column, the four numeric ones, seven quantiles, and the four string ones; **no**   `top_values` and **no** `top_masks`"
+  },
+  "PRO-097": {
+    "title": "A None statistic is skipped, not recorded as zero",
+    "priority": "P2",
+    "expected": "neither metric appears"
+  },
+  "PRO-098": {
+    "title": "A column with no values produces its four column metrics anyway",
+    "priority": "P2",
+    "expected": "`null_count == rows`, `null_rate == 1.0`,   `distinct_count == 0`, `distinct_ratio == 0.0`"
+  },
+  "PRO-099": {
+    "title": "A generic column name never proposes a relationship",
+    "priority": "P1",
+    "expected": "no candidates; `suppressed == {\"generic_name\": 3}`"
+  },
+  "PRO-100": {
+    "title": "The suppressed count is reported rather than the pairs",
+    "priority": "P2",
+    "expected": "`{\"generic_name\": 412}`"
+  },
+  "PRO-101": {
+    "title": "`_is_generic` strips punctuation before matching",
+    "priority": "P2",
+    "expected": "the first four generic (the regex strips `-`); `account_id`,   `id2` and `_id` not generic (`_` is kept, so `_id` is `_id`)"
+  },
+  "PRO-102": {
+    "title": "Confidence combines signals rather than averaging them",
+    "priority": "P1",
+    "expected": "0.80; 0.5775; 0.87"
+  },
+  "PRO-103": {
+    "title": "A strength of 1.0 does not produce certainty",
+    "priority": "P2",
+    "expected": "0.95 for the first two (clamped), 0.0 for the third"
+  },
+  "PRO-104": {
+    "title": "A single-signal candidate says it is a question",
+    "priority": "P1",
+    "expected": "the first ends \"This rests on a single signal \u2014 \u2026 \u2014 which is a   question rather than a finding\"; the second does not"
+  },
+  "PRO-105": {
+    "title": "The kind's prompt is quoted, not slotted into a sentence",
+    "priority": "P2",
+    "expected": "\"positions \u2192 accounts may be references: records here point at   records there, matched on \u2026\" \u2014 not \"positions may records here point at   records there accounts\""
+  },
+  "PRO-106": {
+    "title": "Schema signature needs three distinctive columns on each side",
+    "priority": "P2",
+    "expected": "`None` below three columns and below 60% overlap; an `Evidence`   at three columns and 61%, with strength `0.5 + 0.3 \u00d7 overlap`"
+  },
+  "PRO-107": {
+    "title": "Co-access is passed in, never read here",
+    "priority": "P2",
+    "expected": "strength `min(0.9, 0.4 + 0.2) == 0.6` in the first; no co-access   evidence in the other two"
+  },
+  "PRO-108": {
+    "title": "`KEY_OVERLAP` is declared and never emitted",
+    "priority": "P2",
+    "expected": "one reference \u2014 its declaration"
+  },
+  "PRO-109": {
+    "title": "Ranking is stable and deterministic",
+    "priority": "P3",
+    "expected": "identical order \u2014 ties break on `left` then `right`, and within   a report on `match_keys[0].left`"
+  },
+  "EXE-001": {
+    "title": "The run marker survives the process dying",
+    "priority": "P1",
+    "expected": "one run row with status `running`"
+  },
+  "EXE-002": {
+    "title": "The marker is committed on the same session",
+    "priority": "P1",
+    "expected": "no deadlock; the caller's pending work is committed too"
+  },
+  "EXE-003": {
+    "title": "A run that finishes is closed in its own transaction",
+    "priority": "P1",
+    "expected": "status `complete`, `finished_at` set, `detail` equal to   `report.describe()`"
+  },
+  "EXE-004": {
+    "title": "`complete` means finished, not passed",
+    "priority": "P1",
+    "expected": "status `complete`; `detail` naming the error count"
+  },
+  "EXE-005": {
+    "title": "A run that raises mid-flight leaves the marker open",
+    "priority": "P1",
+    "expected": "the exception propagates and the run row is still `running`"
+  },
+  "EXE-006": {
+    "title": "Only `active` controls run",
+    "priority": "P1",
+    "expected": "only the active ones produce outcomes"
+  },
+  "EXE-007": {
+    "title": "A control that will not compile is a finding, not a crash",
+    "priority": "P1",
+    "expected": "five outcomes; the second has verdict `error` with a detail   beginning \"could not be compiled:\"; the other four ran"
+  },
+  "EXE-008": {
+    "title": "A source that will not answer is a finding, not a crash",
+    "priority": "P1",
+    "expected": "an `error` record naming the exception type and message; the rest   of the estate runs"
+  },
+  "EXE-009": {
+    "title": "A run over a segmented control judges every segment",
+    "priority": "P1",
+    "expected": "verdict `fail`; the record's metrics are the judged result's, not   row zero's"
+  },
+  "EXE-010": {
+    "title": "A numeric segment key becomes a metric",
+    "priority": "P1",
+    "expected": "record whether `booking_year` appears as a metric"
+  },
+  "EXE-011": {
+    "title": "A segmented control returning one row falls through to the flat path",
+    "priority": "P2",
+    "expected": "record which judgement path is used \u2014 the guard is   `segment_by and len(rows) > 1`"
+  },
+  "EXE-012": {
+    "title": "The derived metrics reach the ledger",
+    "priority": "P1",
+    "expected": "`violating_rows` present"
+  },
+  "EXE-013": {
+    "title": "An empty metric result is not judged as a pass",
+    "priority": "P1",
+    "expected": "an empty metric set reaching `judge` \u2014 record the verdict"
+  },
+  "EXE-014": {
+    "title": "Booleans are excluded from metrics",
+    "priority": "P2",
+    "expected": "`passed` absent from the metrics"
+  },
+  "EXE-015": {
+    "title": "An incomplete screen cannot report a pass",
+    "priority": "P1",
+    "expected": "verdict `indeterminate`, with a detail naming the unrun residual   validators and saying a pass cannot be reported from a screen alone"
+  },
+  "EXE-016": {
+    "title": "A failing screen also carries the lower-bound caveat",
+    "priority": "P1",
+    "expected": "a detail saying \"11 is a LOWER BOUND on the violations; the   residual (\u2026) has not been run and the true count may be higher\""
+  },
+  "EXE-017": {
+    "title": "The threshold travels with the record",
+    "priority": "P1",
+    "expected": "the two records' threshold strings differ and each names the   values"
+  },
+  "EXE-018": {
+    "title": "The recorded snapshot is always wall-clock",
+    "priority": "P1",
+    "expected": "record the kind"
+  },
+  "EXE-019": {
+    "title": "Coverage is recorded as `full` whatever was read",
+    "priority": "P1",
+    "expected": "record the value"
+  },
+  "EXE-020": {
+    "title": "Samples are collected only for a non-passing control",
+    "priority": "P1",
+    "expected": "the sampler is called only for the failing one; the passing   record carries `samples_digest == \"\"` and `sample_count == 0`"
+  },
+  "EXE-021": {
+    "title": "A deployment with no sampler still gets verdicts",
+    "priority": "P1",
+    "expected": "the verdict is recorded; no samples"
+  },
+  "EXE-022": {
+    "title": "A sampling failure does not become an error verdict",
+    "priority": "P1",
+    "expected": "verdict `fail` recorded with no samples; a WARNING logged"
+  },
+  "EXE-023": {
+    "title": "Records and samples are one transaction",
+    "priority": "P1",
+    "expected": "neither the record nor the samples are visible after the failure"
+  },
+  "EXE-024": {
+    "title": "Controls for another source are counted, not dropped",
+    "priority": "P1",
+    "expected": "outcomes only for `a`'s controls; the other 28 appear in   `report.skipped` as `_Elsewhere` with `reason == \"another_source\"`;   `is_a_defect is False`; `describe()` counts them as \"not due\""
+  },
+  "EXE-025": {
+    "title": "`datasets=None` means everything",
+    "priority": "P2",
+    "expected": "all 40 run under `None`; none run and all 40 are `_Elsewhere`   under the empty set"
+  },
+  "EXE-026": {
+    "title": "An unreadable schedule is the one skip that is a defect",
+    "priority": "P1",
+    "expected": "one entry; the sentence ends \"1 with a schedule that cannot be   read, which will never run until it is fixed\""
+  },
+  "EXE-027": {
+    "title": "By default a run means now",
+    "priority": "P1",
+    "expected": "everything runs in the first case with nothing skipped; nothing   runs in the second"
+  },
+  "EXE-028": {
+    "title": "A naive ledger timestamp does not break the scheduler",
+    "priority": "P1",
+    "expected": "all four are aware; the naive one is assumed UTC; no `TypeError`"
+  },
+  "EXE-029": {
+    "title": "`describe` names what did not happen",
+    "priority": "P2",
+    "expected": "\"no controls were live, so nothing ran\"; \"nothing was due, N not   due\"; a verdict breakdown plus \"N could not be executed at all\"; plus the   unschedulable sentence"
+  },
+  "EXE-030": {
+    "title": "Exactly one worker claims a unit",
+    "priority": "P1",
+    "expected": "exactly one non-None claim; nine `None`"
+  },
+  "EXE-031": {
+    "title": "Losing a race is not an error",
+    "priority": "P1",
+    "expected": "`None`, no exception, nothing logged at warning or above"
+  },
+  "EXE-032": {
+    "title": "A short TTL is refused rather than silently unrenewable",
+    "priority": "P1",
+    "expected": "`ValueError` for 0.5 and 1.0 (the renew interval is floored at   1.0 and must be shorter than the TTL); a log warning at 1.5 (renew \u00d7 2 > ttl);   clean at 3.0 and 60.0"
+  },
+  "EXE-033": {
+    "title": "The fencing token is strictly increasing per resource",
+    "priority": "P1",
+    "expected": "strictly increasing"
+  },
+  "EXE-034": {
+    "title": "A stale write is refused",
+    "priority": "P1",
+    "expected": "`StaleWriteError` code `CONCURRENCY.STALE_WRITE`, naming both   tokens and the worker, remedy \"Discard the result\u2026\""
+  },
+  "EXE-035": {
+    "title": "The same token may write twice",
+    "priority": "P2",
+    "expected": "accepted (the comparison is `<`, not `<=`)"
+  },
+  "EXE-036": {
+    "title": "Token zero is accepted",
+    "priority": "P2",
+    "expected": "`0`, then accepted"
+  },
+  "EXE-037": {
+    "title": "`would_accept` agrees with `accept`",
+    "priority": "P2",
+    "expected": "`False/raise`, `True/accept`, `True/accept`"
+  },
+  "EXE-038": {
+    "title": "`claim.check()` raises when the lease has been lost",
+    "priority": "P1",
+    "expected": "`LeaseLostError`"
+  },
+  "EXE-039": {
+    "title": "A claim with no holder checks clean",
+    "priority": "P2",
+    "expected": "returns `None`"
+  },
+  "EXE-040": {
+    "title": "The claim is checked before anything is written",
+    "priority": "P1",
+    "expected": "`status == \"lost\"`, no records written, an ERROR log saying the   result is discarded"
+  },
+  "EXE-041": {
+    "title": "A lost claim requeues; a failed one does not",
+    "priority": "P1",
+    "expected": "`True` for `lost` and `stranded`; `False` for `done`, `skipped`   and `failed`"
+  },
+  "EXE-042": {
+    "title": "A ledger failure strands the unit rather than losing it",
+    "priority": "P1",
+    "expected": "`status == \"stranded\"`; the unit is back in `_pending`; the   resource is no longer claimed; the lease is released"
+  },
+  "EXE-043": {
+    "title": "`drain` does not spin on a permanently failing recorder",
+    "priority": "P1",
+    "expected": "the call terminates"
+  },
+  "EXE-044": {
+    "title": "`drain` honours a positive limit",
+    "priority": "P2",
+    "expected": "three outcomes, then seven"
+  },
+  "EXE-045": {
+    "title": "A worker only takes work in its own zone",
+    "priority": "P1",
+    "expected": "the zoneless worker takes everything; the `eu` worker takes only   `eu` units"
+  },
+  "EXE-046": {
+    "title": "Releasing a superseded claim does not evict the current holder",
+    "priority": "P1",
+    "expected": "the token-8 claim remains in `_claimed`"
+  },
+  "EXE-047": {
+    "title": "Requeuing is the caller's decision",
+    "priority": "P2",
+    "expected": "the unit is absent from `pending()` in the first case and present   in the second"
+  },
+  "EXE-048": {
+    "title": "A requeued unit is not duplicated",
+    "priority": "P2",
+    "expected": "`1` each time"
+  },
+  "EXE-049": {
+    "title": "`_as_triples` accepts both runner shapes",
+    "priority": "P2",
+    "expected": "the first two work; record what the 4-tuple does (the `len == 3`   branch is not taken, so it is read as a 2-tuple and the extra elements are   dropped silently)"
+  },
+  "EXE-050": {
+    "title": "A stranded unit is invisible in the fleet report",
+    "priority": "P1",
+    "expected": "record whether the stranded unit appears"
+  },
+  "EXE-051": {
+    "title": "`run_fleet` reports what is left",
+    "priority": "P2",
+    "expected": "eighteen outcomes and `remaining == 2`"
+  },
+  "EXE-052": {
+    "title": "Two workers racing one queue produce one outcome per unit",
+    "priority": "P1",
+    "expected": "exactly one `done` per unit; no resource appears twice"
+  },
+  "EXE-053": {
+    "title": "A worker holds nothing between units",
+    "priority": "P2",
+    "expected": "no per-unit state; the only mutable member is the shared   `FencedWriter`"
+  },
+  "EXE-054": {
+    "title": "Two workers sharing a `FencedWriter` see each other's tokens",
+    "priority": "P1",
+    "expected": "with a shared writer, refused; with separate writers, accepted"
+  },
+  "EXE-055": {
+    "title": "An unbounded queue cannot be built",
+    "priority": "P1",
+    "expected": "`ValueError` \"an unbounded queue is not permitted\""
+  },
+  "EXE-056": {
+    "title": "The budget is bytes, with items as a secondary guard",
+    "priority": "P1",
+    "expected": "the fourth item blocks on the item guard; the third blocks on the   byte guard"
+  },
+  "EXE-057": {
+    "title": "An oversized item is accepted onto an empty queue",
+    "priority": "P1",
+    "expected": "the first is accepted; the second blocks and then raises   `BackPressureError`"
+  },
+  "EXE-058": {
+    "title": "An oversized item is still refused at the item ceiling",
+    "priority": "P2",
+    "expected": "`False`"
+  },
+  "EXE-059": {
+    "title": "Back-pressure is a typed refusal with a remedy",
+    "priority": "P1",
+    "expected": "`BackPressureError` after ~50 ms, message naming the byte and   item counts, context carrying all four numbers, remedy noting that \"widening   the queue postpones the same problem with more memory held\"; `stats().rejected`   incremented"
+  },
+  "EXE-060": {
+    "title": "`try_put` wakes a consumer",
+    "priority": "P1",
+    "expected": "the consumer returns the item promptly"
+  },
+  "EXE-061": {
+    "title": "`resize` wakes blocked producers",
+    "priority": "P1",
+    "expected": "both producers complete promptly"
+  },
+  "EXE-062": {
+    "title": "Shrinking never discards queued items",
+    "priority": "P1",
+    "expected": "every item still present; `byte_size == 10_000`;   `utilisation == 1.0` (clamped)"
+  },
+  "EXE-063": {
+    "title": "`resize` refuses a non-positive byte budget",
+    "priority": "P2",
+    "expected": "`ValueError` for the first; the second is accepted and means \"no   item ceiling\""
+  },
+  "EXE-064": {
+    "title": "`close` wakes every waiter",
+    "priority": "P1",
+    "expected": "both return promptly; the producer gets `BackPressureError`   \"queue is closed\", the consumer gets `BackPressureError` \"closed and drained\""
+  },
+  "EXE-065": {
+    "title": "A closed queue drains before it refuses",
+    "priority": "P1",
+    "expected": "three items then `BackPressureError`; then the three items and   then `[]`"
+  },
+  "EXE-066": {
+    "title": "`drain` has no timeout",
+    "priority": "P2",
+    "expected": "it waits indefinitely"
+  },
+  "EXE-067": {
+    "title": "`drain` respects `max_items`",
+    "priority": "P2",
+    "expected": "three, then seven; `byte_size` drops by exactly the drained   items' sizes each time"
+  },
+  "EXE-068": {
+    "title": "`default_sizer` charges the overhead and walks one level",
+    "priority": "P2",
+    "expected": "every result at least `ITEM_OVERHEAD_BYTES`; the dict's size   reflects its value; the nested dict is *not* walked past one level; the raising   object returns exactly the overhead"
+  },
+  "EXE-069": {
+    "title": "Stats are a snapshot, not a live view",
+    "priority": "P2",
+    "expected": "the first snapshot is unchanged; high-water marks never decrease"
+  },
+  "EXE-070": {
+    "title": "A quarantining pipeline with no dead letter is refused at construction",
+    "priority": "P1",
+    "expected": "`PramaError` code `STREAM.NO_DEAD_LETTER` for the first two;   the last two construct"
+  },
+  "EXE-071": {
+    "title": "A rejected message is written away before it is removed",
+    "priority": "P1",
+    "expected": "the dead letter receives the payload *before* the `quarantined`   outcome is produced"
+  },
+  "EXE-072": {
+    "title": "A full dead letter halts the pass rather than dropping",
+    "priority": "P1",
+    "expected": "three outcomes; `halted_because` set; `completed is False`;   `describe()` begins \"HALTED after 3 message(s)\" and says the rest of the stream   was not examined"
+  },
+  "EXE-073": {
+    "title": "`DeadLetterFull` is an exception, not a return value",
+    "priority": "P1",
+    "expected": "a `PramaError` subclass raised from `_to_dead_letter`"
+  },
+  "EXE-074": {
+    "title": "An unreadable message with no dead letter is silently dropped",
+    "priority": "P1",
+    "expected": "record what happens \u2014 `_to_dead_letter` returns silently, the   outcome is `unreadable`, and `was_kept` reports `True`"
+  },
+  "EXE-075": {
+    "title": "ALERT lets a violating message through",
+    "priority": "P1",
+    "expected": "disposition `passed`, `violated` naming the plan ids,   `reaches_the_consumer is True`, payload unmodified"
+  },
+  "EXE-076": {
+    "title": "TAG marks and delivers",
+    "priority": "P1",
+    "expected": "disposition `tagged`; the payload gains   `{\"_prama\": {\"violated\": [...], \"unknown\": [...]}}`; the original dict is not   mutated; `reaches_the_consumer is True`"
+  },
+  "EXE-077": {
+    "title": "A message whose payload already has the tag field",
+    "priority": "P2",
+    "expected": "the existing value is overwritten"
+  },
+  "EXE-078": {
+    "title": "Violated controls are named, not counted",
+    "priority": "P1",
+    "expected": "`violated` holds that assertion's `plan.plan_id`"
+  },
+  "EXE-079": {
+    "title": "An assertion with no plan contributes an empty identity",
+    "priority": "P2",
+    "expected": "`violated == (\"\",)` \u2014 record it"
+  },
+  "EXE-080": {
+    "title": "Latency is measured per message and reported as a percentile",
+    "priority": "P1",
+    "expected": "a real p99; `within` returns a bool"
+  },
+  "EXE-081": {
+    "title": "Nothing measured is None, not zero",
+    "priority": "P1",
+    "expected": "`None`, `None`, `None`, \"no messages passed through, so nothing   was measured\""
+  },
+  "EXE-082": {
+    "title": "The percentile index is in range at the boundaries",
+    "priority": "P2",
+    "expected": "no `IndexError`; `percentile(1.0)` returns the maximum"
+  },
+  "EXE-083": {
+    "title": "Commit happens after enforcement, never before",
+    "priority": "P1",
+    "expected": "poll, then the pipeline, then commit"
+  },
+  "EXE-084": {
+    "title": "A halted batch commits through the last enforced message",
+    "priority": "P1",
+    "expected": "commits through message four only; six positions uncommitted;   `describe()` says they will be redelivered"
+  },
+  "EXE-085": {
+    "title": "Offsets are committed per partition",
+    "priority": "P1",
+    "expected": "two positions \u2014 `t[0]@5` and `t[1]@12` \u2014 sorted deterministically"
+  },
+  "EXE-086": {
+    "title": "A poll failure commits nothing",
+    "priority": "P1",
+    "expected": "`TransportError` code `STREAM.TRANSPORT`, remedy \"Nothing was   enforced and nothing was committed, so no message was lost\"; no commit call"
+  },
+  "EXE-087": {
+    "title": "A commit failure says the batch will be reprocessed",
+    "priority": "P1",
+    "expected": "`TransportError` whose remedy says the messages will be   redelivered and dead-lettered again, and whose context carries the enforced   count"
+  },
+  "EXE-088": {
+    "title": "An empty poll is not an error and commits nothing",
+    "priority": "P2",
+    "expected": "`polled == 0`, `committed == ()`, `describe() == \"nothing to   read\"`, and the pipeline was still run over an empty iterable"
+  },
+  "EXE-089": {
+    "title": "`run_until_idle` stops on a halt rather than spinning",
+    "priority": "P1",
+    "expected": "exactly one report, halted"
+  },
+  "EXE-090": {
+    "title": "`max_batches` bounds a transport that never empties",
+    "priority": "P2",
+    "expected": "exactly five reports"
+  },
+  "EXE-091": {
+    "title": "A batch size below one is refused",
+    "priority": "P2",
+    "expected": "`PramaError` code `STREAM.BATCH_SIZE`"
+  },
+  "EXE-092": {
+    "title": "A `MemoryTransport` commit never moves an offset backwards",
+    "priority": "P2",
+    "expected": "`committed` stays at 10"
+  },
+  "EXE-093": {
+    "title": "Auto-commit is refused, not overridden",
+    "priority": "P1",
+    "expected": "`PramaError` code `STREAM.AUTO_COMMIT` for the first three;   construction for the last two, with the setting forced to `False`"
+  },
+  "EXE-094": {
+    "title": "Kafka commits `offset + 1`",
+    "priority": "P1",
+    "expected": "the message does not come back"
+  },
+  "EXE-095": {
+    "title": "A broker error aborts the batch without enforcing",
+    "priority": "P2",
+    "expected": "`TransportError` naming the broker error; the messages already   accumulated in the batch are discarded and never committed"
+  },
+  "EXE-096": {
+    "title": "An undeserialisable message is not dead-lettered as unreadable",
+    "priority": "P1",
+    "expected": "record the disposition"
+  },
+  "EXE-097": {
+    "title": "A JSON body that is not an object is wrapped",
+    "priority": "P2",
+    "expected": "the first four become `{\"_raw\": \u2026}`; the empty body becomes `{}`"
+  },
+  "EXE-098": {
+    "title": "Headers and keys survive invalid UTF-8",
+    "priority": "P2",
+    "expected": "replacement characters rather than a `UnicodeDecodeError`; the   `None` key becomes `\"\"`"
+  },
+  "EXE-099": {
+    "title": "`close` is idempotent",
+    "priority": "P2",
+    "expected": "the underlying consumer is closed once; no exception"
+  },
+  "EXE-100": {
+    "title": "A message is judged by the same semantics as a batch row",
+    "priority": "P1",
+    "expected": "identical"
+  },
+  "EXE-101": {
+    "title": "The second stage decides in flight too",
+    "priority": "P1",
+    "expected": "`passed is False`"
+  },
+  "EXE-102": {
+    "title": "An unknown is counted and the policy decides",
+    "priority": "P1",
+    "expected": "`judge` returns `unknown=True` with `passed` following the   policy; `offer` increments `_unknowns` always and `_violations` only under   FAIL; the two paths agree"
+  },
+  "EXE-103": {
+    "title": "A control with no predicate passes everything",
+    "priority": "P2",
+    "expected": "`passed is True`, `unknown is False`"
+  },
+  "EXE-104": {
+    "title": "A count window closes at its size",
+    "priority": "P1",
+    "expected": "no verdict at 99; a verdict on the 100th; the 101st opens a new   window with `_messages == 1`"
+  },
+  "EXE-105": {
+    "title": "A tumbling window never closes without a timestamp",
+    "priority": "P1",
+    "expected": "no verdict ever; the counters grow without bound"
+  },
+  "EXE-106": {
+    "title": "A window is cut by arrival, not by event time",
+    "priority": "P1",
+    "expected": "the window opens at the *first* message's `at` and closes when   some message's `at` is a minute past it; a late message is counted into   whichever window is open when it arrives, and a message earlier than   `_opened_at` produces a negative delta that cannot close the window"
+  },
+  "EXE-107": {
+    "title": "An empty window is indeterminate, not a pass",
+    "priority": "P1",
+    "expected": "`Verdict.INDETERMINATE`, `messages == 0`,   `violation_rate == 0.0`"
+  },
+  "EXE-108": {
+    "title": "Closing resets every counter",
+    "priority": "P1",
+    "expected": "the second verdict counts only the second window's messages;   `opened_at` is the second window's first timestamp"
+  },
+  "EXE-109": {
+    "title": "`offer` allocates nothing per message",
+    "priority": "P2",
+    "expected": "no `MessageVerdict` allocated; the cost is the evaluation"
+  },
+  "EXE-110": {
+    "title": "A window is judged by the plan's own threshold",
+    "priority": "P1",
+    "expected": "pass then fail \u2014 the same boundary the nightly run applies"
+  },
+  "EXE-111": {
+    "title": "A window's duration and size are validated",
+    "priority": "P2",
+    "expected": "`ValidationError` for the first four; the last constructs (the   duration is not checked for a count window)"
+  },
+  "EXE-112": {
+    "title": "A suite evaluates one deserialised message once",
+    "priority": "P1",
+    "expected": "one object, seen by all forty"
+  },
+  "EXE-113": {
+    "title": "`close_all` skips an assertion with no open messages",
+    "priority": "P2",
+    "expected": "two verdicts; the third silently produces none"
+  },
+  "EXE-114": {
+    "title": "Lag is reported, never absorbed",
+    "priority": "P1",
+    "expected": "`messages_behind == 19_000`, `is_falling_behind is True`, and a   sentence saying \"Messages are not being dropped; the assertion is asking the   caller to shed load or add capacity\""
+  },
+  "EXE-115": {
+    "title": "Lag is never negative",
+    "priority": "P3",
+    "expected": "`0`"
+  },
+  "EXE-116": {
+    "title": "Coverage qualifies a verdict at the width it was established",
+    "priority": "P1",
+    "expected": "`\"passed\"` for FULL and `\"passed over the rows examined\"` for the   other two; only FULL supports a whole-dataset claim; only FORWARD_ONLY fails   `sees_restatements`"
+  },
+  "EXE-117": {
+    "title": "A dataset never examined reads everything, and says why",
+    "priority": "P1",
+    "expected": "`Coverage.FULL`, `reason == \"nothing has been examined before\"`,   and `describe()` reading \"the whole dataset \u2014 nothing has been examined before\""
+  },
+  "EXE-118": {
+    "title": "A due full sweep reads everything and says when the last one was",
+    "priority": "P1",
+    "expected": "FULL, INCREMENTAL, FULL \u2014 and the FULL reasons name the last   sweep's date or \"never run\""
+  },
+  "EXE-119": {
+    "title": "A policy with no sweep and no change column is a stated gap",
+    "priority": "P1",
+    "expected": "a sentence naming the lookback and saying a correction booked   before it would never be seen, with a remedy"
+  },
+  "EXE-120": {
+    "title": "A change column widens the predicate with OR",
+    "priority": "P1",
+    "expected": "`booked >= '2026-04-07' OR updated_at >= '2026-04-07'`"
+  },
+  "EXE-121": {
+    "title": "A zero lookback with no change column is FORWARD_ONLY",
+    "priority": "P1",
+    "expected": "`FORWARD_ONLY`, whose `sees_restatements` is False"
+  },
+  "EXE-122": {
+    "title": "A negative lookback is refused",
+    "priority": "P2",
+    "expected": "`ValidationError` \"a lookback cannot be negative\""
+  },
+  "EXE-123": {
+    "title": "A watermark never moves backwards",
+    "priority": "P1",
+    "expected": "unchanged, advanced (equal is not \"before\"), advanced, unchanged"
+  },
+  "EXE-124": {
+    "title": "`rows_seen` accumulates across advances",
+    "priority": "P2",
+    "expected": "the refused advance contributes nothing"
+  },
+  "EXE-125": {
+    "title": "`_shift` applies the lookback only where it means something",
+    "priority": "P1",
+    "expected": "shifted, shifted, shifted as an ISO string, returned unchanged,   returned unchanged, returned unchanged"
+  },
+  "EXE-126": {
+    "title": "`_literal` quotes a watermark bound safely",
+    "priority": "P2",
+    "expected": "`NULL`, `7`, `7.5`, `'True'` (bool is excluded from the numeric   branch), `'2026-04-07'`, `'it''s'`"
+  },
+  "EXE-127": {
+    "title": "`_period` renders every magnitude",
+    "priority": "P3",
+    "expected": "`day`, `3 days`, `hour`, `5 hours`, `30 minutes`, `0 minutes`"
+  },
+  "EXE-128": {
+    "title": "Only a failure acts",
+    "priority": "P1",
+    "expected": "a `Consequence` only for FAIL; `None` otherwise"
+  },
+  "EXE-129": {
+    "title": "A quarantine sets rows aside and records a reference, not the rows",
+    "priority": "P1",
+    "expected": "`quarantined_rows == 900`; a reference string; the rows are in   the `Quarantine` and **not** in the `Consequence`"
+  },
+  "EXE-130": {
+    "title": "A quarantine with no rows quarantines nothing",
+    "priority": "P1",
+    "expected": "a `Consequence` whose action is quarantine, `quarantine_ref ==   \"\"` and `quarantined_rows == 0`"
+  },
+  "EXE-131": {
+    "title": "A blocking consequence is in force until it is dealt with",
+    "priority": "P1",
+    "expected": "blocking; not blocking; not blocking; not blocking"
+  },
+  "EXE-132": {
+    "title": "An expired override restores the block",
+    "priority": "P1",
+    "expected": "not blocking, blocking, blocking (`moment < until` is strict)"
+  },
+  "EXE-133": {
+    "title": "An override with no expiry never restores the block",
+    "priority": "P1",
+    "expected": "not blocking; the rendered line says \"overridden by <name> **with   no expiry**\""
+  },
+  "EXE-134": {
+    "title": "A non-blocking action is never in force",
+    "priority": "P2",
+    "expected": "empty"
+  },
+  "EXE-135": {
+    "title": "A second failure on the same plan overwrites the first",
+    "priority": "P1",
+    "expected": "record what happens \u2014 `self._open[plan_id] = consequence`   replaces the overridden entry with a fresh OPEN one"
+  },
+  "EXE-136": {
+    "title": "Overriding, releasing or resolving an unknown plan returns None",
+    "priority": "P2",
+    "expected": "`None` in all four"
+  },
+  "EXE-137": {
+    "title": "Releasing an unknown reference still records a release",
+    "priority": "P2",
+    "expected": "`[]` and `True`"
+  },
+  "EXE-138": {
+    "title": "Quarantined rows are copied, not referenced",
+    "priority": "P2",
+    "expected": "the stored rows are unchanged; `get` returns a new list each time"
+  },
+  "EXE-139": {
+    "title": "A trial is not an evidence record",
+    "priority": "P1",
+    "expected": "refused by type"
+  },
+  "EXE-140": {
+    "title": "An empty period is `no_data`, not a pass",
+    "priority": "P1",
+    "expected": "`verdict == \"no_data\"`, `has_data is False`, detail \"no rows were   in scope, so the control tested nothing\""
+  },
+  "EXE-141": {
+    "title": "Empty periods are excluded from the rate and counted",
+    "priority": "P1",
+    "expected": "`alert_rate == 0.2` (4 of 20, not 4 of 30); `describe()` names the   10 as \"excluded from the rate rather than counted as quiet\""
+  },
+  "EXE-142": {
+    "title": "A backtest that could read nothing reports None, not zero",
+    "priority": "P1",
+    "expected": "`alert_rate is None`, `per_period(30) is None`, and `describe()`   reading \"none of the 30 period(s) could be evaluated\""
+  },
+  "EXE-143": {
+    "title": "An indeterminate period counts as an alert",
+    "priority": "P1",
+    "expected": "`False, True, True, False, False`"
+  },
+  "EXE-144": {
+    "title": "Fewer than five evaluated periods is not a rate worth quoting",
+    "priority": "P2",
+    "expected": "`False` then `True`; the first's sentence ends \"4 period(s) is   too few to quote a rate from\""
+  },
+  "EXE-145": {
+    "title": "A bounded scan makes the counts a floor and says so",
+    "priority": "P1",
+    "expected": "`was_bounded is True`; the detail says the scan stopped at the   cap and the counts are a floor; `describe()` renders \"at least N of M rows\";   the backtest's `is_a_lower_bound` is True and `describe()` says \"at least\""
+  },
+  "EXE-146": {
+    "title": "A bounded scan does not downgrade the verdict",
+    "priority": "P2",
+    "expected": "`verdict == \"pass\"` with a bounding detail \u2014 record it"
+  },
+  "EXE-147": {
+    "title": "The scan limit is applied by the compiler, not as a query LIMIT",
+    "priority": "P1",
+    "expected": "the limit wraps the source relation, not the aggregate"
+  },
+  "EXE-148": {
+    "title": "A period restriction is built as an AST node",
+    "priority": "P1",
+    "expected": "the period reaches the compiler as a `Literal` and is escaped by   the dialect; the trial finds nothing rather than doing something"
+  },
+  "EXE-149": {
+    "title": "A period column must be a plain identifier",
+    "priority": "P1",
+    "expected": "accepted, accepted, then `ValidationError` for the next six   except the last, which is trimmed and accepted"
+  },
+  "EXE-150": {
+    "title": "An existing WHERE is combined, not replaced",
+    "priority": "P1",
+    "expected": "`AND` of the original and the period predicate; the original   control object is not mutated"
+  },
+  "EXE-151": {
+    "title": "`over` is a generator and yields as it goes",
+    "priority": "P2",
+    "expected": "the first arrives after one round trip, not after thirty"
+  },
+  "EXE-152": {
+    "title": "A parse failure yields one errored trial per period",
+    "priority": "P2",
+    "expected": "30 trials, each with the same error and `ran is False`; no   exception; `evaluated` is empty and `alert_rate is None`"
+  },
+  "EXE-153": {
+    "title": "`business_dates` excludes weekends and ends inclusively",
+    "priority": "P2",
+    "expected": "five weekdays ending on the Friday before for the Sunday case;   five consecutive days including the weekend when the flag is off; `[]` for   `days=0`; results are in ascending date order"
+  },
+  "SCH-001": {
+    "title": "Every documented schedule form parses",
+    "priority": "P1",
+    "expected": "an `IntervalTrigger(15)`, `IntervalTrigger(240)`,   `IntervalTrigger(1440)`, a `CalendarTrigger` on `ALWAYS_OPEN`, a   `CalendarTrigger` on TARGET2, an `ArrivalTrigger`, a `ManualTrigger`"
+  },
+  "SCH-002": {
+    "title": "Every alias parses to the same trigger",
+    "priority": "P2",
+    "expected": "each group yields equal triggers"
+  },
+  "SCH-003": {
+    "title": "Parsing is case- and whitespace-insensitive",
+    "priority": "P2",
+    "expected": "all succeed; the empty string and `None` yield `DEFAULT`   (`daily`)"
+  },
+  "SCH-004": {
+    "title": "An unstated schedule is daily, not hourly",
+    "priority": "P1",
+    "expected": "1,440 minutes"
+  },
+  "SCH-005": {
+    "title": "A cadence below the floor is refused, not clamped",
+    "priority": "P1",
+    "expected": "`ValidationError` naming the 5-minute floor for the first and   third; success for the second"
+  },
+  "SCH-006": {
+    "title": "An impossible time of day is refused",
+    "priority": "P1",
+    "expected": "`ValidationError` for the first two; success for the rest \u2014   `6:30` is legal because the hour group is `\\d{1,2}`"
+  },
+  "SCH-007": {
+    "title": "An unknown calendar is refused, not treated as weekdays",
+    "priority": "P1",
+    "expected": "`ValidationError` listing the loaded calendars and saying that   treating it as weekdays \"would produce controls that fire on the wrong days\""
+  },
+  "SCH-008": {
+    "title": "Cron is refused by name",
+    "priority": "P1",
+    "expected": "`ValidationError` listing the seven accepted forms and saying   \"Cron is deliberately not accepted \u2014 it cannot express a business calendar, and   a schedule that is wrong on a holiday is a morning of false alarms\""
+  },
+  "SCH-009": {
+    "title": "`describe` never raises",
+    "priority": "P1",
+    "expected": "a sentence for the valid ones; \"unreadable schedule: \u2026\" for the   rest; no exception in any case"
+  },
+  "SCH-010": {
+    "title": "A dependency trigger cannot be declared",
+    "priority": "P2",
+    "expected": "no accepted form produces one"
+  },
+  "SCH-011": {
+    "title": "An interval trigger's next fire is aligned to an anchor",
+    "priority": "P1",
+    "expected": "10:00, 10:00, 10:00 \u2014 strictly after the moment, on the hour"
+  },
+  "SCH-012": {
+    "title": "The offset staggers an interval",
+    "priority": "P1",
+    "expected": "09:17 and 10:17"
+  },
+  "SCH-013": {
+    "title": "The stagger is stable across nodes and restarts",
+    "priority": "P1",
+    "expected": "identical; every value in 0\u202659"
+  },
+  "SCH-014": {
+    "title": "A calendar schedule is not staggered",
+    "priority": "P2",
+    "expected": "all forty at exactly 06:30"
+  },
+  "SCH-015": {
+    "title": "A calendar trigger skips a holiday",
+    "priority": "P1",
+    "expected": "the following Tuesday at 06:30 (Good Friday and Easter Monday   closed, and the weekend)"
+  },
+  "SCH-016": {
+    "title": "A calendar trigger at exactly the due time moves to the next day",
+    "priority": "P1",
+    "expected": "today, tomorrow, tomorrow \u2014 the comparison is `due > moment`"
+  },
+  "SCH-017": {
+    "title": "A calendar with no business day in a year is refused",
+    "priority": "P2",
+    "expected": "`ValidationError` naming the calendar, remedy \"Check the   calendar's weekend days and holidays.\""
+  },
+  "SCH-018": {
+    "title": "A calendar due time is computed in the calendar's own zone",
+    "priority": "P1",
+    "expected": "06:30 UTC in January and 05:30 UTC in July"
+  },
+  "SCH-019": {
+    "title": "A due time that does not exist on a spring-forward day",
+    "priority": "P1",
+    "expected": "record the instant chosen, and that `next_after` still advances   strictly"
+  },
+  "SCH-020": {
+    "title": "A due time that happens twice on an autumn-back day",
+    "priority": "P1",
+    "expected": "the earlier of the two (`fold=0`), and the choice recorded"
+  },
+  "SCH-021": {
+    "title": "An interval trigger's anchor drifts across a DST boundary",
+    "priority": "P2",
+    "expected": "record the result"
+  },
+  "SCH-022": {
+    "title": "An arrival trigger has no clock time of its own",
+    "priority": "P1",
+    "expected": "`None` without a deadline; the next calendar occurrence of the   deadline with one"
+  },
+  "SCH-023": {
+    "title": "A manual trigger is never due",
+    "priority": "P1",
+    "expected": "skipped with reason `manual`, **not** due \u2014 the manual check   comes before the never-run check"
+  },
+  "SCH-024": {
+    "title": "An arrival-triggered control is left alone by a timer pass",
+    "priority": "P1",
+    "expected": "skipped with reason `waits_for_arrival`; not due"
+  },
+  "SCH-025": {
+    "title": "A control that has never run is due immediately",
+    "priority": "P1",
+    "expected": "due, with `has_never_run is True` and `due_at is None`"
+  },
+  "SCH-026": {
+    "title": "Due-ness is decided at the boundary, inclusively",
+    "priority": "P1",
+    "expected": "skipped, due, due \u2014 the comparison is `next_at <= now`"
+  },
+  "SCH-027": {
+    "title": "An unreadable schedule is skipped, never defaulted",
+    "priority": "P1",
+    "expected": "skipped with reason `unreadable`, `detail` carrying the   validation message, `is_a_defect is True`, a WARNING logged; it appears in   `plan.defects`"
+  },
+  "SCH-028": {
+    "title": "`not_due` and `manual` are the scheduler working",
+    "priority": "P1",
+    "expected": "`False, False, False, True`"
+  },
+  "SCH-029": {
+    "title": "A `not_due` skip says when it will next run",
+    "priority": "P2",
+    "expected": "`detail` reading \"next at <ISO-8601>\""
+  },
+  "SCH-030": {
+    "title": "`Plan.describe` names the defects separately and last",
+    "priority": "P2",
+    "expected": "\"3 due, 5 not due, 1 with a schedule that cannot be read, which   will never run until it is fixed\""
+  },
+  "SCH-031": {
+    "title": "The plan is a pure function of controls, history and now",
+    "priority": "P2",
+    "expected": "identical results; no database access; no clock read"
+  },
+  "SCH-032": {
+    "title": "A control with an empty schedule string is daily",
+    "priority": "P2",
+    "expected": "both treated as daily; neither skipped as unreadable"
+  },
+  "SCH-033": {
+    "title": "Nothing observed yields the declared starting cadence",
+    "priority": "P1",
+    "expected": "15 and 60; the reason says nothing has been observed yet"
+  },
+  "SCH-034": {
+    "title": "A single failure returns to the floor immediately",
+    "priority": "P1",
+    "expected": "15, with a reason saying it returns to its floor \"rather than   easing back\"; the same for a trailing `error`"
+  },
+  "SCH-035": {
+    "title": "Backoff needs a sample, and is slow",
+    "priority": "P1",
+    "expected": "unchanged at 9 with a reason naming the sample size; widened at   10 to 90 (60 \u00d7 1.5, rounded to the 15-minute grid)"
+  },
+  "SCH-036": {
+    "title": "The cadence never leaves its declared bounds",
+    "priority": "P1",
+    "expected": "never above 240; the reason says the cadence is already at its   declared ceiling"
+  },
+  "SCH-037": {
+    "title": "Impossible bounds are refused",
+    "priority": "P1",
+    "expected": "`ValidationError` for the first three; the fourth is legal (a   fixed cadence)"
+  },
+  "SCH-038": {
+    "title": "Three indeterminates hold the cadence rather than widening it",
+    "priority": "P1",
+    "expected": "at two, the consecutive-passes branch (an indeterminate is not a   pass, so the streak is 0 and the cadence holds with a sample reason); at three,   a hold whose reason says looking more often would not make an empty scope   informative"
+  },
+  "SCH-039": {
+    "title": "`consecutive_passes` counts backwards from the most recent",
+    "priority": "P2",
+    "expected": "0/False/0; 10/False/0; 10/False/1; 0/True/1"
+  },
+  "SCH-040": {
+    "title": "`recent_failures` looks at a bounded window",
+    "priority": "P3",
+    "expected": "0"
+  },
+  "SCH-041": {
+    "title": "Rounded intervals sit on a legible grid",
+    "priority": "P2",
+    "expected": "5, 5, 60, 60, 210, 1440, 1440, 5040 \u2014 never below the step"
+  },
+  "SCH-042": {
+    "title": "`Decision.direction` and `.changed` describe the move",
+    "priority": "P2",
+    "expected": "`False/unchanged`; `False/unchanged`; `True/widened`;   `True/narrowed`; the rendered sentence names both intervals only when changed"
+  },
+  "SCH-043": {
+    "title": "`_period` renders a cadence a person would say",
+    "priority": "P3",
+    "expected": "`5 minutes`, `hour`, `hour 30 minutes`, `2 hours`, `day`,   `2 days`, `25 hours`"
+  },
+  "SCH-044": {
+    "title": "Critical work is never shed",
+    "priority": "P1",
+    "expected": "all three admitted; `over_committed is True`; `spent == 20`;   `render()` says the critical work alone exceeds the budget, that it has been   run anyway, and that somebody has to change one of the two"
+  },
+  "SCH-045": {
+    "title": "Nothing is dropped silently",
+    "priority": "P1",
+    "expected": "each named on its own line with its dataset, priority, reason and   next attempt \u2014 never only a count"
+  },
+  "SCH-046": {
+    "title": "Shedding order contradicts its own docstring",
+    "priority": "P1",
+    "expected": "record which is admitted"
+  },
+  "SCH-047": {
+    "title": "A starving candidate is named as starving",
+    "priority": "P2",
+    "expected": "only the second is starving; its line reads \"This is deferral 4   in a row for this control\"; the allocation's closing paragraph says a control   deferred every night is one that does not exist"
+  },
+  "SCH-048": {
+    "title": "Exactly-fitting work is admitted",
+    "priority": "P2",
+    "expected": "both admitted; `spent == 10`; `headroom == 0.0`;   `over_committed is False`"
+  },
+  "SCH-049": {
+    "title": "A zero budget defers everything sheddable",
+    "priority": "P2",
+    "expected": "the budget is clamped to 0; the critical candidate runs and   `over_committed is True`; the three normal ones are deferred by name"
+  },
+  "SCH-050": {
+    "title": "A zero-cost candidate is always admitted",
+    "priority": "P3",
+    "expected": "both admitted; the negative one *reduces* `spent`"
+  },
+  "SCH-051": {
+    "title": "The deferral reason quotes the numbers",
+    "priority": "P2",
+    "expected": "\"the budget has 2 left and this would cost 5\""
+  },
+  "SCH-052": {
+    "title": "Every deferral carries a next attempt",
+    "priority": "P2",
+    "expected": "every `next_attempt` is `now + 60 minutes` and appears in the   rendered line to the minute"
+  }
+}

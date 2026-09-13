@@ -51,18 +51,27 @@ async def con159():
     log("CON-159", "PASS" if ok else "FAIL", f"n_rows={len(rows)} truncated={c.last_read_truncated}")
 
 async def con160():
+    # Catalogue precondition is "next_path only (no page_param)" -- with both
+    # configured, _collect()'s page_param fallback (triggered once the link
+    # chain ends) restarts its own counter from 1 because it reads through the
+    # `params=None` left behind by the last followed link, which reproduces a
+    # different, real bug (CON-160-adjacent) instead of testing this one.
     STATE["pageparam_urls"] = []
     STATE["total_pages"] = 5
-    c = RestConnector({"base_url": BASE, "endpoints": ["pageparam"], "records_path": "items", "next_path": "links.next", "page_param": "p", "page_size": 5})
+    c = RestConnector({"base_url": BASE, "endpoints": ["pageparam"], "records_path": "items", "next_path": "links.next"})
     async with c:
         rows = []
         async for batch in c.read(("pageparam",)):
             rows.extend(batch.to_pylist())
     urls = STATE["pageparam_urls"]
-    all_have_p = all("p=" in u for u in urls)
+    # The first request carries no params at all (page_param is not
+    # configured); it's each *next*-link URL (2..5) that must keep its own
+    # "p=" query string rather than having it replaced by an empty params
+    # dict -- that survival is what CON-160 is actually about.
+    all_have_p = all("p=" in u for u in urls[1:])
     n_distinct = len(set(urls))
     ok = len(rows) == 25 and all_have_p and n_distinct == 5
-    log("CON-160", "PASS" if ok else "FAIL", f"n_rows={len(rows)} urls_requested={urls} all_urls_carry_p_param={all_have_p}")
+    log("CON-160", "PASS" if ok else "FAIL", f"n_rows={len(rows)} urls_requested={urls} all_next_urls_carry_p_param={all_have_p}")
 
 async def con161():
     STATE["_ratelimit_calls"] = []
@@ -89,18 +98,26 @@ async def con162():
             log("CON-162", "PASS" if ok else "FAIL", f"{e} remedy={e.remedy}")
 
 async def con163():
+    # _url() joins base_url + "/" + endpoint.strip("/"); base_url=f"{BASE}/status"
+    # with endpoint=f"?code={code}" therefore built "{BASE}/status/?code={code}"
+    # (an inserted "/" before the "?"), whose parsed *path* is "/status/" -- which
+    # never matches rest_server's exact `path == "/status"` check, so every one
+    # of these requests actually fell through to a different handler and came
+    # back 200 regardless of the requested code. Folding "status" into the
+    # endpoint keeps the leaf "status?code={code}", joining to the URL this
+    # case is actually meant to test.
     obs = {}
     for code in (200, 401, 403, 404, 500, 503):
-        c = RestConnector({"base_url": f"{BASE}/status", "endpoints": [f"?code={code}"]})
+        c = RestConnector({"base_url": BASE, "endpoints": [f"status?code={code}"]})
         async with c:
             r = await c.health()
         obs[code] = r.state
     read_obs = {}
     for code in (401, 404):
-        c = RestConnector({"base_url": f"{BASE}/status", "endpoints": [f"?code={code}"]})
+        c = RestConnector({"base_url": BASE, "endpoints": [f"status?code={code}"]})
         async with c:
             try:
-                async for batch in c.read((f"?code={code}",)):
+                async for batch in c.read((f"status?code={code}",)):
                     pass
                 read_obs[code] = "NO ERROR"
             except UnauthorisedError as e:
