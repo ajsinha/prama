@@ -294,6 +294,32 @@ you check.
 
 ---
 
+### Q-61 · PCK-199 is not a defect — the partial case is deliberate and surfaced
+
+The domain agent recorded `PCK-199` as a defect: one control passing and two
+never running reports `PROVEN_CLEAN`. I started to change it, and a test stopped
+me — `test_a_partly_run_obligation_is_not_unproven`, whose docstring states the
+design directly: *"Two controls, one run. Something has been established, so
+this is not the 'nothing has run' state — but the one that did not run is
+counted."*
+
+The three states answer whether anything has been *established*.
+`ADDRESSED_UNPROVEN` means nothing ran; a partial run is not that. The
+partiality is carried by `never_ran`, and `ObligationStanding.describe()`
+renders it: `"3 control(s); 1 passed, 0 failed, 0 not established, 2 never
+ran."`
+
+The catalogue's own **Expected** read "something other than `PROVEN_CLEAN`, **or**
+`never_ran` surfaced prominently". The second branch is met. The case was
+written from reading the enum and not the description method beside it.
+
+Recorded rather than quietly dropped, because "a test disagreed with me" is the
+outcome I most want to notice. Changing the state would have passed the QA case
+and broken a decision somebody made on purpose and wrote down — which is the
+failure mode of fixing defects by their symptom.
+
+---
+
 ## Open
 
 Ranked. Each was reported by the agent named, and awaits reproduction before

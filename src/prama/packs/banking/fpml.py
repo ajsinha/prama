@@ -168,6 +168,13 @@ class Trade:
         """
         if self.is_cross_currency:
             return None
+        if not self.legs:
+            # A trade with no legs, or a party on none of them, nets to
+            # nothing — and `Decimal(0)` is a number, which reads as "these
+            # positions cancel out" rather than "there were no positions"
+            # (QA finding PCK-105). The two are opposite conclusions about the
+            # same counterparty and this method is where they were conflated.
+            return None
         amounts = [leg.signed_for(party) for leg in self.legs]
         if any(amount is None for amount in amounts):
             return None

@@ -243,5 +243,17 @@ def _assertion(record: EvidenceRecord) -> Assertion:
 
 
 def _worst_verdict(verdicts: list[str]) -> str:
+    """The least reassuring verdict in the list.
+
+    An unrecognised string ranks *worst*, not best. The key used to be
+    `order.index(v) if v in order else 0`, and `order[0]` is `"pass"` — so a
+    verdict nobody recognised was given the rank of the best possible outcome,
+    and a new verdict added anywhere, or a typo, silently improved the lineage
+    event it appeared in (QA finding OPS-063).
+
+    Ranking it worst is the only safe direction. A verdict this function does
+    not understand is one it cannot vouch for, and a lineage consumer reading
+    "pass" would take a claim nobody made.
+    """
     order = ["pass", "skipped", "indeterminate", "fail", "error"]
-    return max(verdicts, key=lambda v: order.index(v) if v in order else 0, default="pass")
+    return max(verdicts, key=lambda v: order.index(v) if v in order else len(order), default="pass")

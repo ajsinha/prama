@@ -301,7 +301,17 @@ class Threshold(IrNode):
         # `row_count` does not come through here. An empty table genuinely is a
         # row count of zero and `HAS ROW COUNT BETWEEN 1 AND 8` must fail on it,
         # which `_row_count_verdict` decides separately.
-        if float(metrics.get("scanned_rows", -1.0)) == 0.0:
+        # Absent counts the same as zero. The guard used to default to `-1.0`,
+        # which is not `0.0`, so a metrics dict that never mentioned
+        # `scanned_rows` slipped straight past it and the empty-scope defect
+        # came back for the one shape nobody had tested (QA finding IR-037).
+        # Q-09 fixed present-and-zero; this is the missing key.
+        #
+        # "Nobody said how many rows were scanned" is not evidence that rows
+        # were scanned, and a threshold answering PASS on that has proved
+        # nothing at all.
+        scanned = metrics.get("scanned_rows")
+        if scanned is None or float(scanned) == 0.0:
             return Verdict.INDETERMINATE
 
         observed = float(metrics[self.metric])

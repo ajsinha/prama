@@ -153,9 +153,21 @@ class MatchReport:
         return sum(len(pair.left) + len(pair.right) for pair in self.pairs)
 
     @property
-    def match_rate(self) -> float:
+    def match_rate(self) -> float | None:
+        """The share of rows that matched, or ``None`` when there were none.
+
+        `None`, not `1.0`. Two empty sides used to reconcile perfectly, which
+        is the most reassuring possible reading of "the feed did not arrive"
+        (QA finding RCN-015). A reconciliation over nothing has not
+        demonstrated that two systems agree; it has demonstrated that neither
+        was asked.
+
+        The caller decides what to do about it, which is the point — a rate of
+        1.0 cannot be distinguished from a real perfect match, and a rate of
+        None cannot be mistaken for one.
+        """
         total = self.left_rows + self.right_rows
-        return self.matched_rows / total if total else 1.0
+        return self.matched_rows / total if total else None
 
     @property
     def aggregated_pairs(self) -> int:
@@ -170,9 +182,23 @@ class MatchReport:
         almost everything; a tenth failing to match is a mapping gap, and the
         breaks it produces are artefacts of that gap rather than findings.
         """
-        return self.match_rate < POOR_MATCH_RATE
+        rate = self.match_rate
+        if rate is None:
+            # Two empty sides. Not a mapping gap and not a clean
+            # reconciliation — nothing was compared, so there is no rate to
+            # judge. `describe()` says so in words; this answers the narrower
+            # question it was asked, which is whether the *rate* indicates
+            # misconfiguration.
+            return False
+        return rate < POOR_MATCH_RATE
 
     def describe(self) -> str:
+        if self.match_rate is None:
+            return (
+                "nothing was compared: neither side had any rows. This is not a "
+                "reconciliation that agreed — it is one that did not happen. Check "
+                "that both feeds arrived."
+            )
         head = (
             f"{len(self.pairs):,} keys matched across {self.left_rows:,} and "
             f"{self.right_rows:,} rows ({self.match_rate:.1%})"
@@ -200,7 +226,10 @@ class MatchReport:
             "unmatched_right": len(self.unmatched_right),
             "left_rows": self.left_rows,
             "right_rows": self.right_rows,
-            "match_rate": round(self.match_rate, 6),
+            # None rather than 1.0 when nothing was compared, and it stays
+            # None here: a consumer reading this JSON must be able to tell an
+            # empty reconciliation from a perfect one.
+            "match_rate": None if self.match_rate is None else round(self.match_rate, 6),
             "looks_misconfigured": self.looks_misconfigured,
             "summary": self.describe(),
         }

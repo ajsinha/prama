@@ -138,6 +138,19 @@ class WriteReport:
 
     @property
     def complete(self) -> bool:
+        """Whether everything offered was written.
+
+        An empty publish is not complete. `written == attempted` is trivially
+        true when both are zero, so `publish([])` reported a complete write
+        while `describe()` said "nothing was written, because nothing was
+        offered" — the two halves of the same object disagreeing, and the
+        machine-readable half taking the flattering view (QA finding INT-014).
+
+        A caller polling `complete` to decide whether a catalogue sync
+        succeeded would have been told yes by a sync that never ran.
+        """
+        if not self.attempted:
+            return False
         return self.written == self.attempted and not self.refused
 
     def describe(self) -> str:
