@@ -1,0 +1,9 @@
+{
+  "counts": {
+    "PASS": 504,
+    "FAIL": 33,
+    "BLOCKED": 3
+  },
+  "total": 540,
+  "pass_rate": 93.33333333333333
+}

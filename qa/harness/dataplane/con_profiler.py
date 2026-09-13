@@ -153,7 +153,13 @@ async def pro057():
     import pyarrow as pa
     schema = ObjectSchema(path=(), columns=(ColumnSchema(name="a", type_name="INT"),))
     sizes = [100, 900, 50, 700, 10, 800, 20, 600, 5, 500]
-    objs = [DiscoveredObject(path=(f"t{i}",), estimated_bytes=sizes[i]) for i in range(10)]
+    # A real connector's discover() already returns objects largest-first;
+    # the fake has to reproduce that ordering itself for this case to test
+    # what it claims (that profile_source does not re-sort) rather than just
+    # handing back list-construction order, which sizes[] above is not sorted
+    # by at all.
+    order = sorted(range(10), key=lambda i: -sizes[i])
+    objs = [DiscoveredObject(path=(f"t{i}",), estimated_bytes=sizes[i]) for i in order]
     batch = pa.RecordBatch.from_arrays([pa.array([1])], names=["a"])
     reads = {("read", (f"t{i}",)): [batch] for i in range(10)}
     fc = FakeConnector(objects={"discover": objs, **reads}, describe_map={(f"t{i}",): schema for i in range(10)})

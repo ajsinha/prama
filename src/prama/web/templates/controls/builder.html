@@ -192,7 +192,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce() }}">
   jQuery(function ($) {
     var COLUMNS = {{ columns | tojson }};
 

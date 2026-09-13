@@ -138,6 +138,19 @@ class WriteReport:
 
     @property
     def complete(self) -> bool:
+        """Whether everything offered was written.
+
+        An empty publish is not complete. `written == attempted` is trivially
+        true when both are zero, so `publish([])` reported a complete write
+        while `describe()` said "nothing was written, because nothing was
+        offered" — the two halves of the same object disagreeing, and the
+        machine-readable half taking the flattering view (QA finding INT-014).
+
+        A caller polling `complete` to decide whether a catalogue sync
+        succeeded would have been told yes by a sync that never ran.
+        """
+        if not self.attempted:
+            return False
         return self.written == self.attempted and not self.refused
 
     def describe(self) -> str:
@@ -298,6 +311,19 @@ class RecordingTarget(CatalogTarget):
         return next((b for b in reversed(self.written) if b.dataset == dataset), None)
 
 
+def _explains(failing: Sequence[Any], unestablished: Sequence[Any], records: Sequence[Any]) -> str:
+    """The record a reader should be sent to, given the standing.
+
+    A failure explains a FAILING badge; an unestablished record explains
+    NOT_ESTABLISHED; for a healthy dataset any record does, so the first is
+    fine and is stable enough to be quotable.
+    """
+    for candidates in (failing, unestablished, records):
+        if candidates:
+            return str(candidates[0].record_hash)
+    return ""
+
+
 def badges_from(
     latest: dict[str, Any],
     *,
@@ -347,7 +373,17 @@ def badges_from(
                 coverage=coverage,
                 controls=len(records),
                 failing_controls=len(failing),
-                evidence_reference=records[0].record_hash if records else "",
+                # The record that *explains the standing*, not whichever came
+                # first. A badge reading FAILING pointed at `records[0]` — the
+                # first inserted, which dict order makes arbitrary and which is
+                # usually one that passed. So "show me" showed a clean record
+                # for a failing dataset (QA finding INT-009).
+                #
+                # A badge is a claim and this reference is its evidence. An
+                # evidence link that answers a different question than the one
+                # the badge raises is worse than no link: the reader checks it,
+                # sees a pass, and concludes the badge is wrong.
+                evidence_reference=_explains(failing, unestablished, records),
             )
         )
     return out

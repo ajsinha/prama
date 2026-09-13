@@ -148,8 +148,19 @@ _ISO4217_2023: Final = (_ISO4217_2021 | {"SLE"}) - {"HRK", "CUC"}
 #: replaces ANG. Both transitions ran with the outgoing code still accepted for
 #: a period, which is why the outgoing code is not removed in the same step —
 #: removing it early is how a correct payment file gets rejected.
-_ISO4217_2024: Final = (_ISO4217_2023 | {"ZWG"}) - {"ZWL"}
-_ISO4217_2025: Final = (_ISO4217_2024 | {"XCG"}) - {"ANG"}
+#:
+#: The code did remove it in that step, in both transitions, directly beneath
+#: this comment (QA finding CLS-062). `SLE` three lines above is the same
+#: situation handled correctly, so the rule was known and written down and then
+#: not applied twice. A comment contradicted by the line under it is worse than
+#: no comment: a reader checking whether the transition was handled is told it
+#: was.
+#:
+#: The outgoing code is retired one version later, which is what "still
+#: accepted for a period" means.
+_ISO4217_2024: Final = _ISO4217_2023 | {"ZWG"}
+_ISO4217_2025: Final = (_ISO4217_2024 | {"XCG"}) - {"ZWL"}
+_ISO4217_2026: Final = _ISO4217_2025 - {"ANG"}
 
 ISO_4217: Final = CodeList(
     name="iso4217",
@@ -177,7 +188,13 @@ ISO_4217: Final = CodeList(
             effective_from=date(2025, 3, 31),
             codes=_ISO4217_2025,
             source="ISO 4217 list one",
-            note="XCG replaces ANG",
+            note="XCG replaces ANG; ZWL retired after its transition period",
+        ),
+        CodeListVersion(
+            effective_from=date(2026, 3, 31),
+            codes=_ISO4217_2026,
+            source="ISO 4217 list one",
+            note="ANG retired after its transition period",
         ),
     ),
 )

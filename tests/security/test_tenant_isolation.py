@@ -985,6 +985,25 @@ class TestTheSuiteCannotFallBehind:
         assert not missing, f"named in COVERED or UNSWEPT and not a DAO: {missing}"
 
 
+def _requires_tenant(method: object) -> bool:
+    """Whether a read *demands* a tenant, rather than merely accepting one.
+
+    Presence was the original test, and presence is not enforcement: a
+    `tenant_id: str | None = None` satisfies "has the parameter" while leaving
+    every caller free to omit it, which is the behaviour the scan exists to
+    forbid. `PrincipalDao.by_external_id` is exactly that shape — it takes an
+    optional tenant because authentication genuinely runs before one is known
+    — and under the old check it would have read as scoped.
+
+    A guard that measures the wrong property is the failure this whole QA round
+    kept finding, so it is worth the four lines.
+    """
+    import inspect
+
+    parameter = inspect.signature(method).parameters.get("tenant_id")
+    return parameter is not None and parameter.default is inspect.Parameter.empty
+
+
 #: DAO read methods that legitimately take no tenant, each with the reason.
 #: An entry is an admission that this method's boundary rests on something
 #: other than its own query, and names what.
@@ -1014,22 +1033,23 @@ UNSCOPED_READS: dict[str, str] = {
         "the key is how the tenant is established; requiring one here would need "
         "the answer before the question"
     ),
+    # Still unscoped, and still for the right reason — but it no longer meets
+    # an identity matching two estates with a raw MultipleResultsFound. It
+    # refuses and says to pass the tenant (QA finding DB-142).
     "PrincipalDao.by_external_id": "as ApiKeyDao.by_prefix, for the SSO path",
+    # Three entries lived here until QA round 2: AttributeDao.mapped_to_property,
+    # EvidenceDao.for_control and EvidenceDao.for_run. Each was justified by a
+    # caller that filtered afterwards — "checked, but remembered rather than
+    # enforced", as the note on for_control admitted. Round 2 found all three
+    # readable across estates by anybody holding a parent id, so they now take
+    # a tenant and the justification is gone rather than improved.
+    #
+    # The lesson is in the shape of the argument, not the code: every one of
+    # those reasons was about the callers that existed when it was written.
     # -- reached only by an id already established as the caller's ---------
     "ApiKeyDao.active_for_principal": "a principal is tenant-scoped; its keys inherit that",
     "PrincipalDao.roles_of": "as ApiKeyDao.active_for_principal",
-    "AttributeDao.mapped_to_property": (
-        "the property id reaching it comes from ConceptPropertyDao.for_concept, "
-        "which is scoped. Derived rather than caller-supplied — verified, not assumed"
-    ),
     # -- scoped by the caller, which is the S2 shape and is written down ---
-    "EvidenceDao.for_control": (
-        "the ledger indexes by control. triage_routes filters the result on "
-        "`r.tenant_id == caller.tenant_id` immediately after, with a comment saying "
-        "why. Checked, but remembered rather than enforced — the shape finding S2 "
-        "was about, and the next caller is the risk"
-    ),
-    "EvidenceDao.for_run": "as EvidenceDao.for_control",
     "AttestationDao.value": (
         "attestation_routes fetches the row through `in_tenant` first and 404s on "
         "None, so the unscoped read is never reached with another estate's id. "
@@ -1080,6 +1100,11 @@ class TestEveryDaoReadTakesATenant:
             "delete",
             "record",
             "append",
+            # `extend` is `append` in a loop and was simply missed here. The
+            # stronger required-tenant check found it immediately, which is the
+            # point of strengthening it — though what it found is a write, not
+            # a cross-estate read.
+            "extend",
             "declare",
             "sign",
             "observe",
@@ -1135,15 +1160,13 @@ class TestEveryDaoReadTakesATenant:
         assert len(self.reads()) >= 25
 
     def test_every_read_accepts_a_tenant_or_is_declared(self) -> None:
-        import inspect
 
         unscoped: list[str] = []
         for class_name, name, method in self.reads():
             key = f"{class_name}.{name}"
             if key in UNSCOPED_READS:
                 continue
-            parameters = set(inspect.signature(method).parameters)
-            if "tenant_id" not in parameters:
+            if not _requires_tenant(method):
                 unscoped.append(key)
         assert not unscoped, (
             "these DAO reads take no tenant at all, so a caller holding an "
@@ -1155,12 +1178,11 @@ class TestEveryDaoReadTakesATenant:
     def test_the_declarations_are_still_true(self) -> None:
         """An admission about a method that has since grown a tenant is dead
         weight, and makes the list look more considered than it is."""
-        import inspect
 
         stale = []
         for class_name, name, method in self.reads():
             key = f"{class_name}.{name}"
-            if key in UNSCOPED_READS and "tenant_id" in inspect.signature(method).parameters:
+            if key in UNSCOPED_READS and _requires_tenant(method):
                 stale.append(key)
         assert not stale, f"declared unscoped and now takes a tenant: {stale}"
 

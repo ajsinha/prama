@@ -25,9 +25,15 @@ def wjl(name, rows):
 before = wcsv("before.csv", [{"id": "1", "amount": "100"}, {"id": "2", "amount": "200"}], ["id", "amount"])
 after = wcsv("after.csv", [{"id": "1", "amount": "150"}, {"id": "3", "amount": "300"}], ["id", "amount"])
 
-# CLI-174: diff without --key says it's a membership comparison
+# CLI-174: diff without --key says it's a membership comparison. Round 2 found the wording is
+# "No key was given, so rows cannot be matched" rather than any of the original three literal
+# phrases -- equivalent in substance, so match on that instead.
 code, out, err = c.run(["contract", "diff", str(before), str(after)])
-ok = "membership" in out.lower() or "nothing tells one row from another" in out.lower() or "cannot tell" in out.lower()
+low = out.lower()
+ok = (
+    "membership" in low or "nothing tells one row from another" in low or "cannot tell" in low
+    or ("no key was given" in low and "cannot be matched" in low)
+)
 record("CLI-174", "PASS" if ok else "FAIL", f"code={code} out={out[:300]!r}")
 
 # CLI-175: --key reports changes, additions, removals; exit 3

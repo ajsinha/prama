@@ -109,8 +109,19 @@ class AttestationDao(Dao[AttAttestation]):
         await self._session.flush()
 
         if supersedes:
+            # Scoped to the signer's own estate. This used to be a bare
+            # `self.get(supersedes)`, so an attestation signed in one estate
+            # could name another estate's id and the write below then stamped
+            # `superseded_by` onto that estate's row (QA finding UI-122). The
+            # damage was not confined to the new record: it reached into a
+            # sealed attestation belonging to somebody else.
+            #
+            # The check lives here rather than only in the route for the reason
+            # `in_tenant`'s own docstring gives — it is the kind of check that
+            # gets written on one screen and forgotten on the next. `sign` is
+            # the one place every caller passes through.
             earlier = await self.get(supersedes)
-            if earlier is None:
+            if earlier is None or earlier.tenant_id != attestation.tenant_id:
                 raise NotFoundError(
                     f"there is no attestation {supersedes!r} to supersede",
                     remedy="Check the identifier; nothing was replaced.",

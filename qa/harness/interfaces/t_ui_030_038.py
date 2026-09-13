@@ -6,8 +6,13 @@ import cli_common as c
 
 
 def strip_dynamic(text):
-    # remove correlation ids / timestamps / csrf-ish tokens if any so byte comparison is meaningful
-    return re.sub(r"\b[0-9A-Z]{20,30}\b", "<ID>", text)
+    # remove correlation ids / timestamps / csrf-ish tokens if any so byte comparison is
+    # meaningful. Also strip the per-response CSP nonce (UI-045's fix): every response now
+    # carries a fresh nonce="..." on each <script>, which legitimately differs response to
+    # response and is not itself a distinguishing signal between a real account and a fake one.
+    text = re.sub(r"\b[0-9A-Z]{20,30}\b", "<ID>", text)
+    text = re.sub(r'nonce="[^"]*"', 'nonce="<NONCE>"', text)
+    return text
 
 
 async def main():
@@ -16,6 +21,15 @@ async def main():
     await env.start()
     await env.create_principal("existing30", "existingpassword1", ["owner"])
     await env.create_principal("disabled30", "disabledpassword1", ["owner"])
+    # a SECOND real tenant -- round 2 found that a nonexistent tenant slug falls into
+    # _sign_in_tenant's documented single-estate fallback (an unresolvable tenant is ignored
+    # when there is exactly one estate), turning "right password, wrong tenant" into a 303
+    # success instead of the refusal this case is about. A second genuine estate removes the
+    # fallback and exercises the actual wrong-tenant check.
+    async with env.database.unit_of_work() as uow:
+        other_tenant30 = uow.tenants.create(slug="rival-30", display_name="Rival 30")
+        await uow.flush()
+        other_tenant30_id = str(other_tenant30.id)
     async with env.database.unit_of_work() as uow:
         p = await uow.principals.by_username(env.tenant_id, "disabled30")
         p.status = "disabled"
@@ -31,7 +45,7 @@ async def main():
         "wrong-password-disabled": {"username": "disabled30", "password": "wrongpassword1"},
         "no-password-set": {"username": "nopass30", "password": "anything123"},
         "unknown-username": {"username": "totallymadeup30", "password": "anything123"},
-        "right-password-wrong-tenant": {"username": "existing30", "password": "existingpassword1", "tenant": "does-not-exist-slug"},
+        "right-password-wrong-tenant": {"username": "existing30", "password": "existingpassword1", "tenant": "rival-30"},
     }
     bodies = {}
     statuses = {}
@@ -69,7 +83,9 @@ async def main():
     http33 = env.client()
     r_pre = await http33.get("/sign-in")
     pre_cookie = http33.cookies.get("prama_session")
-    r33 = await http33.post("/sign-in", data={"username": "existing30", "password": "existingpassword1"})
+    # explicit tenant: UI-030's fix above added a second real tenant, so the single-estate
+    # fallback that used to resolve an omitted tenant no longer applies here.
+    r33 = await http33.post("/sign-in", data={"username": "existing30", "password": "existingpassword1", "tenant": "acme-bank"})
     post_cookie = http33.cookies.get("prama_session")
     ok33 = pre_cookie != post_cookie
     record("UI-033", "PASS" if ok33 else "FAIL", f"pre_cookie_present={pre_cookie is not None} changed={ok33}")
@@ -88,7 +104,14 @@ async def main():
     res34 = {}
     for target, _ in targets.items():
         http = env.client()
-        r = await http.get("/sign-in", params={"next": target})
+        if target == "/%09/evil.example":
+            # httpx's params= double-percent-encodes the literal '%', so the server would only
+            # ever see the LITERAL text '%09' rather than a decoded tab -- round 2's fix embeds
+            # the query string directly in the URL (single decode) instead, matching what a
+            # real browser sends.
+            r = await http.get("/sign-in?next=/%09/evil.example")
+        else:
+            r = await http.get("/sign-in", params={"next": target})
         m = re.search(r'name="next" value="([^"]*)"', r.text)
         res34[target] = m.group(1) if m else None
         await http.aclose()
@@ -121,7 +144,7 @@ async def main():
         r36b = await http36.get(location36)
     else:
         r36b = await http36.get("/sign-in")
-    r36c = await http36.post("/sign-in", data={"username": "existing30", "password": "existingpassword1", "next": "/controls"})
+    r36c = await http36.post("/sign-in", data={"username": "existing30", "password": "existingpassword1", "next": "/controls", "tenant": "acme-bank"})
     landed_on_controls = r36c.headers.get("location") == "/controls"
     record(
         "UI-036",

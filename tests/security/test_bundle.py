@@ -11,6 +11,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import dataclasses
+import json
 from pathlib import Path
 
 import pytest
@@ -36,6 +37,13 @@ def bundle(tmp_path: Path) -> Path:
     (tmp_path / "chart" / "prama-0.1.0.tgz").write_bytes(b"pretend this is a chart")
     (tmp_path / "wheels" / "prama-0.1.0-py3-none-any.whl").write_bytes(b"a wheel")
     (tmp_path / "sqlite.sql").write_text("-- schema")
+    # A real bundle carries its manifest, and the manifest states the hash it
+    # is meant to be checked against. Writing it here means these tests
+    # exercise the on-disk path where SEC-142 lived, rather than an in-memory
+    # shortcut where the claim and the recomputation came from one object.
+    (tmp_path / "manifest.json").write_text(
+        json.dumps(build_manifest(tmp_path, created_at=WHEN).to_dict())
+    )
     return tmp_path
 
 

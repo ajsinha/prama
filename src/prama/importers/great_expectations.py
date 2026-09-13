@@ -272,13 +272,27 @@ class GreatExpectationsImporter(Importer):
 
 
 def _tolerance(mostly: Any) -> tuple[str, str]:
-    """GE's ``mostly`` as a PQL threshold, and the caveat that goes with it."""
+    """GE's ``mostly`` as a PQL threshold, and the caveat that goes with it.
+
+    A `mostly` that cannot be read is *reported*, not dropped. Returning no
+    threshold made the imported control stricter than the one it came from —
+    `mostly: high` became a control tolerating nothing — with no caveat and no
+    unmapped entry, so the import looked complete (QA finding IMP-046).
+
+    Stricter is not safer here. A control nobody asked for fails on data the
+    source suite accepted, and the first person to see it has no way to know
+    the tolerance was lost in translation.
+    """
     if mostly is None:
         return "", ""
     try:
         proportion = float(mostly)
     except (TypeError, ValueError):
-        return "", ""
+        return "", (
+            f"'mostly: {mostly!r}' could not be read as a proportion, so no tolerance "
+            "was applied. The imported control is stricter than the one it came "
+            "from: check what the original meant."
+        )
     if proportion >= 1.0:
         return "", ""
     tolerated = round((1.0 - proportion) * 100, 6)

@@ -336,7 +336,7 @@ class TestRuns:
                 await uow.evidence.append(_record(), tenant_id=tenant_id, run_id=run_id)
             finished = await uow.evidence_runs.finish(run_id, finished_at="2026-09-08T06:05:00Z")
             assert finished.record_count == 3
-            assert len(await uow.evidence.for_run(run_id)) == 3
+            assert len(await uow.evidence.for_run(run_id, tenant_id=tenant_id)) == 3
 
     async def test_an_unfinished_run_is_a_first_class_query(
         self, started_database: Database, tenant_id: str

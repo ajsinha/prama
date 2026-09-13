@@ -116,6 +116,13 @@ class TestNothingSendsWithoutBeingRegistered:
     #: and why. Short on purpose: each line is something a security reviewer
     #: has to accept.
     NOT_EGRESS: ClassVar[dict[str, str]] = {
+        "prama/cli/commands.py": (
+            "imports socket so `serve` can bind its listener before printing a "
+            "success banner — the banner used to go out first and the bind fail "
+            "afterwards (QA findings CLI-270 to CLI-272). A listening socket is "
+            "inbound: it accepts connections and sends nothing, so no tenant "
+            "data leaves through it"
+        ),
         "prama/db/schema/bootstrap.py": (
             "imports socket for gethostname, to record who applied a schema. "
             "Nothing of the tenant's leaves"

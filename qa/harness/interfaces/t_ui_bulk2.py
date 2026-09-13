@@ -16,6 +16,10 @@ async def main():
     await env.create_principal("ownerA", "ownerApassword1", ["owner"])
     await env.create_principal("ownerB", "ownerBpassword1", ["owner"], tenant_id=tenant_b)
     httpA, _ = await env.signed_in_client("ownerA", "ownerApassword1")
+    # break dispositions need break:write since the UI-005/008/009 scope fix; owner never
+    # held that (steward works breaks; owner does not).
+    await env.create_principal("stewardA", "stewardApassword1", ["steward"])
+    httpA_steward, _ = await env.signed_in_client("stewardA", "stewardApassword1")
     httpB, _ = await env.signed_in_client("ownerB", "ownerBpassword1", tenant_slug="rival-bank-bulk2")
 
     # create datasets in each estate
@@ -72,7 +76,7 @@ async def main():
         ("/reconciliation/breaks/01NOSUCHBREAK00000000000/accept", "accept"),
     ]:
         try:
-            r = await httpA.post(path, data={"definition": "some-def"})
+            r = await httpA_steward.post(path, data={"definition": "some-def"})
             record(
                 f"UI-114-{expected_flash}",
                 "PASS" if r.status_code in (303,) and "Traceback" not in r.text else "FAIL",
@@ -82,18 +86,24 @@ async def main():
             record(f"UI-114-{expected_flash}", "FAIL", f"path={path} exception: {type(e).__name__} {str(e)[:200]}")
 
     # merge the three UI-114-* into one UI-114 verdict
-    r_a = await httpA.post("/reconciliation/breaks/01NOSUCHBREAK00000000000/assign", data={"definition": "some-def"})
-    r_e = await httpA.post("/reconciliation/breaks/01NOSUCHBREAK00000000000/explain", data={"definition": "some-def", "text": "x"})
-    r_c = await httpA.post("/reconciliation/breaks/01NOSUCHBREAK00000000000/accept", data={"definition": "some-def"})
+    r_a = await httpA_steward.post("/reconciliation/breaks/01NOSUCHBREAK00000000000/assign", data={"definition": "some-def"})
+    r_e = await httpA_steward.post("/reconciliation/breaks/01NOSUCHBREAK00000000000/explain", data={"definition": "some-def", "text": "x"})
+    r_c = await httpA_steward.post("/reconciliation/breaks/01NOSUCHBREAK00000000000/accept", data={"definition": "some-def"})
     all_303 = all(r.status_code == 303 for r in (r_a, r_e, r_c))
     record("UI-114", "PASS" if all_303 else "FAIL", f"assign={r_a.status_code} explain={r_e.status_code} accept={r_c.status_code}")
 
-    # UI-115: empty definition on disposition
-    r115 = await httpA.post("/reconciliation/breaks/01NOSUCHBREAK00000000000/assign", data={"definition": ""})
-    ok115 = r115.status_code != 404  # must not redirect to a definition-interpolated URL that 404s
-    location115 = r115.headers.get("location", "")
-    ok115 = r115.status_code == 303 and "//" not in location115.replace("http://", "")
-    record("UI-115", "PASS" if ok115 else "FAIL", f"status={r115.status_code} location={location115!r}")
+    # UI-115: empty definition on disposition -- break:write (steward), not owner, since the
+    # UI-005/008/009 scope fix, so this reaches the actual code path under test rather than
+    # stopping at the permission gate.
+    try:
+        r115 = await httpA_steward.post("/reconciliation/breaks/01NOSUCHBREAK00000000000/assign", data={"definition": ""})
+        location115 = r115.headers.get("location", "")
+        ok115 = r115.status_code == 303 and "//" not in location115.replace("http://", "")
+        detail115 = f"status={r115.status_code} location={location115!r}"
+    except Exception as e:
+        ok115 = False
+        detail115 = f"UNCAUGHT_EXCEPTION: {type(e).__name__}: {str(e)[:300]}"
+    record("UI-115", "PASS" if ok115 else "FAIL", detail115)
 
     await env.stop()
     print("done ui bulk batch 2")

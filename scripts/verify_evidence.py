@@ -134,7 +134,12 @@ def verify_chain(records: list[dict], report: Report) -> list[str]:
     tombstone_failures: list[str] = []
     erased = 0
 
-    previous = GENESIS
+    # `None` until the first record is read. A bundle is a *range* — its
+    # manifest carries from_sequence and to_sequence — so the first record in
+    # a legitimate export links to one that is not in the file. Seeding this
+    # with GENESIS made every window that did not start at zero report itself
+    # as a broken chain (QA finding Q-57).
+    previous: str | None = None
     expected_sequence: int | None = None
 
     for index, payload in enumerate(records):
@@ -191,7 +196,7 @@ def verify_chain(records: list[dict], report: Report) -> list[str]:
                 f"record {sequence}: record_hash is {stored_record[:12]}…, "
                 f"previous+content give {computed_record[:12]}…"
             )
-        if stored_previous != previous:
+        if previous is not None and stored_previous != previous:
             link_failures.append(
                 f"record {sequence}: previous_hash does not match the record before it"
             )

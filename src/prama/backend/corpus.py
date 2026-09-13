@@ -131,6 +131,33 @@ CASES: tuple[Case, ...] = (
         ),
     ),
     Case(
+        name="division_by_zero",
+        pql="CHECK corpus SATISFIES (1000 / notional) > 0",
+        catches=(
+            "a zero divisor — row 3 has notional 0.0 — on which the three "
+            "engines agreed about nothing. "
+            "PostgreSQL raised and aborted the whole query, DuckDB and SQLite "
+            "returned NULL, and the reference returned UNKNOWN — so one bad row "
+            "killed a control on one engine and was silently skipped on two. "
+            "Every divisor is now wrapped in NULLIF, which makes all three "
+            "return NULL and agree with the oracle. Aborting was the worst of "
+            "the four: a control that cannot report because one row was bad has "
+            "said nothing about the other million"
+        ),
+    ),
+    Case(
+        name="modulo_on_a_fraction",
+        pql="CHECK corpus SATISFIES (notional % 2) <> 0.5",
+        catches=(
+            "PostgreSQL's `%`, which is defined for integer and numeric and not "
+            "for double precision — `notional % 2` on a DOUBLE column raises "
+            "'operator does not exist'. DuckDB and SQLite accept it, so this "
+            "ran on two engines and could not run on the third. Found only when "
+            "the conformance suite was pointed at a real PostgreSQL, which it "
+            "had never been"
+        ),
+    ),
+    Case(
         name="modulo_on_a_negative",
         pql="CHECK corpus SATISFIES (notional % 3) <> 2",
         catches=(

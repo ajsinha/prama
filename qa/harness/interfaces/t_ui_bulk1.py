@@ -11,6 +11,10 @@ async def main():
     await env.start()
     await env.create_principal("owner1", "ownerpassword1", ["owner"])
     http, _ = await env.signed_in_client("owner1", "ownerpassword1")
+    # POST /controls/build needs control:propose since the UI-005/008/009 scope fix; owner
+    # never held that (owner approves controls, steward proposes them).
+    await env.create_principal("steward1", "stewardpassword1", ["steward"])
+    http_steward1, _ = await env.signed_in_client("steward1", "stewardpassword1")
 
     # UI-061: dataset names trimmed and bounded
     r_long = await http.post("/declarations/new", data={"name": "x" * 5000, "shape": "unbound", "criticality": "4"})
@@ -74,22 +78,32 @@ async def main():
     r_attrs_only = await http.post("/declarations/new", data={"name": "grain-attrs-65", "shape": "unbound", "criticality": "4", "grain": "a,b"})
     r_stmt_only = await http.post("/declarations/new", data={"name": "grain-stmt-65", "shape": "unbound", "criticality": "4", "grain_statement": "one row per account per day"})
     ok65a = r_attrs_only.status_code == 303
-    # check whether the statement-only submission's statement was silently dropped
+    # Expected: attributes-only is accepted; statement-only is either refused, or visibly
+    # discarded (the user is shown that it was dropped) -- silently accepting it with no trace
+    # satisfies neither branch. Gate the verdict on this, not just on the attrs-only half.
     if r_stmt_only.status_code == 303:
         r_check = await http.get("/declarations")
         stmt_survived = "one row per account per day" in r_check.text
+        stmt_refused = False
+        stmt_visibly_discarded = False  # a bare 303 with no flash/warning says nothing was dropped
     else:
         stmt_survived = None
+        stmt_refused = True
+        stmt_visibly_discarded = False
+    ok65b = stmt_refused or stmt_visibly_discarded or bool(stmt_survived)
+    ok65 = ok65a and ok65b
     record(
         "UI-065",
-        "PASS" if ok65a else "FAIL",
+        "PASS" if ok65 else "FAIL",
         f"attrs_only_status={r_attrs_only.status_code} stmt_only_status={r_stmt_only.status_code} "
-        f"stmt_survived_if_created={stmt_survived} (catalogue predicts the statement is silently dropped "
-        f"when there are no attributes, since Grain requires attributes to exist as an object at all)",
+        f"stmt_survived_if_created={stmt_survived} stmt_refused={stmt_refused} -- Expected: "
+        f"attributes-only accepted (attrs_only ok={ok65a}) AND statement-only is either refused or "
+        f"visibly discarded (neither here: accepted with no refusal and the statement does not "
+        f"survive anywhere, so it is silently lost, not visibly discarded)",
     )
 
     # UI-093: builder always shows PQL and sentence
-    r_build = await http.post(
+    r_build = await http_steward1.post(
         "/controls/build",
         data={"dataset": "t", "rule": "not_null", "column": "a", "because": "why it matters", "severity": "major"},
     )

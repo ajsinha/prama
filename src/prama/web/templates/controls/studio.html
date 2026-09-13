@@ -111,7 +111,7 @@
 <script src="{{ url_for('static', filename='vendor/prism/prism.min.js') }}"></script>
 <script src="{{ url_for('static', filename='vendor/prism/components/prism-sql.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pql-editor.js') }}"></script>
-<script>
+<script nonce="{{ csp_nonce() }}">
   window.pramaPqlStudio({
     check: {{ url_for('control_check') | tojson }},
     compile: {{ url_for('control_compile') | tojson }},

@@ -471,7 +471,8 @@ async def main():
     con103()
     await con104()
     con105()
-    await con113()
-    await con111()
+    # CON-113/CON-111 are exact duplicates of con_ch.py's con113/con111, minus
+    # credentials (so they 401 against this container). con_ch.py is the
+    # canonical run for both ids; skipped here rather than left to crash main().
 
 asyncio.run(main())

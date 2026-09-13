@@ -200,8 +200,23 @@ class TestToolFailuresReachTheModel:
         assert reply["result"]["isError"] is True
 
     def test_an_unexpected_exception_becomes_a_protocol_error(self) -> None:
+        """A protocol error, and not the exception's text.
+
+        This used to assert the opposite — that "fell over" reached the client —
+        and it was that assertion which made the leak look intended. An
+        unexpected exception is by definition one nobody shaped for an
+        audience: a SQLAlchemy error stringifies to the full statement and its
+        bound parameters, so an unschema'd database answered `list_datasets`
+        with Prama's own SQL in the JSON-RPC error, to a model, over a protocol
+        built to hand things to one (QA finding MCP-024, and Q-38 before it).
+
+        The detail is logged with its traceback. The client gets the
+        correlation id to quote, which is the bargain the HTTP layer already
+        makes.
+        """
+
         def explode() -> Any:
-            raise RuntimeError("the warehouse fell over")
+            raise RuntimeError("SELECT secret FROM vault -- the warehouse fell over")
 
         reply = _call(
             _server(read_only_registry(Estate(datasets=explode))),
@@ -209,7 +224,11 @@ class TestToolFailuresReachTheModel:
             {"name": "list_datasets", "arguments": {}},
         )
         assert "error" in reply
-        assert "fell over" in reply["error"]["message"]
+        message = reply["error"]["message"]
+        assert "list_datasets failed" in message
+        assert "fell over" not in message
+        assert "SELECT" not in message
+        assert "correlation id" in message
 
 
 class TestProtocol:

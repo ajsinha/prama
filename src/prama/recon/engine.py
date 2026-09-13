@@ -151,7 +151,11 @@ class Reconciliation:
     ) -> Run:
         definition = self._definition
         matcher = (
-            ToleranceMatcher(definition.key, window=definition.date_window)
+            ToleranceMatcher(
+                definition.key,
+                window=definition.date_window,
+                near=getattr(definition, "date_column", ""),
+            )
             if definition.date_window
             else Matcher(definition.key)
         )

@@ -128,6 +128,23 @@ class TaskSupervisor:
                 await factory()
                 if handle.policy is not RestartPolicy.ALWAYS:
                     return
+                # A completed run is not a restart. This used to fall straight
+                # into the accounting below, so an ALWAYS task that returned
+                # normally — a poller finishing its pass, which is the whole
+                # point of the policy — was counted as having crashed: its
+                # restart total climbed, the backoff throttled it toward thirty
+                # seconds between passes, and enough healthy passes inside the
+                # window had it given up on as a crash loop (QA finding
+                # CFG-205).
+                #
+                # The counters reset instead, so the give-up threshold means
+                # what it says: this many *failures* in a row. Cadence belongs
+                # to the task — a poller sleeps for its own interval — because
+                # a supervisor that paces a healthy task is deciding something
+                # it does not know.
+                window_start, restarts_in_window = self._clock.monotonic(), 0
+                await asyncio.sleep(0)
+                continue
             except asyncio.CancelledError:
                 raise
             except Exception as exc:

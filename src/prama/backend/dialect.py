@@ -64,6 +64,11 @@ class SqlDialect:
     #: alternative — SUM(CASE WHEN …) — is portable and slightly slower, and is
     #: what engines without it get.
     has_aggregate_filter: bool = False
+    #: Whether the engine has ``ILIKE``. SQLite does not, and does not need it:
+    #: its ``LIKE`` is already case-insensitive for ASCII. Declared here rather
+    #: than branched on a name at the call site, which is what this object
+    #: exists to prevent.
+    has_ilike: bool = False
 
     # -- identifiers and literals -----------------------------------------
 
@@ -216,9 +221,29 @@ class PostgresDialect(SqlDialect):
     )
     regex_flavour = "posix"
     has_aggregate_filter = True
+    has_ilike = True
 
     def regex_match(self, expression: str, pattern: str) -> str:
         return f"{expression} ~ {self.literal(pattern)}"
+
+    def modulo(self, left: str, right: str) -> str:
+        """Remainder, over NUMERIC.
+
+        PostgreSQL's `%` is defined for integer and numeric and *not* for
+        double precision: `notional % 3` on a DOUBLE column raises "operator
+        does not exist: double precision % integer". DuckDB and SQLite both
+        accept it, so the corpus case passed on two engines and could not run
+        on the third.
+
+        Found by pointing the conformance suite at a real PostgreSQL for the
+        first time — the suite exists to prove the three engines agree and had
+        never met one of them (QA findings BE-024 and Q-60).
+
+        NUMERIC rather than integer, so a fractional dividend keeps its
+        fraction. Truncating to integer here would silently change what the
+        control asks.
+        """
+        return f"(CAST({left} AS NUMERIC) % CAST({right} AS NUMERIC))"
 
 
 class DuckDbDialect(SqlDialect):
@@ -228,6 +253,7 @@ class DuckDbDialect(SqlDialect):
     )
     regex_flavour = "re2"
     has_aggregate_filter = True
+    has_ilike = True
 
     def regex_match(self, expression: str, pattern: str) -> str:
         return f"regexp_matches({expression}, {self.literal(pattern)})"

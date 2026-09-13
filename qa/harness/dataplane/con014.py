@@ -46,13 +46,26 @@ class FakeDB(dict):
         return self.setdefault(name, FakeCollection(DOCS))
 
 async def main():
+    from prama.connect.spi import ConnectorError
     c = MongoConnector({"uri": "mongodb://x", "database": "d"})
     fake_db = FakeDB()
     c._client = {"d": fake_db}  # so self._client[self._database] -> fake_db
     plan = SamplePlan(predicate="d = '2026-04-01'")
     rows = []
-    async for batch in c.read(("trades",), plan=plan):
-        rows.extend(batch.to_pylist())
+    try:
+        async for batch in c.read(("trades",), plan=plan):
+            rows.extend(batch.to_pylist())
+    except ConnectorError as e:
+        # require_predicate_support() now raises before find() is ever reached
+        # (pushdown_capabilities() is empty), so the fake collection's find()
+        # is never called at all -- a stronger failure than "wrong rows
+        # returned", not something the original script's happy path caught.
+        log(
+            "CON-014",
+            "FAIL",
+            f"raised {e.code} instead of returning filtered rows: {e}",
+        )
+        return
     coll = fake_db["trades"]
     log(
         "CON-014",

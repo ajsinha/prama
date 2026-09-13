@@ -242,6 +242,193 @@ one `git merge-base --is-ancestor` — would have cost nothing.
 
 ---
 
+### Q-59 · Evidence can be appended with an empty tenant — new, found while fixing B1
+
+Not from the catalogue. `EvidenceDao.append` and `EvidenceDao.extend` both
+declare `tenant_id: str = ""`, so a caller that forgets the estate writes
+evidence attributed to `""` rather than being refused. Every current caller
+passes one, so nothing is wrong in the ledger today; the defect is that the
+signature permits it, in the one table whose whole value is that a record
+belongs to somebody.
+
+Found because the tenant-isolation sweep was strengthened from "accepts a
+tenant" to "requires a tenant" while fixing `DB-201`/`DB-244`/`DB-245`, and the
+new check immediately flagged `extend`. It flagged it as an unscoped *read*,
+which it is not — `append` was in the sweep's `WRITES` exclusion list and
+`extend` had been missed — but the underlying signature is worth fixing.
+
+Deferred rather than folded into B1, which is about containment and secrets.
+A batch that quietly grows to include whatever turns up next is a batch nobody
+can review.
+
+---
+
+### Q-60 · The conformance suite had never met PostgreSQL — new, found during B3
+
+While fixing the async engine I started a real PostgreSQL and ran the suite
+against it. Two things followed, and both are worth recording.
+
+**The `postgres` marker matched nothing.** `pyproject.toml` declares it,
+`tests/conftest.py` declares `postgres_config`, and no test used either. So the
+dialect with the broken async engine was also the dialect with no tests, which
+is not a coincidence — DB-070 survived because nothing could have caught it.
+`qa/regression-suite` now carries a `postgres`-marked test that connects for
+real and skips cleanly when no server is reachable.
+
+**The engine conformance suite fails on a real PostgreSQL.** With
+`PRAMA_TEST_POSTGRES_DSN` set, `tests/backend/test_engine_conformance.py` fails
+`modulo_on_a_negative` — which is `BE-024` from the language catalogue, found
+independently by reading. The suite whose entire purpose is to prove the
+engines agree had never been pointed at one of the three engines it names.
+
+That belongs to B6, where the interpreter/SQL divergences are grouped, and it
+arrives with a second source of evidence rather than one.
+
+**A correction to my own method.** My first run with a DSN produced 25 failures
+and 37 errors, and I nearly recorded that as a finding. The cause was my DSN:
+the repository's convention is a plain `postgresql://` libpq string, and I had
+passed the `postgresql+asyncpg://` driver form. The regression test now derives
+the async URL itself so one variable serves both spellings. Twenty-five
+failures that are your own setup look exactly like twenty-five defects until
+you check.
+
+---
+
+### Q-61 · PCK-199 is not a defect — the partial case is deliberate and surfaced
+
+The domain agent recorded `PCK-199` as a defect: one control passing and two
+never running reports `PROVEN_CLEAN`. I started to change it, and a test stopped
+me — `test_a_partly_run_obligation_is_not_unproven`, whose docstring states the
+design directly: *"Two controls, one run. Something has been established, so
+this is not the 'nothing has run' state — but the one that did not run is
+counted."*
+
+The three states answer whether anything has been *established*.
+`ADDRESSED_UNPROVEN` means nothing ran; a partial run is not that. The
+partiality is carried by `never_ran`, and `ObligationStanding.describe()`
+renders it: `"3 control(s); 1 passed, 0 failed, 0 not established, 2 never
+ran."`
+
+The catalogue's own **Expected** read "something other than `PROVEN_CLEAN`, **or**
+`never_ran` surfaced prominently". The second branch is met. The case was
+written from reading the enum and not the description method beside it.
+
+Recorded rather than quietly dropped, because "a test disagreed with me" is the
+outcome I most want to notice. Changing the state would have passed the QA case
+and broken a decision somebody made on purpose and wrote down — which is the
+failure mode of fixing defects by their symptom.
+
+---
+
+### Q-62 · PostgreSQL cannot take a modulo of a double — new, found in B6
+
+Not in the catalogue. PostgreSQL's `%` is defined for integer and numeric and
+not for double precision, so `notional % 3` on a DOUBLE column raises *operator
+does not exist: double precision % integer*. DuckDB and SQLite both accept it.
+
+So the corpus case `modulo_on_a_negative` — which exists specifically to prove
+the three engines agree about remainders — ran on two of them and could not run
+on the third. `PostgresDialect.modulo` now casts both sides to NUMERIC, which
+keeps a fractional dividend fractional; truncating to integer would have
+silently changed what the control asks.
+
+Found only because B3 pointed the conformance suite at a real PostgreSQL for the
+first time. The suite whose entire purpose is cross-engine agreement had never
+met one of the three engines it names, which is recorded separately as Q-60.
+
+Two cases were added to the corpus so this cannot recur silently:
+`division_by_zero` and `modulo_on_a_fraction`. Both fail against the old code.
+
+---
+
+### Q-63 · `plugins.disabled` works in the server and not the CLI — open
+
+Wiring the plugin loader (CFG-036) exposed an asymmetry rather than removing
+one. `create_app` reads `plugins.disabled` and passes it to `install_shipped`;
+`prama.cli.main` cannot, because it installs before argparse has run and so
+does not yet know whether `--config` names a different file. Reading a
+configuration the caller is about to override would be worse than reading none.
+
+So a validator switched off in configuration stays off in the server and loads
+in the CLI. Disabling a plugin is a deployment decision and the server is where
+it matters, which makes this tolerable and not correct.
+
+The real fix is to load plugins lazily, on first use of the validator registry,
+where the configuration is known. That is a refactor rather than a repair, and
+it is not the kind of change to make inside a batch about inert settings.
+
+---
+
+### Q-64 · `IS FRESH` has no execution strategy at all — open, and larger than PQL-083
+
+`PQL-083` recorded that a freshness plan carries no `violating_rows` metric, so
+every freshness control is permanently indeterminate. Looking for the fix found
+something worse: **nothing handles freshness at execution anywhere.** There is
+no branch for it in `execute/run.py`, none in `backend/execute.py`, and no
+`_freshness_verdict` beside the row-count, unique-key and dependency ones.
+
+So `IS FRESH WITHIN 4 HOURS` parses, type-checks, lowers to a plan with an
+`assertion_kind` of `"freshness"`, compiles to a query that counts rows, and is
+then judged by a threshold reading a metric nobody emitted. It cannot pass and
+it cannot fail.
+
+This is the `BE-054` shape again — syntax the grammar accepts that no engine
+runs — but one level deeper: the SQL compiles, so it does not even announce
+itself as unsupported.
+
+**It blocks a shipped template.** `gdpr-retention-floor` names `DATE_SUB`,
+which no pack registers, so it cannot compile either. The obvious repair is to
+express a retention floor as `IS FRESH WITHIN {retention_days} DAYS` — it says
+exactly the right thing and needs no new function — and that would move the
+template from "cannot compile" to "can never produce a verdict", which is worse
+because it is quieter.
+
+Deferred deliberately. Implementing freshness means deciding what it is
+evaluated *against* — a snapshot time, a business date, the clock — and PQL
+refuses the clock because evidence must replay. That is a design decision about
+the language, not a repair, and it should not be made inside a batch about
+domain packs.
+
+Recorded here, and pinned in `qa/regression-suite` as a strict xfail so the day
+somebody implements freshness, the test that proves the template is broken will
+start failing and force this note to be closed.
+
+---
+
+### Q-65 · INC-010 needs a product decision, not a repair — open
+
+`_shared_ancestor` orders candidates by `(vote count, name length)`, so the
+*broadest* shared ancestor wins. Its own docstring forbids exactly that:
+"Deepest rather than any: everything shares 'the raw feed' eventually, and an
+incident about the raw feed when the fault is in one derived column sends
+people to the wrong system." The ordering says the opposite of the paragraph
+above it.
+
+I changed it to prefer depth, measured properly from the graph rather than
+guessed from the length of a name, and three tests failed — including
+`test_one_upstream_defect_produces_one_incident`, which is the module's stated
+acceptance criterion. In that fixture one feed column fans out to forty-eight
+findings whose *only* common ancestor is the raw feed, so naming it is correct.
+
+The two requirements conflict:
+
+- one upstream defect must produce one incident, which wants the broadest
+  ancestor when everything genuinely shares it;
+- two findings sharing a nearer derived column should be their own incident,
+  which wants the deepest.
+
+Both are right, and choosing between them per-case is a grouping decision —
+whether those two findings *split off* — not a question about which name to put
+on a group already formed. That belongs in `_by_ancestor`, and it changes how
+many incidents an estate sees on a bad morning, which is a product decision
+about alert volume rather than a defect to repair quietly.
+
+Reverted rather than left half-done. `INC-011`, the missing time window, is
+independent and is fixed: two failures three days apart no longer merge because
+everything in a warehouse shares a feed eventually.
+
+---
+
 ## Open
 
 Ranked. Each was reported by the agent named, and awaits reproduction before
@@ -343,6 +530,106 @@ Worth stating plainly: three of that agent's four headline findings were real,
 including a path traversal in secret resolution, and the one it led with was
 not. That is a good hit rate for a reading pass and a bad reason to trust one
 without reproduction.
+
+### Q-66 · `/controls/check` demands an authoring scope to lint text — open, found in round 3
+
+Round 3's interfaces pass put seven console cases into 403 where round 2 had
+them at 200. The cause is not damage: before B7 the console **authenticated a
+session and then checked nothing**, so every page rendered for anybody who got
+through the door. Adding `ui_scope` turned pages that always rendered into pages
+that can refuse, and the round-2 harnesses — which signed in as `owner` — began
+to be refused. That is the guard working.
+
+One of the refusals is worth a decision rather than a fixture change.
+`POST /controls/check` and `/controls/completions` now require
+`control:propose`. Neither writes anything: `check` parses, type-checks and
+lints a PQL string and returns findings. `owner` holds `control:approve` and
+`control:read`, and deliberately not `control:propose` — the role split is
+"the steward authors, the owner approves".
+
+So the business owner — the persona in the first sentence of `docs/00`, the
+"business-owned" in the product's own description — can activate a control but
+cannot lint the text of one before approving it. Approving what you were not
+permitted to check reads backwards, and the natural workaround is to grant
+owners `control:propose`, which erases the separation the two scopes exist to
+create.
+
+`control:read` is the defensible requirement for both routes: they read the
+language, not the estate. But that is a statement about what the role boundary
+*means*, so it belongs to the product rather than to a QA pass, and it is
+recorded here instead of changed. Related: [[Q-63]].
+
+**Not** a regression. The round-2 PASS was a page that could not say no.
+
+### Q-67 · The role built to attest cannot read an attestation — new, found in round 3
+
+`BUILTIN_ROLES["owner"]` grants `attestation:sign` and not `attestation:read`.
+Measured across all four built-in roles:
+
+| role | `attestation:sign` | `attestation:read` | both |
+|---|---|---|---|
+| `admin` | yes | yes | yes — via `*` |
+| `owner` | **yes** | **no** | **no** |
+| `steward` | no | no | no |
+| `auditor` | no | yes | no |
+
+So the only principal who can sign an attestation and then look at it is the
+wildcard admin. An `owner` — the role whose whole purpose is to attest, and the
+persona the product is named for — can sign, and cannot open the draft before
+signing it or the signed record afterwards through the console.
+
+`tests/architecture/test_scopes.py` does not catch this, and is right not to by
+its current rule: it checks that no role grants a permission no route requires,
+and that no route requires a permission no role can hold. `attestation:read` is
+held by `auditor`, so both directions pass. The missing rule is the third one —
+**a role must hold the reads implied by the writes it holds.** Signing a thing
+you cannot read is not a permission set anyone would write down on purpose.
+
+Found because the B7 scope work made the console able to refuse at all; before
+it, every page rendered for anybody who got through the door, so the gap existed
+and could not be observed. Same shape as [[Q-66]]: the guard did not create these
+problems, it made them visible.
+
+The repair is one entry in `BUILTIN_ROLES` plus the third architecture rule, and
+the counterfactual is cheap — grant, assert the console renders, revoke, assert
+403. Batch it with Q-66 if Q-66 is decided as a change.
+
+### Q-68 · A raw Python exception escapes where a typed error is promised — the one batch worth doing first
+
+Found by triaging round 3's standing failures **by cause across areas** rather
+than by area, after a first attempt at clustering grouped four cases together
+that turned out to have four unrelated causes.
+
+**33 of the 237 standing failures in the three completed areas are this one
+class.** The product's own rule, stated in `CLAUDE.md`: *"No exception is
+swallowed. The unit of work translates failures into the Prama error taxonomy
+and they propagate; a DAO never returns a sentinel meaning 'something went
+wrong'."* These are the places where nothing translates.
+
+| area | count | shape |
+|---|---:|---|
+| interfaces | 18 | `Traceback` to the terminal from `prama` itself; `CLI-208` is a `KeyError` where a missing manifest field should be named |
+| language | 14 | `TypeError`, `KeyError`, `IndexError`, `ValueError` out of the IR and backend layers |
+| semantic | 1 | `SEM-222`: a raw `sqlalchemy.exc` reaches the caller, in the layer whose entire job is to translate it |
+
+`CLI-017` is the meta-case and it measured itself: of **224 CLI invocations
+logged across every harness script in round 3, 14 produced an uncaught Python
+traceback** rather than a typed refusal. The census lives in
+`qa/harness/interfaces/cli_call_log.jsonl`.
+
+**Why this batch and not another.** It has one cause, so one repair closes many
+cases — which the previous ten batches conspicuously did not manage, closing 25
+of 247. It needs no product decision: unlike [[Q-63]], [[Q-64]], [[Q-65]] and
+[[Q-66]], nobody has to rule on what the right behaviour is, because the rule is
+already written down. And the counterfactual is unusually strong: the assertion
+is "zero tracebacks across the full invocation census", which fails loudly today
+and cannot quietly stop checking the way a per-case assertion can.
+
+The trap to avoid is a bare `except Exception` at the CLI boundary that formats
+anything as a refusal. That would turn 33 loud failures into 33 silent ones and
+pass the test — the flattering direction. Each site needs the specific typed
+error naming what was wrong, and the top-level handler is the last resort that
+should still be reached by nothing.
 
 ---
 

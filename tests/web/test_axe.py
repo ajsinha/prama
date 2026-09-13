@@ -48,6 +48,16 @@ from prama.report.themes import THEMES as _THEMES
 #: Each theme's page ground, to wait for before measuring anything on it.
 BODY = {theme.name: theme.body for theme in _THEMES}
 
+#: `bypass_csp=True` on every page here. The console now sends a
+#: Content-Security-Policy with a per-response nonce (QA finding UI-045), and
+#: `page.add_script_tag` is precisely what such a policy exists to block — so
+#: axe-core could not be injected and all 24 checks failed at once.
+#:
+#: Bypassing is right for *these* tests and only these: they ask whether the
+#: rendered page is usable, not whether the header is present. The header has
+#: its own test, which asserts the policy is sent and does not bypass it. A
+#: suite that turned the policy off everywhere would have removed the evidence
+#: that it is on.
 AXE = Path(__file__).parent / "vendor" / "axe.min.js"
 
 #: WCAG 2.2 AA. Best-practice rules are excluded deliberately: they are
@@ -183,7 +193,7 @@ def _violations(browser, base: str, path: str, theme: str) -> list[dict]:
     # light and dark values and a colour the page never rests at. Auditing in
     # the mode a motion-sensitive reader browses in is also the mode worth
     # auditing.
-    page = browser.new_page(reduced_motion="reduce")
+    page = browser.new_page(reduced_motion="reduce", bypass_csp=True)
     try:
         page.goto(f"{base}{path}", wait_until="networkidle")
         # BOTH attributes, exactly as the switcher sets them. Flipping
@@ -253,7 +263,7 @@ class TestTheAuditItself:
         """The counterfactual. An audit that passes everything is
         indistinguishable from an audit that is not running, and this is the
         only test that tells them apart."""
-        page = browser.new_page()
+        page = browser.new_page(bypass_csp=True)
         try:
             page.set_content(
                 "<html lang='en'><body><img src='x.png'><input type='text'></body></html>"
@@ -301,7 +311,7 @@ def test_the_json_report_is_written(browser, server: str, tmp_path: Path) -> Non
     is a report that goes stale, and a stale accessibility report is read as a
     current one.
     """
-    page = browser.new_page(reduced_motion="reduce")
+    page = browser.new_page(reduced_motion="reduce", bypass_csp=True)
     try:
         page.goto(f"{server}/estate", wait_until="networkidle")
         page.add_script_tag(path=str(AXE))

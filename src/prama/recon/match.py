@@ -32,6 +32,8 @@ from collections.abc import Mapping, Sequence
 from decimal import Decimal
 from typing import Any
 
+from prama.core.errors import ValidationError
+
 #: Below this match rate the run is reported as a configuration problem rather
 #: than a break population. Set where it is because a genuine reconciliation
 #: between systems that are meant to agree matches almost everything: a tenth
@@ -153,9 +155,21 @@ class MatchReport:
         return sum(len(pair.left) + len(pair.right) for pair in self.pairs)
 
     @property
-    def match_rate(self) -> float:
+    def match_rate(self) -> float | None:
+        """The share of rows that matched, or ``None`` when there were none.
+
+        `None`, not `1.0`. Two empty sides used to reconcile perfectly, which
+        is the most reassuring possible reading of "the feed did not arrive"
+        (QA finding RCN-015). A reconciliation over nothing has not
+        demonstrated that two systems agree; it has demonstrated that neither
+        was asked.
+
+        The caller decides what to do about it, which is the point — a rate of
+        1.0 cannot be distinguished from a real perfect match, and a rate of
+        None cannot be mistaken for one.
+        """
         total = self.left_rows + self.right_rows
-        return self.matched_rows / total if total else 1.0
+        return self.matched_rows / total if total else None
 
     @property
     def aggregated_pairs(self) -> int:
@@ -170,9 +184,23 @@ class MatchReport:
         almost everything; a tenth failing to match is a mapping gap, and the
         breaks it produces are artefacts of that gap rather than findings.
         """
-        return self.match_rate < POOR_MATCH_RATE
+        rate = self.match_rate
+        if rate is None:
+            # Two empty sides. Not a mapping gap and not a clean
+            # reconciliation — nothing was compared, so there is no rate to
+            # judge. `describe()` says so in words; this answers the narrower
+            # question it was asked, which is whether the *rate* indicates
+            # misconfiguration.
+            return False
+        return rate < POOR_MATCH_RATE
 
     def describe(self) -> str:
+        if self.match_rate is None:
+            return (
+                "nothing was compared: neither side had any rows. This is not a "
+                "reconciliation that agreed — it is one that did not happen. Check "
+                "that both feeds arrived."
+            )
         head = (
             f"{len(self.pairs):,} keys matched across {self.left_rows:,} and "
             f"{self.right_rows:,} rows ({self.match_rate:.1%})"
@@ -200,7 +228,10 @@ class MatchReport:
             "unmatched_right": len(self.unmatched_right),
             "left_rows": self.left_rows,
             "right_rows": self.right_rows,
-            "match_rate": round(self.match_rate, 6),
+            # None rather than 1.0 when nothing was compared, and it stays
+            # None here: a consumer reading this JSON must be able to tell an
+            # empty reconciliation from a perfect one.
+            "match_rate": None if self.match_rate is None else round(self.match_rate, 6),
             "looks_misconfigured": self.looks_misconfigured,
             "summary": self.describe(),
         }
@@ -267,10 +298,40 @@ class ToleranceMatcher(Matcher):
     with the wrong day.
     """
 
-    def __init__(self, key: MatchKey, *, window: int = 1) -> None:
+    def __init__(self, key: MatchKey, *, window: int = 1, near: str = "") -> None:
         super().__init__(key)
         self._window = window
         self._key_spec = key
+        #: Which component of the key is allowed to be near. Named, because a
+        #: key's order expresses identity and says nothing about which field is
+        #: fuzzy — and assuming the last one made `date_window` silently inert
+        #: wherever the date was not last. The banking pack's
+        #: `cashbook-to-statement` keys on (account, value_date, reference), so
+        #: a window of three days was shifting a reference string and matching
+        #: nothing (QA finding PCK-209).
+        #:
+        #: Defaults to the last component, which is what every existing caller
+        #: relies on.
+        self._near = self._near_index(key, near)
+
+    @staticmethod
+    def _near_index(key: MatchKey, near: str) -> int:
+        if not near:
+            return -1
+        # `left`, because the near column is named as the caller's own side
+        # knows it. A MatchKey pairs left and right columns positionally, so
+        # the index found here is the right one for both.
+        names = list(key.left)
+        if near not in names:
+            raise ValidationError(
+                f"{near!r} is not part of this match key",
+                remedy=(
+                    "The near column has to be one the rows are matched on. "
+                    f"This key is ({', '.join(names)})."
+                ),
+                context={"near": near, "key": ", ".join(names)},
+            )
+        return names.index(near)
 
     def match(
         self,
@@ -312,12 +373,12 @@ class ToleranceMatcher(Matcher):
     def _nearby(
         self, key: tuple[Any, ...], candidates: Mapping[tuple[Any, ...], Unmatched]
     ) -> tuple[Any, ...] | None:
-        head, tail = key[:-1], key[-1]
+        index = self._near if self._near >= 0 else len(key) - 1
         for offset in range(1, self._window + 1):
-            for shifted in (_shift(tail, offset), _shift(tail, -offset)):
+            for shifted in (_shift(key[index], offset), _shift(key[index], -offset)):
                 if shifted is None:
                     continue
-                probe = (*head, shifted)
+                probe = (*key[:index], shifted, *key[index + 1 :])
                 if probe in candidates:
                     return probe
         return None

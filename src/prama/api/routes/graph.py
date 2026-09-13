@@ -95,7 +95,9 @@ async def declare_property(
 async def list_properties(concept_id: str, caller: Reader, uow: Uow) -> list[ConceptPropertyOut]:
     out: list[ConceptPropertyOut] = []
     for version in await uow.concept_properties.for_concept(concept_id, tenant_id=caller.tenant_id):
-        mapped = await uow.attributes.mapped_to_property(version.property_id)
+        mapped = await uow.attributes.mapped_to_property(
+            version.property_id, tenant_id=caller.tenant_id
+        )
         out.append(concept_property_out(version, concept_id=concept_id, mapped_count=len(mapped)))
     return out
 

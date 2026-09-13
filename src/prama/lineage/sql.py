@@ -55,6 +55,17 @@ _AGGREGATES = frozenset(
     }
 )
 
+#: An aggregate call, bounded so a longer name that merely ends in one is not
+#: mistaken for it. Built from `_AGGREGATES` rather than restated, so a name
+#: added there is matched here without anybody remembering to.
+_AGGREGATE_CALL = re.compile(
+    r"(?<![a-z0-9_])(" + "|".join(sorted(_AGGREGATES, key=len, reverse=True)) + r")\s*\("
+)
+
+#: As above, for the cast that marks a rename.
+_CAST_CALL = re.compile(r"(?<![a-z0-9_])cast\s*\(")
+
+
 _SELECT = re.compile(r"\bselect\b(?P<body>.*?)\bfrom\b", re.IGNORECASE | re.DOTALL)
 _INSERT = re.compile(
     r"\binsert\s+into\s+(?P<target>[\w.\"\[\]]+)\s*(\((?P<columns>[^)]*)\))?",
@@ -459,12 +470,22 @@ class SqlLineage:
     @staticmethod
     def _transform(expression: str) -> Transform:
         lowered = expression.lower()
-        if any(f"{name}(" in lowered for name in _AGGREGATES):
+        # Word-bounded, not a substring search. `any(f"{name}(" in lowered)`
+        # read `discount(price)` as an aggregate because it contains `count(`,
+        # and `checksum(x)` because it contains `sum(` — so an ordinary derived
+        # column was classified as summed over many rows, its edge attenuated
+        # to 0.35, and it could fall below the impact floor and disappear from
+        # the graph entirely (QA finding LIN-030).
+        #
+        # Lineage that quietly drops an edge is worse than lineage that has
+        # none: an impact analysis run against it comes back clean.
+        if _AGGREGATE_CALL.search(lowered):
             return Transform.AGGREGATED
         stripped = expression.strip()
         if _IDENTIFIER.fullmatch(stripped) or _BARE.fullmatch(stripped):
             return Transform.IDENTITY
-        if "cast(" in lowered or lowered.startswith("coalesce("):
+        # `cast(` had the same flaw — `broadcast(` contains it.
+        if _CAST_CALL.search(lowered) or lowered.startswith("coalesce("):
             return Transform.RENAME
         return Transform.DERIVED
 

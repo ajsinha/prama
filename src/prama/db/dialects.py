@@ -15,12 +15,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.url import URL
-from sqlalchemy.pool import NullPool, QueuePool, StaticPool
+from sqlalchemy.pool import AsyncAdaptedQueuePool, NullPool, QueuePool, StaticPool
 
 from prama.core.errors import ConfigError, DatabaseError
 from prama.db.settings import DbSettings
@@ -243,6 +243,43 @@ class SqliteDialect(Dialect):
         )
 
 
+#: libpq `sslmode` → what asyncpg needs to mean the same thing. `disable`,
+#: `allow` and `prefer` are asyncpg's own default behaviour, so they map to
+#: None and nothing is passed; the three that *require* TLS are the ones that
+#: have to be stated, because asyncpg's default will connect without it.
+_ASYNCPG_SSL: Final[dict[str, str]] = {
+    "require": "require",
+    "verify-ca": "verify-ca",
+    "verify-full": "verify-full",
+}
+
+
+def _asyncpg_ssl(sslmode: str) -> str | None:
+    """What to pass asyncpg as ``ssl`` for a libpq ``sslmode``.
+
+    Returns None where asyncpg's default already matches, so the argument is
+    omitted rather than set to something meaning "whatever you like".
+    """
+    return _ASYNCPG_SSL.get(sslmode.strip().lower())
+
+
+def _statement_timeout_ms(seconds: float) -> int:
+    """A PostgreSQL ``statement_timeout``, in whole milliseconds.
+
+    Zero means *unlimited* in PostgreSQL, so it is the one value a rounding
+    error must never produce. `int(0.0005 * 1000)` is `0`, which turned
+    "half a millisecond" into "no limit at all" — the opposite of what was
+    asked for, and in the direction that hides a runaway query rather than
+    stopping it (QA finding DB-074).
+
+    Anything above zero therefore floors at one millisecond. A caller who
+    genuinely wants no limit configures zero, and gets it.
+    """
+    if seconds <= 0:
+        return 0
+    return max(1, int(seconds * 1000))
+
+
 class PostgresDialect(Dialect):
     """PostgreSQL: the production database. Scale-out, JSONB, advisory locks."""
 
@@ -282,22 +319,59 @@ class PostgresDialect(Dialect):
             "pool_pre_ping": pool.pre_ping,
         }
         if is_async:
-            # asyncpg takes server settings rather than libpq keywords, and it
-            # does not understand sslmode; the driver negotiates TLS itself.
-            kwargs["connect_args"] = {
+            # asyncpg takes server settings rather than libpq keywords, so the
+            # libpq spelling of each option has to be translated rather than
+            # passed through.
+            connect: dict[str, Any] = {
                 "server_settings": {
                     "application_name": p.application_name,
-                    "statement_timeout": str(int(p.statement_timeout_seconds * 1000)),
+                    "statement_timeout": str(_statement_timeout_ms(p.statement_timeout_seconds)),
                     "search_path": p.db_schema,
                 }
             }
-            kwargs["poolclass"] = QueuePool
+            # sslmode is the one that was simply dropped. The comment here
+            # used to say asyncpg "does not understand sslmode; the driver
+            # negotiates TLS itself", which is true of the keyword and not of
+            # the requirement: `sslmode: require` asks for a connection that
+            # fails rather than falls back to plaintext, and asyncpg's default
+            # `ssl=None` will happily connect without TLS. So an operator who
+            # asked for TLS got it on the synchronous path and not on the
+            # asynchronous one, with nothing said either way (QA finding
+            # DB-072).
+            ssl = _asyncpg_ssl(p.sslmode)
+            if ssl is not None:
+                connect["ssl"] = ssl
+            kwargs["connect_args"] = connect
+            # AsyncAdaptedQueuePool, not QueuePool. SQLAlchemy 2.x refuses the
+            # synchronous pool on an asyncio engine outright — "Pool class QueuePool cannot
+            # be used with asyncio engine" — so this line made the asynchronous
+            # PostgreSQL engine impossible to construct at all (QA finding
+            # DB-070, and DB-072, DB-148 and DB-279 behind it, plus the
+            # database-backed lease provider).
+            #
+            # It was also redundant: `poolclass` was already QueuePool from the
+            # shared kwargs above, so this re-stated the wrong answer in the
+            # one branch that needed a different one. The SQLite dialect gets
+            # it right a few lines up — `NullPool if is_async else QueuePool` —
+            # so the pattern was known and not applied here.
+            #
+            # Nothing caught it: `tests/conftest.py` defines `postgres_config`
+            # and nothing uses it, and no test constructs an async engine.
+            # AsyncAdaptedQueuePool rather than NullPool, which is what SQLite
+            # uses. NullPool would construct, and would also open a fresh
+            # connection per request against a server where that costs a
+            # round trip and a backend process — a correctness fix that
+            # quietly became a throughput defect. It also rejects pool_size,
+            # max_overflow and pool_timeout, so the configured pool settings
+            # would have had to be dropped to make it work, which is the
+            # clearest possible sign it was the wrong pool.
+            kwargs["poolclass"] = AsyncAdaptedQueuePool
         else:
             kwargs["connect_args"] = {
                 "application_name": p.application_name,
                 "sslmode": p.sslmode,
                 "options": (
-                    f"-c statement_timeout={int(p.statement_timeout_seconds * 1000)} "
+                    f"-c statement_timeout={_statement_timeout_ms(p.statement_timeout_seconds)} "
                     f"-c search_path={p.db_schema}"
                 ),
             }

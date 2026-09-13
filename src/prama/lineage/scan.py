@@ -59,15 +59,37 @@ class ScanResult:
 
     @property
     def coverage(self) -> float:
-        return (
-            (self.units_found - self.units_unread) / self.units_found if self.units_found else 0.0
-        )
+        """The share of units this scanner read, between 0 and 1.
+
+        Counted over *units*, not over gaps. `units_unread` is a count of gaps
+        and a gap is column-level, so one unreadable mapping can produce five —
+        and `(found - unread) / found` then reported a coverage of -400%, which
+        printed as "read -4 of 1 units" (QA finding LIN-059).
+
+        A Gap carries the statement it came from, so the units that failed can
+        be counted properly rather than approximated by the failures.
+        """
+        if not self.units_found:
+            return 0.0
+        read = self.units_found - self.units_with_gaps
+        return max(0.0, min(1.0, read / self.units_found))
+
+    @property
+    def units_with_gaps(self) -> int:
+        """How many units produced at least one gap.
+
+        A gap with no statement cannot be attributed, so it counts as its own
+        unit — pessimistic, which is the right direction for a coverage figure.
+        """
+        attributed = {gap.statement for gap in self.extraction.gaps if gap.statement}
+        unattributed = sum(1 for gap in self.extraction.gaps if not gap.statement)
+        return min(self.units_found, len(attributed) + unattributed)
 
     def describe(self) -> str:
         if self.misconfigured:
             return f"{self.scanner} on {self.source}: {self.misconfigured}"
         head = (
-            f"{self.scanner} read {self.units_found - self.units_unread} of "
+            f"{self.scanner} read {self.units_found - self.units_with_gaps} of "
             f"{self.units_found} units in {self.source}, producing "
             f"{len(self.extraction.edges)} column edges"
         )

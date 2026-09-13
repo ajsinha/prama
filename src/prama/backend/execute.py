@@ -157,11 +157,20 @@ def judge_segments(
     for segment in segments:
         for name, value in segment.metrics.items():
             totals[name] = totals.get(name, 0.0) + float(value)
+    # A fail anywhere fails the control; an indeterminate *anywhere* makes the
+    # control indeterminate. This used to require every segment to be
+    # indeterminate before saying so, so two partitions that ran cleanly and
+    # one that could not be evaluated reported PASS — which hides precisely the
+    # partition nobody could measure (QA finding PQL-158).
+    #
+    # The whole reason to segment is that an answer about the parts is worth
+    # more than an answer about the average. A control with a hole in it is not
+    # a clean control, and the hole is the interesting part.
     overall = (
         Verdict.FAIL
         if any(s.verdict is Verdict.FAIL for s in segments)
         else Verdict.INDETERMINATE
-        if not segments or all(s.verdict is Verdict.INDETERMINATE for s in segments)
+        if not segments or any(s.verdict is Verdict.INDETERMINATE for s in segments)
         else Verdict.PASS
     )
     return ControlResult(

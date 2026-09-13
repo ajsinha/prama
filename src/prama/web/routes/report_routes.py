@@ -34,6 +34,7 @@ REPORTED_STATES = ("proposed", "active", "deprecated")
 
 
 class ReportRoutes(UiRoutes):
+    SUBJECT = "report"
     """The pack index and the two packs."""
 
     def register(self) -> None:

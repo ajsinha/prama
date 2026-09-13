@@ -14,8 +14,14 @@ async def main():
     httpO, _ = await env.signed_in_client("owner75", "ownerpassword1")
     httpS, _ = await env.signed_in_client("steward75", "stewardpassword1")
 
-    # UI-075: a control saved in the studio arrives as a proposal, never active
-    r_save = await httpO.post("/controls/save", data={"pql": "CHECK t75.a IS NOT NULL BECAUSE 'x'"})
+    # UI-075: a control saved in the studio arrives as a proposal, never active. The
+    # catalogue's own Precondition says "a declaration:write session" -- true before the
+    # UI-005/008/009 scope fix, when /controls/save was gated on declaration:write like every
+    # other write route; now it is gated on control:propose, which owner (declaration:write)
+    # does not hold and steward does. The catalogue's precondition wording is stale relative
+    # to the fix; the functional claim itself (proposed, never active) is what is tested here,
+    # with the role that can actually reach the route.
+    r_save = await httpS.post("/controls/save", data={"pql": "CHECK t75.a IS NOT NULL BECAUSE 'x'"})
     async with env.database.unit_of_work() as uow:
         rows = await uow.controls.list_for_tenant(env.tenant_id) if hasattr(uow.controls, "list_for_tenant") else None
     import sqlite3
@@ -23,7 +29,13 @@ async def main():
     status = conn.execute("SELECT status FROM ctl_control_version WHERE change_reason LIKE '%eclara%' OR 1=1 ORDER BY recorded_at DESC LIMIT 1").fetchone()
     conn.close()
     ok75 = r_save.status_code == 303 and status and status[0] == "proposed"
-    record("UI-075", "PASS" if ok75 else "FAIL", f"save_status={r_save.status_code} stored_status={status}")
+    record(
+        "UI-075",
+        "PASS" if ok75 else "FAIL",
+        f"save_status={r_save.status_code} stored_status={status} -- tested with a steward "
+        f"(control:propose) session rather than the catalogue's literal 'a declaration:write "
+        f"session', which /controls/save no longer accepts post-fix; see note",
+    )
 
     # get the control id for activate/suppress tests
     conn = sqlite3.connect(str(DB))
@@ -66,27 +78,64 @@ async def main():
         f"asymmetry with activate (which has no such try/except and so 404s cleanly)" if not ok79 else "",
     )
 
-    # UI-080: until must be a date
-    if control_id:
-        res80 = {}
-        for label, val in [("not-a-date", "not-a-date"), ("empty", ""), ("past", "1999-01-01")]:
-            r = await httpO.post(f"/controls/{control_id}/suppress", data={"until": val, "because": "reason80"})
-            res80[label] = r.status_code
-        record("UI-080", "INSPECT" if False else "FAIL" if False else "PASS" if res80 else "FAIL", f"results={res80} (recorded as observed; see note)")
-    else:
-        record("UI-080", "BLOCKED", "no control id available")
-
-    # UI-081: suppression requires a reason
-    if control_id:
-        r81 = await httpO.post(f"/controls/{control_id}/suppress", data={"until": "2099-01-01", "because": ""})
+    # UI-080: until must be a date. The previous version of this check only recorded status
+    # codes and its verdict ("PASS" if res80 else "FAIL") was true for any non-empty dict, so
+    # it always passed regardless of content -- every disposition here redirects 303 whether
+    # it succeeded or was refused (the same Q-43 asymmetry UI-079 documents), so the status
+    # code alone proves nothing. Verify via the control's actual stored status instead, and use
+    # a FRESH control per case so one case's suppression cannot leak into the next's baseline.
+    async def fresh_control(identity):
+        safe = identity.replace("-", "_")
+        r = await httpS.post("/controls/save", data={"pql": f"CHECK t80_{safe}.a IS NOT NULL BECAUSE 'x'"})
         conn = sqlite3.connect(str(DB))
-        row81 = conn.execute("SELECT status FROM ctl_control_version WHERE control_id=? ORDER BY recorded_at DESC LIMIT 1", (control_id,)).fetchone()
+        row = conn.execute(
+            "SELECT cc.id FROM ctl_control cc JOIN ctl_control_version v ON v.control_id=cc.id "
+            "WHERE v.pql LIKE ? ORDER BY v.recorded_at DESC LIMIT 1",
+            (f"%t80_{safe}%",),
+        ).fetchone()
         conn.close()
-        got_suppressed = row81 and row81[0] == "suppressed"
+        return row[0] if row else None
+
+    def status_of(cid):
+        conn = sqlite3.connect(str(DB))
+        row = conn.execute(
+            "SELECT status FROM ctl_control_version WHERE control_id=? ORDER BY recorded_at DESC LIMIT 1", (cid,)
+        ).fetchone()
+        conn.close()
+        return row[0] if row else None
+
+    res80 = {}
+    for label, val in [("not-a-date", "not-a-date"), ("empty", ""), ("past", "1999-01-01"), ("future", "2099-01-01")]:
+        cid80 = await fresh_control(label)
+        if cid80 is None:
+            res80[label] = "could not create a fresh control"
+            continue
+        r = await httpO.post(f"/controls/{cid80}/suppress", data={"until": val, "because": "reason80"})
+        res80[label] = {"status": r.status_code, "stored_status": status_of(cid80)}
+    bad80 = {}
+    if isinstance(res80.get("not-a-date"), dict) and res80["not-a-date"]["stored_status"] == "suppressed":
+        bad80["not-a-date"] = res80["not-a-date"]
+    if isinstance(res80.get("empty"), dict) and res80["empty"]["stored_status"] == "suppressed":
+        bad80["empty"] = res80["empty"]
+    if isinstance(res80.get("past"), dict) and res80["past"]["stored_status"] != "suppressed":
+        # a past 'until' being refused is also acceptable; only flag it if it silently succeeded
+        # with nothing said about the date being in the past -- captured qualitatively, not failed
+        pass
+    ok80 = not bad80
+    record("UI-080", "PASS" if ok80 else "FAIL", f"results={res80} bad(silently_suppressed_with_an_invalid/missing_until)={bad80}")
+
+    # UI-081: suppression requires a reason. Round 2 found reusing UI-080's control produced a
+    # false FAIL (it was already suppressed by an earlier sub-case before this one ran) -- use a
+    # fresh, never-suppressed control instead.
+    cid81 = await fresh_control("081")
+    if cid81:
+        r81 = await httpO.post(f"/controls/{cid81}/suppress", data={"until": "2099-01-01", "because": ""})
+        got_suppressed = status_of(cid81) == "suppressed"
         record(
             "UI-081",
             "FAIL" if got_suppressed else "PASS",
-            f"status={r81.status_code} actually_suppressed_with_empty_reason={got_suppressed}",
+            f"status={r81.status_code} actually_suppressed_with_empty_reason={got_suppressed} "
+            f"(tested against a fresh control, never touched by UI-080)",
         )
     else:
         record("UI-081", "BLOCKED", "no control id available")

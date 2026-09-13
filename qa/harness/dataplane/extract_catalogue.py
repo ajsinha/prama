@@ -1,6 +1,6 @@
 import re, json
 
-text = open("/home/ashutosh/PycharmProjects/prama/docs/qa/catalogue/dataplane.md").read()
+text = open("/home/ashutosh/PycharmProjects/prama/qa/catalogue/dataplane.md").read()
 # Split into case blocks by "### ID · Title"
 pattern = re.compile(r"^### (?P<id>[A-Z]+-\d+) · (?P<title>.+)$", re.M)
 matches = list(pattern.finditer(text))

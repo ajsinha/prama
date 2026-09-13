@@ -106,6 +106,9 @@ class Manifest:
     #: name -> version, for everything installed.
     sbom: tuple[tuple[str, str], ...] = ()
     manifest_version: str = MANIFEST_VERSION
+    #: Whether a publisher signature was made over this manifest. Set at seal
+    #: time and covered by `content_hash`, so it cannot be edited away.
+    publisher_signed: bool = False
 
     @property
     def total_bytes(self) -> int:
@@ -129,6 +132,17 @@ class Manifest:
                     entry.to_dict() for entry in sorted(self.entries, key=lambda e: e.path)
                 ],
                 "sbom": [list(item) for item in sorted(self.sbom)],
+                # Inside the hashed content on purpose. Without it, deleting
+                # `manifest.ed25519` left nothing to notice: the verifier saw
+                # no signature offered, reported `signature_holds=None` — "none
+                # was checked", not "one failed" — and fell through to the
+                # local seal, which the host that stripped it can produce
+                # (QA finding SEC-144, and Q-19 before it).
+                #
+                # A claim not covered by the hash is a claim an attacker can
+                # retract. This one is covered, so retracting it breaks the
+                # manifest instead of going unnoticed.
+                "publisher_signed": self.publisher_signed,
             },
             sort_keys=True,
             separators=(",", ":"),
@@ -224,6 +238,12 @@ class Verification:
             self.manifest_intact
             and not self.missing
             and not self.modified
+            # An unlisted file is one nobody signed for, and it installs with
+            # the rest. The verifier already found it and already said so in
+            # `describe()`; it simply was not part of this answer, so anybody
+            # reading the exit code rather than the prose installed it anyway
+            # (QA finding SEC-140, and finding Q-18 before it).
+            and not self.unexpected
             # Either signature suffices. The air-gapped receiver has the
             # publisher's public key and not the sender's HMAC key; requiring
             # both would make the case this exists for impossible.
@@ -364,6 +384,25 @@ def build_manifest(
     )
 
 
+def _declared_on_disk(root: Path) -> str:
+    """The ``content_hash`` the bundle's own ``manifest.json`` states.
+
+    Read from the file rather than taken from the parsed object, because the
+    parsed object hashes to whatever the file says — which is precisely how
+    this check became a tautology (QA finding SEC-142). The claim has to come
+    from outside the thing being checked or it is not a check.
+    """
+    path = root / "manifest.json"
+    if not path.is_file():
+        return ""
+    try:
+        return str(json.loads(path.read_text(encoding="utf-8")).get("content_hash", ""))
+    except (OSError, ValueError):
+        # Unreadable or malformed is not "no claim" — it is a bundle that
+        # cannot be verified, and the empty string makes `intact` False.
+        return ""
+
+
 def verify(
     root: Path,
     manifest: Manifest,
@@ -372,10 +411,28 @@ def verify(
     seal: str = "",
     public_key: Any = None,
     signature: str = "",
+    declared_hash: str = "",
 ) -> Verification:
-    """Check a bundle against its manifest, naming what is wrong and how."""
-    stored_hash = manifest.content_hash
-    intact = stored_hash == hashlib.sha256(manifest.content().encode("utf-8")).hexdigest()
+    """Check a bundle against its manifest, naming what is wrong and how.
+
+    ``declared_hash`` is the ``content_hash`` as written in ``manifest.json``,
+    read from the file rather than recomputed. When not supplied it is read
+    from ``root/manifest.json`` directly, so the check holds even for a caller
+    that does not know to pass it — the claim must come from outside the object
+    being checked, or it is not a check at all. Without it this check was a
+    tautology: ``content_hash`` is a property over the manifest's own content,
+    so ``manifest.content_hash == sha256(manifest.content())`` compared a value
+    against itself and `manifest_intact` could never be False (QA finding
+    SEC-142). The loader compounded it by reading every field from the JSON
+    *except* that one — the single number written down in order to be checked
+    against was discarded on the way in.
+    """
+    computed = hashlib.sha256(manifest.content().encode("utf-8")).hexdigest()
+    declared = declared_hash or _declared_on_disk(root)
+    # Fails closed. A bundle that states no hash cannot have its manifest
+    # checked, and "cannot be checked" is not "passes" — that conflation is the
+    # family of defect this whole round kept turning up.
+    intact = bool(declared) and hmac.compare_digest(declared, computed)
 
     missing: list[str] = []
     modified: list[str] = []
@@ -406,7 +463,12 @@ def verify(
         holds = bool(key) and hmac.compare_digest(manifest.seal(key or b""), seal)
 
     signed: bool | None = None
-    if signature:
+    if manifest.publisher_signed and not signature:
+        # The manifest says it was signed and nothing came with it. That is a
+        # removal, not an absence, and it is the one case that must not read as
+        # "unsigned bundle, fall back to the local seal".
+        signed = False
+    elif signature:
         # Offered without a key to check it against is a no, not an absence: a
         # verifier that skipped it would report an unverifiable signature as
         # "unsigned", which reads as a packaging oversight rather than a claim

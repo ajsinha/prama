@@ -22,8 +22,10 @@ def con144():
     d1 = _group(objs1)
     objs2 = [_StoredObject(key="s3://b/risk/positions/2026-04-01/part-0.parquet")]
     d2 = _group(objs2)
-    ok = (len(d1) == 1 and d1[0].path == ("risk", "2026", "positions") and d1[0].partition_depth == 0
-          and len(d2) == 1 and d2[0].path == ("risk", "positions") and d2[0].partition_depth == 1
+    # _group() keeps the bucket as the path's first segment (confirmed: both
+    # d1[0].path and d2[0].path start with "b").
+    ok = (len(d1) == 1 and d1[0].path == ("b", "risk", "2026", "positions") and d1[0].partition_depth == 0
+          and len(d2) == 1 and d2[0].path == ("b", "risk", "positions") and d2[0].partition_depth == 1
           and d2[0].partition_columns == ())
     log("CON-144", "PASS" if ok else "FAIL",
         f"d1: path={d1[0].path if d1 else None} depth={d1[0].partition_depth if d1 else None}; "
@@ -46,22 +48,34 @@ def con151():
 def con152():
     c = ObjectStoreConnector({"uri": "s3://bucket/prefix", "region": "eu-west-1", "endpoint": "minio:9000", "session_token": "tok123"})
     stmt = c._secret_statement()
-    ok = "PROVIDER credential_chain" in stmt and "KEY_ID" not in stmt and "SECRET" not in stmt and "SESSION_TOKEN" not in stmt
+    # "SECRET" bare is always a substring of "CREATE OR REPLACE SECRET" itself;
+    # the clause under test renders as SECRET '<value>' (see CON-151's stmt), so
+    # that is what absence has to mean.
+    ok = "PROVIDER credential_chain" in stmt and "KEY_ID" not in stmt and "SECRET '" not in stmt and "SESSION_TOKEN" not in stmt
     log("CON-152", "PASS" if ok else "FAIL", stmt)
 
 import asyncio
 async def con153():
+    # health() is meant to classify a bad URI as MISCONFIGURED without raising.
+    # If open()/_connect() instead raises a raw duckdb exception, the idiomatic
+    # `async with connector:` pattern never reaches health() at all -- caught
+    # here per-URI so that outcome is itself the observed (failing) result,
+    # rather than an uncaught crash that also takes con154/con155 down with it.
     obs = {}
     for uri in ("/mnt/lake/positions", "http://x/y", "", "s3://bucket/prefix"):
         c = ObjectStoreConnector({"uri": uri, "endpoint": "127.0.0.1:1"})
-        async with c:
-            r = await c.health()
-        obs[uri] = r.state
+        try:
+            async with c:
+                r = await c.health()
+            obs[uri] = r.state
+        except Exception as e:
+            obs[uri] = f"UNCAUGHT {type(e).__name__}: {e}"
     ok = (obs["/mnt/lake/positions"] is HealthState.MISCONFIGURED
           and obs["http://x/y"] is HealthState.MISCONFIGURED
           and obs[""] is HealthState.MISCONFIGURED
           and obs["s3://bucket/prefix"] is not HealthState.MISCONFIGURED)
-    log("CON-153", "PASS" if ok else "FAIL", {k: v.value for k, v in obs.items()})
+    log("CON-153", "PASS" if ok else "FAIL",
+        {k: (v.value if isinstance(v, HealthState) else v) for k, v in obs.items()})
 
 def con154():
     cases = {

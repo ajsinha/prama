@@ -101,7 +101,18 @@ class Throughput:
 
     @property
     def per_second(self) -> float | None:
-        return None if self.elapsed_seconds <= 0 else self.messages / self.elapsed_seconds
+        """Messages per second, or ``None`` when nothing was measured.
+
+        Guarded on the message count as well as the clock. An empty pass still
+        takes a few `perf_counter` ticks, so the elapsed-time guard never fired
+        and the answer came out as `0.0` — a *measured* throughput of zero,
+        which is a claim about performance rather than the absence of one
+        (QA finding EXE-081). Its sibling `percentile` returns None for exactly
+        this case, with a docstring saying why; this one did not.
+        """
+        if self.messages <= 0 or self.elapsed_seconds <= 0:
+            return None
+        return self.messages / self.elapsed_seconds
 
     def percentile(self, share: float) -> float | None:
         """A latency percentile, or ``None`` when nothing was measured.

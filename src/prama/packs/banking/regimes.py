@@ -269,8 +269,15 @@ REGIME_OBLIGATIONS: Final[tuple[Obligation, ...]] = (
             Template(
                 identity="emir-notional-sign",
                 pql=(
-                    "CHECK {dataset} SATISFIES NOTIONAL_SIGN_MATCHES_SIDE("
-                    "{notional}, {side}) "
+                    # SIGN_MATCHES_SIDE, and side first. The template named
+                    # NOTIONAL_SIGN_MATCHES_SIDE — a function the pack does not
+                    # register — and passed (notional, side) to a signature
+                    # declared (TEXT, NUMBER). So a shipped EMIR template was
+                    # wrong twice over and could never resolve, and nothing
+                    # compared the template against the catalogue it draws from
+                    # (QA findings PCK-184 and PCK-185).
+                    "CHECK {dataset} SATISFIES SIGN_MATCHES_SIDE("
+                    "{side}, {notional}) "
                     "SEVERITY critical DIMENSION consistency "
                     "BECAUSE 'a wrong-signed notional nets against what it should add to'"
                 ),

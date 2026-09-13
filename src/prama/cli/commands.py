@@ -10,6 +10,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import argparse
+import socket
 
 from prama.cli.apikey import ApiKeyCommand
 from prama.cli.base import EXIT_DRIFT, EXIT_OK, Command, CommandContext, CommandGroup
@@ -24,7 +25,7 @@ from prama.cli.mcp import McpCommand
 from prama.cli.pack import PackCommand
 from prama.cli.principal import PrincipalCommand
 from prama.cli.tenant import TenantCommand
-from prama.core.errors import PramaError
+from prama.core.errors import PramaError, ValidationError
 from prama.db import Database
 from prama.version import IR_VERSION, PRODUCT_NAME, PRODUCT_TAGLINE, SCHEMA_VERSION, VERSION
 
@@ -215,7 +216,41 @@ class ServeCommand(Command):
 
         from prama.api import create_app
 
-        base = f"http://{ctx.args.host}:{ctx.args.port}"
+        port = int(ctx.args.port)
+        if not 1 <= port <= 65535:
+            raise ValidationError(
+                f"{port} is not a port number",
+                remedy="A TCP port is between 1 and 65535. 8080 is the default.",
+                context={"port": str(port)},
+            )
+
+        # Bound before anything is printed. The banner used to go out first and
+        # uvicorn bound afterwards, so `--port 99999`, a busy port and an
+        # unroutable host all printed a full success message and then failed —
+        # the success banner was a statement about intent, not about what
+        # happened (QA findings CLI-270, CLI-271, CLI-272).
+        #
+        # Binding here also means the URL printed is one somebody can open,
+        # because the socket behind it already exists.
+        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            listener.bind((ctx.args.host, port))
+            listener.listen(2048)
+        except OSError as exc:
+            listener.close()
+            raise PramaError(
+                f"cannot listen on {ctx.args.host}:{port}",
+                code="CLI.BIND_FAILED",
+                remedy=(
+                    "Another process may already hold the port, or the address may "
+                    "not belong to this host. Choose another with --port, or bind "
+                    "0.0.0.0 to accept on every interface."
+                ),
+                cause=exc,
+            ) from exc
+
+        base = f"http://{ctx.args.host}:{port}"
         ctx.emit(f"Prama {VERSION} — {PRODUCT_TAGLINE}")
         if ctx.config.get_bool("web.enabled", True):
             # First, because it is the thing a person opens. The API and its
@@ -235,12 +270,23 @@ class ServeCommand(Command):
             ctx.emit("  No tenant is configured, so every console page will redirect to")
             ctx.emit("  a sign-in that does not exist yet. Create one and name it:")
             ctx.emit("      prama tenant create acme-bank --name 'Acme Bank'")
-        uvicorn.run(
-            create_app(ctx.config),
-            host=ctx.args.host,
-            port=ctx.args.port,
-            log_config=None,  # Prama configures logging itself
+        # Flushed explicitly. stdout is line-buffered to a terminal and block-
+        # buffered to anything else, and `Server.run` blocks forever — so under
+        # systemd, Docker, or any `prama serve > log`, the banner sat in a
+        # buffer that was never emptied and never appeared at all. That is
+        # every real production invocation (QA finding CLI-276).
+        ctx.out.flush()
+
+        server = uvicorn.Server(
+            uvicorn.Config(
+                create_app(ctx.config),
+                log_config=None,  # Prama configures logging itself
+            )
         )
+        try:
+            server.run(sockets=[listener])
+        finally:
+            listener.close()
         return EXIT_OK
 
 

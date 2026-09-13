@@ -327,9 +327,10 @@ class SqlCompiler:
             # through because all three agree on them. See finding C4.
             if operator == "/":
                 left, *rest = arguments
-                return "(" + " / ".join([self.dialect.as_real(left), *rest]) + ")"
+                divisors = [_no_zero(divisor) for divisor in rest]
+                return "(" + " / ".join([self.dialect.as_real(left), *divisors]) + ")"
             if operator == "%" and len(arguments) == 2:
-                return self.dialect.modulo(arguments[0], arguments[1])
+                return self.dialect.modulo(arguments[0], _no_zero(arguments[1]))
             return "(" + f" {operator} ".join(arguments) + ")"
         if operator == "NOT":
             return f"NOT ({arguments[0]})"
@@ -345,6 +346,14 @@ class SqlCompiler:
             return self._exists(node, arguments[0])
         if operator in ("MATCHES", "NOT MATCHES"):
             return self._regex(node, arguments, negated=operator.startswith("NOT"))
+        if operator in ("LIKE", "NOT LIKE", "ILIKE", "NOT ILIKE"):
+            return self._like(arguments, operator)
+        if operator == "HAS FORMAT":
+            # No "NOT HAS FORMAT": the grammar has no such spelling, and the
+            # lowerer expresses negation by wrapping in NOT(...) rather than
+            # fusing it into the operator name. A branch for it would be a
+            # guess about a shape nothing produces.
+            return self._has_format(node, arguments)
         if operator == "IN CODELIST":
             # Resolved into a literal set before compilation; reaching here
             # means the codelist was never bound, and guessing would be worse
@@ -382,6 +391,48 @@ class SqlCompiler:
         outer = f"{self._source}.{value}" if self._source and value.startswith('"') else value
         return f"({self.dialect.exists_in(outer, table, column)})"
 
+    def _like(self, arguments: list[str], operator: str) -> str:
+        """``LIKE`` and ``ILIKE``, which every engine here has.
+
+        These parsed, lowered and reached the compiler's final `raise` — real,
+        reachable syntax with no SQL form on any dialect (QA finding BE-054).
+        The keywords are in the lexer, in the parser's binding table and in
+        `ast.PRECEDENCE`; only the compilation was missing.
+
+        SQLite has no `ILIKE`, but its `LIKE` is case-insensitive for ASCII by
+        default, so the two are the same operator there. Saying that here is
+        better than refusing a control an author has every reason to expect to
+        work.
+        """
+        negated = operator.startswith("NOT ")
+        bare = operator[4:] if negated else operator
+        if bare == "ILIKE" and not self.dialect.has_ilike:
+            rendered = f"(UPPER({arguments[0]}) LIKE UPPER({arguments[1]}))"
+        else:
+            rendered = f"({arguments[0]} {bare} {arguments[1]})"
+        return f"NOT {rendered}" if negated else rendered
+
+    def _has_format(self, node: Expr, arguments: list[str]) -> str:
+        """``HAS FORMAT '999-AAA'`` — a shape, written the way a data owner says it.
+
+        Translated to `LIKE`, because that is what it means: `9` is any digit,
+        `A` any letter, `X` either, and everything else is itself. `LIKE` has
+        no digit class, so the digit and letter positions both become `_` and
+        the exactness of the check is bounded by the pattern's length — which
+        is the part of the promise `LIKE` can keep on every engine.
+
+        Previously this reached the final `raise` on the SQL side and a bare,
+        uncaught `KeyError` in the reference interpreter (QA finding PQL-093),
+        so the same control failed two different ways depending on where it ran.
+        """
+        pattern = str(node.args[1].value)
+        rendered = "".join(
+            "_" if character in "9AX" else "%" if character == "*" else character
+            for character in pattern
+        )
+        quoted = self.dialect.literal(rendered)
+        return f"({self.dialect.as_text(arguments[0])} LIKE {quoted})"
+
     def _regex(self, node: Expr, arguments: list[str], *, negated: bool) -> str:
         pattern = node.args[1].value
         # Cast first: a regular expression is a test on characters, and a
@@ -398,6 +449,28 @@ class SqlCompiler:
         return f"NOT ({rendered})" if negated else f"({rendered})"
 
 
+def _no_zero(divisor: str) -> str:
+    """A divisor that yields NULL rather than an engine's own idea of zero.
+
+    The three engines disagreed completely on division and modulo by zero:
+    PostgreSQL raises and **aborts the whole query**, DuckDB and SQLite return
+    NULL, and the reference interpreter returns UNKNOWN (QA finding BE-024).
+    So one bad row killed a control on one engine, was silently skipped on two,
+    and was correctly unknown in the oracle — four behaviours, no agreement.
+
+    `NULLIF(d, 0)` makes all three return NULL, which the Kleene logic already
+    reads as unknown, which is what the reference says. The engines now agree
+    with each other and with the oracle, and the answer they agree on is the
+    true one: a quotient by zero is not a number, and the control's
+    `TREAT UNKNOWN` policy decides what that means rather than the engine.
+
+    Aborting was the worst of the three. A control that cannot report a verdict
+    because one row was bad has told the operator nothing about the other
+    million.
+    """
+    return f"NULLIF({divisor}, 0)"
+
+
 def compile_for(
     plan: ControlPlan, target: str, *, table: str = "", scan_limit: int = 0
 ) -> CompiledControl:
@@ -407,4 +480,4 @@ def compile_for(
 #: Aggregates. Rendered by the metric path rather than the catalogue, because
 #: an aggregate is not a row expression and a catalogue entry would promise a
 #: per-row lowering it could not honour.
-_AGGREGATES = frozenset({"COUNT", "SUM", "AVG", "STDDEV", "APPROX_COUNT_DISTINCT"})
+_AGGREGATES = frozenset({"COUNT", "SUM", "AVG", "STDDEV", "APPROX_COUNT_DISTINCT", "MIN", "MAX"})

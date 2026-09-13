@@ -36,6 +36,7 @@ import ast as python_ast
 import dataclasses
 import hashlib
 import inspect
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -183,11 +184,16 @@ def scan_source(path: str) -> list[tuple[str, str]]:
     """
     try:
         tree = python_ast.parse(Path(path).read_text(encoding="utf-8"))
-    except (OSError, SyntaxError):
-        # A file that will not parse cannot be scanned, and a scan that
-        # silently returns "nothing forbidden" for it would be worse than no
-        # scan. The loader refuses it on import instead, loudly.
-        return []
+    except (OSError, SyntaxError) as exc:
+        # Reported as a finding, not as an empty result. The comment here used
+        # to say the loader refuses an unparseable file on import instead —
+        # but this function is the *pre-flight*, run before importing is
+        # acceptable, so "nothing forbidden" was the one answer it must never
+        # give about a file it could not read (QA finding CLS-127).
+        #
+        # An empty list and a clean scan were indistinguishable, and the empty
+        # list is what a file arrives as when it is deliberately unreadable.
+        return [(Path(path).name, f"this file could not be scanned: {exc}")]
     found: list[tuple[str, str]] = []
     for node in python_ast.walk(tree):
         # Dynamic imports first: `__import__("socket")` and
@@ -196,10 +202,31 @@ def scan_source(path: str) -> list[tuple[str, str]]:
         if isinstance(node, python_ast.Call):
             why = None
             called = ""
+            # Both tables, for both spellings. `importlib.import_module(...)`
+            # is an Attribute and was caught; `from importlib import
+            # import_module` then calling it bare is a Name, and was not — so
+            # the evasion the attribute table exists to close stayed open
+            # behind one extra import line (QA finding CLS-114).
+            #
+            # A name is a name however it got into scope, and a gate that can
+            # be stepped around by rewriting the import is a gate that
+            # inconveniences the honest.
             if isinstance(node.func, python_ast.Name):
+                # A bare name is checked against *both* tables.
+                # `importlib.import_module(...)` was caught as an attribute and
+                # `from importlib import import_module` then calling it bare
+                # was not, so the evasion stayed open behind one extra import
+                # line (QA finding CLS-114). A name is a name however it got
+                # into scope.
                 called = node.func.id
-                why = FORBIDDEN_DYNAMIC.get(called)
+                why = FORBIDDEN_DYNAMIC.get(called) or FORBIDDEN_DYNAMIC_ATTRIBUTES.get(called)
             elif isinstance(node.func, python_ast.Attribute):
+                # Attributes are checked against the attribute table only, and
+                # the asymmetry is deliberate: `compile` in the builtin table
+                # means the builtin, and `re.compile(...)` is what every
+                # ordinary validator does. Checking both here refused every
+                # regex in the shipped set — which the suite caught
+                # immediately, and is the right trade to have lost.
                 called = node.func.attr
                 why = FORBIDDEN_DYNAMIC_ATTRIBUTES.get(called)
             if why is not None:
@@ -392,19 +419,35 @@ class PluginRegistry:
 PLUGINS = PluginRegistry()
 
 
-def load_entry_points(registry: Any, plugins: PluginRegistry | None = None) -> list[Provenance]:
+def load_entry_points(
+    registry: Any,
+    plugins: PluginRegistry | None = None,
+    *,
+    disabled: Iterable[str] = (),
+) -> list[Provenance]:
     """Load every advertised validator, refusing the ones that break a rule.
 
     A plugin that fails is refused *loudly* and the others still load: one bad
     distribution must not take an estate's validators down with it, and a
     refusal nobody sees is a validator silently missing from every control that
     named it.
+
+    *disabled* names entry points an operator has switched off, from
+    `plugins.disabled`. That setting existed in the shipped YAML, in no
+    defaults mapping, and was read by nothing (QA finding CFG-036) — because
+    this function was called by nothing either.
     """
     from importlib.metadata import entry_points
 
     plugins = plugins or PLUGINS
+    refused = {name.strip().lower() for name in disabled if name.strip()}
     admitted: list[Provenance] = []
     for entry in entry_points(group=ENTRY_POINT_GROUP):
+        if entry.name.lower() in refused:
+            # Said out loud. A validator that is missing because somebody
+            # turned it off must not look the same as one that failed to load.
+            _log.info("validator plugin %s is disabled by configuration", entry.name)
+            continue
         try:
             validator = entry.load()()
             provenance = plugins.admit(

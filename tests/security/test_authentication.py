@@ -29,6 +29,13 @@ pytestmark = pytest.mark.anyio
 PASSWORD = "correct-horse-battery-staple"
 
 
+def _without_nonces(markup: str) -> str:
+    """The page with its per-response CSP nonce blanked."""
+    import re
+
+    return re.sub(r'nonce="[^"]*"', 'nonce="…"', markup)
+
+
 async def _principal(
     database: Database,
     tenant_id: str,
@@ -222,7 +229,14 @@ class TestTheSignInPage:
         unknown = await ui.post("/sign-in", data={"username": "ghost", "password": "no"})
         assert wrong.status_code == unknown.status_code == 401
         assert "Those details did not work." in wrong.text
-        assert wrong.text == unknown.text.replace("ghost", "alice")
+        # The CSP nonce is per-response and random, so the two pages are not
+        # byte-identical any more and should not be: it carries no information
+        # about which of the two failures happened. Normalised rather than
+        # dropped, because the assertion that matters — that nothing *else*
+        # differs — is the whole point of this test.
+        assert _without_nonces(wrong.text) == _without_nonces(
+            unknown.text.replace("ghost", "alice")
+        )
 
     async def test_signing_in_establishes_a_session(
         self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str

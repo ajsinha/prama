@@ -116,8 +116,17 @@ record(
     f"a declared flag silently discarded",
 )
 
-# CLI-278: serve verifies the schema at start-up (drifted database)
-cfg278, d278, db278 = new_cfg("cli278", web_enabled=False, drift=True)
+# CLI-278: serve verifies the schema at start-up (drifted database) -- round 2 found that an
+# EXTRA column plus a digest mismatch (the shared drift=True helper above) is exactly the
+# non-blocking/invisible drift CLI-032/033 already document, so it never made 'serve' refuse;
+# a genuinely BLOCKING drift needs a MISSING column instead (CLI-034's family).
+cfg278, d278, db278 = new_cfg("cli278", web_enabled=False, drift=False)
+import sqlite3 as _sqlite3_278
+
+_conn278 = _sqlite3_278.connect(db278)
+_conn278.execute("ALTER TABLE tenant DROP COLUMN display_name")
+_conn278.commit()
+_conn278.close()
 alive, rc, out, err, port = run_serve_capture(cfg278, wait_s=2)
 ok = (not alive) and rc != 0 and ("drift" in err.lower() or "drift" in out.lower() or "SchemaDrift" in err)
 record("CLI-278", "PASS" if ok else "FAIL", f"alive={alive} rc={rc} out={out[:200]!r} err={err[-400:]!r}")

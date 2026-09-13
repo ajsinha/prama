@@ -186,7 +186,12 @@ async def build(
     verdicts = {control: record.verdict for control, record in latest.items()}
 
     coverage = catalogue.coverage(regime, controls_by_template=bindings, verdicts=verdicts)
-    root = await uow.evidence.period_root(tenant_id, period_start, period_end)
+    # Unpacked. `period_root` returns `(root, count)`, and assigning the pair
+    # straight into `evidence_root` printed a Python tuple where the Merkle
+    # root belongs — in a regulatory pack, in the field a reader checks the
+    # evidence against (QA finding RPT-025). `attest.build` unpacks it three
+    # modules away; this one did not, and nothing compared the two.
+    root, _records_in_period = await uow.evidence.period_root(tenant_id, period_start, period_end)
 
     return Pack(
         regime=regime,

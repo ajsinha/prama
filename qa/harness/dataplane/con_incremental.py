@@ -123,7 +123,11 @@ def pro092():
 def pro093():
     ledger = SegmentLedger()
     now = dt.datetime(2026,4,10,tzinfo=dt.UTC)
-    segs = [mkseg(f"s{i}", dt.date(2026,4,i+1)) for i in range(5)]
+    # mutable_days defaults to 3, so cutoff is 2026-04-07: dates have to sit
+    # *after* it for segments[1:] to land MUTABLE rather than SETTLED. The
+    # previous 04-01..04-05 range was entirely before the cutoff, so every
+    # recorded segment came back SETTLED regardless of what was recorded.
+    segs = [mkseg(f"s{i}", dt.date(2026,4,8+i)) for i in range(5)]
     # segment 1 (index 0) NEW (no ledger record); segments 2-5 MUTABLE (recorded, recent)
     exact = Snapshot(kind=SnapshotKind.TRANSACTION_ID, identifier="X", captured_at=now)
     for s in segs[1:]:

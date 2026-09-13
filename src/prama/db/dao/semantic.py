@@ -136,16 +136,34 @@ class AttributeDao(VersionedDao[SemAttribute, SemAttributeVersion]):
         )
         return list((await self._session.execute(stmt)).scalars().all())
 
-    async def mapped_to_property(self, property_id: str) -> list[SemAttributeVersion]:
-        """Every attribute claiming to be the same canonical property.
+    async def mapped_to_property(
+        self, property_id: str, *, tenant_id: str
+    ) -> list[SemAttributeVersion]:
+        """Every attribute in this estate claiming to be the same canonical property.
 
         The input to conflict detection: if two of these disagree about units or
         value domain, the estate holds two meanings for one concept.
+
+        The tenant is required, and this is why: the by-parent reads on these
+        DAOs took a parent id and nothing else, so a caller holding an
+        identifier from another estate read that estate's rows in full — a 200
+        with the data, not a 404 (QA finding F-02, and this method in round 2).
+        The tenant sweep in `tests/security/test_tenant_isolation.py` could not
+        see it, because it probes methods whose *first* parameter is
+        `tenant_id`, and this one had no tenant parameter at all.
+
+        A shared concept library is the point of the product, so two estates
+        mapping onto the same property id is the normal case, not a collision.
+        That makes a property id something an outsider can plausibly hold, and
+        holding it must not be enough to read another estate's attributes.
         """
         await self._session.flush()
         stmt = TemporalQuery.current(
-            select(SemAttributeVersion).where(
-                SemAttributeVersion.concept_property_id == property_id
+            select(SemAttributeVersion)
+            .join(SemAttribute, SemAttribute.id == SemAttributeVersion.attribute_id)
+            .where(
+                SemAttributeVersion.concept_property_id == property_id,
+                SemAttribute.tenant_id == tenant_id,
             ),
             SemAttributeVersion,
         )

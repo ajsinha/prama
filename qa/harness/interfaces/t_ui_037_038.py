@@ -21,7 +21,12 @@ async def main():
     )
     c.run_sub(["--config", str(cfgf37), "db", "init"])
     c.run_sub(["--config", str(cfgf37), "tenant", "create", "acme-bank"])
-    awkward_pw = "a\nb\x00c\U0001F600" + ("d" * 8000) + "  "
+    # a NUL byte, a 4-byte emoji, 8000+ characters, and leading/trailing spaces -- WITHOUT an
+    # embedded newline. Round 2 found a literal '\n' in the password cannot be set via the
+    # CLI's stdin mechanism at all (_read_password splits on any newline, indistinguishable
+    # from the confirm-twice separator), which is a structural transport limitation tested
+    # separately below, not part of what this case is about.
+    awkward_pw = "a b\x00c\U0001F600" + ("d" * 8000) + "  "
     code, out, err = c.run_sub(["--config", str(cfgf37), "principal", "create", "awkward37", "--tenant", "acme-bank"], stdin_input=awkward_pw + "\n")
     setup_ok = code == 0
     from prama.db import Database
@@ -36,8 +41,22 @@ async def main():
         async with httpx.AsyncClient(transport=ASGITransport(app=app37), base_url="http://testserver", follow_redirects=False) as http:
             r = await http.post("/sign-in", data={"username": "awkward37", "password": awkward_pw, "tenant": "acme-bank"})
             ok37 = setup_ok and r.status_code == 303 and r.headers.get("location") == "/estate"
-            record("UI-037", "PASS" if ok37 else "FAIL", f"cli_setup_code={code} cli_err={err[:150] if code!=0 else ''} signin_status={r.status_code}")
     await db37.stop()
+
+    # separately: a password containing a literal newline
+    code_nl, out_nl, err_nl = c.run_sub(
+        ["--config", str(cfgf37), "principal", "create", "awkward37nl", "--tenant", "acme-bank"],
+        stdin_input="a\nb\n",
+    )
+    newline_fails_loudly = code_nl != 0 and "did not match" in err_nl
+    record(
+        "UI-037",
+        "PASS" if (ok37 and newline_fails_loudly) else "FAIL",
+        f"NUL/emoji/8000-char/space-padded password (no embedded newline): cli_setup_code={code} "
+        f"signin_status={r.status_code} authenticates_exactly={ok37} | password containing a literal "
+        f"newline: cli_code={code_nl} fails_loudly_not_silently_truncated={newline_fails_loudly} "
+        f"err={err_nl[:150]!r}",
+    )
 
     # UI-038: sign-in rate limiting, or its documented absence
     DB38 = c.WORKDIR / "ui038.db"

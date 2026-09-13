@@ -13,14 +13,34 @@ def msg(method, params=None, id_=None):
 
 cat = Catalogue(datasets={"trades": DatasetSchema(name="trades", columns=(Column("a", "TEXT"), Column("b", "TEXT")))})
 
-# LSP-013: a diagnostic with no position (e.g. a suite-level "unchecked" finding
-# with no source line) is reported at the top and says so
-server13 = PqlLanguageServer()  # no catalogue -> the 'unchecked' finding has a position typically;
-# instead force a no-position case: an empty document, or a lint-level finding without a location.
-# Use a control referencing a totally undeclared dataset with an empty catalogue, which is what
-# ControlCheckCommand's own 'unchecked' finding looks like -- check whether it carries a position.
-r13 = server13.handle(msg("textDocument/didOpen", {"textDocument": {"uri": "file:///g.pql", "text": "CHECK nowhere.col IS NOT NULL BECAUSE 'x'"}}))
-diags13 = r13[0]["params"]["diagnostics"]
+# LSP-013: a diagnostic with no position (e.g. a suite-level "unchecked" finding with no
+# source line) is reported at the top and says so. Round 2 found that "CHECK nowhere.col..."
+# does NOT exercise this: it produces a finding WITH a position (pointing at the "nowhere"
+# token) even with an empty catalogue -- so the no-position branch has to be constructed
+# directly, the same way LSP-015/016 (right below) construct a fake diagnostic via a
+# FakeService, rather than found from real PQL input.
+class _FakeDiagNoPos:
+    line = None
+    column = None
+    length = 0
+    message = "msg13"
+    remedy = "remedy13"
+    severity = 1
+    has_position = False
+
+
+class _FakeServiceNoPos:
+    def diagnostics(self, text):
+        return [_FakeDiagNoPos()]
+
+    catalogue = cat
+
+
+server13 = PqlLanguageServer()
+server13._documents["file:///g.pql"] = "CHECK nowhere.col IS NOT NULL BECAUSE 'x'"
+server13._service = _FakeServiceNoPos()
+notif13 = server13._diagnostics_for("file:///g.pql")
+diags13 = notif13["params"]["diagnostics"]
 no_position_diags = [d for d in diags13 if d["range"]["start"] == {"line": 0, "character": 0} and d["range"]["end"] == {"line": 0, "character": 0}]
 ok13 = any("(no position in the source)" in d["message"] for d in no_position_diags) if no_position_diags else False
 record("LSP-013", "PASS" if ok13 else "FAIL", f"diags={diags13}")

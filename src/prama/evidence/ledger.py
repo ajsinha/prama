@@ -42,6 +42,7 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import hmac
+import threading
 from collections.abc import Iterable, Iterator
 from typing import Any
 
@@ -120,6 +121,18 @@ class Ledger:
 
     def __init__(self, records: Iterable[EvidenceRecord] = ()) -> None:
         self._records: list[EvidenceRecord] = list(records)
+        #: Guards the read-modify-write in `append`. Reading `next_sequence`
+        #: and `head`, then appending, is three steps, and two threads
+        #: interleaving them both linked to the same head and claimed the same
+        #: sequence. Measured: eight threads writing four thousand records
+        #: produced two thousand two hundred and fifty duplicate sequence
+        #: numbers, and a chain that no longer verified (QA finding EVD-052).
+        #:
+        #: The durable ledger is protected by a unique index on
+        #: `(tenant_id, sequence)`, so the database would have refused those
+        #: writes. This one had nothing, and it is the implementation the
+        #: reference verifier and every in-process caller use.
+        self._lock = threading.Lock()
 
     def __len__(self) -> int:
         return len(self._records)
@@ -144,9 +157,12 @@ class Ledger:
         looked linked and was not, and the whole guarantee would rest on every
         caller getting it right.
         """
-        linked = dataclasses.replace(record, sequence=self.next_sequence, previous_hash=self.head)
-        self._records.append(linked)
-        return linked
+        with self._lock:
+            linked = dataclasses.replace(
+                record, sequence=self.next_sequence, previous_hash=self.head
+            )
+            self._records.append(linked)
+            return linked
 
     def extend(self, records: Iterable[EvidenceRecord]) -> list[EvidenceRecord]:
         return [self.append(r) for r in records]
@@ -182,7 +198,11 @@ class Ledger:
 def verify(payloads: Iterable[dict[str, Any]]) -> Verification:
     """Check a chain from its stored form. The algorithm in the docstring above."""
     breaches: list[Breach] = []
-    previous_hash = GENESIS
+    #: The hash the next record must name. `None` until the first record is
+    #: seen, because a window that legitimately starts part-way along the chain
+    #: has no way to know what preceded it — and demanding GENESIS there was
+    #: how a valid export came to report itself as broken (QA finding Q-57).
+    previous_hash: str | None = None
     expected_sequence: int | None = None
     count = 0
     erased = 0
@@ -231,7 +251,20 @@ def verify(payloads: Iterable[dict[str, Any]]) -> Verification:
             breaches.append(
                 Breach("link", sequence, "the record hash does not match its own contents")
             )
-        if record.previous_hash != previous_hash:
+        if previous_hash is None:
+            # The first record of whatever was handed in. Its own
+            # `previous_hash` links it to a record that may simply not be in
+            # this window — `Archivist.bundle` exists to export a range, and
+            # its manifest carries `from_sequence` and `to_sequence` precisely
+            # because a bundle is not expected to start at zero.
+            #
+            # Only sequence 0 can be checked against GENESIS, and the guard
+            # above already does that. Here there is nothing to compare, and
+            # comparing anyway reported every windowed export as broken
+            # evidence. A verifier that cries wolf on valid evidence gets
+            # switched off, and an ignored verifier is worse than none.
+            pass
+        elif record.previous_hash != previous_hash:
             breaches.append(
                 Breach(
                     "link",
@@ -245,7 +278,7 @@ def verify(payloads: Iterable[dict[str, Any]]) -> Verification:
     return Verification(
         records=count,
         breaches=tuple(breaches),
-        head=previous_hash,
+        head=previous_hash if previous_hash is not None else GENESIS,
         merkle_root=merkle_root(hashes),
         erased=erased,
     )

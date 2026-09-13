@@ -33,6 +33,8 @@ import dataclasses
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
+from prama.core.errors import ValidationError
+
 #: How many differing rows are described in detail. Beyond this the counts stay
 #: exact and the examples stop, which the report states.
 DETAIL_LIMIT = 100
@@ -288,6 +290,32 @@ def compare(
         )
 
     key = tuple(key)
+    # A key column the rows do not have is a refusal, not a diff. `_key_of`
+    # uses `row.get(name)`, so an absent column gives every row the identity
+    # `(None,)` — they all collide, the last one wins, and the comparison
+    # reports "identical: 1 row(s), none added, removed or changed" about two
+    # sets it never compared (QA finding CTR-050).
+    #
+    # `prama contract diff` is run in a build. "Nothing changed" from a diff
+    # that could not find its key is the most dangerous sentence this module
+    # can produce, and it is the one it produced.
+    present = {column for row in left for column in row} | {
+        column for row in right for column in row
+    }
+    # Only where there are rows. Two empty sides have no columns for a key to
+    # be absent from, and comparing nothing to nothing is arithmetically
+    # identical — which is a statement about the comparison, not a claim about
+    # data that was examined.
+    if (left or right) and (missing := [c for c in key if c not in present]):
+        raise ValidationError(
+            f"the key column(s) {', '.join(missing)} are in neither side's rows",
+            remedy=(
+                "Name a column the data actually has. Without it every row shares "
+                "one identity and the comparison would report no differences, "
+                f"whatever the data says. Columns present: {', '.join(sorted(present))}."
+            ),
+            context={"key": ", ".join(key), "missing": ", ".join(missing)},
+        )
     left_by_key: dict[tuple[Any, ...], Mapping[str, Any]] = {}
     right_by_key: dict[tuple[Any, ...], Mapping[str, Any]] = {}
     duplicates_left = duplicates_right = 0

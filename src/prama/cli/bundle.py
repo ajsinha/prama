@@ -61,7 +61,7 @@ def _public_key(path: str) -> object:
     return load_pem_public_key(Path(path).read_bytes())
 
 
-def _load(root: Path) -> Manifest:
+def _load(root: Path) -> tuple[Manifest, str]:
     from prama.security.bundle import Entry
 
     path = root / MANIFEST
@@ -76,6 +76,12 @@ def _load(root: Path) -> Manifest:
             context={"root": str(root)},
         )
     payload = json.loads(path.read_text())
+    # The declared hash is returned beside the manifest rather than folded into
+    # it. It is what the *file* claims, and verification exists to compare that
+    # claim against a recomputation — a Manifest rebuilt from this same JSON
+    # hashes to whatever the JSON says, which is exactly how the check became a
+    # tautology (QA finding SEC-142).
+    declared = str(payload.get("content_hash", ""))
     return Manifest(
         product=payload["product"],
         version=payload["version"],
@@ -91,7 +97,8 @@ def _load(root: Path) -> Manifest:
         ),
         sbom=tuple((name, version) for name, version in payload.get("sbom", [])),
         manifest_version=payload.get("manifest_version", "1.0"),
-    )
+        publisher_signed=bool(payload.get("publisher_signed", False)),
+    ), declared
 
 
 class BundleSealCommand(Command):
@@ -120,11 +127,18 @@ class BundleSealCommand(Command):
         from prama.core.clock import utc_now
 
         root = Path(ctx.args.root)
+        import dataclasses
+
         manifest = build_manifest(
             root,
             created_at=utc_now().isoformat(),
             sbom=() if ctx.args.no_sbom else installed_distributions(),
         )
+        # Decided before anything is hashed. `publisher_signed` is part of the
+        # manifest's content, so the seal and the signature both cover the
+        # claim that a signature exists — which is what makes deleting the
+        # signature file detectable rather than silent.
+        manifest = dataclasses.replace(manifest, publisher_signed=bool(ctx.args.sign_with))
         seal = manifest.seal(_key(ctx))
 
         (root / MANIFEST).write_text(json.dumps(manifest.to_dict(), indent=2) + "\n")
@@ -187,7 +201,7 @@ class BundleVerifyCommand(Command):
 
     def run(self, ctx: CommandContext) -> int:
         root = Path(ctx.args.root)
-        manifest = _load(root)
+        manifest, declared = _load(root)
         signature = root / SIGNATURE
         seal = signature.read_text().strip() if signature.exists() else ""
         publisher = root / PUBLISHER_SIGNATURE
@@ -200,6 +214,7 @@ class BundleVerifyCommand(Command):
             seal=seal,
             public_key=_public_key(ctx.args.publisher_key) if ctx.args.publisher_key else None,
             signature=signed,
+            declared_hash=declared,
         )
 
         if ctx.json_output:

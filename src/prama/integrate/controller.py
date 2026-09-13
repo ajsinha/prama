@@ -156,7 +156,39 @@ class Controller:
                 ),
                 context={"error": type(exc).__name__},
             ) from exc
-        return tuple(self.reconcile(resource) for resource in resources)
+        # Every estate is attempted, and *then* the failure is raised. It used
+        # to propagate out of a generator expression, abandoning every resource
+        # after the first failure — so one estate whose status write was
+        # refused, by an RBAC gap or a conflict, stopped the other nine from
+        # being reconciled at all (QA finding INT-041).
+        #
+        # An operator with ten estates then saw one error and nine that
+        # silently did not run, which reads as a broken controller rather than
+        # one broken estate. Raising afterwards keeps the error the operator
+        # needs — Kubernetes retries on it, and the reconcile is idempotent —
+        # while the other nine are already done by the time it arrives.
+        outcomes: list[Outcome] = []
+        failures: list[ClusterError] = []
+        for resource in resources:
+            try:
+                outcomes.append(self.reconcile(resource))
+            except ClusterError as exc:
+                failures.append(exc)
+        if failures:
+            if len(failures) == 1:
+                raise failures[0]
+            names = ", ".join(sorted(str(e.context.get("resource", "?")) for e in failures))
+            raise ClusterError(
+                f"{len(failures)} estate(s) could not be reconciled: {names}",
+                remedy=(
+                    "Every other estate was reconciled before this was raised. The "
+                    "declarations that landed are still applied; Kubernetes will call "
+                    "this again, and the reconcile is idempotent."
+                ),
+                context={"resources": names, "failed": str(len(failures))},
+                cause=failures[0],
+            )
+        return tuple(outcomes)
 
     def reconcile(self, resource: Mapping[str, Any]) -> Outcome:
         metadata = resource.get("metadata") or {}

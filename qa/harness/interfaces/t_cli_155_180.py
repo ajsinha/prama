@@ -108,12 +108,32 @@ doc_check = json.loads(out_j2)
 ok = code == 3 and doc_check.get("rows") == 0 and doc_check.get("checked") is False
 record("CLI-162", "PASS" if ok else "FAIL", f"code={code} out={out!r} json={doc_check}")
 
-# CLI-163: CSV header repeats a column
+# CLI-163: CSV header repeats a column. The previous version of this check used a CSV
+# ('id,id,amount') that shares NO column at all with the contract's real mandatory schema
+# (account_id, notional) -- exit 3 there proves only that those two required columns are
+# missing, not anything about how the duplicate 'id' header itself was handled; that breach
+# would happen even if duplicate-header parsing were flawless. Test the actual parsing
+# function directly, the way round 2's own repro did, and separately confirm a schema-fitting
+# duplicate-header CSV surfaces the same behaviour through the real command.
+from prama.cli.contract import _rows as _cli_contract_rows
+
 dupcsv = WORK / "dup.csv"
 dupcsv.write_text("id,id,amount\n1,2,300\n")
-code, out, err = c.run(["--json", "contract", "check", str(contract_json), "--data", str(dupcsv)])
-ok = code in (1, 3) and "Traceback" not in err
-record("CLI-163", "PASS" if ok else "FAIL", f"code={code} out={out[:200]!r} err={err[:150]!r}")
+parsed_dup = _cli_contract_rows(str(dupcsv))
+last_wins_silently = parsed_dup == [{"id": "2", "amount": "300"}]
+
+dupcsv_fitting = WORK / "dup_fitting.csv"
+dupcsv_fitting.write_text("account_id,account_id,notional\nA1,A2,10\n")
+code, out, err = c.run(["--json", "contract", "check", str(contract_json), "--data", str(dupcsv_fitting)])
+mentions_duplicate = "duplicate" in out.lower() or "duplicate" in err.lower() or "repeat" in out.lower()
+ok = not last_wins_silently or mentions_duplicate
+record(
+    "CLI-163",
+    "PASS" if ok else "FAIL",
+    f"_rows() on 'id,id,amount' -> {parsed_dup} (silent last-wins={last_wins_silently}) -- "
+    f"schema-fitting duplicate ('account_id,account_id,notional') through the real command: "
+    f"code={code} out={out[:200]!r} err={err[:150]!r} mentions_duplicate_anywhere={mentions_duplicate}",
+)
 
 # CLI-164: directory and unreadable data file
 adir = WORK / "adir"

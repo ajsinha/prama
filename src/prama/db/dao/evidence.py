@@ -309,19 +309,44 @@ class EvidenceDao(Dao[EvRecord]):
         )
         return [_to_record(row) for row in (await self._session.execute(stmt)).scalars()]
 
-    async def for_control(self, control_id: str, *, limit: int = 500) -> list[EvidenceRecord]:
+    async def for_control(
+        self, control_id: str, *, tenant_id: str, limit: int = 500
+    ) -> list[EvidenceRecord]:
+        """This estate's evidence for one control, newest first.
+
+        The tenant is required, and this is why: the by-parent reads on these
+        DAOs took a parent id and nothing else, so a caller holding an
+        identifier from another estate read that estate's rows in full — a 200
+        with the data, not a 404 (QA finding F-02, and this method in round 2).
+        The tenant sweep in `tests/security/test_tenant_isolation.py` could not
+        see it, because it probes methods whose *first* parameter is
+        `tenant_id`, and this one had no tenant parameter at all.
+
+        An evidence record carries `detail`, which is the sampled data that
+        explains a verdict. It is the most confidential thing the product
+        stores, so a read of it is the last place an estate boundary should be
+        optional.
+        """
         await self._session.flush()
         stmt = (
             select(EvRecord)
-            .where(EvRecord.control_id == control_id)
+            .where(EvRecord.control_id == control_id, EvRecord.tenant_id == tenant_id)
             .order_by(EvRecord.finished_at.desc(), EvRecord.sequence.desc())
             .limit(limit)
         )
         return [_to_record(row) for row in (await self._session.execute(stmt)).scalars()]
 
-    async def for_run(self, run_id: str) -> list[EvidenceRecord]:
+    async def for_run(self, run_id: str, *, tenant_id: str) -> list[EvidenceRecord]:
+        """This estate's evidence from one run, in sequence order.
+
+        Scoped for the same reason as :meth:`for_control`.
+        """
         await self._session.flush()
-        stmt = select(EvRecord).where(EvRecord.run_id == run_id).order_by(EvRecord.sequence)
+        stmt = (
+            select(EvRecord)
+            .where(EvRecord.run_id == run_id, EvRecord.tenant_id == tenant_id)
+            .order_by(EvRecord.sequence)
+        )
         return [_to_record(row) for row in (await self._session.execute(stmt)).scalars()]
 
     async def failing(self, tenant_id: str, *, limit: int = 200) -> list[EvidenceRecord]:

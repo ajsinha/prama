@@ -357,11 +357,23 @@ class Correlator:
             mine = ancestors[finding.identity]
             placed = False
             for index, (ancestor, members) in enumerate(groups):
-                if ancestor is not None and ancestor.qualified in mine:
-                    members.append(finding)
-                    assigned[finding.identity] = index
-                    placed = True
-                    break
+                if ancestor is None or ancestor.qualified not in mine:
+                    continue
+                # And the timing has to agree. Sharing an upstream column was
+                # the only test, so two unrelated failures three days apart
+                # merged into one incident because everything in a warehouse
+                # shares a feed eventually (QA finding INC-011).
+                #
+                # An incident is a claim that these findings have one cause. A
+                # cause that acted on Monday and again on Thursday, with
+                # nothing between, is two causes — and merging them sends one
+                # responder to explain both.
+                if not self._within_window(members[0], finding):
+                    continue
+                members.append(finding)
+                assigned[finding.identity] = index
+                placed = True
+                break
             if placed:
                 continue
 

@@ -210,16 +210,34 @@ class Blinding:
     """
 
     def __init__(self, alerts: Iterable[ShadowAlert] = ()) -> None:
-        self._by_blind: dict[str, ShadowAlert] = {}
+        #: blind id → every alert that hashes to it. A *list*, because two
+        #: systems raising the identical finding is the normal case in a shadow
+        #: run — it is what agreement looks like — and this used to be a plain
+        #: dict, so the second registration overwrote the first and one system
+        #: received no credit for a finding it correctly raised (QA finding
+        #: BCH-051).
+        #:
+        #: The id stays derived from content and not from the system. Including
+        #: the system would make it distinct and would also make it guessable:
+        #: dataset, column, time and detail are all visible in the adjudication
+        #: view, so a steward could hash each candidate system name until one
+        #: matched and unblind themselves. One judgement per id is correct —
+        #: it is one finding — and the attribution happens here instead.
+        self._by_blind: dict[str, list[ShadowAlert]] = {}
         for alert in alerts:
             self.register(alert)
 
     def register(self, alert: ShadowAlert) -> str:
-        self._by_blind[alert.blind_id] = alert
+        self._by_blind.setdefault(alert.blind_id, []).append(alert)
         return alert.blind_id
 
     def __len__(self) -> int:
-        return len(self._by_blind)
+        """How many alerts were registered, not how many are distinct.
+
+        A count of distinct ids would report two systems agreeing as one alert,
+        which is the same erasure the dict caused.
+        """
+        return sum(len(alerts) for alerts in self._by_blind.values())
 
     def for_adjudication(self) -> list[dict[str, Any]]:
         """What a steward sees. Sorted by the blind id, never by arrival.
@@ -235,17 +253,25 @@ class Blinding:
                 "raised_at": alert.raised_at,
                 "detail": alert.detail,
             }
-            for alert in sorted(self._by_blind.values(), key=lambda a: a.blind_id)
+            # One row per blind id. Two systems agreeing is one finding, and
+            # a steward should judge it once — showing it twice would both
+            # waste their time and hint at the agreement.
+            for alert in sorted(
+                (alerts[0] for alerts in self._by_blind.values()), key=lambda a: a.blind_id
+            )
         ]
 
     def systems(self) -> tuple[str, ...]:
-        return tuple(sorted({alert.system for alert in self._by_blind.values()}))
+        return tuple(
+            sorted({alert.system for alerts in self._by_blind.values() for alert in alerts})
+        )
 
     def resolve(self, blind_id: str) -> ShadowAlert | None:
-        return self._by_blind.get(blind_id)
+        found = self._by_blind.get(blind_id)
+        return found[0] if found else None
 
     def alerts(self) -> tuple[ShadowAlert, ...]:
-        return tuple(self._by_blind.values())
+        return tuple(alert for alerts in self._by_blind.values() for alert in alerts)
 
 
 def evaluate(

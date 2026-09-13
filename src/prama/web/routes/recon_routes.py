@@ -111,6 +111,7 @@ class Row:
 
 
 class ReconRoutes(UiRoutes):
+    SUBJECT = "break"
     """The workbench and its three dispositions."""
 
     def register(self) -> None:

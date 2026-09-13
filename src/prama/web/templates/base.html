@@ -66,6 +66,21 @@
             <option value="{{ theme.name }}" title="{{ theme.note }}">{{ theme.label }}</option>
             {% endfor %}
           </select>
+          {# Sign out. The route has existed since sign-in did and nothing
+             linked to it, so there was no way to leave the console from inside
+             it (QA finding UI-023) — on a shared terminal in a dealing room,
+             which is where this runs. A POST because signing out is a change
+             of state, and a GET link would let any page on the internet end
+             somebody's session with an <img> tag. #}
+          {% if signed_in %}
+          <form method="post" action="{{ url_for('sign_out') }}" class="d-inline">
+            <button class="btn btn-sm btn-outline-light flex-shrink-0" type="submit"
+                    title="Sign out{% if signed_in.display_name %} ({{ signed_in.display_name }}){% endif %}">
+              <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+              <span class="visually-hidden">Sign out</span>
+            </button>
+          </form>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -94,7 +109,7 @@
      an otherwise-accessible app becomes unusable. #}
   <div id="announcer" class="visually-hidden" role="status" aria-live="polite"></div>
 
-  <script>window.pramaThemeBases = {{ theme_bases | tojson }};</script>
+  <script nonce="{{ csp_nonce() }}">window.pramaThemeBases = {{ theme_bases | tojson }};</script>
   <script src="{{ url_for('static', filename='vendor/jquery/jquery.min.js') }}"></script>
   <script src="{{ url_for('static', filename='vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/prama.js') }}"></script>

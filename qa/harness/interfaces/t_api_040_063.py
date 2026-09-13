@@ -63,11 +63,13 @@ async def main():
         ok40 = True  # non-200 in spirit: it never returned a clean 200 "ok" either
     record("API-040", "PASS" if ok40 else "FAIL", f"before={r_before.status_code} after: {after_desc}")
 
-    # API-045: POST /datasets returns bitemporal position
+    # API-045: POST /datasets returns bitemporal position -- nested under `meta`
+    # (meta.valid_from, meta.recorded_at), not top-level, per round 2's correction.
     async with env.client(env.api_key) as http:
         r = await http.post("/datasets", json={"name": "bitemporal-45", "criticality": 4})
         b = r.json()
-        ok45 = r.status_code == 201 and "id" in b and b.get("valid_from") and (b.get("known_from") or "known_at" in b)
+        meta = b.get("meta", {})
+        ok45 = r.status_code == 201 and "id" in b and meta.get("valid_from") and meta.get("recorded_at")
         record("API-045", "PASS" if ok45 else "FAIL", f"status={r.status_code} body={b}")
 
     # API-046: extra field refused (extra="forbid")
@@ -91,11 +93,14 @@ async def main():
         ok48 = r.status_code == 422
         record("API-048", "PASS" if ok48 else "FAIL", f"status={r.status_code} body={r.text[:250]}")
 
-    # API-049: criticality bounds
+    # API-049: criticality bounds. Round 2 found that criticality=1 alone (no approved_by)
+    # correctly triggers a SEPARATE tier-1 maker-checker rule (422 "requires approval") rather
+    # than testing the range boundary at all -- supply approved_by so the boundary itself
+    # (1..4 via ge=1/le=4) is what is actually being exercised.
     async with env.client(env.api_key) as http:
         res49 = {}
         for label, val in [("0", 0), ("1", 1), ("4", 4), ("5", 5), ("str2", "2"), ("2.5", 2.5), ("null", None)]:
-            r = await http.post("/datasets", json={"name": f"crit-{label}", "criticality": val})
+            r = await http.post("/datasets", json={"name": f"crit-{label}", "criticality": val, "approved_by": "alice"})
             res49[label] = r.status_code
     bad49 = {}
     if res49["0"] != 422:
@@ -107,7 +112,7 @@ async def main():
     if res49["5"] != 422:
         bad49["5"] = res49["5"]
     ok49 = not bad49
-    record("API-049", "PASS" if ok49 else "FAIL", f"all_results={res49} bad={bad49}")
+    record("API-049", "PASS" if ok49 else "FAIL", f"all_results(with approved_by)={res49} bad={bad49}")
 
     # API-050: shape validated before reaching a DB CHECK (Q-27)
     async with env.client(env.api_key) as http:

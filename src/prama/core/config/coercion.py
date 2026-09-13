@@ -19,6 +19,7 @@ import re
 from typing import Any, Final
 
 from prama.core.errors import ConfigTypeError
+from prama.core.log import REDACTED, SENSITIVE_KEYS
 
 _TRUE: Final[frozenset[str]] = frozenset({"1", "true", "yes", "y", "on", "enabled"})
 _FALSE: Final[frozenset[str]] = frozenset({"0", "false", "no", "n", "off", "disabled"})
@@ -76,8 +77,21 @@ class Coercer:
         return ConfigTypeError(
             f"configuration key {self._path or '<value>'} is not a valid {wanted}",
             remedy=hint,
-            context={"key": self._path, "value": repr(value), "wanted": wanted},
+            context={"key": self._path, "value": self._shown(value), "wanted": wanted},
         )
+
+    def _shown(self, value: Any) -> str:
+        """The offending value, unless naming it would publish a secret.
+
+        The value is the most useful thing in a configuration type error, so it
+        is withheld only where the key says it is one. It used to be included
+        unconditionally, which meant a coercion failure on
+        `security.session_secret` printed the real secret into an exception
+        that goes on to be logged and rendered into an API problem document —
+        the two places it most needs not to be.
+        """
+        leaf = (self._path or "").rsplit(".", 1)[-1].lower()
+        return REDACTED if leaf in SENSITIVE_KEYS else repr(value)
 
     def to_str(self, value: Any) -> str:
         if isinstance(value, str):

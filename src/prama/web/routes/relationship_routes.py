@@ -61,6 +61,7 @@ def kind_options() -> list[dict[str, Any]]:
 
 
 class RelationshipRoutes(UiRoutes):
+    SUBJECT = "relationship"
     """Declaring, confirming and rejecting."""
 
     def register(self) -> None:

@@ -78,17 +78,29 @@ async def env_client_scoped(env):
 
 
 async def forced_500(env):
-    """No natural 500 route; hit something with a body Prama cannot coerce to force an unexpected error,
-    or fall back to a known-500 trigger if one exists. If none is forceable cleanly, return None."""
-    async with env.client(env.api_key) as http:
-        # A relationship confirm on a nonexistent id with a malformed structure has already got 404 covered;
-        # try a route with an id path param and a type mismatch a Pydantic model wouldn't catch (e.g. deeply
-        # recursive body) is API-019's job. For a genuine 500 here, try posting to /datasets with a
-        # domain_id that is syntactically valid but violates a DB constraint in an unexpected way.
-        try:
-            return await http.post("/relationships", json={"kind": "not-a-real-kind", "left_dataset_id": "x", "right_dataset_id": "y"})
-        except Exception:
-            return None
+    """A GENUINE unhandled exception, not a 422 wearing a "500" label. The previous version of
+    this helper posted an invalid enum value, which Pydantic catches as an ordinary 422 --
+    X-Correlation-Id already works fine on 422 (that is a separate key in the same results
+    dict), so this key was silently duplicating an already-passing case and never exercising
+    round 2's actual, severe finding at all: a genuine crash escapes Starlette's
+    BaseHTTPMiddleware.call_next() before `correlate` ever sets the header, exactly as finding
+    Q-24 describes. Patch a DAO method reachable from a real GET route to raise a plain
+    RuntimeError, the same repro round 2 used, and restore it afterwards.
+    """
+    from prama.db.dao.semantic import DatasetDao
+
+    original = DatasetDao.list_current
+    async def _boom(self, *a2, **k2):
+        raise RuntimeError("forced for API-006")
+    DatasetDao.list_current = _boom
+    try:
+        async with env.client(env.api_key) as http:
+            try:
+                return await http.get("/datasets")
+            except Exception:
+                return None
+    finally:
+        DatasetDao.list_current = original
 
 
 asyncio.run(main())

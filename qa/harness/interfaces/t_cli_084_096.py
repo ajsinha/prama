@@ -85,7 +85,13 @@ active_line = next((l for l in lines85 if "active-key" in l), "")
 revoked_line = next((l for l in lines85 if "revoked-key" in l), "")
 expired_line = next((l for l in lines85 if "expired-key" in l), "")
 revoked_marked = "[revoked]" in revoked_line
-expired_distinguishable = "[revoked]" in expired_line or "[expired]" in expired_line or "expired" in expired_line.lower()
+# Check only the bracketed status marker, not the whole line -- the key is deliberately named
+# "expired-key", so a substring search for "expired" anywhere in the line matches the NAME
+# even when the status marker itself still (wrongly) says [active], producing a false positive.
+import re as _re85
+
+status_marker = _re85.search(r"\[(\w+)\]\s*$", expired_line)
+expired_distinguishable = bool(status_marker) and status_marker.group(1) in ("expired", "revoked")
 ok = revoked_marked and expired_distinguishable
 record(
     "CLI-085",
