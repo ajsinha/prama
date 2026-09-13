@@ -57,16 +57,45 @@ class ControlRoutes(UiRoutes):
         self.page("/controls/studio", self.control_studio, name="control_studio")
         self.page("/controls/build", self.rule_builder, name="rule_builder")
         self.page("/controls/build", self.rule_build, name="rule_build", methods=["POST"])
-        self.page("/controls/check", self.control_check, name="control_check", methods=["POST"])
+        # The four language operations. POST, because a control's text does not
+        # belong in a query string — but they parse, type-check, lint, complete,
+        # explain and compile a string and store nothing. `control:read`, not
+        # the class's `control:propose`. QA round 3, Q-66.
+        #
+        # Deriving a write scope from the HTTP verb made linting a control need
+        # the permission to author one, so an `owner` — who holds
+        # `control:approve` and deliberately not `control:propose` — could
+        # approve a control and not check its text first. Approving what you
+        # were not allowed to read is backwards, and the workaround it invites
+        # is granting owners `control:propose`, which erases the maker-checker
+        # separation the two scopes exist to create.
+        self.page(
+            "/controls/check",
+            self.control_check,
+            name="control_check",
+            methods=["POST"],
+            scope="control:read",
+        )
         self.page(
             "/controls/completions",
             self.control_completions,
             name="control_completions",
             methods=["POST"],
+            scope="control:read",
         )
-        self.page("/controls/hover", self.control_hover, name="control_hover", methods=["POST"])
         self.page(
-            "/controls/compile", self.control_compile, name="control_compile", methods=["POST"]
+            "/controls/hover",
+            self.control_hover,
+            name="control_hover",
+            methods=["POST"],
+            scope="control:read",
+        )
+        self.page(
+            "/controls/compile",
+            self.control_compile,
+            name="control_compile",
+            methods=["POST"],
+            scope="control:read",
         )
         self.page("/controls/save", self.control_save, name="control_save", methods=["POST"])
         self.page(

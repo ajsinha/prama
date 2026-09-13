@@ -229,3 +229,41 @@ class TestThereIsOneVocabulary:
             if not any(permits(permissions, scope) for scope in SCOPES)
         )
         assert not useless, f"these roles grant nothing any route accepts: {useless}"
+
+    def test_a_role_holds_the_reads_implied_by_its_writes(self) -> None:
+        """Signing a thing you cannot read is not a permission set on purpose.
+
+        The third direction, and the one the first two miss. QA round 3 found
+        that `owner` holds `attestation:sign` and not `attestation:read`: the
+        role built to attest could sign an attestation and then open neither the
+        draft it was signing nor its own signed record. Only the wildcard admin
+        could do both.
+
+        Neither existing rule catches it, and both are right not to. No role
+        grants a permission routes do not require, and no route requires one no
+        role can hold — `auditor` holds `attestation:read`, so both directions
+        are satisfied while nobody can actually complete the task.
+
+        Stated as a rule about *subjects*: if a role may write within a subject,
+        it must be able to read that subject. The converse is deliberately not
+        required — `auditor` reads everything and writes nothing, which is the
+        entire point of it.
+        """
+        from prama.cli.principal import BUILTIN_ROLES
+        from prama.security.scopes import SCOPES, permits
+
+        reads = {s.split(":", 1)[0] for s in SCOPES if s.endswith(":read")}
+        blind_writers: list[str] = []
+        for name, (_, permissions) in BUILTIN_ROLES.items():
+            for scope in SCOPES:
+                subject, _, verb = scope.partition(":")
+                if verb == "read" or subject not in reads:
+                    continue
+                if permits(permissions, scope) and not permits(permissions, f"{subject}:read"):
+                    blind_writers.append(f"{name} may {scope} but not {subject}:read")
+        assert not blind_writers, (
+            "a role may write what it cannot read: "
+            + "; ".join(sorted(blind_writers))
+            + ". Grant the matching read, or the role cannot finish the task "
+            "the write belongs to."
+        )
