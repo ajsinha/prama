@@ -395,6 +395,40 @@ start failing and force this note to be closed.
 
 ---
 
+### Q-65 · INC-010 needs a product decision, not a repair — open
+
+`_shared_ancestor` orders candidates by `(vote count, name length)`, so the
+*broadest* shared ancestor wins. Its own docstring forbids exactly that:
+"Deepest rather than any: everything shares 'the raw feed' eventually, and an
+incident about the raw feed when the fault is in one derived column sends
+people to the wrong system." The ordering says the opposite of the paragraph
+above it.
+
+I changed it to prefer depth, measured properly from the graph rather than
+guessed from the length of a name, and three tests failed — including
+`test_one_upstream_defect_produces_one_incident`, which is the module's stated
+acceptance criterion. In that fixture one feed column fans out to forty-eight
+findings whose *only* common ancestor is the raw feed, so naming it is correct.
+
+The two requirements conflict:
+
+- one upstream defect must produce one incident, which wants the broadest
+  ancestor when everything genuinely shares it;
+- two findings sharing a nearer derived column should be their own incident,
+  which wants the deepest.
+
+Both are right, and choosing between them per-case is a grouping decision —
+whether those two findings *split off* — not a question about which name to put
+on a group already formed. That belongs in `_by_ancestor`, and it changes how
+many incidents an estate sees on a bad morning, which is a product decision
+about alert volume rather than a defect to repair quietly.
+
+Reverted rather than left half-done. `INC-011`, the missing time window, is
+independent and is fixed: two failures three days apart no longer merge because
+everything in a warehouse shares a feed eventually.
+
+---
+
 ## Open
 
 Ranked. Each was reported by the agent named, and awaits reproduction before
