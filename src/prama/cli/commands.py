@@ -66,6 +66,10 @@ class ConfigShowCommand(Command):
 
         redact = not (ctx.args.raw and os.environ.get("PRAMA_ALLOW_RAW_CONFIG") == "1")
         flat = ctx.config.flatten(redact=redact)
+        if not redact:
+            # Before the output, and on stderr, so it is seen whether the caller
+            # is reading text or piping JSON somewhere.
+            ctx.warn("! secrets are NOT redacted below; do not paste this anywhere")
         if ctx.json_output:
             ctx.emit_json(flat)
             return EXIT_OK
@@ -75,8 +79,6 @@ class ConfigShowCommand(Command):
             if ctx.args.provenance:
                 line += f"    [{ctx.config.provenance(key) or 'built-in defaults'}]"
             ctx.emit(line)
-        if not redact:
-            ctx.emit("\n! secrets were NOT redacted; do not paste this anywhere")
         return EXIT_OK
 
 

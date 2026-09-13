@@ -89,6 +89,94 @@ literal by AST and requires the commands they name to exist.
 
 ---
 
+### Q-53 · `IS UNIQUE` did not test uniqueness — **blocker**
+
+`ir/lower.py` mapped the `is_unique` operator to `IS NOT NULL` and left
+`assertion_kind` as `"predicate"`, under a comment saying a unique-key predicate
+cannot be a row predicate and *"the caller handles it"*. No caller did:
+`_assertion` returned `"predicate"` for every `PredicateAssertion` without
+looking at the operator. So
+
+```
+CHECK trades.uti IS UNIQUE  BECAUSE 'a UTI identifies one trade'
+```
+
+compiled to `COUNT(*) FILTER (WHERE NOT COALESCE(("uti" IS NOT NULL), FALSE))`
+under the rendered English *"In trades, every uti is different from every
+other."* One UTI repeated a million times passed, green, with evidence, and the
+description on the record said uniqueness had been established.
+
+This is the doctrine failure the project is named for — an artifact that builds,
+validates, reads correctly and is wrong — and it shipped: the banking pack's
+regime templates use that spelling and `contract/quality.py` maps
+`duplicateCount`, `duplicatePercent` and `uniqueCount` onto it. The controls most
+likely to be trusted without reading were the ones not being run.
+
+Found by reading, not by running: `IS UNIQUE` appeared in no test in the
+repository, so the full suite passed identically before and after the fix. It now
+lowers to the one-column `unique_key` it always meant, taking that path's real
+`COUNT(DISTINCT …)` test, and is asserted against the long spelling so the two
+cannot drift apart.
+
+Also fixed alongside: the parser discarded the negation, so `IS NOT UNIQUE`
+parsed as `IS UNIQUE` — an author's mistake silently becoming its own opposite.
+It is now carried and refused with a reason.
+
+### Q-54 · The contract gate passed an empty file in `--json` mode — **blocker**
+
+`contract check` refuses a data file with no rows, loudly: *"nothing was
+checked."* The guard sat **below** the `if ctx.json_output:` early return, so
+`prama --json contract check` — the spelling a build uses — skipped it. The gate
+was open on exactly the path it exists to guard.
+
+The narrowest reproduction is a contract declaring no properties: text mode exits
+3, JSON mode exits 0. With columns promised, an empty file trips the
+missing-column check by accident and the exit code comes out right for the wrong
+reason, which is why this survived.
+
+The emptiness is now decided before the output branches, and reported as its own
+`checked` field, because a caller parsing the JSON could not otherwise tell
+"nothing was checked" from "checked, and every promise held". On no rows the
+column lists are empty rather than naming every promised column as missing —
+that comparison is vacuous, and reporting it named the wrong cause.
+
+The existing test covered the text path only, which is how the hole survived.
+
+### Q-55 · `/capabilities` declared shipped features absent — high
+
+The endpoint reported `pql`, `execution`, `evidence`, `monitoring`,
+`reconciliation` and `connectors` as `False`, each annotated with the wave it was
+due in, every one of which had shipped. Directly above the wrong values:
+
+> Honest about what exists. A client that trusts this and finds it wrong will
+> never trust it again.
+
+Underclaiming is the same defect as overclaiming — the endpoint is wrong — and
+harder to notice, because nobody complains about a promise you failed to make. A
+client integrating against this would have refused to use features that work.
+
+Each answer is now derived from the thing itself rather than restated, so a
+capability that is removed stops reporting `True` without anyone remembering to
+edit a dict. The test was a Wave-2 snapshot asserting `execution is False`; it
+now asserts the property — no feature may be declared absent while its
+implementation is importable — and would have failed the day Wave 5 landed.
+
+### Q-56 · `config show --raw` warned on one path and not the other — medium
+
+The warning that secrets are not redacted was printed after the `--json` early
+return, so it appeared in text mode and not in JSON mode. `CommandContext` had no
+stderr channel at all, so the warning could only go to stdout, where in JSON mode
+it would corrupt the output a caller is parsing.
+
+Reported as "`--raw --json` dumps unredacted secrets", which is not right: `--raw`
+is gated behind `PRAMA_ALLOW_RAW_CONFIG=1` and redaction holds without it. The
+real defect is smaller and still real — the loudest thing the command has to say
+was inaudible on the path most likely to be piped somewhere.
+
+`ctx.warn()` now writes to stderr, before the output, in both modes.
+
+---
+
 ## Open
 
 Ranked. Each was reported by the agent named, and awaits reproduction before

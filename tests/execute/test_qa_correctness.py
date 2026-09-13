@@ -339,3 +339,70 @@ class TestTheEvidenceSaysWhatItWasMeasuredAgainst:
 
         record = EvidenceRecord(control_id="c", dataset="d", parameters={"threshold": "x"})
         assert "parameters" in record.content()
+
+
+class TestIsUniqueActuallyTestsUniqueness:
+    """Finding Q-53. `col IS UNIQUE` compiled to a NOT NULL check.
+
+    `ir/lower.py` mapped the `is_unique` operator to `Expr.operation("IS NOT
+    NULL", subject)` and left `assertion_kind` as `"predicate"`, under a comment
+    saying a unique-key predicate cannot be a row predicate and "the caller
+    handles it". No caller did — `_assertion` returned `"predicate"` for every
+    `PredicateAssertion` without looking at the operator.
+
+    So `CHECK trades.uti IS UNIQUE` compiled to
+
+        COUNT(*) FILTER (WHERE NOT COALESCE(("uti" IS NOT NULL), FALSE))
+
+    under the rendered English "In trades, every uti is different from every
+    other." A column holding one value on every row passed, green, with
+    evidence — and the description on the record said uniqueness had been
+    established.
+
+    Nothing in the suite compiled that spelling, so nothing failed when the
+    behaviour was wrong and nothing failed when it was fixed. The banking pack's
+    regime templates ship it and `contract/quality.py` maps `duplicateCount`,
+    `duplicatePercent` and `uniqueCount` onto it, so the controls most likely to
+    be taken on trust were the ones not being run.
+    """
+
+    def _plan(self, source: str):
+        from prama.ir.resolve import resolved
+        from prama.pql.parser import parse
+
+        return resolved(parse(source).all_controls[0])
+
+    def test_it_lowers_to_a_unique_key_not_a_row_predicate(self) -> None:
+        plan = self._plan(
+            "CHECK trades.uti IS UNIQUE BECAUSE 'a UTI identifies one trade' OWNER 'ops'"
+        )
+        assert plan.assertion_kind == "unique_key"
+        assert plan.detail == {"key_columns": ["uti"]}
+        # Uniqueness is a property of the set, so there is no row predicate.
+        assert plan.predicate is None
+
+    def test_it_agrees_with_the_long_spelling(self) -> None:
+        """`col IS UNIQUE` and `HAS UNIQUE KEY (col)` are the same assertion."""
+        short = self._plan("CHECK trades.uti IS UNIQUE BECAUSE 'r' OWNER 'ops'")
+        long = self._plan("CHECK trades HAS UNIQUE KEY (uti) BECAUSE 'r' OWNER 'ops'")
+        assert short.assertion_kind == long.assertion_kind
+        assert short.detail == long.detail
+        assert [m.name for m in short.metrics] == [m.name for m in long.metrics]
+
+    def test_the_compiled_sql_counts_distinct_values(self) -> None:
+        from prama.backend.sql import compile_for
+
+        sql = compile_for(
+            self._plan("CHECK trades.uti IS UNIQUE BECAUSE 'r' OWNER 'ops'"), "postgresql"
+        ).metric_query
+        assert "COUNT(DISTINCT" in sql
+        # The defect, stated so it cannot come back quietly: a uniqueness
+        # control whose only test is a null check.
+        assert "violating_rows" not in sql
+
+    def test_is_not_unique_is_refused_rather_than_silently_inverted(self) -> None:
+        """The parser dropped the negation, so this parsed as `IS UNIQUE`."""
+        from prama.core.errors import ValidationError
+
+        with pytest.raises(ValidationError, match="IS NOT UNIQUE is not a control"):
+            self._plan("CHECK trades.uti IS NOT UNIQUE BECAUSE 'r' OWNER 'ops'")

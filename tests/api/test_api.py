@@ -23,12 +23,42 @@ class TestMeta:
     async def test_capabilities_are_honest_about_what_does_not_exist_yet(
         self, client: httpx.AsyncClient
     ) -> None:
+        """No feature may be declared absent while its implementation is present.
+
+        This assertion used to be a snapshot: `execution is False`,
+        `evidence is False`, taken in Wave 2 when that was true. Both shipped in
+        Wave 5 and the snapshot went on passing for six waves, so the endpoint
+        told every client that the product could not do the thing it had just
+        been built to do. Underclaiming is the same defect as overclaiming — the
+        endpoint is wrong — and it is harder to catch because nobody complains
+        about a promise you failed to make.
+
+        So the test no longer knows which features exist. It asks the build.
+        """
+        from importlib.util import find_spec
+
         features = (await client.get("/capabilities")).json()["features"]
-        assert features["semantic_layer"] is True
-        assert features["bitemporal_history"] is True
-        # A client that trusts this and finds it wrong will never trust it again.
-        assert features["execution"] is False
-        assert features["evidence"] is False
+        # The module each flag is an answer about. If the module is importable
+        # the capability is present, and the endpoint may not say otherwise.
+        backing = {
+            "semantic_layer": "prama.semantic",
+            "bitemporal_history": "prama.db.temporal",
+            "gitops": "prama.semantic.gitops",
+            "connectors": "prama.connect.builtin",
+            "pql": "prama.pql.library",
+            "execution": "prama.execute.run",
+            "evidence": "prama.evidence.ledger",
+            "monitoring": "prama.monitor.drift",
+            "reconciliation": "prama.recon.engine",
+        }
+        for feature, module in backing.items():
+            present = find_spec(module) is not None
+            assert features[feature] is present, (
+                f"/capabilities reports {feature}={features[feature]} but "
+                f"{module} is {'importable' if present else 'absent'}"
+            )
+        # And the endpoint answers about every feature, not a subset.
+        assert set(backing) <= set(features)
 
     async def test_every_response_carries_a_correlation_id(self, client: httpx.AsyncClient) -> None:
         response = await client.get("/health")

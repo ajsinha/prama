@@ -276,21 +276,38 @@ class ContractCheckCommand(Command):
             )
         )
 
-        breached = bool(missing or empty_mandatory) or (extra and not ctx.args.allow_additions)
+        # An empty file establishes nothing, so it is never a pass. This has to
+        # be decided before the output branches: the check used to live after
+        # the `--json` early return, so `prama contract check` refused an empty
+        # file and `prama --json contract check` — the spelling a build uses —
+        # let it through with exit 0. The gate was open on exactly the path it
+        # exists to guard. It is also reported as its own field, because a
+        # caller parsing the JSON cannot otherwise tell "nothing was checked"
+        # from "checked, and every promise held".
+        checked = bool(rows)
+        breached = (
+            not checked
+            or bool(missing or empty_mandatory)
+            or (bool(extra) and not ctx.args.allow_additions)
+        )
 
         payload = {
             "contract": ctx.args.contract,
             "rows": len(rows),
-            "missing_columns": list(missing),
-            "unexpected_columns": list(extra),
-            "mandatory_with_nulls": list(empty_mandatory),
+            # With no rows the column comparison is vacuous — every promised
+            # column looks absent because there is nothing for it to be in — so
+            # reporting it as a schema breach would name the wrong cause.
+            "missing_columns": list(missing) if checked else [],
+            "unexpected_columns": list(extra) if checked else [],
+            "mandatory_with_nulls": list(empty_mandatory) if checked else [],
+            "checked": checked,
             "breached": breached,
         }
         if ctx.json_output:
             ctx.emit_json(payload)
             return EXIT_DRIFT if breached else EXIT_OK
 
-        if not rows:
+        if not checked:
             # Loud, because a contract check over no rows passes every test it
             # can run and has established nothing.
             ctx.emit("The data file holds no rows, so nothing was checked.")

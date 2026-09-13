@@ -12,6 +12,7 @@ from fastapi import APIRouter
 
 from prama.api.deps import Db
 from prama.api.schemas import CapabilitiesOut, HealthOut
+from prama.connect.builtin import BUILTIN
 from prama.db.settings import DbSettings
 from prama.semantic.relationships import RelationshipKind
 from prama.version import IR_VERSION, SCHEMA_VERSION, VERSION
@@ -32,6 +33,48 @@ async def health(database: Db) -> HealthOut:
     )
 
 
+def _features() -> dict[str, bool]:
+    """What this build can actually do, asked rather than asserted.
+
+    The comment this replaces read: "Honest about what exists. A client that
+    trusts this and finds it wrong will never trust it again." It then declared
+    `pql`, `execution`, `evidence`, `monitoring`, `reconciliation` and
+    `connectors` all `False`, annotated with the wave each was due in — and
+    every one of them shipped waves ago. A client integrating against this would
+    have refused to use features that work, which is the same defect as
+    overclaiming and harder to notice because it errs quietly.
+
+    So each answer is derived from the thing itself. A feature that is removed
+    stops reporting `True` without anybody remembering to edit a dict, which is
+    the failure mode a restated list has and this does not.
+    """
+    from importlib.util import find_spec
+
+    def importable(module: str) -> bool:
+        try:
+            return find_spec(module) is not None
+        except (ImportError, ValueError):  # pragma: no cover - a broken package
+            return False
+
+    from prama.pql.library import FUNCTIONS
+
+    return {
+        "semantic_layer": importable("prama.semantic"),
+        "bitemporal_history": importable("prama.db.temporal"),
+        "gitops": importable("prama.semantic.gitops"),
+        "estate_maturity": importable("prama.semantic.services.estate"),
+        "conflict_detection": importable("prama.semantic.services.estate"),
+        "connectors": bool(BUILTIN),
+        # Not merely that the package imports: that the language has functions
+        # in it, which is what a client asking "can this compile PQL" means.
+        "pql": bool(FUNCTIONS.names()),
+        "execution": importable("prama.execute.run"),
+        "evidence": importable("prama.evidence.ledger"),
+        "monitoring": importable("prama.monitor.drift"),
+        "reconciliation": importable("prama.recon.engine"),
+    }
+
+
 @router.get("/capabilities", response_model=CapabilitiesOut)
 async def capabilities() -> CapabilitiesOut:
     return CapabilitiesOut(
@@ -40,19 +83,5 @@ async def capabilities() -> CapabilitiesOut:
         schema_version=SCHEMA_VERSION,
         dialects=list(DbSettings.SUPPORTED),
         relationship_kinds=[k.value for k in RelationshipKind],
-        features={
-            # Honest about what exists. A client that trusts this and finds it
-            # wrong will never trust it again.
-            "semantic_layer": True,
-            "bitemporal_history": True,
-            "gitops": True,
-            "estate_maturity": True,
-            "conflict_detection": True,
-            "connectors": False,  # Wave 3
-            "pql": False,  # Wave 4
-            "execution": False,  # Wave 5
-            "evidence": False,  # Wave 5
-            "monitoring": False,  # Wave 7
-            "reconciliation": False,  # Wave 8
-        },
+        features=_features(),
     )

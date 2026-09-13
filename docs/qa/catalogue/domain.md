@@ -23,7 +23,29 @@ Case ids: `PCK-` banking pack · `CLS-` classification · `RCN-` reconciliation 
 
 Format and rules: see [README.md](README.md). Nothing here has been executed.
 
-<!-- SUMMARY -->
+## Summary
+
+| Prefix | Area | Cases | P1 | P2 | P3 |
+|---|---|---:|---:|---:|---:|
+| `PCK-` | The banking pack | 212 | 128 | 78 | 6 |
+| `CLS-` | Classification | 135 | 78 | 51 | 6 |
+| `RCN-` | Reconciliation | 110 | 66 | 39 | 5 |
+| `CTR-` | Data contracts | 62 | 46 | 16 | 0 |
+| `IMP-` | Importers | 55 | 33 | 22 | 0 |
+| `INT-` | Integration | 43 | 34 | 9 | 0 |
+| `LIN-` | Lineage | 63 | 39 | 24 | 0 |
+| | **Total** | **680** | **424** | **239** | **17** |
+
+What each area covers:
+
+- **`PCK-` The banking pack** — `packs/banking/` — calendars, cross-field checks, five message parsers, concepts, regimes, reconciliation templates
+- **`CLS-` Classification** — `classify/` — twenty semantic-type validators, four dated code lists, the inference cascade, the plugin purity gate
+- **`RCN-` Reconciliation** — `recon/` — matching, normalisation, break classification, the workflow and certificate, n-way and roll-forward
+- **`CTR-` Data contracts** — `contract/` — ODCS import and export, quality blocks, the diff, and the CI gate's exit codes
+- **`IMP-` Importers** — `importers/` — dbt, SodaCL, Great Expectations, and what did not come across
+- **`INT-` Integration** — `integrate/` — catalogue badges, three vendor adapters, the operator's decision and its control loop
+- **`LIN-` Lineage** — `lineage/` — the column graph, SQL extraction, procedural and ETL scanners
+
 
 ## Calendars and holiday rules — `packs/banking/holidays.py`, `packs/banking/calendars.py`
 
@@ -947,10 +969,10 @@ Format and rules: see [README.md](README.md). Nothing here has been executed.
 - **Precondition:** none
 - **Steps:** 4 KB of random bytes decoded with `errors='replace'`
 - **Expected:** defects, no exception, and bounded time
-- **Value:** `prama pack parse` reads any file with `errors='replace'`, so this
-  is reachable from the CLI with a JPEG.
 - **Why:** never-raises is a documented property of all three parsers, and
-  random bytes are the input that finds the one path that does.
+  random bytes are the input that finds the one path that does. `prama pack
+  parse` reads any file with `errors='replace'`, so this is reachable from the
+  CLI with a JPEG.
 
 ### PCK-080 · An unknown tag is carried, not dropped
 - **Area:** `fix.py::NAMES`, `Message.named`
@@ -3559,7 +3581,7 @@ turn against published values.
 - **Expected:** both False, unconditionally
 - **Why:** `CON-007` and `NFR-AI-002`. "A model's guess about what a column
   means is a fine thing to show somebody and an unacceptable thing to start
-  alerting on", and `tests/architecture/test_no_model_verdicts.py` is what
+  alerting on", and `tests/architecture/test_layering.py::TestModelVerdicts` is what
   keeps it true.
 
 ### CLS-092 · An adjudicator may not invent a type
@@ -3645,7 +3667,8 @@ turn against published values.
 - **Priority:** P1
 - **Precondition:** a currency column, classifier constructed with
   `as_of=date(2023,6,1)`
-- **Expected:** the rationale names the effective date and the code count of
+- **Steps:** classify; read the rationale
+- **Expected:** it names the effective date `2023-01-01` and the code count of
   that version
 - **Why:** the same replay argument as the code lists themselves: a
   classification whose membership set cannot be reproduced is a suggestion.
@@ -3901,11 +3924,14 @@ turn against published values.
   `prama.core.errors` — which every validator imports, so every validator was
   refused".
 
-### CLS-122 · `prama.llmx` is not caught by `prama.llm`
+### CLS-122 · a package whose name merely starts with a banned one is not caught
 - **Area:** `plugins.py::scan_source`
 - **Type:** boundary
 - **Priority:** P3
-- **Precondition:** a package named `prama.llmx`
+- **Precondition:** a hypothetical package whose name extends a banned prefix
+  without a dot — write it as `prama.llm` + `x`; it does not exist, and must not
+  be spelled as though it does, because the documentation guard reads a dotted
+  name as a claim that the module is there
 - **Steps:** admit a validator importing it
 - **Expected:** admitted — the match is `name == banned or
   name.startswith(banned + ".")`
@@ -5012,3 +5038,2815 @@ turn against published values.
 - **Why:** "a certificate that can only be issued clean is a certificate nobody
   issues".
 
+
+### RCN-086 · A clean certificate says nothing was outstanding
+- **Area:** `workflow.py::Certificate.is_clean`, `render`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** an empty queue, and a queue whose every item cleared
+- **Steps:** certify both
+- **Expected:** "Nothing was outstanding at period end." in both — and the
+  match rate still stated
+- **Why:** an empty queue and a queue that worked look identical here, and the
+  match rate is the only thing that distinguishes "nothing broke" from "nothing
+  was compared".
+
+### RCN-087 · The certificate hash covers the numbers and excludes the signature
+- **Area:** `workflow.py::Certificate.content_hash`
+- **Type:** security
+- **Priority:** P1
+- **Precondition:** a certificate
+- **Steps:** hash it; change `signed_by`; hash again; change
+  `unexplained_total`; hash again
+- **Expected:** unchanged after the first edit, changed after the second
+- **Why:** "a certificate whose numbers were edited after signing does not
+  verify" — and finding T11 is the precedent for a hash computed over whatever
+  the object currently holds verifying against itself.
+
+### RCN-088 · The hash is stable across process runs and dict ordering
+- **Area:** `workflow.py::Certificate.content_hash` · `core.pjson.canonical`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** the same certificate built twice with items added in
+  different orders
+- **Steps:** compare hashes
+- **Expected:** identical — `certify` sorts the outstanding items
+- **Why:** a hash that depends on insertion order cannot be verified a year
+  later by anybody who rebuilt the queue.
+
+### RCN-089 · Accepted and unexplained totals sum to the outstanding total
+- **Area:** `workflow.py::certify`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** a mixed queue including negative differences
+- **Steps:** certify
+- **Expected:** `accepted_total + unexplained_total == outstanding_total`
+  exactly, in `Decimal`
+- **Why:** "a single number would let an accepted residue and an unexplained
+  one look identical", and the three are printed side by side.
+
+### RCN-090 · Outstanding items are ordered by magnitude then key
+- **Area:** `workflow.py::certify`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** items of equal magnitude
+- **Steps:** certify twice
+- **Expected:** the same order both times
+- **Why:** the certificate is hashed; a non-deterministic order would make two
+  identical period-ends produce two different hashes.
+
+### RCN-091 · A certificate can be signed by nobody
+- **Area:** `workflow.py::certify`
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** none
+- **Steps:** `certify(..., signed_by='')`
+- **Expected:** a refusal
+- **Why:** the class docstring calls it "a document somebody signs at month end
+  and an auditor can read a year later". Nothing checks that a signer was
+  named, and `signed_by` is outside the content hash — so an unsigned
+  certificate verifies exactly as well as a signed one.
+
+## The engine and n-way — `recon/engine.py`, `recon/nway.py`
+
+### RCN-092 · A run records every rate it used
+- **Area:** `engine.py::Reconciliation.run`, `Run.rates_used`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a multi-currency reconciliation
+- **Steps:** run; read `rates_used`
+- **Expected:** every conversion's detail, with the source and the as-of date
+- **Why:** "the record that makes the run reproducible, and the first thing to
+  look at when a cleared break reappears".
+
+### RCN-093 · Two runs of one definition over one dataset agree
+- **Area:** `engine.py::Reconciliation.run`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** the same inputs and business date
+- **Steps:** run twice; compare `to_dict()`
+- **Expected:** identical, including break order
+- **Why:** "a run is reproducible or it is not evidence", and break ordering
+  falls out of `sorted(..., key=repr)` in the matcher — which must be pinned,
+  not assumed.
+
+### RCN-094 · Normalise-then-sum, not sum-then-normalise
+- **Area:** `engine.py::Reconciliation._total`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a many-to-one pair whose left rows are in EUR and GBP
+- **Steps:** run
+- **Expected:** each row converted before the sum
+- **Why:** "summing first and converting the total is cheaper and wrong
+  whenever the rows are in more than one currency — it converts a meaningless
+  mixed-currency sum at one rate and produces a total that looks plausible".
+
+### RCN-095 · A side with an unvalued row has no total
+- **Area:** `engine.py::Reconciliation._total`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a pair whose right side has one row with no amount
+- **Steps:** run
+- **Expected:** the right total is `None`, a step names the count, and the
+  break is `GENUINE` with that reason
+- **Why:** "dropping the row makes the total wrong by exactly the missing
+  amount — so the side reconciles, or breaks by a number that looks like a
+  value difference, when the finding is that a posting has no amount at all".
+
+### RCN-096 · The target currency defaults to the right side's
+- **Area:** `engine.py::Reconciliation.run`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** `Definition(target_currency='')` with
+  `right.spec.currency='USD'`
+- **Steps:** run over a EUR left side
+- **Expected:** converted to USD, and the choice visible on the run
+- **Why:** an implicit target is a decision nobody made; it must at least be
+  recorded on the result so a break can be traced to it.
+
+### RCN-097 · The matcher is chosen by `date_window`
+- **Area:** `engine.py::Reconciliation.run`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** `date_window=0` and `date_window=1`
+- **Steps:** run both over the same adjacent-day data
+- **Expected:** a plain `Matcher` and two breaks in the first; a
+  `ToleranceMatcher` and one timing pair in the second
+- **Why:** zero is falsy, so the branch is `if definition.date_window` — which
+  is correct and makes zero and unset the same thing.
+
+### RCN-098 · N-way names the odd side out
+- **Area:** `nway.py::reconcile_n_way`, `_odd_one_out`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** three sides; the middle disagrees on one key
+- **Steps:** reconcile
+- **Expected:** one `Disagreement` with `odd_side` naming the middle and
+  `consensus` the agreed value
+- **Why:** "run as three pairwise reconciliations that is three break
+  populations, and a record missing from the middle system appears in two of
+  them — so the same problem is counted twice".
+
+### RCN-099 · Three sides all disagreeing names nobody
+- **Area:** `nway.py::_odd_one_out`, `Disagreement.all_disagree`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** three different totals on one key
+- **Steps:** reconcile
+- **Expected:** `odd_side` empty, `consensus` None, `all_disagree` True, and
+  the description saying "which is not one system being wrong and needs a
+  person"
+- **Why:** "empty when they all disagree, which is a different and worse
+  situation".
+
+### RCN-100 · A two-against-two tie names nobody
+- **Area:** `nway.py::_odd_one_out`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** four sides, two at 100 and two at 200
+- **Steps:** reconcile
+- **Expected:** `all_disagree`, no odd side
+- **Why:** "with four sides two agreeing is a tie that names nothing.
+  Reporting a tie as an odd-one-out would send somebody to a system chosen by
+  iteration order."
+
+### RCN-101 · Two sides passed to the n-way engine
+- **Area:** `nway.py::reconcile_n_way`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** exactly two sides that disagree
+- **Steps:** reconcile
+- **Expected:** a refusal, or a disagreement with no odd side and the reason
+  saying two sides cannot have a majority
+- **Why:** the docstring says "three or more" and there is no guard.
+  `_odd_one_out` skips every candidate because `len(others) < 2`, so the result
+  is `all_disagree` — technically true and unhelpful, and a caller who reduced
+  to two sides gets no warning.
+
+### RCN-102 · One side passed to the n-way engine
+- **Area:** `nway.py::reconcile_n_way`, `_all_agree`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a single side
+- **Steps:** reconcile
+- **Expected:** a refusal
+- **Why:** `_all_agree` over one position is vacuously True, so every key
+  "agrees" and the summary reads "all 1 sides agree across 4,000 keys" — a
+  reconciliation that could not have failed.
+
+### RCN-103 · A key missing from one side is reported as missing
+- **Area:** `nway.py::Disagreement.missing_from`, `describe`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a key absent from the second of three sides
+- **Steps:** reconcile
+- **Expected:** `missing_from` naming it; the description saying where it is
+  present and where it is not
+- **Why:** this is the case pairwise running counts twice.
+
+### RCN-104 · A key both missing from one side and disputed between the others
+- **Area:** `nway.py::reconcile_n_way`
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** three sides; one missing, two with different totals
+- **Steps:** reconcile
+- **Expected:** both facts reported
+- **Why:** the `continue` after the missing branch means the value disagreement
+  between the remaining two is never computed, and `describe()` reports only
+  the absence. Two findings become one.
+
+### RCN-105 · `by_odd_side` identifies a broken system
+- **Area:** `nway.py::NWayResult.by_odd_side`, `describe`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** one side odd on 400 of 500 keys
+- **Steps:** reconcile; `describe()`
+- **Expected:** that side named with its count, and the sentence saying it
+  "points at that system rather than at the records"
+- **Why:** "the number that identifies a broken system rather than a broken
+  record … and no pairwise view makes it visible".
+
+### RCN-106 · A tie in `by_odd_side` is broken deterministically
+- **Area:** `nway.py::NWayResult.describe`
+- **Type:** boundary
+- **Priority:** P3
+- **Precondition:** two sides each odd on 200 keys
+- **Steps:** `describe()` twice in separate processes
+- **Expected:** the same side named both times, or both named
+- **Why:** `max(odd, key=...)` returns the first maximum in dict order, which
+  follows the input mapping — so the sentence blaming a system is decided by
+  how the caller built the dict.
+
+### RCN-107 · Roll-forward catches an unexplained restatement
+- **Area:** `nway.py::check_roll_forward`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** opening 1000, movements 50, closing 1100
+- **Steps:** `check_roll_forward([entry], tolerance)`
+- **Expected:** one `GENUINE` break, with the reason saying both balances may
+  be correct and what is missing is a movement
+- **Why:** "the failure this catches is invisible to any single-period control
+  … something was restated and nobody said so".
+
+### RCN-108 · A roll-forward that balances produces nothing
+- **Area:** `nway.py::check_roll_forward`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** opening 1000, movements 100, closing 1100
+- **Steps:** check
+- **Expected:** no breaks
+- **Why:** the counterfactual; a check that fires on a balancing roll-forward
+  is one that gets switched off on day one.
+
+### RCN-109 · A zero expected balance uses a magnitude of one
+- **Area:** `nway.py::check_roll_forward`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** opening -50, movements 50, closing 5
+- **Steps:** check with a relative-only tolerance
+- **Expected:** a break, and the relative bound applied against something
+  meaningful
+- **Why:** `float(entry.expected or 1)` substitutes 1 when the expected balance
+  is zero, so a relative tolerance of 0.1% becomes a tolerance of 0.001 — a
+  silent switch to an absolute bound nobody configured.
+
+### RCN-110 · `opening_from` carries yesterday's close
+- **Area:** `nway.py::opening_from`
+- **Type:** documentation
+- **Priority:** P1
+- **Precondition:** a restated opening balance in the source
+- **Steps:** build a roll-forward from the source's own opening, and from
+  `opening_from(previous_closing)`
+- **Expected:** the first passes and the second breaks
+- **Why:** "a roll-forward built on an opening balance re-read from the source
+  rather than carried from the previous close cannot detect a restatement at
+  all: the restated opening agrees with the restated closing, and the check
+  passes over exactly the thing it exists to catch". The counterfactual is the
+  test.
+
+## Data contracts — `contract/`
+
+### CTR-001 · An ODCS contract imports as a declaration
+- **Area:** `contract/odcs.py::load`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a v3 contract with one schema and five properties
+- **Steps:** `load(contract)`
+- **Expected:** a `DatasetDeclaration` with five attributes, the name taken
+  from the schema, `purpose` from `description.purpose` and `description` from
+  `description.usage`
+- **Expected also:** `defaulted` names criticality, grain and rhythm
+- **Why:** the base case, and the mapping that a round trip must preserve.
+
+### CTR-002 · What did not come across is listed, not counted
+- **Area:** `contract/odcs.py::Imported.describe`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a contract carrying `slaProperties`, `team`, `roles`,
+  `support` and `price`
+- **Steps:** `load`; `describe()`
+- **Expected:** all five named individually with the reason "Prama has no field
+  for it"
+- **Why:** "an importer that silently discarded half a contract would produce a
+  declaration that looks complete and generates a third of the controls it
+  should".
+
+### CTR-003 · A defaulted value is reported before an ignored one
+- **Area:** `contract/odcs.py::Imported.describe`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** a contract with both
+- **Steps:** `describe()`
+- **Expected:** the defaults first
+- **Why:** "a defaulted value is a number that will appear on a screen as
+  though somebody chose it" — criticality TIER_4 assigned by default is a
+  decision nobody made.
+
+### CTR-004 · A contract with no schema imports nothing and says why
+- **Area:** `contract/odcs.py::load`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** a contract with no `schema` key
+- **Steps:** `load`; then `prama contract import`
+- **Expected:** `declaration is None`, one ignored reason, and exit 3 from the
+  CLI
+- **Why:** an empty declaration silently created would be a dataset nobody
+  declared.
+
+### CTR-005 · A multi-schema contract names what it left behind
+- **Area:** `contract/odcs.py::load`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a contract with four schema objects
+- **Steps:** `load`
+- **Expected:** the first imported; an ignored entry saying three further
+  schema objects were not, with the instruction to import them separately
+- **Why:** "a contract describing four tables imported as one is three datasets
+  nobody declared".
+
+### CTR-006 · Quality blocks on the other schemas are lost without mention
+- **Area:** `contract/quality.py::controls_from`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** the same four-schema contract, each schema carrying quality
+  blocks
+- **Steps:** `controls_from(contract)`
+- **Expected:** the other schemas' blocks refused by name, or the omission
+  reported
+- **Why:** `controls_from` reads `schemas[0]` only. `load` at least *names*
+  the schemas it dropped; the quality importer drops their checks in silence,
+  and `QualityImport.offered` then undercounts what the contract promised.
+
+### CTR-007 · A criticality on the contract maps to a tier
+- **Area:** `contract/odcs.py::_criticality`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** contracts with `critical`, `high`, `medium`, `low`
+- **Steps:** `load` each
+- **Expected:** TIER_1 to TIER_4; no `defaulted` entry for criticality
+- **Why:** the one field that *is* mapped, and the only one that keeps its
+  entry out of the defaults list.
+
+### CTR-008 · An unrecognised criticality falls back and says so
+- **Area:** `contract/odcs.py::_criticality`, `load`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** `criticality: "very high"`
+- **Steps:** `load`
+- **Expected:** TIER_4, and criticality listed in `defaulted`
+- **Why:** "guessing a tier from a description would produce a criticality
+  nobody assigned and controls nobody agreed to" — the value must not be
+  silently dropped *and* absent from the defaults list.
+
+### CTR-009 · An ODCS type not in the mapping is kept as text and reported
+- **Area:** `contract/odcs.py::_attribute`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a property with `logicalType: "money"`
+- **Steps:** `load`
+- **Expected:** the attribute imported with no semantic type; an ignored entry
+  naming the column and the type
+- **Why:** "a type quietly coerced is a control generated against the wrong
+  family".
+
+### CTR-010 · `required` becomes optionality
+- **Area:** `contract/odcs.py::_attribute`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** properties with `required: true`, `false` and absent
+- **Steps:** `load`
+- **Expected:** MANDATORY, OPTIONAL, OPTIONAL
+- **Why:** mandatory drives the null control and the CI gate's
+  `mandatory_with_nulls` check; an inverted mapping either fails every row or
+  checks nothing.
+
+### CTR-011 · Precision and scale survive
+- **Area:** `contract/odcs.py::_attribute`, `_property`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** `precision: 18, scale: 2`
+- **Steps:** import, export, re-import
+- **Expected:** both preserved; the exported `logicalType` is `number`
+- **Why:** a numeric attribute exported as `string` comes back with no
+  arithmetic family, and the controls derived from it change.
+
+### CTR-012 · A declaration exported and re-imported is the same declaration
+- **Area:** `contract/odcs.py::dump`, `load`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** a declaration with name, purpose, description, criticality,
+  tags and five attributes
+- **Steps:** `load(dump(declaration))`
+- **Expected:** field-by-field equality for everything ODCS carries
+- **Why:** "round-tripping is a property, not a hope. Anything that survives
+  one direction and not the other is a field somebody will lose on the first
+  migration."
+
+### CTR-013 · Purpose and usage do not swap on a round trip
+- **Area:** `contract/odcs.py::load`, `dump`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** a declaration whose purpose and description differ
+- **Steps:** round-trip twice
+- **Expected:** stable after both
+- **Why:** the recorded bug: "the earlier version reached for the schema
+  object's own description as a fallback for one of them, which made a round
+  trip *swap* the two — stable under a single comparison and wrong on the
+  second". One round trip is not the test; two is.
+
+### CTR-014 · A semantic type does not survive the round trip
+- **Area:** `contract/odcs.py::_logical_type`, `_TYPE_TO_SEMANTIC`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** a declaration whose `lei` column carries `semantic_type='lei'`
+- **Steps:** `load(dump(declaration))`; read the attribute's semantic type and
+  the `ignored` list
+- **Expected:** either preserved, or lost **and reported**
+- **Why:** `_logical_type` maps anything that is not `date`/`timestamp` to
+  `string`, and `_TYPE_TO_SEMANTIC['string']` is `''`. The LEI declaration —
+  the thing every identifier control is derived from — is silently deleted by an
+  export/import cycle, and `ignored` says nothing because `string` *is* a type
+  ODCS defines. This is the exact failure the module's docstring promises not
+  to have.
+
+### CTR-015 · A malformed contract does not raise a bare exception
+- **Area:** `contract/odcs.py::load`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `{"schema": {"name": "x"}}` (a mapping where a list is
+  expected); `{"schema": ["orders"]}` (a list of strings); `{"schema": [null]}`
+- **Steps:** `load` each; then `prama contract import` on the same files
+- **Expected:** a `ValidationError` naming the shape problem, not
+  `AttributeError: 'str' object has no attribute 'get'`
+- **Why:** finding Q-28 — twenty-two tracebacks reached the terminal from the
+  CLI, "mostly directory where a file is expected and malformed documents".
+  `schemas[0]` is indexed and `.get` called with no type check.
+
+### CTR-016 · `is_complete` is only true when nothing was lost
+- **Area:** `contract/odcs.py::Imported.is_complete`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a contract that imports cleanly
+- **Steps:** read `is_complete`
+- **Expected:** False for every real contract, because grain and rhythm are
+  always defaulted
+- **Why:** if the flag can never be true it is not carrying information; if it
+  can, the conditions need stating.
+
+### CTR-017 · Every mapped library rule produces parseable PQL
+- **Area:** `contract/quality.py::LIBRARY_RULES`, `_library`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** none
+- **Steps:** for each of the eleven rules, build a minimal block and parse the
+  emitted control
+- **Expected:** all eleven parse
+- **Why:** a quality importer that emits PQL the product refuses is the H1
+  shape, and the `{column}`/dataset joining logic builds the string by hand.
+
+### CTR-018 · A text rule is refused and named
+- **Area:** `contract/quality.py::_absorb`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a `type: text` block
+- **Steps:** `controls_from`
+- **Expected:** refused, with the reason "it is prose with no executable
+  content, and a control built from it would check nothing while appearing on a
+  coverage report as though it did"
+- **Why:** the strongest version of the product's central argument, applied to
+  somebody else's document.
+
+### CTR-019 · A SQL rule is refused with its query preserved
+- **Area:** `contract/quality.py::_absorb`, `_shorten`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a `type: sql` block with a 200-character query
+- **Steps:** `controls_from`
+- **Expected:** refused; the query truncated to 60 characters with an ellipsis
+  and still recognisable
+- **Why:** "refused, **with the query preserved** so somebody can rewrite it as
+  PQL rather than hunt for it".
+
+### CTR-020 · A custom rule is routed to the importer that owns it
+- **Area:** `contract/quality.py::ROUTABLE_ENGINES`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** custom blocks for `soda`, `sodaCL`, `great-expectations`,
+  `dbt`
+- **Steps:** `controls_from`
+- **Expected:** all four routed, each naming the `prama control import --from`
+  command; the hyphen and the case both normalised
+- **Why:** "the block is *routed* to that importer rather than reimplemented
+  here", and every named command must exist (finding Q-07's rule).
+
+### CTR-021 · A custom rule for an unknown engine is refused by name
+- **Area:** `contract/quality.py::_absorb`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** a custom block with `engine: montecarlo`, and one with no
+  engine
+- **Steps:** `controls_from`
+- **Expected:** refused, naming the engine or "an unnamed engine", with the
+  reason about running somebody else's implementation
+- **Why:** "a plausible control passes review — it looks like the others — and
+  then quietly checks something else".
+
+### CTR-022 · An unmapped library rule lists what is mapped
+- **Area:** `contract/quality.py::_library`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `rule: referentialIntegrity`
+- **Steps:** `controls_from`
+- **Expected:** refused, with the eleven mapped names listed
+- **Why:** the list is "deliberately short: a rule here is one somebody
+  checked", and the refusal is where a reader learns the boundary.
+
+### CTR-023 · A threshold is a tolerance, and `mustBeLessThan` is one lower
+- **Area:** `contract/quality.py::_threshold`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `duplicateCount` with `mustBeLessThan: 10`, and with
+  `mustBeLessOrEqualTo: 10`
+- **Steps:** `controls_from`
+- **Expected:** `AT MOST 9 ROWS` and `AT MOST 10 ROWS`
+- **Why:** "`duplicateCount` with `mustBeLessThan: 10` is not 'no duplicates':
+  it is a control that tolerates nine. Getting that wrong by one makes a
+  contract the producer satisfies fail against a consumer who imported it."
+
+### CTR-024 · No threshold means the strictest reading
+- **Area:** `contract/quality.py::_threshold`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** `nullCount` with no comparator; `nullPercent` with none
+- **Steps:** `controls_from`
+- **Expected:** `AT MOST 0 ROWS` and `BELOW 0%`
+- **Why:** "the strictest reading, and the one a contract without a number
+  means" — and the percent/count split has to follow the rule name's suffix.
+
+### CTR-025 · A strict percentage bound is refused rather than loosened
+- **Area:** `contract/quality.py::_threshold`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `nullPercent` with `mustBeLessThan: 2`
+- **Steps:** `controls_from`
+- **Expected:** refused, saying PQL's `BELOW` is inclusive and "importing it
+  would accept a value the contract forbids"
+- **Why:** "a strict bound on a rate has no representable predecessor, so it is
+  reported rather than silently made inclusive" — the one place the module
+  refuses rather than rounds.
+
+### CTR-026 · `mustBe` other than zero is refused
+- **Area:** `contract/quality.py::_threshold`
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** `duplicateCount` with `mustBe: 5`
+- **Steps:** `controls_from`
+- **Expected:** refused — "a control asserts a bound rather than an equality —
+  a population that happens to have fewer violations would fail"
+- **Why:** an exact count is a test-suite idiom and a strange thing to want in
+  a control estate.
+
+### CTR-027 · A lower bound on failures is refused
+- **Area:** `contract/quality.py::_threshold`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `invalidCount` with `mustBeGreaterThan: 0`
+- **Steps:** `controls_from`
+- **Expected:** refused — it "asks for *at least* that many failures, which is
+  not something a control can assert"
+- **Why:** inverting it would produce a control nobody wrote.
+
+### CTR-028 · A non-numeric threshold is refused with the value quoted
+- **Area:** `contract/quality.py::_threshold`
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** `mustBeLessThan: "ten"`
+- **Steps:** `controls_from`
+- **Expected:** refused, quoting the value
+- **Why:** a YAML contract is hand-written, and a quoted number is what a
+  hand-written one contains.
+
+### CTR-029 · A `rowCount` range is inclusive on both ends
+- **Area:** `contract/quality.py::_render`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `rowCount` with `mustBeGreaterOrEqualTo: 900000` and
+  `mustBeLessThan: 1200000`
+- **Steps:** `controls_from`
+- **Expected:** a maximum of 1,199,999, or a refusal
+- **Why:** `HAS ROW COUNT BETWEEN … AND …` is inclusive, and `mustBeLessThan`
+  is not. The module refuses this very off-by-one for violation counts
+  (CTR-023) and for percentages (CTR-025) and then commits it for row counts —
+  a contract forbidding exactly 1,200,000 rows imports as one permitting it.
+
+### CTR-030 · `rowCount` with only one bound is refused
+- **Area:** `contract/quality.py::_render`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** `rowCount` with only a minimum
+- **Steps:** `controls_from`
+- **Expected:** refused — "a row-count rule needs both a minimum and a
+  maximum"
+- **Why:** the shipped `row-count-plausible` template's note says a range is
+  the point, because "a population that doubled overnight is as much a defect
+  as one that halved".
+
+### CTR-031 · A freshness window's unit is assumed to be days
+- **Area:** `contract/quality.py::_render`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `freshness` with `mustBeLessThan: 4` meaning four hours
+- **Steps:** `controls_from`
+- **Expected:** a refusal, or the unit read from the contract
+- **Why:** the code renders `f"{window} day"` unconditionally. A four-hour
+  freshness promise imports as a four-day one — a control twenty-four times
+  looser than the contract, silently, on the dimension where lateness is the
+  defect.
+
+### CTR-032 · `validValues` renders as PQL literals with quotes escaped
+- **Area:** `contract/quality.py::_render`, `_literal`
+- **Type:** security
+- **Priority:** P1
+- **Precondition:** `validValues: ["GBP", "O'Brien", 5, true]`
+- **Steps:** `controls_from`; parse the emitted control
+- **Expected:** `'GBP', 'O''Brien', 5, TRUE`, and the control parses
+- **Why:** an unescaped apostrophe in a contract a producer wrote is an
+  injection into a string the product then compiles to SQL.
+
+### CTR-033 · A pattern containing a slash is refused
+- **Area:** `contract/quality.py::_render`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `pattern: "^/api/.*$"`
+- **Steps:** `controls_from`
+- **Expected:** refused, naming the delimiter clash
+- **Why:** "PQL delimits a pattern with slashes, and escaping is a decision
+  somebody should make deliberately rather than have guessed here" — and an
+  unescaped one would terminate the pattern and leave the rest as syntax.
+
+### CTR-034 · A column rule with no column is refused
+- **Area:** `contract/quality.py::_library`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** a `nullCount` block at the schema level
+- **Steps:** `controls_from`
+- **Expected:** refused — "this rule is about a column and the block names
+  none"
+- **Why:** the alternative is `CHECK orders. IS NOT NULL`, which does not
+  parse, and a refusal that arrives at parse time names the wrong thing.
+
+### CTR-035 · `uniqueCount` is treated as a violation count
+- **Area:** `contract/quality.py::LIBRARY_RULES`
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** `uniqueCount` with `mustBeGreaterThan: 100`
+- **Steps:** `controls_from`
+- **Expected:** a refusal whose reason is right
+- **Why:** `uniqueCount` counts *distinct values*, not violations, so
+  `counts_violations=True` makes "at least 100 distinct values" report as
+  "asks for at least that many failures". A wrong reason on an import report is
+  worse than no reason, since the report is what somebody signs off (the same
+  argument the Soda importer makes for its freshness special case).
+
+### CTR-036 · The import report states how many of how many
+- **Area:** `contract/quality.py::QualityImport.describe`, `offered`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a contract with eleven quality blocks, four of which map
+- **Steps:** `describe()`
+- **Expected:** "4 of 11 … 7 did not import:" with all seven named
+- **Why:** "a contract promising eleven checks and yielding four is a
+  conversation with the producer, and it needs the seven named".
+
+### CTR-037 · Quality blocks are reported even without `--controls`
+- **Area:** `cli/contract.py::ContractImportCommand`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a contract with quality blocks
+- **Steps:** `prama contract import c.yaml`
+- **Expected:** the quality summary printed
+- **Why:** "importing the schema while silently taking on none of the checks is
+  the failure this whole module is about".
+
+### CTR-038 · `prama contract import --json` emits one document
+- **Area:** `cli/contract.py::ContractImportCommand`
+- **Type:** contract
+- **Priority:** P2
+- **Precondition:** a valid contract
+- **Steps:** `--json`; parse the output
+- **Expected:** valid JSON carrying both the declaration summary and the
+  `quality` block; exit 0
+- **Why:** finding Q-37 — `--json` emitting prose on an error breaks the JSON
+  contract at the CI integration point. This command's failure path returns
+  exit 3 with JSON, and the malformed-file path (CTR-015) must too.
+
+### CTR-039 · `prama contract export` writes a contract that validates
+- **Area:** `cli/contract.py::ContractExportCommand`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a declared dataset
+- **Steps:** export to a file; re-import with `prama contract import`
+- **Expected:** the round trip holds; `apiVersion` is `3.0.0`
+- **Why:** "a contract with no version is one no consumer can validate
+  against", and the export is the product's public face.
+
+### CTR-040 · Export refuses an unknown dataset and an unset tenant
+- **Area:** `cli/contract.py::ContractExportCommand`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** no `tenancy.default_tenant`
+- **Steps:** export with no `--tenant`; then with a valid tenant and a bad slug
+- **Expected:** two `ValidationError`s, the second naming
+  `prama estate export` as the remedy
+- **Why:** finding Q-17 — `--tenant` accepted a non-existent id on seven of
+  eight commands and reported a plausible empty result at exit 0. Confirm this
+  one refuses.
+
+### CTR-041 · The diff reports the schema before the rows
+- **Area:** `contract/diff.py::Diff.describe`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** two row sets differing by a renamed column
+- **Steps:** `compare(..., key=['id'])`
+- **Expected:** the schema difference first, on its own, then the row counts
+- **Why:** "comparing rows across two different column sets produces a diff
+  where everything changed, and the one fact that explains it — a column was
+  renamed — is buried under ten thousand rows".
+
+### CTR-042 · A changed row names the columns that changed
+- **Area:** `contract/diff.py::compare`, `RowChange`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** rows differing in one column
+- **Steps:** compare
+- **Expected:** each `RowChange` naming the column with its before and after
+- **Why:** "'4,120 rows differ' is a number nobody can act on".
+
+### CTR-043 · `columns_that_changed` counts every row, not the examples
+- **Area:** `contract/diff.py::changed_by_column`, `columns_that_changed`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** 10,000 differing rows where the first 100 by key differ in
+  `settlement_date` and the other 9,900 in `notional`
+- **Steps:** compare with the default limit; read `columns_that_changed`
+- **Expected:** `notional` first
+- **Why:** finding C10 exactly. "It reported 'changes are in settlement_date'
+  and never mentioned the column that changed in 99% of rows. The summary line
+  then added 'examples are capped and the counts are not' — true of the counts,
+  false of this."
+
+### CTR-044 · A capped diff says it was capped
+- **Area:** `contract/diff.py::Diff.truncated`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** 100 and 101 changed rows; 101 added keys; 101 removed keys
+- **Steps:** compare with `limit=100`
+- **Expected:** `truncated` False at 100, True at 101, and True when either the
+  added or the removed list overflows
+- **Why:** "a bound presented as a total is the most dangerous number here".
+
+### CTR-045 · Without a key there is no changed row
+- **Area:** `contract/diff.py::compare`, `Diff.comparable`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** two row sets in different orders
+- **Steps:** compare with no key
+- **Expected:** `comparable` False; `changed == 0`; the message saying "nothing
+  here says a row *changed*, because nothing says which row is which"
+- **Why:** the alternative is "a positional comparison that reports every row
+  as changed the moment an ordering differs".
+
+### CTR-046 · A keyless diff of reordered identical rows reports no difference
+- **Area:** `contract/diff.py::compare`, `_freeze`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** the same 100 rows shuffled
+- **Steps:** compare with no key
+- **Expected:** 0 added, 0 removed, 100 unchanged
+- **Why:** the set comparison is the whole point of the keyless mode.
+
+### CTR-047 · A keyless diff over unhashable values
+- **Area:** `contract/diff.py::_freeze`
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** rows whose values include a list (a JSON column read from
+  `.jsonl`)
+- **Steps:** compare with no key
+- **Expected:** a refusal naming the column, not `TypeError: unhashable type`
+- **Why:** `prama contract diff` reads `.jsonl` and `.json` directly, so a
+  nested value reaches `_freeze` from the CLI.
+
+### CTR-048 · A keyless diff deduplicates and says so
+- **Area:** `contract/diff.py::compare`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a left side with three identical rows and a right side with
+  one
+- **Steps:** compare with no key
+- **Expected:** the duplicate collapse is visible in the output
+- **Why:** the set comparison reports 0 added, 0 removed and 1 unchanged over
+  four rows — a two-row loss reported as no difference.
+
+### CTR-049 · Duplicate keys are counted and named as a broken comparison
+- **Area:** `contract/diff.py::compare`, `duplicate_keys_left/right`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** a left side with two rows sharing a key
+- **Steps:** compare with that key
+- **Expected:** `duplicate_keys_left == 1`, and the message saying "this
+  comparison is between the wrong pairs"
+- **Why:** "a key that is not unique is not a key, and a diff computed on one
+  is arithmetic on the wrong pairs" — and the dict keeps the last row, so the
+  earlier one is silently discarded.
+
+### CTR-050 · A key column absent from the rows collapses everything
+- **Area:** `contract/diff.py::_key_of`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `--key id` where no row has an `id`
+- **Steps:** compare
+- **Expected:** a refusal naming the missing column
+- **Why:** `row.get(name)` yields `(None,)` for every row, so all rows collapse
+  onto one key, `duplicate_keys` equals the row count minus one, and the diff
+  compares two arbitrary rows. A typo'd `--key` produces a confident wrong
+  answer.
+
+### CTR-051 · Only shared columns are compared
+- **Area:** `contract/diff.py::compare`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a column present only on the right
+- **Steps:** compare
+- **Expected:** it appears in `schema.added` and not in any `RowChange`
+- **Why:** "comparing a column that exists on one side reports every shared row
+  as changed, which is the schema difference said a second time and much less
+  clearly".
+
+### CTR-052 · `--ignore` drops a column from the value comparison
+- **Area:** `contract/diff.py::compare`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** rows differing only in `loaded_at`
+- **Steps:** compare with `ignore=['loaded_at']`, keyed and keyless
+- **Expected:** identical in both modes
+- **Why:** "a load timestamp differs on every row of every reload, and a diff
+  dominated by it hides everything else".
+
+### CTR-053 · A retype is reported only where both sides declare a type
+- **Area:** `contract/diff.py::compare_schema`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a column typed on one side and untyped on the other
+- **Steps:** `compare_schema`
+- **Expected:** not reported as a retype
+- **Why:** "a type declared on one side and not the other is not a change of
+  type, it is a change of how much is known — and reporting it as a retype
+  sends somebody looking for a migration that never happened".
+
+### CTR-054 · Mixed-type keys sort without raising
+- **Area:** `contract/diff.py::_sortable`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** a key column holding both integers and strings, and some
+  nulls
+- **Steps:** compare
+- **Expected:** sorted output, no `TypeError`
+- **Why:** "sorting raw tuples raises the moment a key column holds both an
+  integer and a string, which is exactly what a mid-migration dataset looks
+  like" — the case the tool is most used for.
+
+### CTR-055 · `prama contract diff` exits 3 on any difference
+- **Area:** `cli/contract.py::ContractDiffCommand`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** two files differing in one row
+- **Steps:** run; check `$?`; then run over identical files
+- **Expected:** 3 then 0, in both text and `--json` modes
+- **Why:** "the exit code is the interface", and a build gating on it needs 3
+  to mean "your change did this" rather than "the checker fell over".
+
+### CTR-056 · `prama contract check` exits 3 on a missing column
+- **Area:** `cli/contract.py::ContractCheckCommand`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a contract promising four columns; data carrying three
+- **Steps:** run; check `$?`
+- **Expected:** exit 3, with "BREACH — promised column(s) absent" naming the
+  one
+- **Why:** "a removed column breaks every consumer".
+
+### CTR-057 · An added column is a breach unless allowed
+- **Area:** `cli/contract.py::ContractCheckCommand`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** data carrying an extra column
+- **Steps:** run with and without `--allow-additions`
+- **Expected:** exit 3 with "BREACH"; then exit 0 with "note"
+- **Why:** "treating them alike either blocks harmless changes — after which
+  the gate is disabled — or lets through the one change that matters".
+
+### CTR-058 · A required column holding an empty value is a breach
+- **Area:** `cli/contract.py::ContractCheckCommand`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a mandatory column present with one null and one `''`
+- **Steps:** run
+- **Expected:** exit 3, naming the column
+- **Why:** "the contract's `required` is a promise about values, not only about
+  the column existing, and checking only the header would pass a table of
+  nulls".
+
+### CTR-059 · A check over no rows establishes nothing, loudly
+- **Area:** `cli/contract.py::ContractCheckCommand`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** an empty `.jsonl`, an empty `.csv`, and `{"rows": []}`
+- **Steps:** run each, in text and `--json`
+- **Expected:** exit 3 in all six, and the JSON payload carries the
+  no-rows fact rather than only `breached: true`
+- **Why:** "a contract check over no rows passes every test it can run and has
+  established nothing" — and in JSON mode the loud sentence is not emitted at
+  all, so a CI job reading the payload cannot tell an empty file from a missing
+  column.
+
+### CTR-060 · The checker's own failures exit 1, not 3
+- **Area:** `cli/contract.py`, `_load`, `_rows`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** a contract path that does not exist; a `.json` holding a
+  bare string; a directory passed where a file is expected
+- **Steps:** run each; check `$?`
+- **Expected:** exit 1 with a `ValidationError`, never 3 and never a traceback
+- **Why:** "a single non-zero code makes a broken checker look like a broken
+  change", and finding Q-28 records directories-where-a-file-is-expected as the
+  commonest traceback source.
+
+### CTR-061 · CSV rows arrive as text and the check accounts for it
+- **Area:** `cli/contract.py::_rows`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a CSV whose mandatory numeric column holds `0`
+- **Steps:** `prama contract check`
+- **Expected:** not a breach — `'0'` is a value
+- **Why:** `csv.DictReader` yields strings, and the emptiness test is
+  `row.get(name) in (None, "")`. A CSV's empty cell is `''` and its zero is
+  `'0'`; a JSON file's zero is `0`, which is also not in the tuple. Confirm the
+  two input formats agree.
+
+### CTR-062 · The example sets are capped in the CLI too
+- **Area:** `cli/contract.py::ContractDiffCommand`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** 500 changed rows
+- **Steps:** run
+- **Expected:** ten examples printed, the counts exact, and the truncation
+  stated
+- **Why:** the command prints `[:10]` of an already-capped list, so a reader
+  sees ten of a hundred of five hundred; only one of those three numbers is
+  labelled.
+
+## Importers — `importers/`
+
+### IMP-001 · The three shipped importers resolve by name
+- **Area:** `importers/__init__.py::importer`, `IMPORTERS`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** none
+- **Steps:** `importer('dbt')`, `'soda'`, `'great_expectations'`,
+  `'great-expectations'`, `'GREAT EXPECTATIONS'`
+- **Expected:** the first four resolve (hyphen and case normalised); the fifth
+  is refused
+- **Why:** `prama control import --from` takes this string, and the hyphen form
+  is what `contract/quality.py::ROUTABLE_ENGINES` tells a user to type.
+
+### IMP-002 · An unknown source is refused with the list
+- **Area:** `importers/__init__.py::importer`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** none
+- **Steps:** `importer('montecarlo')`
+- **Expected:** `RegistryError` listing the three available
+- **Why:** the remedy is where a user learns the boundary, and a `KeyError`
+  reaching a terminal is finding Q-28.
+
+### IMP-003 · Every result reports three things
+- **Area:** `importers/spi.py::ImportResult.render`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** an import with controls, caveats and unmapped constructs
+- **Steps:** `render()`
+- **Expected:** the count imported, every caveat, and every unmapped construct
+  named individually
+- **Why:** "the honest answer has three parts, and an importer that gives fewer
+  than three is selling something".
+
+### IMP-004 · Nothing left behind is stated explicitly
+- **Area:** `importers/spi.py::ImportResult.render`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** a file every construct of which imports
+- **Steps:** `render()`
+- **Expected:** "Nothing was left behind."
+- **Why:** the absence of an "unmapped" section is ambiguous; the sentence is
+  what makes a clean import readable as clean.
+
+### IMP-005 · `is_complete` ignores caveats
+- **Area:** `importers/spi.py::ImportResult.is_complete`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** an import with no unmapped constructs and four caveats
+- **Steps:** read `is_complete`
+- **Expected:** a stated meaning
+- **Why:** `is_complete` is `not self.unmapped`, so an import where every
+  control's meaning changed — nulls now counting as violations — reports
+  complete. The three-part promise is reduced to two in the one field a caller
+  is most likely to branch on.
+
+### IMP-006 · An unmapped construct carries its source verbatim
+- **Area:** `importers/spi.py::Unmapped`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** any refusal
+- **Steps:** read `source`
+- **Expected:** the original name or check text, findable by grep in the source
+  file
+- **Why:** "verbatim, so it can be found again" — a paraphrased name sends
+  somebody hunting.
+
+### IMP-007 · An importer emitting bad PQL raises rather than reporting
+- **Area:** `importers/spi.py::Collector.control`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** a source construct whose expression is carried across
+  unchanged and does not parse — for example a dbt
+  `expression_is_true` with `expression: "amount > 0 AND"`
+- **Steps:** import the file
+- **Expected:** the construct reported as unmapped, and the rest of the file
+  still imported
+- **Why:** `Collector.control` calls `parse_control` and lets the
+  `PqlSyntaxError` escape, so one un-parseable expression aborts the whole
+  import. The package's own rule is that a construct Prama cannot handle is
+  *reported*, and a four-hundred-test migration must not be lost to one of
+  them.
+
+### IMP-008 · Every imported control says where it came from
+- **Area:** `importers/spi.py::because`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** an import from each of the three sources
+- **Steps:** read every control's `BECAUSE`
+- **Expected:** "Imported from …" naming the tool and the object
+- **Why:** "six months after a migration, 'why does this exist' is answered by
+  the control itself rather than by whoever remembers the old tool".
+
+### IMP-009 · An origin containing an apostrophe is escaped
+- **Area:** `importers/spi.py::because`, `quote`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** a SodaCL check whose text contains `'`
+- **Steps:** import; parse the emitted control
+- **Expected:** the apostrophe doubled; the control parses
+- **Why:** the docstring records this exact bug — "handing back an unescaped
+  string for a caller to interpolate is an invitation to emit PQL that does not
+  parse, which is what happened the first time this existed".
+
+### IMP-010 · A dbt schema.yml imports `unique` and `not_null`
+- **Area:** `importers/dbt.py::_column_test`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a model with both tests on a column
+- **Steps:** import
+- **Expected:** `CHECK model.col IS NOT NULL` and
+  `CHECK model HAS UNIQUE KEY (col)`, the second carrying the grain caveat
+- **Why:** "dbt's `unique` asserts this column alone is distinct … if the
+  declared grain is wider, the control is weaker than the grain".
+
+### IMP-011 · `accepted_values` carries the nulls caveat
+- **Area:** `importers/dbt.py::NULL_CAVEAT`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** an `accepted_values` test
+- **Steps:** import
+- **Expected:** the control, plus a caveat naming
+  `TREAT UNKNOWN AS PASS` as the way to keep dbt's behaviour exactly
+- **Why:** "an imported `accepted_values` will find rows dbt never reported —
+  which is the point of migrating, and is also a surprise if nobody says it in
+  advance". And the remedy names a real PQL clause, which must be checked.
+
+### IMP-012 · `accepted_values` with no values is refused
+- **Area:** `importers/dbt.py::_column_test`
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** `accepted_values: {}`
+- **Steps:** import
+- **Expected:** unmapped, with the remedy "Give the permitted values, or drop
+  the test"
+- **Why:** `IN ()` does not parse, and a silently dropped test is lost coverage.
+
+### IMP-013 · `relationships` resolves `ref()` and `source()`
+- **Area:** `importers/dbt.py::_dereference`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `to: "ref('accounts')"` and `to: "source('raw','accounts')"`
+- **Steps:** import
+- **Expected:** both resolve to `accounts`
+- **Why:** the two spellings are both ordinary, and an unresolved one produces
+  `REFERENCES ref('accounts').id`, which does not parse.
+
+### IMP-014 · A versioned `ref` resolves to the version, not the model
+- **Area:** `importers/dbt.py::_dereference`
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** `to: "ref('accounts', v=2)"`
+- **Steps:** import
+- **Expected:** `accounts`
+- **Why:** `parts[-1]` takes the *last* comma-separated fragment, which is
+  correct for `source(schema, table)` and wrong for a versioned `ref` — the
+  control then references a dataset called `v=2`.
+
+### IMP-015 · `relationships` without both a target and a field is refused
+- **Area:** `importers/dbt.py::_relationship`
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** a test with `to` and no `field`
+- **Steps:** import
+- **Expected:** unmapped, naming what was missing
+- **Why:** half a reference is a control pointing at a dataset with no column.
+
+### IMP-016 · `accepted_range` refuses a one-sided or exclusive range
+- **Area:** `importers/dbt.py::_range`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `min_value` only; then both with `inclusive: false`
+- **Steps:** import each
+- **Expected:** both unmapped — the first with a remedy naming the comparison
+  to write, the second saying "an exclusive range would change which rows fail"
+- **Why:** `BETWEEN` is inclusive, and importing an exclusive range as one
+  changes which rows fail — the same off-by-one class as CTR-023 and CTR-029.
+
+### IMP-017 · `not_null_proportion` is inverted and the caveat says so
+- **Area:** `importers/dbt.py::_proportion`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `at_least: 0.95`
+- **Steps:** import
+- **Expected:** `IS NOT NULL BELOW 5%`, with a caveat stating both readings
+- **Why:** "dbt states the proportion that must be present; Prama states the
+  proportion that may be missing. The same threshold, read from the other end."
+  Inverting it by accident is a control that fires on 95% of rows.
+
+### IMP-018 · `not_null_proportion` with an out-of-range value
+- **Area:** `importers/dbt.py::_proportion`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** `at_least: 95` (a percentage, not a proportion);
+  `at_least: 0`
+- **Steps:** import
+- **Expected:** a refusal for the first, or a control whose threshold is not
+  `BELOW -9400%`
+- **Why:** `(1.0 - 95) * 100` is negative, and nothing bounds the input. A
+  percentage written where a proportion is expected is the single most likely
+  mistake in that field.
+
+### IMP-019 · `unique_combination_of_columns` imports as a grain
+- **Area:** `importers/dbt.py::_model_test`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a model test naming three columns
+- **Steps:** import
+- **Expected:** `HAS UNIQUE KEY (a, b, c)`, no caveat
+- **Why:** this is the one that genuinely matches Prama's grain, and it must
+  not carry the weaker-than-grain caveat that `unique` does.
+
+### IMP-020 · `expression_is_true` carries the dialect caveat
+- **Area:** `importers/dbt.py::_model_test`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** an expression using a warehouse-specific function
+- **Steps:** import
+- **Expected:** the control, with a caveat saying the expression "was written
+  for dbt's warehouse dialect and has not been checked against the engine this
+  control will run on"
+- **Why:** finding C4 is the precedent — `%` and `/` mean different things on
+  different engines, so a carried-across expression is a control whose verdict
+  depends on where it runs.
+
+### IMP-021 · A package-prefixed test name is recognised
+- **Area:** `importers/dbt.py::_base`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** `dbt_utils.accepted_range` and `dbt_expectations.expect_…`
+- **Steps:** import
+- **Expected:** the first recognised by its last segment; the second refused as
+  a package test
+- **Why:** "`dbt_utils.accepted_range` and `accepted_range` are one test", and
+  the boundary of that claim is where a package test is silently treated as a
+  known one.
+
+### IMP-022 · A custom test is refused and never approximated
+- **Area:** `importers/dbt.py::_refuse`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `assert_positive_amount`
+- **Steps:** import
+- **Expected:** unmapped, with the remedy "Prama will not guess: an
+  approximated control passes review and then checks something else"
+- **Why:** the package's central rule, stated at the point it bites.
+
+### IMP-023 · A test in an unexpected shape is not silently swallowed
+- **Area:** `importers/dbt.py::_split`
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** a test written as a two-key mapping, e.g.
+  `{accepted_values: {...}, config: {...}}`
+- **Steps:** import
+- **Expected:** unmapped with a readable name
+- **Why:** `_split` returns `("", {})` for a multi-key mapping, so the test is
+  reported as "dbt test  on orders" — an empty name that cannot be found in the
+  file, which is what `Unmapped.source`'s verbatim rule exists to prevent.
+
+### IMP-024 · Sources, seeds and snapshots are all read
+- **Area:** `importers/dbt.py::read`, `_model`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** a schema.yml with all four sections, each carrying tests
+- **Steps:** import
+- **Expected:** controls from all four; a source's tables imported by their own
+  names
+- **Why:** a migration that silently skipped `sources` would lose the tests on
+  the raw layer, which is where most `not_null` tests live.
+
+### IMP-025 · `data_tests` is accepted alongside `tests`
+- **Area:** `importers/dbt.py::_model`, `_column`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** a schema.yml using the newer `data_tests` key
+- **Steps:** import
+- **Expected:** the same controls
+- **Why:** dbt renamed the key, and a file using it would import as zero tests
+  with no unmapped entries — a silent clean result over a full suite.
+
+### IMP-026 · A file that is not a dbt schema is refused
+- **Area:** `importers/dbt.py::read`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** a list, a string, `None`, and an empty document
+- **Steps:** import each
+- **Expected:** unmapped "this is not a dbt schema file" with the remedy for
+  the non-dict cases; a stated answer for the empty dict
+- **Why:** an empty dict passes the type check and imports zero controls with
+  nothing unmapped — "Nothing was left behind" over a file nobody read.
+
+### IMP-027 · A SodaCL count check imports with its threshold
+- **Area:** `importers/soda.py::_metric`, `_threshold`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `missing_count(account_id) = 0` and `= 5`
+- **Steps:** import
+- **Expected:** `IS NOT NULL` with no threshold, then `AT MOST 5 ROWS`
+- **Why:** zero is the strict default and anything else is a tolerance the
+  producer chose.
+
+### IMP-028 · SodaCL's `<` is imported as an inclusive bound
+- **Area:** `importers/soda.py::_threshold`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `missing_count(account_id) < 5`
+- **Steps:** import
+- **Expected:** `AT MOST 4 ROWS`, or a refusal
+- **Why:** `_threshold` treats `<` and `<=` identically, so a check the
+  producer satisfies with four failures imports as one that permits five. The
+  sibling module `contract/quality.py` adjusts by one for exactly this and
+  explains why in its docstring; this one does not.
+
+### IMP-029 · A duplicate-count threshold is silently dropped
+- **Area:** `importers/soda.py::_metric`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `duplicate_count(trade_id) < 10`
+- **Steps:** import
+- **Expected:** the tolerance preserved, or the check refused
+- **Why:** the `base == "duplicate"` branch emits `HAS UNIQUE KEY (...)` and
+  never uses `threshold`, which was computed two lines above. A check the
+  producer satisfies with nine duplicates becomes a control that fails on the
+  first — the migration tightens a promise without saying so.
+
+### IMP-030 · A percentage threshold becomes `BELOW n%`
+- **Area:** `importers/soda.py::_threshold`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `invalid_percent(ccy) < 2 %` and `missing_percent(x) = 0`
+- **Steps:** import
+- **Expected:** `BELOW 2%`, then `BELOW 0%`
+- **Why:** the `%` suffix and the metric-name suffix are two independent ways
+  of saying the same thing, and both have to work.
+
+### IMP-031 · A lower bound on failures is refused
+- **Area:** `importers/soda.py::_threshold`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `missing_count(x) > 0`
+- **Steps:** import
+- **Expected:** unmapped, saying it "asserts that data is broken rather than
+  that it is sound"
+- **Why:** "a legitimate thing to write in a test suite and a strange thing to
+  want in a control estate, so it is reported rather than inverted into
+  something nobody wrote".
+
+### IMP-032 · `freshness` is a control, not a failure count
+- **Area:** `importers/soda.py::_freshness`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** `freshness(as_of) < 1d`
+- **Steps:** import
+- **Expected:** `IS FRESH WITHIN 1440 MINUTES`, with the caveat about SodaCL
+  measuring from now
+- **Why:** the recorded bug — "reporting it through the count logic produced an
+  explanation that was simply untrue: it called a legitimate freshness bound 'a
+  lower bound on failures'. A wrong reason on an import report is worse than no
+  reason, since the report is what somebody signs off."
+
+### IMP-033 · Duration units are read
+- **Area:** `importers/soda.py::_duration_minutes`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** `30m`, `4h`, `1d`, `90min`, `2hr`
+- **Steps:** import each
+- **Expected:** 30, 240, 1440, 90, 120 minutes
+- **Why:** the suffixes are sorted longest-first so `min` is not read as `m`
+  with a stray `in`; a shorter-first order gives 90 minutes for `90min` by luck
+  and fails on `2hr`.
+
+### IMP-034 · An unreadable duration is refused with a remedy
+- **Area:** `importers/soda.py::_freshness`
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** `freshness(as_of) < 1w`; `< yesterday`
+- **Steps:** import
+- **Expected:** unmapped, with "Durations are written like 30m, 4h or 1d"
+- **Why:** a week is a legitimate SodaCL duration and is not in the table, so
+  this refusal fires on real files — the remedy is what makes it actionable.
+
+### IMP-035 · An upper bound is the only freshness direction accepted
+- **Area:** `importers/soda.py::_freshness`
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** `freshness(as_of) > 1d`
+- **Steps:** import
+- **Expected:** unmapped, saying only an upper bound has a meaning
+- **Why:** a lower bound on staleness asserts the data must be old.
+
+### IMP-036 · A row-count comparison is rewritten as an inclusive bound
+- **Area:** `importers/soda.py::_row_count`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `row_count > 100`, `>= 100`, `< 100`, `<= 100`, `= 100`
+- **Steps:** import each
+- **Expected:** `AT LEAST 101`, `AT LEAST 100`, `AT MOST 99`, `AT MOST 100`,
+  and a refusal for the last with a remedy naming the range form
+- **Why:** "a row count is a whole number, so an exclusive bound is exactly an
+  inclusive one on the next integer. Rewriting it that way is an identity
+  rather than an approximation." Compare IMP-028, where the same reasoning was
+  not applied.
+
+### IMP-037 · `row_count >= 0` does not become a control that cannot fire
+- **Area:** `importers/soda.py::_row_count`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** `row_count > -1`; `row_count >= 0`
+- **Steps:** import
+- **Expected:** refused or flagged
+- **Why:** the comment says the rewrite "avoids emitting AT LEAST 0, which
+  asserts nothing at all and which the linter would rightly report as a control
+  that can never fire" — `>= 0` reaches it directly and `> -1` reaches it by
+  arithmetic.
+
+### IMP-038 · `row_count between` imports as a range
+- **Area:** `importers/soda.py::_between`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** `row_count between 100 and 200`; `missing_count(x) between
+  1 and 5`
+- **Steps:** import
+- **Expected:** the first becomes `HAS ROW COUNT BETWEEN 100 AND 200`; the
+  second is unmapped
+- **Why:** a between-range on a violation count has no direct PQL form and
+  approximating it would change which rows fail.
+
+### IMP-039 · A reference check imports as `REFERENCES`
+- **Area:** `importers/soda.py::_reference`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `values in (account_id) must exist in accounts (account_id)`
+- **Steps:** import
+- **Expected:** `CHECK ds.account_id REFERENCES accounts.account_id`
+- **Why:** the one multi-word SodaCL form the importer recognises, and it must
+  be matched before the metric regex sees `values` as a metric name.
+
+### IMP-040 · An `invalid` check needs its validity definition
+- **Area:** `importers/soda.py::_invalid`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `invalid_count(ccy) = 0` with no `valid values`,
+  `valid regex` or `valid min`/`max`
+- **Steps:** import
+- **Expected:** unmapped, with the remedy "Soda takes validity from a column
+  configuration elsewhere in the scan. Bring that definition across with the
+  check."
+- **Why:** this is the commonest SodaCL shape and the one where a guess would
+  produce a control that checks nothing while looking like the others.
+
+### IMP-041 · An `invalid` check with each validity form
+- **Area:** `importers/soda.py::_invalid`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** blocks carrying `valid values`, `valid regex`, and
+  `valid min`/`valid max`
+- **Steps:** import each
+- **Expected:** `IN (...)`, `MATCHES /.../`, `BETWEEN … AND …`, each with the
+  threshold attached
+- **Why:** three shapes and one threshold placement; the `.strip()` on the
+  result is what keeps a missing threshold from leaving a double space that
+  changes nothing and a present one from being dropped.
+
+### IMP-042 · A non-`checks for` block is refused by name
+- **Area:** `importers/soda.py::read`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** a `configurations for`, a `filter`, and a `for each dataset`
+  block
+- **Steps:** import
+- **Expected:** each unmapped, with the remedy saying they are declared
+  elsewhere in Prama and are not controls
+- **Why:** a scan file is mostly not checks, and silently skipping the rest
+  would make the offered count meaningless.
+
+### IMP-043 · An unrecognised check form is refused, not approximated
+- **Area:** `importers/soda.py::_check`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `anomaly score for row_count < default`;
+  `schema: {fail: {when required column missing: [x]}}`
+- **Steps:** import
+- **Expected:** both unmapped, quoting the check text
+- **Why:** "a partial parser that fell back to 'close enough' on an unfamiliar
+  check would import something plausible, and a plausible control is worse than
+  a missing one".
+
+### IMP-044 · A GE suite imports the expectations it maps
+- **Area:** `importers/great_expectations.py::_expectation`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a suite with `to_not_be_null`, `to_be_unique`,
+  `to_be_in_set`, `to_be_between`, `to_match_regex`, and the two row-count ones
+- **Steps:** import
+- **Expected:** a control for each, with the null caveat on the value
+  expectations
+- **Why:** "GE ignores nulls in most value expectations … so an imported
+  expectation finds rows the suite never reported".
+
+### IMP-045 · `mostly` becomes a threshold read from the other end
+- **Area:** `importers/great_expectations.py::_tolerance`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `mostly: 0.99`, `1.0`, absent
+- **Steps:** import
+- **Expected:** `BELOW 1%`, no threshold, no threshold — with the caveat on the
+  first stating both readings
+- **Why:** "the same threshold, and easy to invert by accident".
+
+### IMP-046 · A non-numeric `mostly` is silently dropped
+- **Area:** `importers/great_expectations.py::_tolerance`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `mostly: "0.99"` as a string is fine; `mostly: null` and
+  `mostly: "high"`
+- **Steps:** import
+- **Expected:** the malformed value reported, not discarded
+- **Why:** `_tolerance` returns `("", "")` on a `ValueError`, so an
+  unreadable tolerance becomes **no** tolerance — a strictly tighter control
+  than the suite, imported with no caveat and no unmapped entry. Every other
+  threshold path in this package refuses rather than tightens.
+
+### IMP-047 · `to_be_unique` and `compound_columns_to_be_unique` differ
+- **Area:** `importers/great_expectations.py::_expectation`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** both expectations
+- **Steps:** import
+- **Expected:** the first carries the weaker-than-grain caveat; the second does
+  not
+- **Why:** "importing the first as though it were the second would silently
+  weaken the control".
+
+### IMP-048 · An exclusive bound is refused
+- **Area:** `importers/great_expectations.py::_between`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `strict_min: true`
+- **Steps:** import
+- **Expected:** unmapped, "an exclusive bound would change which rows fail"
+- **Why:** the third occurrence of the inclusive/exclusive rule in this
+  catalogue (with IMP-016 and CTR-025), and the one place all three agree.
+
+### IMP-049 · A one-sided range is refused with a remedy that is right
+- **Area:** `importers/great_expectations.py::_between`
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** `min_value: 0` only; `max_value: 100` only
+- **Steps:** import
+- **Expected:** unmapped, with a remedy naming the comparison — and for the
+  `max_value`-only case the remedy must say `<`, not `>`
+- **Why:** the remedy is
+  `f"CHECK {dataset}.{column} > {low if low is not None else high}"`, which
+  emits `> 100` for a maximum-only bound. Following it literally inverts the
+  check. Three shipped remedies already named commands that did not exist; this
+  one names the wrong operator.
+
+### IMP-050 · Row-count expectations accept one or both bounds
+- **Area:** `importers/great_expectations.py::_row_count`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** min only, max only, both, neither
+- **Steps:** import each
+- **Expected:** `AT LEAST`, `AT MOST`, `BETWEEN`, and an unmapped entry
+- **Why:** the one place a one-sided bound *is* expressible, which is why
+  `_between` refuses it for columns and this does not for rows.
+
+### IMP-051 · The dataset name comes from the suite name's last segment
+- **Area:** `importers/great_expectations.py::read`
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** `expectation_suite_name: "warehouse.orders.critical"`; and
+  a suite with neither name key
+- **Steps:** import
+- **Expected:** a dataset a control can be bound to, and the derivation visible
+- **Why:** `.split(".")[-1]` gives `critical`, not `orders`; and a suite with
+  no name at all gives the literal dataset `dataset`. Every control in the file
+  is then written against a table that does not exist, and all of them parse.
+
+### IMP-052 · A GE suite is read as JSON, not YAML
+- **Area:** `importers/great_expectations.py::_parse`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a `.json` suite and a YAML file
+- **Steps:** `read_text` on each
+- **Expected:** the JSON imports; the YAML fails with a readable error
+- **Why:** the base class parses YAML and this importer overrides it; YAML is a
+  superset of JSON, so the override exists to make the failure honest rather
+  than to make it work.
+
+### IMP-053 · An unmapped expectation names the risk of guessing
+- **Area:** `importers/great_expectations.py::_expectation`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `expect_column_values_to_be_increasing`
+- **Steps:** import
+- **Expected:** unmapped with the remedy "several expectations differ from one
+  another by a single keyword argument, and the wrong one looks exactly as
+  convincing"
+- **Why:** the honest reason, stated where it matters.
+
+### IMP-054 · Whitespace collapse does not corrupt a control
+- **Area:** `importers/great_expectations.py`, the `.replace("  ", " ")` calls
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** an `in_set` whose values contain two consecutive spaces,
+  e.g. `"NEW  YORK"`
+- **Steps:** import; compare the emitted literal against the source
+- **Expected:** the value preserved
+- **Why:** the collapse is applied to the whole control string to tidy a
+  missing threshold, and it rewrites data inside string literals. A value in a
+  contract becomes a different value in the control derived from it.
+
+### IMP-055 · `merged_with` combines two results without losing anything
+- **Area:** `importers/spi.py::ImportResult.merged_with`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** two results from different files
+- **Steps:** merge
+- **Expected:** controls, unmapped and caveats concatenated; `source_format`
+  taken from the first non-empty
+- **Why:** a dbt project is many schema.yml files, and a merge that dropped one
+  file's unmapped list would report a complete migration.
+
+## Catalogue integration — `integrate/`
+
+### INT-001 · A badge with no date is refused at construction
+- **Area:** `integrate/catalog.py::Badge.__post_init__`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** none
+- **Steps:** `Badge(dataset='x', standing=HEALTHY, established_at='')`
+- **Expected:** `ValidationError` — '"Trusted" on a table nobody has checked
+  since March reads as current, and a reader has no way to tell'
+- **Why:** "a badge without a date is a lie by omission", and this is the only
+  place it is enforced.
+
+### INT-002 · The rendered sentence is dated and scoped
+- **Area:** `integrate/catalog.py::Badge.render`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** badges with `coverage='full'` and `coverage='partial'`
+- **Steps:** `render()`
+- **Expected:** the date always; ", over the rows examined (partial)" only on
+  the second
+- **Why:** "'passed' over the rows examined is a narrower claim than 'passed'".
+
+### INT-003 · A failing badge names how many controls failed
+- **Area:** `integrate/catalog.py::Badge.render`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** 3 of 11 controls failing
+- **Steps:** `render()`
+- **Expected:** "checked and failing … — 3 of 11 control(s) failing"
+- **Why:** a catalogue reader deciding whether to use the table needs the
+  proportion, not the word.
+
+### INT-004 · Five standings, and silence is not health
+- **Area:** `integrate/catalog.py::Standing`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** none
+- **Steps:** every standing's `label` and `is_reassuring`
+- **Expected:** `is_reassuring` True only for HEALTHY; every label a full
+  sentence a non-technical reader can act on
+- **Why:** "the temptation is to publish passes and stay quiet otherwise, which
+  leaves a table looking unassessed when it is actually failing. Silence and
+  health must not render the same."
+
+### INT-005 · An uncovered dataset gets a badge
+- **Area:** `integrate/catalog.py::badges_from`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** ten datasets, nine with records
+- **Steps:** `badges_from(latest, datasets=..., established_at=...)`
+- **Expected:** ten badges, the tenth `UNCOVERED` with the detail "no control
+  covers this dataset"
+- **Why:** "a catalogue showing a badge on nine tables and nothing on the tenth
+  invites a reader to assume the tenth is fine".
+
+### INT-006 · `UNPROVEN` is never produced
+- **Area:** `integrate/catalog.py::badges_from`, `Standing.UNPROVEN`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** a dataset whose controls exist and have not run in the
+  window
+- **Steps:** `badges_from`
+- **Expected:** `UNPROVEN`
+- **Why:** the standing is defined, labelled, and constructed by nothing.
+  `badges_from` has three outcomes — FAILING, NOT_ESTABLISHED, HEALTHY — so a
+  dataset whose controls have not run in the window either carries a stale
+  record and reads HEALTHY, or has no record and reads UNCOVERED. The middle
+  state that `regulatory.Standing` treats as the whole point of the design is
+  unreachable here.
+
+### INT-007 · Failing beats not-established beats healthy
+- **Area:** `integrate/catalog.py::badges_from`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a dataset with one `fail`, one `indeterminate` and three
+  `pass` records
+- **Steps:** `badges_from`
+- **Expected:** `FAILING`, `failing_controls == 1`, `controls == 5`
+- **Why:** the precedence is the whole of the badge's meaning, and an
+  `indeterminate` must never be absorbed into a pass.
+
+### INT-008 · The narrowest coverage wins
+- **Area:** `integrate/catalog.py::badges_from`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** two records, one `full` and one sampled
+- **Steps:** `badges_from`
+- **Expected:** `coverage == 'partial'`
+- **Why:** "a dataset whose badge said 'full' because one control scanned
+  everything, while another only sampled, would be claiming more than was
+  established".
+
+### INT-009 · The evidence reference points at an arbitrary record
+- **Area:** `integrate/catalog.py::badges_from`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** a FAILING dataset with five records, the failing one not
+  first
+- **Steps:** read `evidence_reference`
+- **Expected:** the reference answers "show me" for the *failing* verdict
+- **Why:** the code takes `records[0].record_hash`, and the order comes from
+  iterating a dict of latest records. "The first response to a badge somebody
+  disagrees with is 'show me', and a badge that cannot answer gets ignored from
+  then on" — answering with a passing control's evidence is worse than not
+  answering.
+
+### INT-010 · A catalogue that cannot store a date is refused wholesale
+- **Area:** `integrate/catalog.py::CatalogTarget.publish`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a target whose `supports` omits `established_at`
+- **Steps:** publish forty badges
+- **Expected:** nothing written; forty refusals, all with the same reason; the
+  report saying "Nothing was written — all 40 refused for the same reason"
+- **Why:** "refused wholesale rather than written undated. A badge without a
+  date reads as current forever" — and the same-reason collapse stops a
+  systemic problem looking like forty unlucky tables.
+
+### INT-011 · A field the catalogue cannot store is reported as dropped
+- **Area:** `integrate/catalog.py::CatalogTarget.publish`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** the Alation target, which cannot store
+  `evidence_reference`
+- **Steps:** publish
+- **Expected:** `dropped_fields == ('evidence_reference',)`, and the report
+  saying those are "absent from it rather than shown as blank"
+- **Why:** "so nobody reads an absent link as 'there was no evidence'".
+
+### INT-012 · One rejected badge does not stop the rest
+- **Area:** `integrate/catalog.py::CatalogTarget.publish`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** forty badges, one of which the target rejects
+- **Steps:** publish
+- **Expected:** 39 written, one refused by name, `complete` False
+- **Why:** "a catalogue rejecting one table must not leave the other
+  thirty-nine unwritten, because those thirty-nine then show yesterday's
+  verdict with today's confidence".
+
+### INT-013 · A partial write names the stale tables first
+- **Area:** `integrate/catalog.py::WriteReport.describe`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** seven refusals out of forty, for mixed reasons
+- **Steps:** `describe()`
+- **Expected:** the seven named first (five and an ellipsis), then the written
+  count
+- **Why:** "stale-but-present is worse than absent: it is a figure people act
+  on".
+
+### INT-014 · Nothing offered is stated, not reported as complete
+- **Area:** `integrate/catalog.py::WriteReport.describe`, `complete`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** `publish([])`
+- **Steps:** `describe()`; read `complete`
+- **Expected:** "nothing was written, because nothing was offered"; and
+  `complete` is True, which must be reconciled with that sentence
+- **Why:** `written == attempted` is `0 == 0`, so an empty publish reports a
+  complete write-back. A scheduled job whose query returned nothing reports
+  success.
+
+### INT-015 · A residency refusal is per badge, not per run
+- **Area:** `integrate/catalog.py::CatalogTarget.publish`, `Gate`
+- **Type:** security
+- **Priority:** P1
+- **Precondition:** a gate refusing one jurisdiction; forty badges, three of
+  them in it
+- **Steps:** publish with the gate
+- **Expected:** 37 written, 3 refused with the residency message
+- **Why:** "a residency breach is not a reason to leave forty tables stale".
+
+### INT-016 · A target with no region is not treated as domestic
+- **Area:** `integrate/catalog.py::CatalogTarget.region`
+- **Type:** security
+- **Priority:** P1
+- **Precondition:** a target with `region=''`, a tenant with a residency rule
+- **Steps:** publish with a gate
+- **Expected:** refused — "an unstated destination is not a domestic one"
+- **Why:** the docstring makes this claim about the field; the enforcement is
+  in `Gate.require`, and the two need testing together.
+
+### INT-017 · The badge carries the subject's jurisdiction
+- **Area:** `integrate/catalog.py::Badge.jurisdiction`
+- **Type:** security
+- **Priority:** P2
+- **Precondition:** badges with and without a jurisdiction
+- **Steps:** publish with a gate
+- **Expected:** the one with no jurisdiction is handled explicitly, not
+  defaulted to permitted
+- **Why:** "the residency question is about the *subject*, and an egress that
+  knows its destination but not its subject's home cannot answer it" —
+  `badges_from` never sets it.
+
+### INT-018 · Collibra writes to a mapped asset id, never a name
+- **Area:** `integrate/vendors.py::CollibraTarget.write`
+- **Type:** security
+- **Priority:** P1
+- **Precondition:** a badge for a dataset with no mapping
+- **Steps:** publish
+- **Expected:** refused with the reason "two systems in one estate can have a
+  table with the same name, and a name-keyed write puts a trading badge on a
+  finance table"
+- **Why:** a cross-system mis-write is a wrong quality statement on somebody
+  else's table, which is worse than no statement.
+
+### INT-019 · An unmapped Alation object is refused
+- **Area:** `integrate/vendors.py::AlationTarget.write`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** a badge for an unmapped dataset; and one whose object id is
+  `0`
+- **Steps:** publish
+- **Expected:** the first refused; the second **written** — `0` is a valid id
+- **Why:** the guard is `if object_id is None`, deliberately not a truthiness
+  test. An id of zero refused would be a table nobody can badge.
+
+### INT-020 · DataHub constructs a URN and cannot verify it
+- **Area:** `integrate/vendors.py::DataHubTarget.urn_for`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** a `platform`/`env` pair that does not match the ingestion
+  job's
+- **Steps:** publish
+- **Expected:** a refusal, or a report that the target could not confirm the
+  dataset exists
+- **Why:** the adapter's own docstring: "a URN that differs by its environment
+  segment creates a second, empty dataset rather than failing, and the badge
+  lands on a dataset nobody looks at". Unlike the other two targets, there is no
+  mapping and no refusal path — the risk is documented and unmitigated.
+
+### INT-021 · An unreachable target refuses every badge with one reason
+- **Area:** `integrate/vendors.py::_VendorTarget._send`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a transport raising `ConnectionError`
+- **Steps:** publish forty badges
+- **Expected:** forty refusals collapsed into one sentence naming the reason
+- **Why:** the systemic-problem collapse in `WriteReport.describe`, exercised
+  through a real adapter.
+
+### INT-022 · A missing asset is not created
+- **Area:** `integrate/vendors.py::_VendorTarget._send`
+- **Type:** security
+- **Priority:** P1
+- **Precondition:** a transport raising `LookupError`
+- **Steps:** publish
+- **Expected:** refused, naming the dataset and saying "Prama does not create
+  assets, because an estate defined in two places disagrees with itself"
+- **Why:** the `LookupError` branch exists solely for this, and the distinction
+  between it and a generic failure is what makes the refusal actionable.
+
+### INT-023 · Nothing in the adapters opens a socket
+- **Area:** `integrate/vendors.py`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** none
+- **Steps:** import scan over the module
+- **Expected:** no `socket`, `http`, `requests` or `httpx` import
+- **Why:** "the transport is injected. Nothing here opens a socket, which is
+  what lets all three be tested — and lets a deployment substitute a client
+  with its own mTLS, proxy, retry and rate-limit policy already applied."
+
+### INT-024 · None of the three is verified against a live server
+- **Area:** `integrate/vendors.py` module docstring
+- **Type:** documentation
+- **Priority:** P2
+- **Precondition:** none
+- **Steps:** compare the request shapes against each vendor's published API;
+  confirm the caveat is reproduced wherever the adapters are advertised
+- **Expected:** the caveat appears in the user-facing docs, not only in the
+  source
+- **Why:** "what is verified here is the adapter's own behaviour — what it
+  sends, what it drops, and what it refuses — not that a real Collibra accepts
+  it. That distinction is recorded rather than left to be assumed from the
+  presence of a test suite."
+
+### INT-025 · The reference target exercises the contract without a licence
+- **Area:** `integrate/catalog.py::RecordingTarget`
+- **Type:** contract
+- **Priority:** P2
+- **Precondition:** none
+- **Steps:** run the full `publish` contract against `RecordingTarget` with
+  every `supports` combination and a `refuse` list
+- **Expected:** the same behaviour the three vendor adapters show
+- **Why:** "an SPI whose only implementation is behind a vendor's login is an
+  SPI nobody can test" — this is the conformance harness, and it has to cover
+  the paths the vendors take.
+
+### INT-026 · A manifest that drops a dataset never deletes it
+- **Area:** `integrate/operator.py::plan`
+- **Type:** security
+- **Priority:** P1
+- **Precondition:** a stored dataset absent from the manifest
+- **Steps:** `plan(spec, stored)`
+- **Expected:** `ORPHANED`, no delete verb anywhere in the plan
+- **Why:** "removing a dataset from a manifest means the manifest stopped
+  mentioning it, which is not the same as the business retiring it. Deletion
+  would take its controls and its evidence with it, and evidence is the thing
+  this product exists to keep."
+
+### INT-027 · A person's declaration is a conflict, not an overwrite
+- **Area:** `integrate/operator.py::plan`
+- **Type:** security
+- **Priority:** P1
+- **Precondition:** a stored dataset with no `managedBy`, differing from the
+  manifest
+- **Steps:** `plan`
+- **Expected:** `CONFLICT`, naming the differing fields
+- **Why:** "the Kubernetes instinct is that desired state wins, and applied
+  here it would silently overwrite a declaration a business owner made in the
+  console — the one place the product insists a human states meaning".
+
+### INT-028 · The operator's own declaration is amended
+- **Area:** `integrate/operator.py::plan`, `MANAGED_BY`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a stored dataset with `managedBy: prama-operator`
+- **Steps:** `plan`
+- **Expected:** `AMEND` with the differing fields named
+- **Why:** the counterpart of INT-027, and the reason the stamp is applied on
+  the way in rather than afterwards.
+
+### INT-029 · Only the declared fields are compared
+- **Area:** `integrate/operator.py::COMPARED`, `plan`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a stored dataset carrying an owner and a rhythm the
+  manifest does not mention
+- **Steps:** `plan`
+- **Expected:** `UNCHANGED`
+- **Why:** "the console holds facts a manifest never carries — an owner, a
+  rhythm — and treating their absence as a difference would make every dataset
+  conflict forever".
+
+### INT-030 · A list-valued field compares by value, not identity
+- **Area:** `integrate/operator.py::_normalise`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** `grain: [a, b]` on both sides, one as a list and one as a
+  tuple; then `[a, b]` against `[b, a]`
+- **Steps:** `plan`
+- **Expected:** the first `UNCHANGED`; the second a difference
+- **Why:** a grain's column order is meaningful, and normalising to a tuple
+  preserves it — normalising to a set would not, and would hide a real change.
+
+### INT-031 · A manifest entry with no name
+- **Area:** `integrate/operator.py::plan`
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** `datasets: [{description: "x"}]`
+- **Steps:** `plan`
+- **Expected:** a refusal or a named problem
+- **Why:** `str(item.get("name",""))` makes the key `''`, so the plan says
+  `CREATE` for a dataset called "" — and the controller then applies it.
+
+### INT-032 · Ready is never claimed over a conflict
+- **Area:** `integrate/operator.py::Plan.conditions`, `is_settled`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a plan with one conflict and every write applied
+- **Steps:** `conditions(generation=3, applied=n)`
+- **Expected:** `status: "False"`, reason `NeedsDecision`
+- **Why:** "a status of Ready over that is a lie the cluster will repeat every
+  thirty seconds".
+
+### INT-033 · Planned-but-not-applied is distinct from applied-and-clean
+- **Area:** `integrate/operator.py::Plan.conditions`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** a settled plan with two writes
+- **Steps:** `conditions(applied=None)` and `conditions(applied=2)`
+- **Expected:** `NotApplied`/False, then `Reconciled`/True
+- **Why:** "a condition that conflated them would report Ready on a reconcile
+  that never ran" — the dry-run and the real run share this function.
+
+### INT-034 · A partial apply is reported as partial
+- **Area:** `integrate/operator.py::Plan.conditions`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a plan with forty writes, twelve applied
+- **Steps:** `conditions(applied=12)`
+- **Expected:** `PartiallyApplied`, not Ready, with the message "12 of 40
+  write(s) landed; the rest are in a state nobody knows"
+- **Why:** "twelve of forty applied and *stated as twelve* is recoverable;
+  twelve of forty reported as forty is not".
+
+### INT-035 · The plan's summary leads with the conflicts
+- **Area:** `integrate/operator.py::Plan.describe`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** 2 conflicts, 3 orphans, 18 unchanged
+- **Steps:** `describe()`
+- **Expected:** the conflicts first, named
+- **Why:** "a summary leading with '18 unchanged' buries them", and they are
+  the only part a human must act on.
+
+### INT-036 · A failed write stops the batch and says where
+- **Area:** `integrate/controller.py::Controller.reconcile`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a store whose fifth apply raises
+- **Steps:** reconcile
+- **Expected:** `applied == 4`, `failed_at` naming the fifth dataset, the
+  remaining writes not attempted, and the status condition `WriteFailed`
+- **Why:** "continuing past a failure produces a resource whose status counts
+  successes and whose cluster holds an unknown mixture".
+
+### INT-037 · Status is written on the failing path
+- **Area:** `integrate/controller.py::Controller._write_status`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a failing apply
+- **Steps:** reconcile; read the resource's status
+- **Expected:** written, with `observedGeneration`, the applied count, and the
+  conflict and orphan counts
+- **Why:** "a reconcile that hit a conflict and wrote no status leaves the
+  resource looking untouched, and the operator appears not to be running".
+
+### INT-038 · `observedGeneration` is the generation that was read
+- **Area:** `integrate/controller.py::Controller.reconcile`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a manifest whose generation changes during the reconcile
+- **Steps:** reconcile
+- **Expected:** the status names the generation read at the top
+- **Why:** "a status saying Ready is a statement about a version somebody can
+  point at, rather than about whichever version happens to be current when the
+  write lands".
+
+### INT-039 · A terminating resource is left alone
+- **Area:** `integrate/controller.py::Controller.reconcile`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a resource with a `deletionTimestamp`
+- **Steps:** reconcile
+- **Expected:** skipped, no status write, no applies
+- **Why:** "writing status onto something that is going away … at best does
+  nothing and at worst blocks the deletion" — the one documented exception to
+  status-on-every-path.
+
+### INT-040 · A manifest with no tenant is skipped and says so
+- **Area:** `integrate/controller.py::Controller.reconcile`
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** a spec with no `tenant`
+- **Steps:** reconcile
+- **Expected:** skipped with the reason, and the status written
+- **Why:** unlike the deletion case, this one *does* write status — an
+  operator staring at a resource needs to see why nothing happened.
+
+### INT-041 · A status-write failure aborts the remaining resources
+- **Area:** `integrate/controller.py::Controller.reconcile_all`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** three resources, the first of which fails its status write
+- **Steps:** `reconcile_all`
+- **Expected:** the other two still reconciled, or the abort documented
+- **Why:** `_write_status` raises `ClusterError`, and `reconcile_all` builds a
+  tuple by comprehension — so one resource's transient status failure silently
+  skips every resource after it, on a loop whose whole contract is "a failure
+  in one must not take the others down".
+
+### INT-042 · Nothing here can approve or activate anything
+- **Area:** `integrate/operator.py` module claim · `controller.py::_payload`
+- **Type:** security
+- **Priority:** P1
+- **Precondition:** a manifest attempting to set an approval, a control state
+  or a suppression
+- **Steps:** reconcile
+- **Expected:** the extra keys are not applied as approvals
+- **Why:** "a cluster admin with `kubectl` must not be able to make a control
+  pass". `_payload` returns `{**declared, "managedBy": MANAGED_BY}` — the whole
+  manifest fragment, unfiltered — so what the store accepts from it is the only
+  boundary, and the claim is made here while the enforcement is elsewhere.
+
+### INT-043 · A reconcile is idempotent
+- **Area:** `integrate/controller.py::Controller.reconcile`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a manifest already applied
+- **Steps:** reconcile twice
+- **Expected:** the second produces no writes, all `UNCHANGED`, and Ready
+- **Why:** the error remedy promises it — "Kubernetes will call this again, and
+  the reconcile is idempotent" — and the loop runs every thirty seconds
+  forever.
+
+## Lineage — `lineage/`
+
+### LIN-001 · A column must be qualified
+- **Area:** `lineage/graph.py::Column.parse`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** none
+- **Steps:** `Column.parse('amount')`; `Column.parse('schema.table.amount')`;
+  `Column.parse('.amount')`
+- **Expected:** the first raises with the reason "two columns called `amount`
+  in different tables become one node and the graph is wrong everywhere"; the
+  second gives dataset `schema.table`; the third raises
+- **Why:** an unqualified node merges two tables' columns, which produces an
+  impact list naming a report that does not read the column at all.
+
+### LIN-002 · Each transform's attenuation is what it claims
+- **Area:** `lineage/graph.py::Transform.attenuation`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** none
+- **Steps:** read all six
+- **Expected:** identity 1.0, rename 1.0, derived 0.7, aggregated 0.35, filter
+  0.9, join key 0.8
+- **Why:** these six constants decide every impact list. "An impact analysis
+  that treats these alike produces a list of four hundred 'affected' assets,
+  which is the same as producing no list."
+
+### LIN-003 · A filter is barely attenuated
+- **Area:** `lineage/graph.py::Transform.FILTER`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a chain of three filter edges
+- **Steps:** blast radius
+- **Expected:** 0.9³ ≈ 0.73 at the end — still well above the floor
+- **Why:** "a wrong filter changes the population rather than a value, and a
+  missing population is not a diluted problem". An aggregate at 0.35 dilutes
+  much faster, which is the intended asymmetry.
+
+### LIN-004 · The strongest path to a node wins
+- **Area:** `lineage/graph.py::LineageGraph.blast_radius`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a node reachable directly (identity) and through an
+  aggregate
+- **Steps:** blast radius
+- **Expected:** impact 1.0, depth 1, and the path showing the direct edge
+- **Why:** "reporting the attenuated figure because it was discovered first
+  would understate it" — and breadth-first discovery finds the short path
+  first only when the graph is well-behaved.
+
+### LIN-005 · A longer but stronger path replaces a shorter weaker one
+- **Area:** `lineage/graph.py::blast_radius`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** a node reachable in one aggregated hop (0.35) and in three
+  identity hops (1.0)
+- **Steps:** blast radius
+- **Expected:** impact 1.0, depth 3, and the three-edge path
+- **Why:** the counterfactual to LIN-004; a first-wins implementation passes
+  LIN-004 by accident and fails this.
+
+### LIN-006 · A cycle terminates
+- **Area:** `lineage/graph.py::blast_radius`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a three-node cycle of identity edges
+- **Steps:** blast radius with the default floor
+- **Expected:** terminates; each node reached once
+- **Why:** "a table feeding a table that feeds it back through a different path
+  is an ordinary warehouse, not a modelling error, and a traversal that assumes
+  a DAG will find out in production". Note that a cycle of *pure identity*
+  edges never attenuates, so termination depends entirely on the
+  strictly-stronger revisit rule and on the depth limit.
+
+### LIN-007 · A cycle of identity edges terminates by depth, not by attenuation
+- **Area:** `lineage/graph.py::blast_radius`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** a two-node identity cycle
+- **Steps:** blast radius; read `truncated`
+- **Expected:** terminates, and whether it reports truncation is stated
+- **Why:** the comment says "cycles terminate because attenuation is at most 1
+  and a revisit only continues when it is strictly stronger, which cannot
+  happen forever" — which holds for attenuation *below* 1 and for the
+  strictly-greater test. With `IDENTITY` at exactly 1.0 the first claim does
+  nothing and only the second is load-bearing. Worth pinning as the reason.
+
+### LIN-008 · Traversal stops at the depth limit and says so
+- **Area:** `lineage/graph.py::MAXIMUM_DEPTH`, `BlastRadius.truncated`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** a chain of 15 identity edges
+- **Steps:** blast radius with the default
+- **Expected:** 12 nodes reached, `truncated` True, and the summary saying "a
+  graph deeper than that has a modelling problem worth looking at on its own"
+- **Why:** a silently truncated impact list is one that says a report is not
+  affected when it is.
+
+### LIN-009 · `truncated` is set even when nothing lay beyond
+- **Area:** `lineage/graph.py::blast_radius`
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** a chain of exactly 12 identity edges, the last node having
+  no outgoing edges
+- **Steps:** blast radius
+- **Expected:** `truncated` False — the traversal reached the edge of the
+  graph, not the limit
+- **Why:** the loop sets `truncated = True` whenever a frontier item's depth
+  reaches the maximum, regardless of whether that node has any outgoing edges.
+  A complete answer is reported as incomplete, and the summary tells the reader
+  their warehouse has a modelling problem.
+
+### LIN-010 · Below-floor nodes are counted, not listed
+- **Area:** `lineage/graph.py::IMPACT_FLOOR`, `below_floor`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a graph where 380 nodes fall below 1%
+- **Steps:** blast radius
+- **Expected:** they are absent from `reached` and the count appears in the
+  summary
+- **Why:** "a column contributing a thousandth of an aggregate is not
+  'affected' in any sense the reader means, and including it is how an impact
+  list becomes something nobody opens".
+
+### LIN-011 · `below_floor` counts edges, not columns
+- **Area:** `lineage/graph.py::blast_radius`
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** one below-floor column reachable by five separate paths
+- **Steps:** blast radius; read `below_floor`
+- **Expected:** 1
+- **Why:** the counter increments on every traversal that falls below the
+  floor, so one column reachable five ways is reported as five. The summary
+  says "380 more are downstream at under 1%", which is a statement about
+  columns and is computed over edges. The same over-count class as finding C10.
+
+### LIN-012 · The floor boundary is exact
+- **Area:** `lineage/graph.py::blast_radius`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** paths giving carried impact of exactly 0.01, and just below
+- **Steps:** blast radius
+- **Expected:** the 0.01 node included (`carried < floor` is strict), the other
+  excluded
+- **Why:** the strictness decides which of two adjacent nodes an incident
+  report mentions, and floating-point products of attenuations land on the
+  boundary more often than they should.
+
+### LIN-013 · The origin is not in its own blast radius
+- **Area:** `lineage/graph.py::blast_radius`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a self-loop on the origin column
+- **Steps:** blast radius
+- **Expected:** a stated answer
+- **Why:** the frontier starts at the origin with impact 1.0 and `best` is
+  populated only from edge targets — so a self-loop puts the origin into its
+  own reached set at depth 1, and the impact list says a column is affected by
+  itself.
+
+### LIN-014 · An empty graph and an unknown origin
+- **Area:** `lineage/graph.py::blast_radius`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** an empty graph; a column not in the graph
+- **Steps:** blast radius on both
+- **Expected:** "nothing downstream of x" in both — and a caller can tell
+  "nothing reads this" from "this column is not in the graph"
+- **Why:** the two answers are identical and mean opposite things: one says the
+  column is a leaf, the other says the lineage was never scanned.
+
+### LIN-015 · `worst` ranks by impact then name
+- **Area:** `lineage/graph.py::BlastRadius.worst`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** ten reached nodes, three at equal impact
+- **Steps:** `worst(5)`
+- **Expected:** highest impact first, ties broken by qualified name,
+  deterministic across runs
+- **Why:** an incident report that reorders between two runs of the same query
+  is one nobody trusts.
+
+### LIN-016 · A reached node renders its route
+- **Area:** `lineage/graph.py::Reached.describe`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** a three-hop path
+- **Steps:** `describe()`
+- **Expected:** "x at 34% of the defect, 3 hops away: a.b → c.d → e.f → g.h"
+- **Why:** "the path taken, so the answer can be checked rather than trusted",
+  and the pluralisation of "hop" is on the sentence somebody reads at seven in
+  the morning.
+
+### LIN-017 · `sources_of` returns upstream columns nearest first
+- **Area:** `lineage/graph.py::sources_of`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a column with two direct and three indirect sources
+- **Steps:** `sources_of(column)`
+- **Expected:** the two direct ones first, then the others, deterministic
+- **Why:** "the nearest cause is the likeliest, and a ranked list beats a set
+  when somebody has twenty minutes".
+
+### LIN-018 · `sources_of` terminates on a cycle and bounds its depth
+- **Area:** `lineage/graph.py::sources_of`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** an upstream cycle; and a chain deeper than the limit
+- **Steps:** `sources_of`
+- **Expected:** terminates; the depth truncation is visible to the caller
+- **Why:** the upstream traversal has no `truncated` flag at all, so a root
+  cause thirteen hops up is simply absent with nothing said.
+
+### LIN-019 · `paths` finds every route
+- **Area:** `lineage/graph.py::paths`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** two distinct routes from a source to a target
+- **Steps:** `list(paths(source, target))`
+- **Expected:** both
+- **Why:** "'why does this number depend on that one?' often has two answers,
+  and showing one of them is how somebody fixes a path and finds the number
+  still wrong".
+
+### LIN-020 · `paths` does not loop on a cycle
+- **Area:** `lineage/graph.py::paths`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** a cycle between the source and the target
+- **Steps:** enumerate the paths
+- **Expected:** finite; the `visited` set prevents revisiting a node on one
+  path
+- **Why:** the visited set is per-path rather than global, which is correct for
+  path enumeration and is the expensive kind of correct — bound the count too.
+
+### LIN-021 · `paths` does not continue through the target
+- **Area:** `lineage/graph.py::paths`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a graph where the target feeds a node that feeds the target
+  again
+- **Steps:** enumerate
+- **Expected:** a stated answer
+- **Why:** the loop yields and `continue`s when it sees the target, so a route
+  that passes *through* the target and returns to it is never found — right for
+  most questions, and unstated.
+
+### LIN-022 · The table-level view is derived
+- **Area:** `lineage/graph.py::dataset_edges`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a column graph with intra-table and inter-table edges
+- **Steps:** `dataset_edges()`
+- **Expected:** only the inter-table pairs, deduplicated, order stable
+- **Why:** "a table graph maintained beside a column graph drifts from it, and
+  the drift is invisible until an impact analysis names a table nothing
+  actually reads".
+
+### LIN-023 · Orphans are columns nothing reads
+- **Area:** `lineage/graph.py::orphans`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a graph with a leaf column, a source column and an isolated
+  one
+- **Steps:** `orphans()`
+- **Expected:** the leaf only — a source column with outgoing edges is not an
+  orphan
+- **Why:** "an orphan is either dead weight to be retired or a gap in the
+  lineage, and both are worth knowing. It is also the number that tells you how
+  complete the graph is."
+
+### LIN-024 · The orphan rate says how complete the graph is
+- **Area:** `lineage/graph.py::orphans`, `columns`
+- **Type:** documentation
+- **Priority:** P2
+- **Precondition:** a graph where 80% of columns are orphans
+- **Steps:** compute the ratio
+- **Expected:** the product surfaces it somewhere — "a warehouse where eighty
+  percent of columns are orphans has not been scanned properly"
+- **Why:** the docstring makes the claim and nothing computes the number.
+
+### LIN-025 · `merge` keeps duplicate edges deliberately
+- **Area:** `lineage/graph.py::merge`, `LineageGraph.__len__`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** two scanners producing the same edge
+- **Steps:** merge; read `len(graph)` and the blast radius
+- **Expected:** the edge counted twice in `len`, and the traversal unaffected
+- **Why:** "two scanners agreeing is worth knowing and the traversal takes the
+  strongest path anyway" — but `len(graph)` is then an edge count that
+  over-reports, and it is the obvious number to put on a coverage screen.
+
+### LIN-026 · A merged graph's blast radius equals the union's
+- **Area:** `lineage/graph.py::merge`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** two graphs with overlapping and disjoint edges
+- **Steps:** compare `merge([a,b]).blast_radius(x)` against a graph built from
+  the union of their edges
+- **Expected:** identical
+- **Why:** "the union is the only complete picture", and a merge that dropped
+  an edge would produce an impact list missing a consumer.
+
+### LIN-027 · SQL lineage reads a simple INSERT … SELECT
+- **Area:** `lineage/sql.py::SqlLineage.extract`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `INSERT INTO t (a, b) SELECT x, y FROM s`
+- **Steps:** extract
+- **Expected:** two edges, `s.x → t.a` and `s.y → t.b`, both IDENTITY
+- **Why:** the base case, and the one where target-column positional mapping
+  from the INSERT list is exercised.
+
+### LIN-028 · An aliased expression names its target column
+- **Area:** `lineage/sql.py::_split_alias`, `_implied_name`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `SELECT sum(amount) AS total, price FROM trades`
+- **Steps:** extract
+- **Expected:** `trades.amount → t.total` as AGGREGATED, and
+  `trades.price → t.price` as IDENTITY
+- **Why:** the implicit-name case is what makes a bare column edge possible at
+  all, and the alias is what names an expression's output.
+
+### LIN-029 · An expression with no alias and no obvious name is a gap
+- **Area:** `lineage/sql.py::_statement`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `SELECT a + b FROM s` with no INSERT column list
+- **Steps:** extract
+- **Expected:** an `unnamed_output` gap quoting the expression
+- **Why:** "a lineage graph that quietly drops a CASE expression looks the same
+  as one that handled it, and the impact analysis built on it is wrong in a way
+  nobody can see".
+
+### LIN-030 · `discount(` is read as an aggregate
+- **Area:** `lineage/sql.py::_transform`, `_AGGREGATES`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `SELECT discount(price) AS p FROM t`; and
+  `SELECT checksum(x) AS c FROM t`
+- **Steps:** extract; read the transform
+- **Expected:** `DERIVED`
+- **Why:** the test is `any(f"{name}(" in lowered for name in _AGGREGATES)`, a
+  substring match with no word boundary. `discount(` contains `count(` and
+  `checksum(` contains `sum(`, so both are classified `AGGREGATED` — which
+  attenuates the edge to 0.35 and can push a genuinely affected column below
+  the impact floor. An incident report then omits a consumer.
+
+### LIN-031 · A cast and a coalesce are renames
+- **Area:** `lineage/sql.py::_transform`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** `CAST(a AS TEXT)` and `COALESCE(a, 0)`
+- **Steps:** extract
+- **Expected:** `RENAME` for both — attenuation 1.0
+- **Why:** "still essentially the same value", so a defect arrives intact and
+  the impact list must say so.
+
+### LIN-032 · An ambiguous unqualified column is reported, not guessed
+- **Area:** `lineage/sql.py::_references`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `SELECT amount FROM a JOIN b ON a.id = b.id` with no schema
+- **Steps:** extract
+- **Expected:** an `ambiguous` gap naming both candidates and saying "supply
+  the schema and this resolves"; no edge
+- **Why:** "picking one produces an edge that is wrong half the time".
+
+### LIN-033 · A schema resolves the ambiguity
+- **Area:** `lineage/sql.py::SqlLineage(schema=…)`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** the same SQL with a schema saying only `a` has `amount`
+- **Steps:** extract
+- **Expected:** one edge from `a.amount`, no gap
+- **Why:** the counterfactual to LIN-032, and the reason the schema parameter
+  exists.
+
+### LIN-034 · A single source resolves an unqualified column
+- **Area:** `lineage/sql.py::_references`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `INSERT INTO t SELECT amount FROM s`
+- **Steps:** extract
+- **Expected:** one edge from `s.amount`
+- **Why:** "refusing here would make the parser useless on exactly the simple
+  views that make up most of a legacy estate".
+
+### LIN-035 · Every table after the first in a join is found
+- **Area:** `lineage/sql.py::_FROM`, `_ALIAS_STOP`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** `FROM a JOIN b ON … LEFT JOIN c ON …`
+- **Steps:** `_sources`
+- **Expected:** all three tables and their aliases
+- **Why:** the recorded bug — "without the lookahead, `FROM a JOIN b` matches
+  with alias='JOIN', the regex consumes it, and `finditer` resumes past the
+  joined table — so every table after the first was silently dropped and the
+  extractor produced a confident half-graph".
+
+### LIN-036 · Every keyword in `_ALIAS_STOP` is exercised
+- **Area:** `lineage/sql.py::_ALIAS_STOP`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** `FROM a WHERE`, `FROM a GROUP BY`, `FROM a UNION`,
+  `FROM a CROSS JOIN b`, `FROM a USING (x)`, `FROM a ORDER BY`
+- **Steps:** `_sources` for each
+- **Expected:** no keyword captured as an alias
+- **Why:** each omission from the list is a silently dropped table, and the
+  list is nineteen words long with no test naming them individually.
+
+### LIN-037 · An alias colliding with a table name
+- **Area:** `lineage/sql.py::_sources`
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** `FROM orders o JOIN customers orders`
+- **Steps:** `_sources`; extract
+- **Expected:** a gap or a stated resolution
+- **Why:** `sources[alias] = table` and `sources[table] = table` write into one
+  dict, so the second table's alias overwrites the first table's own name and
+  every unaliased reference to `orders` resolves to `customers`. Every edge
+  from that statement is then wrong and none of them is reported as a gap.
+
+### LIN-038 · A statement with no target is a gap, not an edge
+- **Area:** `lineage/sql.py::_statement`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** a bare `SELECT a FROM b`
+- **Steps:** extract
+- **Expected:** a `no_target` gap — "a bare SELECT tells you what was read and
+  not where it went"
+- **Why:** producing an edge to nowhere would put a phantom node in the graph.
+
+### LIN-039 · A VALUES insert is not a parse failure
+- **Area:** `lineage/sql.py::_statement`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `INSERT INTO t (a) VALUES (1)`
+- **Steps:** extract
+- **Expected:** a `no_source` gap, not `unparsed`
+- **Why:** "it genuinely has no lineage … and classifying it as unparsed would
+  put it in the pile of things somebody should go and improve the parser for" —
+  and `understood` is computed from the `unparsed` count.
+
+### LIN-040 · `understood` reflects statements that produced nothing
+- **Area:** `lineage/sql.py::Extraction.understood`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** ten statements, three unparsed
+- **Steps:** read `understood`
+- **Expected:** 0.7
+- **Why:** "a scanner that parsed forty percent of a package and says nothing
+  is worse than one that parsed forty percent and says so, because the graph it
+  produces looks complete".
+
+### LIN-041 · A WHERE clause produces filter edges
+- **Area:** `lineage/sql.py::_filter_edges`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `INSERT INTO t SELECT a FROM s WHERE region = 'EU'`
+- **Steps:** extract
+- **Expected:** an edge `s.region → t.*` with `FILTER`
+- **Why:** "a lineage graph that only follows the SELECT list misses it
+  entirely, so the impact analysis says the filter column has no consumers".
+
+### LIN-042 · The `*` filter target is a real node
+- **Area:** `lineage/sql.py::_filter_edges`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** the graph from LIN-041
+- **Steps:** `columns_of('t')`; `orphans()`; `blast_radius` from the filter
+  column
+- **Expected:** a stated meaning for `t.*`
+- **Why:** the synthetic node appears in `columns`, in `columns_of`, in
+  `orphans` and in every impact list as "t.\*" — a column name no reader will
+  recognise and no catalogue will resolve.
+
+### LIN-043 · A CTE is not resolved to its underlying tables
+- **Area:** `lineage/sql.py::_statement`, `_SELECT`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `INSERT INTO t WITH c AS (SELECT a FROM s) SELECT a FROM c`
+- **Steps:** extract
+- **Expected:** either resolved through the CTE, or a gap saying the CTE was
+  not followed
+- **Why:** `_SELECT` is non-greedy to the **first** `from`, so the CTE's own
+  SELECT is what gets parsed and the outer one is not. A CTE is the ordinary
+  shape of a modern warehouse view, and the graph produced is wrong with no
+  gap recorded.
+
+### LIN-044 · A subquery in the SELECT list
+- **Area:** `lineage/sql.py::_SELECT`
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** `INSERT INTO t SELECT (SELECT max(x) FROM u) AS m, a FROM s`
+- **Steps:** extract
+- **Expected:** a gap, or correct edges
+- **Why:** the same non-greedy-to-first-`from` problem: the SELECT body is cut
+  at the subquery's `FROM`, so `a` is never seen and the target column list is
+  misaligned.
+
+### LIN-045 · A UNION is read as one statement
+- **Area:** `lineage/sql.py::_statement`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `INSERT INTO t SELECT a FROM s1 UNION ALL SELECT a FROM s2`
+- **Steps:** extract
+- **Expected:** edges from both sides, or a gap naming the UNION
+- **Why:** only the first SELECT is matched, so the second branch's source
+  table contributes no edges and nothing is reported. The impact analysis then
+  says `s2` feeds nothing.
+
+### LIN-046 · Statement splitting survives a semicolon in a string
+- **Area:** `lineage/sql.py::extract`
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** a statement containing `WHERE note = 'a;\nb'`
+- **Steps:** extract
+- **Expected:** one statement
+- **Why:** the split is on `;\s*(?:\n|$)`, which a semicolon-newline inside a
+  literal satisfies — producing two fragments, one of which is unparsed, and a
+  `understood` figure that says the file is worse than it is.
+
+### LIN-047 · Quoted and bracketed identifiers are cleaned
+- **Area:** `lineage/sql.py::_clean`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** `INSERT INTO [dbo].[Orders]`, `"schema"."table"`,
+  `` `db`.`t` ``
+- **Steps:** `_target`
+- **Expected:** the delimiters removed and the dotted name preserved
+- **Why:** a target name carrying a bracket becomes a dataset nothing else in
+  the estate is called, and the graph silently forks.
+
+### LIN-048 · A T-SQL procedure's statements are extracted
+- **Area:** `lineage/scan.py::ProceduralSqlScanner`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a `CREATE PROCEDURE … AS BEGIN … INSERT … SELECT … END`
+- **Steps:** scan
+- **Expected:** edges attributed to the procedure name as `produced_by`
+- **Why:** "the lineage in those systems is the lineage that matters, because
+  it is where the reporting layer actually comes from".
+
+### LIN-049 · Dynamic SQL is reported, not ignored
+- **Area:** `lineage/scan.py::ProceduralSqlScanner.opaque`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** procedures using `EXEC(@sql)`, `sp_executesql`,
+  `EXECUTE IMMEDIATE`, and a cursor opened over a variable
+- **Steps:** scan each
+- **Expected:** a `dynamic_sql` gap for each, saying "this is where the
+  interesting lineage usually hides"
+- **Why:** "a graph that silently omits it is complete-looking and wrong".
+
+### LIN-050 · The procedural stripper removes a CASE's END
+- **Area:** `lineage/scan.py::_strip_procedural`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** a procedure containing
+  `SELECT CASE WHEN a > 0 THEN b ELSE c END AS d FROM t`
+- **Steps:** scan
+- **Expected:** the CASE expression parsed and an edge produced
+- **Why:** the pattern `\b(begin|end)\b\s*;?` strips every `END`, including the
+  one closing a CASE — and the stripper's own docstring says it is
+  "conservative on purpose … because a stripper that removes too much turns a
+  readable statement into an unparseable one and the loss is silent". A CASE is
+  the single most common expression in a reporting procedure.
+
+### LIN-051 · A `DECLARE` block does not swallow the statement after it
+- **Area:** `lineage/scan.py::_strip_procedural`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a PL/SQL block whose `DECLARE` section has no terminating
+  semicolon before the first statement
+- **Steps:** scan
+- **Expected:** the following statements still extracted
+- **Why:** `\bdeclare\b[^;]*;` consumes everything up to the next semicolon, so
+  a declaration section written without one eats the first real statement.
+
+### LIN-052 · Comments are stripped before parsing
+- **Area:** `lineage/scan.py::_strip_procedural`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** a procedure with `--` and `/* */` comments, including one
+  containing the word `FROM`
+- **Steps:** scan
+- **Expected:** the commented text contributes no sources
+- **Why:** a commented-out join is a table the graph would otherwise claim is
+  read.
+
+### LIN-053 · A comment marker inside a string literal
+- **Area:** `lineage/scan.py::_strip_procedural`
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** `WHERE note = 'a -- b'`
+- **Steps:** scan
+- **Expected:** the literal preserved, or a gap
+- **Why:** the comment regex has no string awareness, so the rest of the line
+  is deleted — silently changing a WHERE clause and therefore the filter edges
+  derived from it.
+
+### LIN-054 · A file with no routine is still scanned
+- **Area:** `lineage/scan.py::ProceduralSqlScanner.scan`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a plain SQL file
+- **Steps:** scan
+- **Expected:** edges extracted; `units_found == 1` with the count's meaning
+  clear
+- **Why:** `max(1, len(routines))` reports one unit for a file containing none,
+  so `coverage` is computed against an invented denominator.
+
+### LIN-055 · An ETL mapping is read with the configured shape
+- **Area:** `lineage/scan.py::XmlMappingScanner`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** XML in the documented PowerCenter shape
+- **Steps:** scan with `POWERCENTER`
+- **Expected:** one edge per connector, with the instance names as datasets
+- **Why:** the base case for a scanner whose whole design is configurability.
+
+### LIN-056 · A wrong shape reports misconfiguration, not emptiness
+- **Area:** `lineage/scan.py::XmlMappingScanner.scan`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** DataStage XML scanned with the SSIS shape
+- **Steps:** scan
+- **Expected:** `misconfigured` set, naming the element looked for, the element
+  count and a sample of the tags actually present
+- **Why:** "turns 'this does not work' into 'the configuration is wrong, here
+  is what was in the file', and the second is a morning's work rather than a
+  procurement problem".
+
+### LIN-057 · A genuinely empty file is not reported as misconfigured
+- **Area:** `lineage/scan.py::XmlMappingScanner.scan`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** `<root/>`
+- **Steps:** scan
+- **Expected:** no `misconfigured` — the guard is `len(list(root.iter())) > 1`
+- **Why:** "distinguished from an empty file, because one is a bug and the
+  other is a fact".
+
+### LIN-058 · Malformed XML is a gap and a misconfiguration
+- **Area:** `lineage/scan.py::XmlMappingScanner.scan`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** a truncated export; a binary file
+- **Steps:** scan
+- **Expected:** an `unparsed` gap and a `misconfigured` message; no exception
+- **Why:** a repository export that failed halfway is what an evaluation
+  actually hands this.
+
+### LIN-059 · Coverage can exceed one or go negative
+- **Area:** `lineage/scan.py::ScanResult.coverage`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** one mapping containing five incomplete links
+- **Steps:** scan; read `coverage`
+- **Expected:** a fraction between 0 and 1
+- **Why:** `units_unread` is set to the number of *gaps* while `units_found` is
+  the number of *mappings*, so five bad links in one mapping give
+  `(1 - 5) / 1 = -4.0` and the summary prints "-400% complete". The two
+  counters measure different things.
+
+### LIN-060 · An incomplete link is reported with its context
+- **Area:** `lineage/scan.py::XmlMappingScanner.scan`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** a connector missing `TOFIELD`
+- **Steps:** scan
+- **Expected:** a gap naming the mapping, the element and both attributes, and
+  saying it may be the shape or a genuinely unbound link
+- **Why:** the ambiguity is real and stating it is what makes the gap
+  actionable.
+
+### LIN-061 · The SSIS shape maps a lineage id, not a column name
+- **Area:** `lineage/scan.py::SSIS`
+- **Type:** documentation
+- **Priority:** P2
+- **Precondition:** an SSIS package in the documented shape
+- **Steps:** scan; read the edges' source column names
+- **Expected:** the limitation stated — the source is a numeric lineage id
+- **Why:** `from_attribute="lineageId"` produces `Column(name='73')`, which
+  joins to nothing in the estate and appears in an impact list as a number.
+  The shape is declared unverified, and this is the specific way it is wrong.
+
+### LIN-062 · Every scanner states what it was verified against
+- **Area:** `lineage/scan.py::Scanner.verified_against`
+- **Type:** documentation
+- **Priority:** P1
+- **Precondition:** none
+- **Steps:** read it on all six from `default_scanners`
+- **Expected:** non-empty on each, and each distinguishing "verified" from
+  "written against the documentation"
+- **Why:** "a capability list that does not distinguish 'verified' from
+  'written against the documentation' is a capability list that will be quoted
+  in a procurement document".
+
+### LIN-063 · A scan result's coverage sentence is present when it matters
+- **Area:** `lineage/scan.py::ScanResult.describe`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a scan with unread units
+- **Steps:** `describe()`
+- **Expected:** "the graph from this source is N% complete and anything built
+  on it should say so"
+- **Why:** "coverage is reported, always", and a graph that looks complete is
+  the failure the whole module is written against.

@@ -275,6 +275,11 @@ class Parser:
             return ast.PredicateAssertion(
                 subject=self._require_subject(subject, self._previous),
                 operator="is_unique",
+                # Carried, not dropped. `IS NOT UNIQUE` used to parse as
+                # `IS UNIQUE` — the negation silently discarded — which turned
+                # an author's mistake into a control asserting the opposite of
+                # what they wrote. The lowerer refuses it with a reason.
+                negated=negated,
                 position=start,
             )
         if self._peek.is_keyword("VALID"):

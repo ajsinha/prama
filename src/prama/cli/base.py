@@ -33,9 +33,16 @@ EXIT_DRIFT = 3
 class CommandContext:
     """What a command is given: parsed arguments, configuration, and a stream."""
 
-    def __init__(self, args: argparse.Namespace, *, out: TextIO | None = None) -> None:
+    def __init__(
+        self,
+        args: argparse.Namespace,
+        *,
+        out: TextIO | None = None,
+        err: TextIO | None = None,
+    ) -> None:
         self.args = args
         self.out = out or sys.stdout
+        self.err = err or sys.stderr
         self._config: Configuration | None = None
 
     @property
@@ -53,6 +60,17 @@ class CommandContext:
 
     def emit_json(self, payload: Any) -> None:
         print(pjson.dumps(payload, sort_keys=True, indent=True), file=self.out)
+
+    def warn(self, text: str) -> None:
+        """Say something to the operator that is not part of the output.
+
+        On stderr deliberately. A warning printed to stdout either corrupts the
+        JSON a caller is parsing, or — if it is skipped to keep the JSON valid —
+        is not printed at all, which is how `config show --raw --json` came to
+        dump unredacted configuration with none of the warning that the same
+        command prints in text mode. stderr is the channel that survives a pipe.
+        """
+        print(text, file=self.err)
 
 
 class Command(ABC):

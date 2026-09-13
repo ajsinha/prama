@@ -58,3 +58,40 @@ Every case, without exception:
 
 One per area. The prefix is the case-id namespace, so ids never collide across
 files.
+
+---
+
+## The index
+
+**4,660 cases** across 7 files and 173 sections. Every case carries all
+seven fields, and no id is used twice.
+
+| File | Cases | Sections | Id prefixes | P1 | P2 | P3 |
+|---|---:|---:|---|---:|---:|---:|
+| [`dataplane.md`](dataplane.md) | 540 | 28 | `CON-`, `EXE-`, `PRO-`, `SCH-` | 305 | 212 | 23 |
+| [`domain.md`](domain.md) | 680 | 22 | `PCK-`, `CLS-`, `RCN-`, `LIN-`, `CTR-`, `IMP-`, `INT-` | 424 | 239 | 17 |
+| [`interfaces.md`](interfaces.md) | 657 | 22 | `CLI-`, `UI-`, `API-`, `AGT-`, `AST-`, `LSP-`, `MCP-` | 316 | 292 | 49 |
+| [`language.md`](language.md) | 629 | 23 | `PQL-`, `BE-`, `IR-` | 369 | 223 | 37 |
+| [`platform.md`](platform.md) | 1,058 | 30 | `CFG-`, `DB-`, `MON-`, `RPT-`, `OPS-`, `INC-`, `BCH-` | 579 | 394 | 85 |
+| [`semantic.md`](semantic.md) | 600 | 24 | `SEM-`, `DER-`, `PRP-`, `MIN-`, `IND-`, `ER-` | 308 | 253 | 39 |
+| [`trust.md`](trust.md) | 496 | 24 | `SEC-`, `EVD-`, `CAL-`, `SCR-` | 252 | 192 | 52 |
+| **Total** | **4,660** | **173** | | **2553** | **1805** | **302** |
+
+### What each file covers
+
+- **`language.md`** — PQL: lexer, parser, types, lint, formatter, Excel surface, the
+  lowering to IR, and both backends (SQL per dialect, and the reference interpreter
+  the conformance suite compares against).
+- **`semantic.md`** — declarations, the thirteen relationship kinds, tolerance, approval
+  policy, conflict and maturity, the Γ generator, proposals, induction, mining and
+  entity resolution.
+- **`dataplane.md`** — connectors, profiling, execution, fusion, sampling, streaming and
+  the spool.
+- **`trust.md`** — the evidence ledger, hash chaining and Merkle roots, attestation,
+  scoring, bitemporality, redaction, authentication, authorisation and tenant isolation.
+- **`domain.md`** — the banking pack, classification, reconciliation, lineage, contracts
+  and the importers.
+- **`platform.md`** — configuration, core services, the database layer and every DAO,
+  monitoring, incidents, reporting, the benchmark corpus, and deployment.
+- **`interfaces.md`** — the CLI, the HTTP API, the web console, the MCP server and the
+  language server.

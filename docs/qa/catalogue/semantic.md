@@ -23,7 +23,40 @@ tolerance arithmetic, the approval policy and the estate score. `Tolerance` is
 the module that shipped the wrong comparison for four waves (finding C2), and it
 is in that untested set. The cases below weight it accordingly.
 
-<!--SUMMARY-->
+## Summary
+
+| Area | Cases | P1 | P2 | P3 |
+|---|---:|---:|---:|---:|
+| `semantic/values.py` — the vocabulary of a declaration | 36 | 10 | 19 | 7 |
+| `semantic/relationships.py` — the thirteen kinds | 33 | 8 | 23 | 2 |
+| `semantic/relationships.py::Tolerance` — the convention that was wrong once | 28 | 14 | 8 | 6 |
+| `semantic/policy.py` — criticality and maker-checker | 12 | 8 | 3 | 1 |
+| `semantic/conflict.py` — two datasets claiming one meaning | 18 | 5 | 9 | 4 |
+| `semantic/maturity.py` — the estate score and what to do next | 19 | 2 | 11 | 6 |
+| `semantic/services/base.py` — slugs and the audit obligation | 8 | 2 | 6 | 0 |
+| `semantic/services/datasets.py` — declaring, amending, correcting | 22 | 13 | 8 | 1 |
+| Bitemporality — amend, correct, and replaying a belief | 19 | 12 | 6 | 1 |
+| `semantic/services/graph.py` — concepts, journeys, connections, bindings | 29 | 11 | 17 | 1 |
+| `semantic/services/estate.py` — the estate as a whole | 7 | 3 | 4 | 0 |
+| `semantic/gitops.py` — the estate as reviewable files | 30 | 14 | 16 | 0 |
+| `derive/declaration.py` and `derive/persisted.py` — Γ's input | 14 | 5 | 9 | 0 |
+| `derive/generator.py` — Γ, from declarations to controls | 64 | 44 | 19 | 1 |
+| `derive/relationships.py` — Γ for the thirteen kinds | 29 | 11 | 18 | 0 |
+| `derive/coverage.py` — what is protected, and what only looks it | 17 | 7 | 9 | 1 |
+| `derive/suggestions.py` — inferred, and never confirmed by inference | 12 | 6 | 4 | 2 |
+| `propose/` — the single mutation channel | 53 | 33 | 18 | 2 |
+| `learn/` — the loop, and whether it helped | 14 | 8 | 5 | 1 |
+| `induce/` — rules a model proposed, none of which reaches a person unchecked | 48 | 28 | 18 | 2 |
+| `mine/` — what the data obeys, offered as candidates | 60 | 46 | 14 | 0 |
+| `er/match.py` — deciding whether two records are one thing | 28 | 18 | 9 | 1 |
+| **Total** | **600** | **308** | **253** | **39** |
+
+By type: functional 171 · boundary 185 · negative 85 · contract 82 · regression 28 · security 27 · documentation 18 · performance 3 · concurrency 1.
+
+Id prefixes: `SEM-` the declaration model and its services, `DER-` the Γ
+generator and coverage, `PRP-` the proposal queue, ranking and the learning
+loop, `IND-` induction from models, documents and examples, `MIN-` mining,
+`ER-` entity resolution.
 
 ---
 
@@ -270,7 +303,7 @@ is in that untested set. The cases below weight it accordingly.
 - **Precondition:** none
 - **Steps:** `ValueDomain(kind=PATTERN)`
 - **Expected:** `ValidationError`, remedy offering a different domain kind
-- **Why:** the alternative is `MATCHES /None/` — see DER-039, the artefact this
+- **Why:** the alternative is `MATCHES /None/` — see DER-057, the artefact this
   codebase exists to refuse
 
 ### SEM-024 · An invalid regular expression is refused at declaration time
@@ -299,7 +332,7 @@ is in that untested set. The cases below weight it accordingly.
 - **Priority:** P2
 - **Precondition:** none
 - **Steps:** minimum only, then maximum only
-- **Expected:** both accepted; Γ emits `>=` and `<=` respectively (DER-037)
+- **Expected:** both accepted; Γ emits `>=` and `<=` respectively (DER-055)
 - **Why:** "never negative" is a one-sided declaration and the commonest kind
 
 ### SEM-027 · An inverted range is accepted unchecked
@@ -376,7 +409,7 @@ is in that untested set. The cases below weight it accordingly.
   mnpi, restricted
 - **Expected:** true for pii, mnpi, restricted only — confidential is **not**
   masked
-- **Why:** it drives `evidence_for` (DER-025) and every sample surface; the
+- **Why:** it drives `evidence_for` (DER-029) and every sample surface; the
   confidential exclusion is the surprising one and needs pinning
 
 ### SEM-034 · Only public and internal values may reach a hosted model
@@ -396,7 +429,7 @@ is in that untested set. The cases below weight it accordingly.
 - **Precondition:** none
 - **Steps:** read `.is_copy` for all six members
 - **Expected:** true for `REPLICA` and `EXTRACT` only
-- **Why:** `is_copy` gates the whole `_from_authoritativeness` rule (DER-042); a
+- **Why:** `is_copy` gates the whole `_from_authoritativeness` rule (DER-063); a
   derived dataset is a computation, not a copy, and demoting its score would be
   wrong
 
@@ -502,7 +535,7 @@ is in that untested set. The cases below weight it accordingly.
 - **Steps:** kind `SUPERSEDES`, no keys
 - **Expected:** constructed at the declaration layer
 - **Why:** the declaration permits it and Γ then refuses it as unsatisfiable
-  (DER-057) — record which layer should hold the rule
+  (DER-092) — record which layer should hold the rule
 
 ### SEM-045 · `SAME_ENTITY_AS` declared
 - **Area:** `semantic/relationships.py::RelationshipDeclaration`
@@ -522,7 +555,7 @@ is in that untested set. The cases below weight it accordingly.
 - **Precondition:** two declared datasets
 - **Steps:** kind `TEMPORAL_SUCCESSOR`, keys, tolerance absent
 - **Expected:** constructed — it does not require a tolerance at the declaration
-  layer, though `ComparisonKind.ROLL_FORWARD.needs_tolerance` is true (DER-059)
+  layer, though `ComparisonKind.ROLL_FORWARD.needs_tolerance` is true (DER-094)
 - **Why:** the two layers disagree about the same relationship, and the
   disagreement decides whether a roll-forward is offered or refused
 
@@ -533,7 +566,7 @@ is in that untested set. The cases below weight it accordingly.
 - **Precondition:** two declared datasets
 - **Steps:** kind `PARENT_OF`, no keys
 - **Expected:** constructed here; Γ returns `Unsatisfiable
-  parent_of.orphan_node` naming the missing parent pointer (DER-051)
+  parent_of.orphan_node` naming the missing parent pointer (DER-084)
 - **Why:** the same inconsistency as SEM-044, on the kind a user is most likely
   to draw on the estate map without thinking about keys
 
@@ -619,7 +652,7 @@ is in that untested set. The cases below weight it accordingly.
 - **Precondition:** none
 - **Steps:** kind `AGGREGATES`, keys and tolerance, `compare=()`
 - **Expected:** constructed — only `RECONCILES_WITH` checks `compare` at this
-  layer; Γ refuses it later (DER-060)
+  layer; Γ refuses it later (DER-101)
 - **Why:** the compare check is kind-specific where the tolerance check is
   table-driven, and the asymmetry is not stated anywhere
 
@@ -678,7 +711,7 @@ is in that untested set. The cases below weight it accordingly.
 - **Steps:** compare the thirteen rows of the document table with the dict
 - **Expected:** each control family named in the document appears; record any
   the document promises and the dict omits (the document promises "cycle
-  detection" for `PARENT_OF`, which Γ explicitly cannot produce — DER-052)
+  detection" for `PARENT_OF`, which Γ explicitly cannot produce — DER-083)
 - **Why:** "as built" claims all thirteen dispatch to control families, and a
   promise in the design that the generator refuses is a claim the code does not
   keep
@@ -1073,7 +1106,8 @@ below states which bound should decide.
 - **Steps:** `calendar="TARGET-2"`, `calendar="NOT_A_CALENDAR"`
 - **Expected:** accepted at declaration; the failure surfaces when the
   comparison runs
-- **Why:** the same hazard as `Rhythm.calendar` (SEM-019) and the same remedy —
+- **Why:** the same hazard as `Rhythm.calendar`, which is likewise unchecked, and the
+  same remedy —
   a declaration validated against the pack refuses the typo where the user is
 
 ### SEM-097 · The offset renders in the singular for one unit
@@ -1938,7 +1972,7 @@ below states which bound should decide.
   `currency_attribute="no_such_column"`
 - **Expected:** the first two meet a column `CHECK` or land in JSON unchecked;
   the last reaches Γ, which reports it as `Unsatisfiable attribute.currency`
-  (DER-041)
+  (DER-061)
 - **Why:** `**extra` is the widest hole in the service layer, and the fields it
   carries are the ones that generate controls
 
@@ -2299,8 +2333,7 @@ below states which bound should decide.
 - **Precondition:** a journey
 - **Steps:** submit steps carrying wrong `ordinal` values, out of order
 - **Expected:** ordinals rewritten to 0..n-1 in list order, the caller's values
-  ignored
-- **Type note:** the list order is authoritative, not the supplied ordinal
+  ignored — the list order is authoritative, not the supplied ordinal
 - **Why:** two sources of truth for the order of a journey is how a chain
   renders backwards
 
@@ -2403,7 +2436,7 @@ below states which bound should decide.
 - **Steps:** build the connector
 - **Expected:** `ValidationError` listing every installed source type, or
   `(none)`, and naming both remedies
-- **Why:** a remedy that omits the answer is not a remedy — the same rule DER-034
+- **Why:** a remedy that omits the answer is not a remedy — the same rule DER-051
   applies to semantic types
 
 ### SEM-218 · Binding requires both the dataset and the connection to exist
@@ -2713,7 +2746,7 @@ below states which bound should decide.
 - **Expected:** `ValidationError` naming the missing key, remedy "export an
   existing object to see the shape"; note `spec` is **not** required
 - **Why:** a document with no spec loads as `{}` and diffs as "different" on
-  every field — see SEM-248
+  every field — see SEM-252
 
 ### SEM-245 · `load` refuses a document from another layout version
 - **Area:** `semantic/gitops.py::EstateSerialiser.load`
@@ -2942,7 +2975,7 @@ below states which bound should decide.
   `currency_attribute="ccy"` with no unit
 - **Expected:** true for the first three (case-folded), **false for `"EUR"`**,
   true for the last
-- **Why:** it decides whether coverage counts a consistency dimension (DER-070);
+- **Why:** it decides whether coverage counts a consistency dimension (DER-110);
   a monetary column whose unit is the currency code itself is the common
   declaration and is not recognised
 
@@ -3393,4 +3426,3341 @@ below states which bound should decide.
   refusal rather than something that looks like coverage
 - **Why:** the declaration that generates the least is the one whose explanation
   matters most
+
+### DER-042 · A mandatory attribute generates an unconditional completeness control
+- **Area:** `derive/generator.py::ControlGenerator._completeness`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `optionality=MANDATORY`, a definition written
+- **Steps:** generate
+- **Expected:** an `attribute.completeness` control with no `WHERE`; the
+  `because` is "`amount` is mandatory. <the definition>"
+- **Why:** the commonest declaration in the product, and the definition is
+  appended so the alert says what the field is
+
+### DER-043 · An optional attribute generates nothing
+- **Area:** `derive/generator.py::ControlGenerator._completeness`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** `optionality=OPTIONAL`
+- **Steps:** generate
+- **Expected:** no completeness control, no `Unsatisfiable`, no `Deferred`
+- **Why:** the declaration has answered the question — a control the declarer did
+  not ask for is worse than no control
+
+### DER-044 · A conditional attribute generates a filtered control
+- **Area:** `derive/generator.py::ControlGenerator._completeness`,
+  `_parse_condition`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `optionality=CONDITIONAL`,
+  `optionality_condition="product_type = 'BOND'"`
+- **Steps:** generate; render
+- **Expected:** `WHERE product_type = 'BOND'`; the `because` reads "mandatory
+  when product_type = 'BOND'"
+- **Why:** the shape most business rules actually have, and the one a global
+  miner cannot express (MIN-037)
+
+### DER-045 · A conditional attribute with no condition is unsatisfiable
+- **Area:** `derive/generator.py::ControlGenerator._condition_problem`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `optionality=CONDITIONAL`, `optionality_condition=""`
+- **Steps:** generate
+- **Expected:** `Unsatisfiable attribute.completeness`, remedy stating that the
+  only control generable without one is the unconditional version, which is
+  stricter than declared
+- **Why:** "falling through with no filter produces an *unconditional* control:
+  stricter than declared, alerting on rows the business explicitly said were
+  fine, and switched off within a week — taking the real coverage with it"
+
+### DER-046 · A conditional attribute with an unparseable condition is unsatisfiable
+- **Area:** `derive/generator.py::_parse_condition`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** conditions `"when it is a bond"`, `"product_type ="`,
+  `"1; DROP TABLE t"`
+- **Steps:** generate
+- **Expected:** `Unsatisfiable` for each, quoting the condition and saying the
+  rows it applies to cannot be identified
+- **Why:** the same failure as DER-045 by the other route; a `PqlError` must
+  become a reported gap rather than an exception or a silent widening
+
+### DER-047 · A condition that parses to something other than an expression is refused
+- **Area:** `derive/generator.py::_parse_condition`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a condition that makes `CHECK x SATISFIES <cond>` parse into
+  a non-`ExpressionAssertion`
+- **Steps:** generate
+- **Expected:** `None` returned, and therefore `Unsatisfiable`
+- **Why:** the function returns `None` on two different paths and both must lead
+  to the refusal, not to an unfiltered control
+
+### DER-048 · A known semantic type generates a validity control
+- **Area:** `derive/generator.py::ControlGenerator._semantic_type`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `semantic_type="isin"`, with the default validator registry
+- **Steps:** generate; render
+- **Expected:** `IS VALID 'isin'`, dimension `validity`, `because` quoting
+  `validator.describe()`
+- **Why:** docs/03 §5 — "attribute is `Instrument.ISIN` → format + check digit"
+
+### DER-049 · A validator whose screen is incomplete says so in the reason
+- **Area:** `derive/generator.py::ControlGenerator._semantic_type`
+- **Type:** documentation
+- **Priority:** P1
+- **Precondition:** a semantic type whose validator has
+  `screen_is_complete is False` (an LEI: shape and check digit, not GLEIF
+  registration)
+- **Steps:** read the `because`
+- **Expected:** the validator's `beyond_shape` sentence appended, capitalised
+- **Why:** round 1's "what held" records that fabricated LEIs with valid shape
+  produced `indeterminate` with the unrun residual named — the reason in the
+  control is where that residual is stated
+
+### DER-050 · A semantic type that is a code list generates a membership control
+- **Area:** `derive/generator.py::ControlGenerator._semantic_type`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `semantic_type="iso4217"` with no validator of that name
+- **Steps:** generate
+- **Expected:** `IN CODELIST 'iso4217'` with the list's label in the reason
+- **Why:** the fallback from validator to code list is how one field serves two
+  registries
+
+### DER-051 · An unknown semantic type is unsatisfiable, and the remedy lists them all
+- **Area:** `derive/generator.py::ControlGenerator._semantic_type`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `semantic_type="isin_code"`
+- **Steps:** generate; read the remedy
+- **Expected:** `Unsatisfiable`; **every** registered validator and code-list
+  name listed, not a truncated sample; and the warning that an unknown type
+  "would compile to a check that passes everything"
+- **Why:** "an alphabetical truncation hides isin and lei — the two anybody
+  hitting this message is most likely to have meant — and a remedy that omits
+  the answer is not a remedy"
+
+### DER-052 · A code-list domain with a registered reference generates membership
+- **Area:** `derive/generator.py::ControlGenerator._value_domain`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `ValueDomain(kind=CODELIST, codelist_ref="iso4217")`
+- **Steps:** generate
+- **Expected:** `IN CODELIST 'iso4217'`
+- **Why:** "a membership control that updates when the code list updates", and
+  replays against the list as it stood on the day
+
+### DER-053 · An unregistered code list is unsatisfiable
+- **Area:** `derive/generator.py::ControlGenerator._value_domain`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `codelist_ref="internal_product_codes"`
+- **Steps:** generate
+- **Expected:** `Unsatisfiable attribute.value_domain`, remedy about replay
+  against the list as it stood
+- **Why:** "a domain that silently tracks 'latest' is not replayable, and
+  therefore is not evidence"
+
+### DER-054 · Explicit allowed values generate an `IN (...)` control
+- **Area:** `derive/generator.py::ControlGenerator._value_domain`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `allowed_values=("BUY", "SELL")`, no reference
+- **Steps:** generate; render; re-parse
+- **Expected:** `IN ('BUY', 'SELL')`; the `because` reads "may only be BUY and
+  SELL"
+- **Why:** the two-value enumeration, and the rendering must re-parse
+
+### DER-055 · A range domain generates the right comparison for each bound shape
+- **Area:** `derive/generator.py::ControlGenerator._range`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** min+max; min only; max only
+- **Steps:** generate; render
+- **Expected:** `BETWEEN a AND b`, `>= a`, `<= b`
+- **Why:** three branches, and the last is reached only when `minimum is None`
+
+### DER-056 · Numeric bounds render as numbers, not strings
+- **Area:** `derive/generator.py::_number`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** `ValueDomain(kind=RANGE, minimum=0)`
+- **Steps:** render
+- **Expected:** `market_value >= 0`, never `>= '0'`
+- **Why:** "the engines mostly coerce it, which is worse than failing: the
+  control runs, and on a dialect that compares lexically it reports that -5 is
+  above zero"
+
+### DER-057 · A pattern domain with no pattern is unsatisfiable
+- **Area:** `derive/generator.py::ControlGenerator._value_domain`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** a stored domain `{"kind": "pattern"}` with no pattern —
+  reachable through `persisted._value_domain`, which bypasses
+  `ValueDomain.__post_init__`
+- **Steps:** generate
+- **Expected:** `Unsatisfiable`, not `MATCHES /None/`; note the `Unsatisfiable`
+  on this branch carries **no `dataset`**, unlike every other
+- **Why:** "a control that parses, compiles, runs and fails every row, which is
+  the exact class of artefact this codebase exists to refuse"
+
+### DER-058 · A pattern renders as a pattern literal
+- **Area:** `derive/generator.py::ControlGenerator._value_domain`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** `pattern=r"^[A-Z]{2}\d{10}$"`
+- **Steps:** render; re-parse
+- **Expected:** `MATCHES /^[A-Z]{2}\d{10}$/` — a pattern literal, not a text one
+- **Why:** "a text literal here renders to something the parser refuses — which
+  a round-trip test found and no amount of reading the generator would have";
+  include a pattern containing a `/` as the boundary
+
+### DER-059 · A pattern domain is a conformity dimension, not validity
+- **Area:** `derive/generator.py::ControlGenerator._value_domain`
+- **Type:** contract
+- **Priority:** P2
+- **Precondition:** a pattern domain
+- **Steps:** read `dimensions`
+- **Expected:** `CONFORMITY`; a code list or range yields `VALIDITY`
+- **Why:** coverage counts validity and not conformity (DER-110), so an
+  attribute whose only control is a pattern reads as having no validity control
+
+### DER-060 · A monetary attribute generates a control on its currency column
+- **Area:** `derive/generator.py::ControlGenerator._currency`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `amount` with `currency_attribute="settlement_ccy"`, and
+  that column declared
+- **Steps:** generate
+- **Expected:** an `attribute.currency` control checking `settlement_ccy IN
+  CODELIST 'iso4217'`, with dimensions `validity` **and** `consistency`, and a
+  `because` explaining that an invalid code makes every total meaningless
+- **Why:** docs/03 §5 — the declaration is about the amount and the control is
+  on the column beside it
+
+### DER-061 · A currency attribute naming a missing column is unsatisfiable
+- **Area:** `derive/generator.py::ControlGenerator._currency`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `currency_attribute="ccy"`, no such column
+- **Steps:** generate
+- **Expected:** `Unsatisfiable attribute.currency`, remedy about adding euros to
+  yen
+- **Why:** the aggregate over the amount is what breaks, not the row
+
+### DER-062 · A monetary attribute with no currency column generates nothing
+- **Area:** `derive/generator.py::ControlGenerator._currency`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** `unit="currency"`, `currency_attribute=""`
+- **Steps:** generate; then measure coverage
+- **Expected:** no currency control and no `Unsatisfiable` — yet
+  `CoverageAnalyser._applicable` counts a `CONSISTENCY` dimension for it
+  (`is_monetary`), so it is a permanent gap nothing can close
+- **Why:** two modules disagree about what a monetary attribute implies, and the
+  disagreement shows up as an uncloseable coverage gap
+
+### DER-063 · A replica with no source of truth is unsatisfiable
+- **Area:** `derive/generator.py::ControlGenerator._from_authoritativeness`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** `authoritativeness=REPLICA`, `source_of_truth=""`
+- **Steps:** generate
+- **Expected:** `Unsatisfiable authoritativeness.parity`, remedy "a perfect copy
+  of wrong data is a perfect copy"
+- **Why:** a replica's own quality score flatters it, and the parity control
+  cannot be built without naming the origin
+
+### DER-064 · A replica with a source of truth defers to a `MIRRORS` relationship
+- **Area:** `derive/generator.py::ControlGenerator._from_authoritativeness`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** `authoritativeness=EXTRACT`, `source_of_truth="positions"`
+- **Steps:** generate
+- **Expected:** a `Deferred` naming the `MIRRORS` relationship and the three
+  controls it would produce; no control
+- **Why:** "those are cross-dataset controls and belong to the relationship
+  rather than to either side of it" — and the deferral is the instruction the
+  declarer needs
+
+### DER-065 · A golden source and a derived dataset generate nothing here
+- **Area:** `derive/generator.py::ControlGenerator._from_authoritativeness`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** `GOLDEN_SOURCE`, then `DERIVED`, then `VENDOR_SUPPLIED`,
+  then `UNKNOWN`
+- **Steps:** generate
+- **Expected:** nothing from this rule for any of them
+- **Why:** the rule turns on `is_copy` (SEM-035); a vendor-supplied file is not
+  a copy of anything Prama can see
+
+### DER-066 · Identity is stable across regeneration and across edits
+- **Area:** `core/provenance.py::identity`; `derive/generator.py::_control`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** a declaration
+- **Steps:** generate; change the grain's *statement* only; generate again;
+  change a threshold; generate again
+- **Expected:** the identity is unchanged in all three; the `content_hash`
+  changes on the threshold edit only
+- **Why:** "editing a threshold updates the existing control; deriving identity
+  from the text would orphan one and create another, so re-running Γ after any
+  edit would produce an estate of duplicates nobody recognises"
+
+### DER-067 · Identity is unique per rule and subject
+- **Area:** `core/provenance.py::identity`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** one dataset, two attributes, both mandatory
+- **Steps:** compare the two identities; then compare across two datasets with
+  the same attribute names
+- **Expected:** all four distinct
+- **Why:** a collision means one proposal silently replaces another in the queue
+
+### DER-068 · Identity uses the declaration reference when there is one
+- **Area:** `derive/generator.py::ControlGenerator._control`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a declaration with `reference` set, and one without
+- **Steps:** generate both
+- **Expected:** the first keys on the dataset id, the second on the name — so
+  the identity of a control changes if a declaration acquires a reference
+- **Why:** the fallback is silent, and an estate re-generated after its
+  declarations were persisted would produce a fresh set of identities
+
+### DER-069 · Provenance points at the attribute that produced the control
+- **Area:** `derive/generator.py::ControlGenerator._provenance`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** an attribute-derived control and a dataset-derived one
+- **Steps:** read `source_ref`
+- **Expected:** `<dataset_id>#<attribute>` and `<dataset_id>`
+- **Why:** "the answer to a question about counterparty_lei is a page describing
+  exposures, and the reader has to hunt for the line that matters"
+
+### DER-070 · Provenance cannot be absent, and carries the declarer and the date
+- **Area:** `derive/generator.py::ControlGenerator._provenance`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** a declaration with `declared_by` and `declared_at`
+- **Steps:** read every control's `provenance.sentence()`
+- **Expected:** "alice declared it on 2026-03-04. “<the statement>”"
+- **Why:** "the user can always ask 'why does this control exist?' and get
+  'because you declared X on 4 March'"
+
+### DER-071 · Two rules reaching the same check produce one control with both reasons
+- **Area:** `derive/generator.py::_coalesce`, `_fold`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** grain `(account_id, business_date)` where `account_id` is
+  also declared `MANDATORY`
+- **Steps:** generate
+- **Expected:** one `account_id IS NOT NULL` control; `rule ==
+  "attribute.completeness+grain.completeness"`; a `because` containing both
+  sentences, each terminated with a full stop
+- **Why:** "emitting both produces two identical alerts on the same rows …
+  dropping one loses a reason the owner declared"
+
+### DER-072 · A fold keeps the strictest severity, evidence and failure action
+- **Area:** `derive/generator.py::_fold`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** the same pair where the attribute is a CDE with an
+  obligation, so one member blocks and retains full evidence
+- **Steps:** generate
+- **Expected:** the folded control blocks, retains `FULL`, and takes the higher
+  severity; the provenance is the strongest member's
+- **Why:** a merge that takes the first member would silently relax a blocking
+  control on a regulatory CDE
+
+### DER-073 · Controls are merged on what they do, not on what they are called
+- **Area:** `derive/generator.py::_coalesce`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** two controls with the same target, assertion and filter but
+  different names and reasons; then two with the same assertion and *different*
+  `WHERE` clauses
+- **Steps:** generate
+- **Expected:** the first pair merges, the second does not
+- **Why:** "that is what determines whether two alerts would land on the same
+  rows" — merging on name would fold two genuinely different checks
+
+### DER-074 · Nothing Γ emits is active
+- **Area:** `derive/generator.py` module docstring; `propose/adapt.py`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** any generation
+- **Steps:** inspect every `DerivedControl`; follow it through
+  `propose.adapt.from_control` into the queue
+- **Expected:** it becomes a `Proposal` with `status == PROPOSED`; nothing is
+  written to the control estate without a decision
+- **Why:** docs/03 §5 "proposed, never silently activated" — "an estate that
+  appeared without anybody agreeing to it is an estate nobody owns, and unowned
+  alerts get muted rather than fixed"
+
+### DER-075 · Generation is deterministic
+- **Area:** `derive/generator.py::ControlGenerator.generate`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** one declaration
+- **Steps:** generate twice; compare identities, content hashes and order
+- **Expected:** identical, including the order of controls, unsatisfiables and
+  deferrals
+- **Why:** the review diff is computed on the content hash, and a generator that
+  reorders produces a diff on every run
+
+### DER-076 · A declaration that generates nothing says so
+- **Area:** `derive/generator.py::Generation`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a named, owned dataset with no grain, rhythm, attributes or
+  authoritativeness
+- **Steps:** generate
+- **Expected:** `len(generation) == 0`, `is_complete is True`, no deferrals —
+  and nothing in the output distinguishes "nothing was declared" from "nothing
+  could be derived"
+- **Why:** the empty result is the one a user reads as a failure; the maturity
+  score is what should answer it, and the two are not linked
+
+### DER-077 · `Generation.merge` preserves all three lists
+- **Area:** `derive/generator.py::Generation.merge`
+- **Type:** contract
+- **Priority:** P2
+- **Precondition:** two generations with controls, unsatisfiables and deferrals
+- **Steps:** merge
+- **Expected:** concatenation in order, nothing dropped; `by_rule` and `rules()`
+  reflect the merged set
+- **Why:** the six rules are merged pairwise and a lost list is a silently
+  smaller estate
+
+### DER-078 · `is_complete` is false when anything is unsatisfiable
+- **Area:** `derive/generator.py::Generation.is_complete`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a generation with controls and one unsatisfiable
+- **Steps:** read the property
+- **Expected:** `False` — deferrals do **not** make it false
+- **Why:** a deferral is not a failure and an unsatisfiable is, and the console
+  renders the difference
+
+---
+
+## `derive/relationships.py` — Γ for the thirteen kinds
+
+### DER-079 · `REFERENCES` lowers to a correlated `EXISTS`, not a null check
+- **Area:** `derive/relationships.py::RelationshipGenerator._references`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** a `REFERENCES` with one match key
+- **Steps:** generate; render; lower
+- **Expected:** a `ReferenceAssertion` naming the target dataset and column;
+  never `IS NOT NULL`
+- **Why:** "an earlier implementation compiled it to `IS NOT NULL`, which passes
+  on every orphan there has ever been"
+
+### DER-080 · One control per match key
+- **Area:** `derive/relationships.py::RelationshipGenerator._references`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** two match keys
+- **Steps:** generate
+- **Expected:** two integrity controls, one per key, each with its own identity
+- **Why:** a composite foreign key checked one column at a time is weaker than
+  the declaration — record whether that is the intent
+
+### DER-081 · `ENRICHES` reuses the reference mechanism with its own sentence
+- **Area:** `derive/relationships.py::RelationshipGenerator._enriches`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** an `ENRICHES` with one key
+- **Steps:** generate
+- **Expected:** the same assertion shape, `rule == "enriches.coverage"`,
+  dimension `COMPLETENESS`, and a reason about "a value that came from nowhere,
+  which is worse than a missing one because it will be used"
+- **Why:** "saying so, rather than inventing a second mechanism, is why the same
+  executor runs both"
+
+### DER-082 · `PARENT_OF` generates the orphan check on the child side
+- **Area:** `derive/relationships.py::RelationshipGenerator._parent_of`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** a `PARENT_OF` from parents to children with one key
+- **Steps:** generate; read the control's `target`
+- **Expected:** the **to** dataset is the target, referencing back to the
+  **from** dataset
+- **Why:** the direction is inverted relative to `_references` and an inversion
+  here checks the wrong population entirely
+
+### DER-083 · `PARENT_OF` does not generate a cycle check, and says why
+- **Area:** `derive/relationships.py::RelationshipGenerator._parent_of`
+- **Type:** documentation
+- **Priority:** P2
+- **Precondition:** a hierarchy
+- **Steps:** generate; compare with docs/03 §2.4, which promises "cycle
+  detection"
+- **Expected:** no cycle control and no `Deferred` explaining its absence — the
+  reasoning lives only in a docstring
+- **Why:** "emitting a one-level approximation would report a clean hierarchy
+  containing a loop three levels down"; the design promises the check and the
+  output never mentions it
+
+### DER-084 · `PARENT_OF` with no match key is unsatisfiable
+- **Area:** `derive/relationships.py::RelationshipGenerator._parent_of`
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** the declaration permitted by SEM-047
+- **Steps:** generate
+- **Expected:** `Unsatisfiable parent_of.orphan_node`, remedy "parent_id =
+  node_id"
+- **Why:** the declaration layer allows it and Γ refuses it; the user meets the
+  refusal a step later than they should
+
+### DER-085 · `RECONCILES_WITH` produces a comparison, not a control
+- **Area:** `derive/relationships.py::RelationshipGenerator._reconciles`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** a complete reconciliation declaration
+- **Steps:** generate
+- **Expected:** `controls == ()`; one `ComparisonSpec` of kind `RECONCILIATION`
+  carrying both sides, keys, compare, tolerance, offset, cardinality, filter and
+  a `workflow` describing classification, ageing and the closing certificate
+- **Why:** "'the sub-ledger and the GL agree to a euro' is not a row predicate
+  and never will be. Compiling it into one would produce something that runs and
+  answers a different question"
+
+### DER-086 · A reconciliation declaration produces nothing on a control-only path
+- **Area:** `derive/relationships.py::as_generation`; `web/routes/proposal_routes.py`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** a confirmed `RECONCILES_WITH`
+- **Steps:** open the proposal queue; run the console's `_generate`
+- **Expected:** currently nothing at all — the queue runs the dataset
+  `ControlGenerator` only and never `RelationshipGenerator`, so no proposal, no
+  unsatisfiable, no explanation
+- **Why:** round 1 finding **Q-48**: "declaring a `reconciles_with` relationship
+  generates nothing, though the console instructs you to do it" — `as_generation`
+  is documented as deliberately lossy, and the caller that uses that view offers
+  the user no sign of it
+
+### DER-087 · `DERIVES_FROM` and `AGGREGATES` both produce aggregate parity
+- **Area:** `derive/relationships.py::_derives_from`, `_aggregates`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** one of each with keys, compare and tolerance
+- **Steps:** generate
+- **Expected:** both `ComparisonKind.AGGREGATE_PARITY`, with different `rule`
+  strings (`derives_from.aggregate_parity`, `aggregates.rollup_parity`)
+- **Why:** the rule string is what lets a systematically bad family be found
+  once; identical kinds with one rule name would hide which declaration produced
+  the noise
+
+### DER-088 · `MIRRORS` produces three comparisons, not one
+- **Area:** `derive/relationships.py::RelationshipGenerator._mirrors`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a `MIRRORS` with keys and `compare=("amount",)`
+- **Steps:** generate
+- **Expected:** `ROW_COUNT_PARITY`, `VALUE_PARITY`, `STALENESS`
+- **Why:** "row-count parity alone passes a replica that copied the right number
+  of rows with stale values in them; content parity alone passes one that is
+  missing a thousand rows it never received"
+
+### DER-089 · `MIRRORS` content parity demands no tolerance
+- **Area:** `derive/relationships.py::RelationshipGenerator._mirrors`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** a `MIRRORS` with compare and **no** tolerance
+- **Steps:** generate
+- **Expected:** the value-parity comparison is produced anyway
+  (`require_tolerance=False`); its `tolerance` is `None`
+- **Why:** "asking what difference is acceptable in a copy invites an answer,
+  and any answer above zero makes the control unable to detect the thing it
+  exists for"
+
+### DER-090 · `MIRRORS` with no compared attribute produces two comparisons
+- **Area:** `derive/relationships.py::RelationshipGenerator._mirrors`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** `compare=()`
+- **Steps:** generate
+- **Expected:** row-count parity and staleness only; no content parity, no
+  unsatisfiable
+- **Why:** a replica declared without naming a compared field silently gets no
+  content check — record whether that should be a `Deferred`
+
+### DER-091 · `SUPERSEDES` produces a dual-run comparison with a workflow
+- **Area:** `derive/relationships.py::RelationshipGenerator._supersedes`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** a `SUPERSEDES` with keys and compare
+- **Steps:** generate
+- **Expected:** `VALUE_PARITY` with the workflow about running both while the
+  old system is still authoritative
+- **Why:** "a migration verified only after the cutover is a migration verified
+  by the people who have to live with it"
+
+### DER-092 · `SUPERSEDES` with no keys is unsatisfiable
+- **Area:** `derive/relationships.py::_comparison_problem`
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** the declaration permitted by SEM-044
+- **Steps:** generate
+- **Expected:** `Unsatisfiable`, reason "no match key joins the two datasets"
+- **Why:** "without them every row on the left matches every row on the right"
+
+### DER-093 · `SAME_ENTITY_AS` produces identifier consistency
+- **Area:** `derive/relationships.py::RelationshipGenerator._same_entity`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** keys and `compare=("lei",)`
+- **Steps:** generate
+- **Expected:** `IDENTIFIER_CONSISTENCY`; the sentence reads "where A and B
+  describe the same thing, matched on …, they carry the same lei"
+- **Why:** docs/03 §5 — "entity resolution; duplicate parties; identifier
+  consistency"
+
+### DER-094 · `TEMPORAL_SUCCESSOR` needs a tolerance Γ demands and the declaration does not
+- **Area:** `derive/relationships.py::ComparisonKind.ROLL_FORWARD`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** a `TEMPORAL_SUCCESSOR` accepted by SEM-046 with no tolerance
+- **Steps:** generate
+- **Expected:** `Unsatisfiable`, reason "no materiality tolerance was given"
+- **Why:** the declaration layer and the comparison layer disagree about the
+  same relationship, so a user can save a roll-forward that can never run
+
+### DER-095 · A roll-forward's sentence names opening, movements and closing
+- **Area:** `derive/relationships.py::_COMPARISON_SENTENCES`
+- **Type:** documentation
+- **Priority:** P2
+- **Precondition:** a complete `TEMPORAL_SUCCESSOR`
+- **Steps:** `describe()`
+- **Expected:** "the opening balance in A plus the movements equals the closing
+  balance in B"
+- **Why:** docs/03 §5's row for this relationship, and the sentence an approver
+  reads
+
+### DER-096 · `MUTUALLY_EXCLUSIVE` produces overlap detection with no tolerance
+- **Area:** `derive/relationships.py::_mutually_exclusive`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** keys only
+- **Steps:** generate
+- **Expected:** `OVERLAP`; no tolerance demanded, no compared attribute demanded
+- **Why:** a record being in both populations is a boolean, and demanding a
+  materiality for it would be nonsense
+
+### DER-097 · `TOGETHER_COMPLETE` produces population coverage
+- **Area:** `derive/relationships.py::_together_complete`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** keys only
+- **Steps:** generate
+- **Expected:** `COVERAGE`; the sentence names "the population"
+- **Why:** docs/03 §2.4 promises a control "against a declared universe", and
+  the spec names no universe — record what supplies it
+
+### DER-098 · `FEEDS` produces an edge and deliberately no check
+- **Area:** `derive/relationships.py::RelationshipGenerator._feeds`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a `FEEDS`
+- **Steps:** generate
+- **Expected:** no controls, no comparisons, one `Edge` with
+  `carries_trust is True`
+- **Why:** "that control already exists — it is the target's own rhythm — and
+  generating a second one produces two alerts for one late file, from two
+  different declarations, which is how an estate becomes unowned"
+
+### DER-099 · Every kind produces exactly one edge
+- **Area:** `derive/relationships.py::RelationshipGenerator.generate`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** one declaration per kind, each minimally valid
+- **Steps:** generate all thirteen
+- **Expected:** thirteen generations, each with exactly one edge, `source` and
+  `target` in declaration order, and a reason ending in a sentence that starts
+  with a capital
+- **Why:** the edge is what impact analysis and trust propagation walk; a kind
+  that produced none would be invisible to both
+
+### DER-100 · An edge is produced even when the generation is unsatisfiable
+- **Area:** `derive/relationships.py::RelationshipGenerator.generate`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a `RECONCILES_WITH` with no tolerance
+- **Steps:** generate
+- **Expected:** one unsatisfiable **and** one edge — the merge happens
+  unconditionally
+- **Why:** a relationship that cannot be checked is still a relationship that
+  describes the estate, and the map should show it
+
+### DER-101 · A comparison with nothing to compare is refused
+- **Area:** `derive/relationships.py::_comparison_problem`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** each kind whose `needs_compared_attributes` is true, with
+  `compare=()`
+- **Steps:** generate
+- **Expected:** `Unsatisfiable`, remedy "a comparison with nothing to compare
+  reports a clean result over any two datasets at all"
+- **Why:** the failure mode is a green reconciliation, which is the most
+  expensive possible wrong answer
+
+### DER-102 · The three refusals are checked in a fixed order
+- **Area:** `derive/relationships.py::_comparison_problem`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a declaration missing compare, tolerance and keys at once
+- **Steps:** generate
+- **Expected:** exactly one `Unsatisfiable`, naming the compared attribute —
+  the first check wins
+- **Why:** a user fixing one gap at a time meets three round trips; record
+  whether one combined message would be better
+
+### DER-103 · A comparison renders a canonical, diffable line
+- **Area:** `derive/relationships.py::ComparisonSpec.render`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** a full reconciliation
+- **Steps:** render twice; then change the tolerance and render again
+- **Expected:** `COMPARE a WITH b ON (…) MATCHING amount WITHIN 1 EUR OR 0.1%
+  OFFSET … WHERE … AS RECONCILIATION`; stable between runs; the `content_hash`
+  moves only on the change
+- **Why:** the review queue diffs on this string, and it is the only rendering a
+  comparison has
+
+### DER-104 · Only kinds that need them carry compared attributes
+- **Area:** `derive/relationships.py::RelationshipGenerator._comparison`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a `MUTUALLY_EXCLUSIVE` declared with `compare=("amount",)`
+- **Steps:** generate
+- **Expected:** the spec's `compare` is empty — `kind.needs_compared_attributes`
+  gates it
+- **Why:** carrying an irrelevant field into the executor invites it to be used
+
+### DER-105 · A comparison's severity is passed in, not guessed
+- **Area:** `derive/relationships.py::RelationshipGenerator.__init__`
+- **Type:** contract
+- **Priority:** P2
+- **Precondition:** two datasets of different tiers
+- **Steps:** generate with the default severity, then with the higher of the two
+- **Expected:** the default is `MAJOR`; the caller's value is honoured
+  throughout
+- **Why:** "the honest default is the *higher* of the two — which the caller
+  knows and this class does not"; find the caller and confirm it computes it
+
+### DER-106 · A comparison's identity is stable and distinct per rule
+- **Area:** `derive/relationships.py::RelationshipGenerator._comparison`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** a `MIRRORS`, which produces three comparisons
+- **Steps:** read the three identities; regenerate
+- **Expected:** three distinct, stable identities — the rule is part of the key
+- **Why:** a `MIRRORS` whose three comparisons collided would present one
+  proposal where three checks are meant
+
+### DER-107 · An unnamed relationship falls back to its kind for identity
+- **Area:** `derive/relationships.py::RelationshipGenerator._comparison`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** two `MIRRORS` relationships between different dataset pairs,
+  neither named
+- **Steps:** compare identities
+- **Expected:** distinct, because the dataset ids are also in the key; but two
+  unnamed relationships of the same kind between the *same* pair collide
+- **Why:** two declarations between one pair — a reconciliation on amount and
+  one on quantity — is a real estate shape
+
+---
+
+## `derive/coverage.py` — what is protected, and what only looks it
+
+### DER-108 · Coverage is counted per attribute-dimension pair
+- **Area:** `derive/coverage.py::CoverageAnalyser.analyse`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a LEI attribute, mandatory and semantically typed, with a
+  completeness control only
+- **Steps:** analyse
+- **Expected:** `covered == 1`, `applicable == 2`, and one `Gap` naming the
+  validity dimension
+- **Why:** "a single `IS NOT NULL` on a column makes it 'covered' while its
+  format, its domain and its consistency go unchecked"
+
+### DER-109 · The flattering number is kept beside the honest one
+- **Area:** `derive/coverage.py::Coverage.touched_fraction`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** ten attributes each with one control of four applicable
+  dimensions
+- **Steps:** read `fraction` and `touched_fraction`; read `describe()`
+- **Expected:** 0.25 and 1.0; the summary says which one flatters, when the gap
+  exceeds ten points
+- **Why:** keeping both makes the difference visible "rather than a choice
+  somebody made about which to report"
+
+### DER-110 · Only applicable dimensions are counted
+- **Area:** `derive/coverage.py::CoverageAnalyser._applicable`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a free-text, optional, non-monetary, non-CDE attribute
+- **Steps:** analyse
+- **Expected:** zero applicable dimensions, no gaps, and it does not drag the
+  fraction down
+- **Why:** "counting dimensions an attribute cannot have would make a
+  well-covered estate look sparse and would hide the real gaps in the noise"
+
+### DER-111 · An optional attribute has no completeness dimension
+- **Area:** `derive/coverage.py::CoverageAnalyser._applicable`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** one optional attribute, one conditional, one mandatory
+- **Steps:** analyse
+- **Expected:** completeness applicable for the last two only
+- **Why:** "an estate could only reach 100% by declaring every column mandatory,
+  which … pushes people into false declarations to move a metric" — and note the
+  default *is* optional, so an unconsidered column looks answered
+
+### DER-112 · A CDE earns an accuracy dimension and nothing else does
+- **Area:** `derive/coverage.py::CoverageAnalyser._applicable`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a CDE and a non-CDE, otherwise identical
+- **Steps:** analyse
+- **Expected:** `ACCURACY` applicable only for the CDE
+- **Why:** "for anything else there is nothing to compare against that is not
+  equally unverified"
+
+### DER-113 · An integrity control satisfies the accuracy expectation
+- **Area:** `derive/coverage.py::CoverageAnalyser._protected`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** a CDE with a `REFERENCES` control against a master
+- **Steps:** analyse
+- **Expected:** `ACCURACY` counted as covered
+- **Why:** "reporting a CDE with a master-data check as having no accuracy
+  control … is not true in any sense a reviewer would recognise"
+
+### DER-114 · A currency control on the code column covers the amount's consistency
+- **Area:** `derive/coverage.py::CoverageAnalyser._is_covered`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** `exposure_amount` denominated in `exposure_ccy`, with the
+  generated currency control on `exposure_ccy`
+- **Steps:** analyse
+- **Expected:** the amount's consistency dimension is covered
+- **Why:** "requiring the control to sit on the amount would report a correctly
+  controlled pair as a gap, and the remedy would be to write a second control
+  that checks the same thing"
+
+### DER-115 · A control with no declared dimension covers nothing
+- **Area:** `derive/coverage.py::CoverageAnalyser._protected`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a hand-written control with `dimensions=()`
+- **Steps:** analyse
+- **Expected:** the attribute reads as touched but not covered on any dimension
+- **Why:** "quietly assuming a dimension for them would produce a coverage
+  number that is wrong and confident"
+
+### DER-116 · Every assertion shape is attributed to its columns
+- **Area:** `derive/coverage.py::_subjects`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** one control of each shape — predicate, reference, unique
+  key, functional dependency, row count, freshness
+- **Steps:** analyse
+- **Expected:** subjects extracted for the first four; the row-count and
+  freshness controls attribute to no attribute at all
+- **Why:** the dataset-level dimensions are excluded by design
+  (`DATASET_DIMENSIONS`), and a shape that falls through silently makes a real
+  control invisible to coverage
+
+### DER-117 · Gap risk stays separable all the way to the end
+- **Area:** `derive/coverage.py::Gap.risk`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** four gaps on one Tier 1 dataset: a CDE with an obligation on
+  completeness, a CDE without, a non-CDE on completeness, a non-CDE on validity
+- **Steps:** sort by risk
+- **Expected:** four distinct values, strictly ordered
+- **Why:** "an earlier version took `min(1.0, …)` at each step, and on a Tier 1
+  dataset *every* gap scored exactly 1.00 — so 'sort by risk' degenerated into
+  alphabetical order, which is the one thing a ranked list must not silently
+  become"
+
+### DER-118 · Risk is normalised into [0, 1]
+- **Area:** `derive/coverage.py::MAXIMUM_RISK`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** the maximal gap — Tier 1, CDE, obligation, completeness
+- **Steps:** read `risk`
+- **Expected:** exactly 1.0; the minimal gap (Tier 4, nothing else) is 0.25/2.3
+- **Why:** a score that can exceed one is a score nobody can put on a dashboard
+
+### DER-119 · Criticality is clamped rather than trusted
+- **Area:** `derive/coverage.py::Gap.risk`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** gaps with criticality 0 and 9 (reachable via SEM-161)
+- **Steps:** read `risk`
+- **Expected:** treated as 1 and 4 — `max(1, min(4, …))`
+- **Why:** an unclamped tier would produce a negative or outsized risk and
+  invert the ranking
+
+### DER-120 · The wave's target is measured honestly
+- **Area:** `derive/coverage.py::Coverage.meets_target`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** a dataset at 85% overall and 90% on CDEs
+- **Steps:** read `meets_target`
+- **Expected:** `False` — both thresholds must hold (≥ 0.8 and ≥ 0.95)
+- **Why:** the acceptance criterion is a conjunction, and reporting on the
+  overall number alone is precisely the flattering failure the module is about
+
+### DER-121 · A dataset with no attributes reports full coverage
+- **Area:** `derive/coverage.py::Coverage.fraction`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a declared dataset with no attributes
+- **Steps:** analyse
+- **Expected:** `fraction == 1.0`, `cde_fraction == 1.0`, `meets_target is True`
+- **Why:** an undescribed dataset reporting 100% coverage is the flattering
+  direction; the maturity score is what is supposed to catch it, and nothing
+  links the two
+
+### DER-122 · The estate view is ordered worst-covered first
+- **Area:** `derive/coverage.py::CoverageAnalyser.analyse_estate`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** three datasets with different CDE and overall fractions
+- **Steps:** analyse the estate
+- **Expected:** sorted by CDE fraction, then overall, then name — so a dataset
+  with uncovered CDEs comes first regardless of its overall number
+- **Why:** "the purpose of the list is to be worked from the top"
+
+### DER-123 · A gap names the remedy, and the remedy fits the dimension
+- **Area:** `derive/coverage.py::CoverageAnalyser._remedy`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** a gap on each of the four attribute dimensions, with and
+  without a semantic type
+- **Steps:** read each remedy
+- **Expected:** four distinct sentences; the validity remedy names the declared
+  semantic type when there is one
+- **Why:** "a gap report that names the problem and not the fix is a list
+  somebody reads once"
+
+### DER-124 · `worst()` is deterministic under ties
+- **Area:** `derive/coverage.py::Coverage.worst`
+- **Type:** boundary
+- **Priority:** P3
+- **Precondition:** several gaps with identical risk
+- **Steps:** call twice
+- **Expected:** the same order — ties break on attribute name
+- **Why:** a list that reshuffles between refreshes looks broken even when it is
+  not
+
+---
+
+## `derive/suggestions.py` — inferred, and never confirmed by inference
+
+### DER-125 · A single key candidate is offered pre-filled
+- **Area:** `derive/suggestions.py::_grain`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a representative profile with exactly one key candidate
+- **Steps:** `defaults_from(profile)`
+- **Expected:** one suggestion for `grain`, `value` set, `prefill is True`,
+  `because` reading "distinct in every row and never null"
+- **Why:** "the form should arrive already filled in with what the data
+  suggests"
+
+### DER-126 · Several candidates are offered as a list and never as a combination
+- **Area:** `derive/suggestions.py::_grain`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** a profile with three key candidates
+- **Steps:** read the suggestion
+- **Expected:** `value == ""`, `prefill is False`, and the sentence says the
+  profile "has not tested whether any combination does"
+- **Why:** "'account_id and as_of_date together are unique' is a claim it has
+  not made, and inventing it would be the one suggestion here nobody could
+  check"
+
+### DER-127 · An unrepresentative profile pre-fills nothing
+- **Area:** `derive/suggestions.py::defaults_from`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** a head-sample profile with one key candidate
+- **Steps:** read `anything_prefilled` and the suggestion
+- **Expected:** the candidate is offered, `prefill is False`, and `describe()`
+  says nothing is pre-filled because the profile read the first rows only
+- **Why:** "a pre-filled form that a person clicks through has produced a
+  *declaration nobody made*, and every control derived from it inherits an
+  authority it never earned"
+
+### DER-128 · Every suggestion carries its evidence and the profile's own confidence
+- **Area:** `derive/suggestions.py::Suggestion`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** any suggestion
+- **Steps:** read `because` and `confidence`
+- **Expected:** a sentence with a number in it, and the profile's confidence
+  note carried rather than restated
+- **Why:** "a default whose basis is invisible is a default nobody can disagree
+  with, and a default nobody can disagree with is not confirmed when they accept
+  it"
+
+### DER-129 · A profile with no key candidates suggests nothing, and says so
+- **Area:** `derive/suggestions.py::Defaults.describe`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a profile with no candidates and no warnings
+- **Steps:** `describe()`
+- **Expected:** "was profiled and suggested nothing. That is a statement about
+  the profile, not about the dataset"
+- **Why:** the empty result is the one a user reads as a verdict on their data
+
+### DER-130 · An all-null column warns and does not suggest
+- **Area:** `derive/suggestions.py::_warnings`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a column null in every row read
+- **Steps:** read the warnings
+- **Expected:** one `Warning_`, consequence explaining that a control on it
+  fails everything or passes everything, and that the source probably stopped
+  populating it
+- **Why:** "warnings are separate from defaults … presenting it as one would
+  mean the reader either takes it or dismisses it, when what they need to do is
+  look"
+
+### DER-131 · At most one warning per column, and the true one wins
+- **Area:** `derive/suggestions.py::_warnings`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** a column 70% null whose populated values are all one value —
+  sparse *and* constant *and* dominant
+- **Steps:** read the warnings
+- **Expected:** exactly one, the sparse one; never "holds one value in every
+  row", which is false about that column
+- **Why:** "a false statement that happens to be reachable from a true
+  predicate"
+
+### DER-132 · A constant column is described by distinct count, not by row coverage
+- **Area:** `derive/suggestions.py::_warnings`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a column with one distinct value and 10% nulls
+- **Steps:** read the message
+- **Expected:** "holds one distinct value in the rows read" — not "one value in
+  every row"
+- **Why:** "the distinct count ignores nulls, so a column with some nulls would
+  otherwise be described as full of a value it lacks"
+
+### DER-133 · A dominant value warns below the constant threshold
+- **Area:** `derive/suggestions.py::DOMINANT_SHARE`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** columns at 89%, 90% and 91% dominance, none sparse or
+  constant
+- **Steps:** read the warnings
+- **Expected:** the threshold is `dominant_value`'s, quoted here as 0.9 "so the
+  two cannot drift" — confirm the two agree
+- **Why:** a duplicated constant is a constant that will drift; the comment says
+  it is quoted rather than rediscovered
+
+### DER-134 · The sparse threshold is half
+- **Area:** `derive/suggestions.py::SPARSE_RATE`
+- **Type:** boundary
+- **Priority:** P3
+- **Precondition:** columns at 49% and 50% null
+- **Steps:** read the warnings
+- **Expected:** only the second warns — `>=`
+- **Why:** "the point is to prompt a look, not to make a ruling"
+
+### DER-135 · An empty column is skipped entirely
+- **Area:** `derive/suggestions.py::_warnings`
+- **Type:** boundary
+- **Priority:** P3
+- **Precondition:** a profile whose column reports `rows == 0`
+- **Steps:** read the warnings
+- **Expected:** none — no division by zero
+- **Why:** an empty table must produce an empty suggestion set rather than an
+  exception on a preview screen
+
+### DER-136 · Only a grain is ever suggested
+- **Area:** `derive/suggestions.py::defaults_from`
+- **Type:** documentation
+- **Priority:** P2
+- **Precondition:** a rich profile — semantic types inferred, ranges observed,
+  a plausible rhythm
+- **Steps:** read the suggestions
+- **Expected:** one field only, `grain`; nothing suggests criticality, semantic
+  type, value domain or optionality
+- **Why:** the module is named for declaration defaults in general and
+  implements one; a declaration form that pre-fills one field of twenty is where
+  people stop
+
+---
+
+## `propose/` — the single mutation channel
+
+### PRP-001 · A derived control becomes a proposal without losing anything
+- **Area:** `propose/adapt.py::from_control`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** a generated control
+- **Steps:** adapt it
+- **Expected:** identity, content, content hash, provenance, description,
+  dataset, subject, rule and severity all carried
+- **Why:** "the generators know how to derive controls and nothing about review;
+  the queue knows about review and nothing about PQL" — everything a reviewer
+  needs crosses here or nowhere
+
+### PRP-002 · A comparison becomes a proposal of the same shape
+- **Area:** `propose/adapt.py::from_comparison`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** a `RECONCILES_WITH` comparison spec
+- **Steps:** adapt it
+- **Expected:** `content` is the `COMPARE …` line; `subject` is the compared
+  attributes, or the right-hand dataset when there are none
+- **Why:** "a reviewer should not have to learn a second screen because the
+  check happens to span two datasets"
+
+### PRP-003 · A proposal's subject is extracted from every assertion shape
+- **Area:** `propose/adapt.py::from_control`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a predicate control, a reference control and a unique-key
+  control
+- **Steps:** adapt each
+- **Expected:** subject from `subject`, then `column`; the unique-key control
+  falls through to `""`
+- **Why:** the subject drives `subject_already_covered` in the utility score, so
+  an empty one scores a uniqueness proposal as though nothing were covered
+
+### PRP-004 · `from_relationship` carries both controls and comparisons
+- **Area:** `propose/adapt.py::from_relationship`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** a `MIRRORS` generation — no controls, three comparisons
+- **Steps:** adapt
+- **Expected:** three proposals
+- **Why:** the path `from_generation` cannot see; a caller using the wrong one
+  produces the Q-48 silence (DER-086)
+
+### PRP-005 · A rejection must state a reason
+- **Area:** `propose/proposal.py::Decision.__post_init__`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** none
+- **Steps:** build a `REJECTED` decision with `reason=None`
+- **Expected:** `ValueError` explaining that the reason decides whether the rule
+  comes back and whether the generator has a defect
+- **Why:** "a free-text reason would be easier and would be worth much less"
+
+### PRP-006 · Only two rejection reasons indict the rule
+- **Area:** `propose/proposal.py::RejectionReason.indicts_the_rule`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** none
+- **Steps:** read the property for all six
+- **Expected:** true for `INCORRECT` and `COINCIDENTAL` only
+- **Why:** "forty from the same rule is a bug somebody should fix once rather
+  than forty reviewers dismissing it one at a time"
+
+### PRP-007 · Three reasons may be reconsidered, three may not
+- **Area:** `propose/proposal.py::RejectionReason.may_be_reconsidered`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** none
+- **Steps:** read for all six
+- **Expected:** true for `NOT_MATERIAL`, `TOO_NOISY`, `PENDING_REMEDIATION`;
+  false for `INCORRECT`, `COINCIDENTAL`, `DUPLICATE`
+- **Why:** "a rule rejected as *incorrect* is wrong however the data changes" —
+  re-offering it on new data re-asks a question about the rule using evidence
+  about the data
+
+### PRP-008 · A backtest states what the control would have done
+- **Area:** `propose/proposal.py::Backtest.describe`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** 1,000 rows, 410 violations, 30 days, two segments
+- **Steps:** read `describe()`, `violation_rate`, `alerts_per_day`
+- **Expected:** "would have flagged 410 of 1,000 rows (41.00%), about 14 a day,
+  concentrated in …"
+- **Why:** "'this would have failed 41% of rows every day last month' answers
+  the approve-or-not question outright, and no amount of reading the rule does"
+
+### PRP-009 · An unactionable backtest is marked before anybody looks
+- **Area:** `propose/proposal.py::Backtest.is_unactionable`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** violation rates of 0.20 and 0.21 over 1,000 rows
+- **Steps:** read the property
+- **Expected:** false then true — strictly greater than a fifth
+- **Why:** "a control failing more than a fifth of rows is not identifying
+  exceptions; it is describing the data"
+
+### PRP-010 · A backtest that could not run is not a clean backtest
+- **Area:** `propose/proposal.py::Backtest.ran`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** `unavailable="the column does not exist in retained
+  snapshots"`; then `scanned=0` with no `unavailable`
+- **Steps:** read `ran`, `would_pass_today`, `is_unactionable`, `describe()`
+- **Expected:** `ran` false in both; `would_pass_today` false; not unactionable;
+  distinct sentences for the two cases
+- **Why:** "not backtested" and "backtested and clean" must never render the
+  same, or an untested control is approved as a proven one
+
+### PRP-011 · Zero days does not divide by zero
+- **Area:** `propose/proposal.py::Backtest.alerts_per_day`
+- **Type:** boundary
+- **Priority:** P3
+- **Precondition:** `days=0`, `violations=5`
+- **Steps:** read the property
+- **Expected:** 5.0
+- **Why:** it is read by `describe()` on every proposal card
+
+### PRP-012 · Only a declaration may run without review
+- **Area:** `core/provenance.py::Origin.may_auto_activate`;
+  `propose/proposal.py::Proposal.needs_review`
+- **Type:** security
+- **Priority:** P1
+- **Precondition:** one proposal per origin
+- **Steps:** read `needs_review`
+- **Expected:** false for `DECLARATION` only; true for `IMPORT`, `DOCUMENT`,
+  `MINING`, `EXAMPLE`, `INDUCTION`
+- **Why:** **nothing mined may auto-activate** — "a column that happens to be
+  unique in today's extract is not a declared key, and enforcing it turns the
+  first legitimate duplicate into an incident"
+
+### PRP-013 · A declaration whose backtest would drown the queue still needs review
+- **Area:** `propose/proposal.py::Proposal.needs_review`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** a declaration-origin proposal with a 41% backtest
+- **Steps:** read `needs_review`
+- **Expected:** `True` — the backtest check precedes the origin check
+- **Why:** "it means the data does not match the declaration, and that is a
+  conversation rather than an alert"
+
+### PRP-014 · Origins are ranked, and the ranking is total
+- **Area:** `core/provenance.py::Origin.authority`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** none
+- **Steps:** read for all six
+- **Expected:** declaration 100 > document 80 > import 60 > mining 40 > example
+  30 > induction 20; no ties
+- **Why:** it decides which of two proposals for the same thing survives a merge
+
+### PRP-015 · A document-origin provenance without a citation is refused
+- **Area:** `core/provenance.py::Provenance.__post_init__`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** none
+- **Steps:** build one with `origin=DOCUMENT`, `citation=None`
+- **Expected:** `ValueError` — "an unfalsifiable rule will not be approved"
+- **Why:** `FR-IND-012`; the citation is the only thing that makes a document
+  rule disputable
+
+### PRP-016 · An identical re-offer of a live control is not a duplicate proposal
+- **Area:** `propose/queue.py::ProposalQueue.offer`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** an identity registered live with the same content hash
+- **Steps:** offer it
+- **Expected:** `outcome == "already_live"`, `proposal is None`, not admitted
+- **Why:** a nightly regeneration must not re-ask about every control already
+  running
+
+### PRP-017 · A changed re-offer of a live control is a revision
+- **Area:** `propose/queue.py::ProposalQueue.offer`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** the same identity registered live with a different hash
+- **Steps:** offer it
+- **Expected:** admitted with `outcome == "superseded"`, `supersedes` set to the
+  live hash, and a detail saying approving it replaces rather than adds
+- **Why:** "a proposal that changes an existing control is a different decision
+  from one that adds a new control, and a queue that renders them identically
+  gets the first waved through"
+
+### PRP-018 · A rejected proposal is suppressed
+- **Area:** `propose/queue.py::ProposalQueue.offer`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a proposal rejected as `NOT_MATERIAL` at a 3% violation rate
+- **Steps:** offer the identical proposal again
+- **Expected:** not admitted; `outcome == "suppressed"`; the detail names the
+  reason, the reviewer and the date
+- **Why:** "a miner that re-proposes 'this column should be non-null' every
+  Tuesday … teaches them that the queue is noise, and then the one proposal that
+  mattered goes unread with the rest"
+
+### PRP-019 · A materially worse violation rate reopens a suppression
+- **Area:** `propose/queue.py::Suppression.reopened_by`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** rejected as `NOT_MATERIAL` at 3%
+- **Steps:** offer again at 5.9%, then at 6.0%, then at 40%
+- **Expected:** suppressed, reopened, reopened — the ratio threshold is 2.0; the
+  reopening detail says "you rejected this when 3.0% of rows failed it; 40.0%
+  fail it now"
+- **Why:** "a rate that has doubled is describing a different situation, while
+  one that has drifted by a point is describing the same one"
+
+### PRP-020 · A `TOO_NOISY` rejection also reopens when the rate falls
+- **Area:** `propose/queue.py::Suppression.reopened_by`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** rejected as `TOO_NOISY` at 40%
+- **Steps:** offer again at 19%, then at 21%
+- **Expected:** reopened, then suppressed — the falling branch is
+  `TOO_NOISY`-only
+- **Why:** the objection was the noise, and the noise has gone; the same fall on
+  a `NOT_MATERIAL` rejection changes nothing about materiality
+
+### PRP-021 · A permanent rejection never reopens
+- **Area:** `propose/queue.py::Suppression.is_permanent`
+- **Type:** security
+- **Priority:** P1
+- **Precondition:** rejected as `INCORRECT` at 3%
+- **Steps:** offer again at 90%
+- **Expected:** suppressed
+- **Why:** re-offering it "would be re-asking a question about the rule using
+  evidence about the data"
+
+### PRP-022 · A suppression with no rate on either side does not reopen
+- **Area:** `propose/queue.py::Suppression.reopened_by`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** rejected with no backtest; re-offered with one, and
+  vice versa
+- **Steps:** offer
+- **Expected:** suppressed in both directions
+- **Why:** there is nothing to compare, and reopening on an absent measurement
+  would re-ask on every regeneration
+
+### PRP-023 · A rejection at zero violations reopens the moment anything fails
+- **Area:** `propose/queue.py::Suppression.reopened_by`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** rejected as `NOT_MATERIAL` when nothing failed it
+- **Steps:** offer at 0%, then at 0.5%
+- **Expected:** suppressed, then reopened with "it was rejected when nothing
+  failed it"
+- **Why:** the ratio is undefined at zero and the branch that handles it is the
+  one that fires on a newly broken feed
+
+### PRP-024 · The same proposal from the same origin is a duplicate
+- **Area:** `propose/queue.py::ProposalQueue.offer`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** an open proposal
+- **Steps:** offer it again from the same origin with the same hash
+- **Expected:** `outcome == "duplicate"`; the existing proposal returned; the
+  queue unchanged
+- **Why:** a second copy in the list is the queue's own noise
+
+### PRP-025 · The same proposal from a different origin is corroboration
+- **Area:** `propose/queue.py::ProposalQueue._keep_stronger`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a declaration-origin proposal open; a mining-origin proposal
+  with the same identity and hash
+- **Steps:** offer the second
+- **Expected:** `outcome == "corroborated"`; the surviving proposal keeps the
+  declaration's provenance and gains a `Corroboration` naming mining
+- **Why:** "the naive move is to drop one; that discards the most interesting
+  thing that can happen here" — and the reviewer approves in a second
+
+### PRP-026 · Corroboration keeps the higher authority whichever order they arrive in
+- **Area:** `propose/queue.py::ProposalQueue._keep_stronger`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** the same pair, mining offered first
+- **Steps:** offer mining, then the declaration
+- **Expected:** the declaration survives and mining is the corroboration
+- **Why:** arrival order is an accident of scheduling and must not decide
+  authority
+
+### PRP-027 · A second corroboration from an origin already recorded is ignored
+- **Area:** `core/provenance.py::Provenance.corroborated_by`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a proposal already corroborated by mining
+- **Steps:** offer another mining proposal for the same identity
+- **Expected:** one corroboration, not two
+- **Why:** a provenance sentence listing "confirmed by it holds in the data and
+  it holds in the data" reads as a defect
+
+### PRP-028 · A changed proposal for the same open identity supersedes it
+- **Area:** `propose/queue.py::ProposalQueue.offer`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** an open proposal
+- **Steps:** offer one with the same identity and a different hash
+- **Expected:** admitted, `supersedes` set to the old hash, the old proposal
+  replaced in the open map
+- **Why:** the reviewer must see one current version of a question, with what it
+  replaced
+
+### PRP-029 · Deciding a proposal that is not open fails with a useful message
+- **Area:** `propose/queue.py::ProposalQueue._require_open`
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** one decided proposal and one never offered
+- **Steps:** accept each
+- **Expected:** `KeyError` in both, distinguishing "it was already decided" from
+  "it was never offered, or was suppressed"
+- **Why:** the two send an operator to different places
+
+### PRP-030 · Accepting and rejecting both move the proposal out of the queue
+- **Area:** `propose/queue.py::ProposalQueue._settle`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** two open proposals
+- **Steps:** accept one, reject the other; read `pending`, `decided`,
+  `suppressions`
+- **Expected:** neither pending; both decided; only the rejected one suppressed;
+  both recorded in the acceptance history
+- **Why:** a decided proposal that stays in the queue is a question asked twice
+
+### PRP-031 · A deferred proposal stays open and out of the ranked list
+- **Area:** `propose/queue.py::ProposalQueue.defer`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** an open proposal
+- **Steps:** defer it with a reason; read `pending` and `deferred`
+- **Expected:** absent from `pending`, present in `deferred`, `is_open` true,
+  `deferred_because` carried
+- **Why:** "a deferred proposal comes back and a rejected one does not"
+
+### PRP-032 · `auto_activatable` is almost always empty
+- **Area:** `propose/queue.py::ProposalQueue.auto_activatable`
+- **Type:** security
+- **Priority:** P1
+- **Precondition:** a queue holding proposals of every origin, including a
+  mined key with perfect evidence
+- **Steps:** read it
+- **Expected:** declaration-origin proposals only, and only those whose backtest
+  is not unactionable
+- **Why:** the one place the auto-activation rule is applied in aggregate; a
+  mined proposal appearing here is the failure the whole propose package exists
+  to prevent
+
+### PRP-033 · A reloaded queue remembers its rejections
+- **Area:** `propose/queue.py::suppression_from`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** a decided, rejected proposal read back from storage
+- **Steps:** build a suppression from it and register it on a fresh queue; offer
+  the proposal again
+- **Expected:** suppressed; and `suppression_from` on an *accepted* proposal
+  raises `ValueError`
+- **Why:** the memory has to survive a restart or it is not a memory
+
+### PRP-034 · The queue summary counts what a person should act on
+- **Area:** `propose/queue.py::ProposalQueue.summary`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** a queue with pending, deferred, decided and suppressed
+  proposals, some noisy, and a rule with five `INCORRECT` rejections
+- **Steps:** read the summary
+- **Expected:** every count correct; `by_origin` totals the pending list;
+  `suspect_rules` names the indicted rule; `top` is the ten best identities
+- **Why:** it is the report put in front of somebody, and a count that includes
+  suppressed proposals in "pending" would misstate the backlog
+
+### PRP-035 · Utility weights and the prior ceiling are what the docstring says
+- **Area:** `propose/utility.py::WEIGHTS`, `PRIOR_CEILING`
+- **Type:** contract
+- **Priority:** P2
+- **Precondition:** none
+- **Steps:** read them
+- **Expected:** criticality 0.35, coverage gap 0.25, confidence 0.20, acceptance
+  prior 0.20; the ceiling equals the prior weight
+- **Why:** "they sum to more than 1 before the noise penalty, which is
+  deliberate: the ranking only has to be an order"
+
+### PRP-036 · Criticality scores a tier, and a CDE counts as one up
+- **Area:** `propose/utility.py::UtilityScorer._criticality`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** contexts for tiers 1–4, with and without `is_cde`
+- **Steps:** score
+- **Expected:** 1.0, 0.75, 0.5, 0.25; a Tier 2 CDE scores 1.0; a Tier 1 CDE is
+  clamped at 1.0
+- **Why:** the clamp `max(1, min(4, …))` is the boundary, and an unclamped CDE
+  on Tier 1 would score above the ceiling
+
+### PRP-037 · A covered subject scores no coverage value
+- **Area:** `propose/utility.py::UtilityScorer._coverage_gap`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** `subject_already_covered=True` on an otherwise unprotected
+  dataset
+- **Steps:** score
+- **Expected:** 0.0 — "not because the proposal is wrong, but because a second
+  control on a covered column adds far less than a first control on an uncovered
+  one, and the queue has to choose"
+- **Why:** it is the term that surfaces the unprotected ground
+
+### PRP-038 · Confidence is set by origin and a declaration does not reach 1.0
+- **Area:** `propose/utility.py::UtilityScorer._confidence`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** one proposal per origin
+- **Steps:** score
+- **Expected:** declaration 0.9, document 0.85, import 0.7, mining 0.55, example
+  0.45, induction 0.35; corroboration adds 0.15, clamped at 1.0
+- **Why:** "the ceiling is reserved rather than wasted. Scoring it 1.0 would make
+  corroboration invisible precisely where it is worth the most"
+
+### PRP-039 · An origin with no entry in the confidence table raises
+- **Area:** `propose/utility.py::UtilityScorer._confidence`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a new `Origin` member added to the enum
+- **Steps:** score a proposal with it
+- **Expected:** `KeyError` — the dict lookup is unguarded, so a new origin
+  breaks ranking rather than defaulting
+- **Why:** the propose package is designed so "a new source of rules can reach
+  the queue without either side learning about the other"; this is the one place
+  it must be edited
+
+### PRP-040 · The noise penalty scales with how badly
+- **Area:** `propose/utility.py::UtilityScorer._noise_penalty`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** backtests at 0%, 5%, 5.1%, 30% and 60%
+- **Steps:** score
+- **Expected:** 0, 0, -0.051, -0.3, -0.5 (clamped)
+- **Why:** "there is a real difference between a control that flags 5% of rows —
+  plausibly a genuine backlog — and one that flags 60%, which is describing the
+  data"
+
+### PRP-041 · A proposal with no backtest is not penalised
+- **Area:** `propose/utility.py::UtilityScorer._noise_penalty`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** `backtest=None`, then a backtest with `unavailable` set
+- **Steps:** score
+- **Expected:** 0.0 in both
+- **Why:** an unmeasured control must not be ranked below a measured bad one
+
+### PRP-042 · The total score never goes negative
+- **Area:** `propose/utility.py::UtilityScorer.score`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a Tier 4 proposal on a fully covered dataset with a 90%
+  backtest
+- **Steps:** score
+- **Expected:** `max(0.0, total)` — zero, not negative
+- **Why:** the sort is stable at zero and a negative score would rank below
+  proposals that have not been measured at all
+
+### PRP-043 · The prior is Laplace-smoothed, so one rejection does not kill a rule
+- **Area:** `propose/utility.py::AcceptanceHistory.rate`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** a rule with no history, then one rejection
+- **Steps:** read `rate("rule:x")`
+- **Expected:** 0.5, then 0.333… — never 0.0
+- **Why:** "reject the first proposal a rule ever makes and its rate is 0/1;
+  every later proposal from that rule sorts to the bottom, where nobody reads
+  it … the rule is dead on one reviewer's Tuesday afternoon, permanently"
+
+### PRP-044 · The learned term is bounded
+- **Area:** `propose/utility.py::UtilityScorer.score`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** a rule with twenty acceptances and no rejections
+- **Steps:** score a Tier 4 proposal from it against a Tier 1 CDE proposal from
+  a rule with a poor record
+- **Expected:** the prior is capped at `PRIOR_CEILING`, and the Tier 1 CDE still
+  outranks
+- **Why:** "learning which rules produce good proposals is worth having;
+  learning it so hard that the estate stops improving is not"
+
+### PRP-045 · Two rejection reasons are not counted against the rule
+- **Area:** `propose/utility.py::NOT_THE_RULES_FAULT`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a rule whose proposals are rejected as
+  `PENDING_REMEDIATION` and `DUPLICATE`
+- **Steps:** record both; read the rate and the observation count
+- **Expected:** unchanged from no history at all
+- **Why:** "counting it against the rule that correctly identified the problem
+  would teach the ranker to bury exactly the findings that led to a remediation
+  — the ones that worked"
+
+### PRP-046 · History is keyed by origin and by rule
+- **Area:** `propose/utility.py::AcceptanceHistory._keys`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** proposals with and without a `rule`
+- **Steps:** record; read `prior`
+- **Expected:** the prior is the mean over the keys present; a proposal with no
+  rule is scored on its origin alone
+- **Why:** an unruled proposal must not divide by zero, and must not inherit
+  another rule's record
+
+### PRP-047 · Undecided proposals teach nothing
+- **Area:** `propose/utility.py::AcceptanceHistory.record`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a proposed and a deferred proposal
+- **Steps:** record both; read the rates
+- **Expected:** unchanged
+- **Why:** a deferred proposal is a decision postponed, and counting it as a
+  rejection would punish the rules whose proposals are hardest to judge
+
+### PRP-048 · Five indicting rejections make a rule suspect
+- **Area:** `propose/utility.py::AcceptanceHistory.suspect_rules`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** one rule with four `INCORRECT` rejections, another with five
+- **Steps:** read `suspect_rules()` and `indicted_rules(history)`
+- **Expected:** only the second, sorted, with its count
+- **Why:** "a rule rejected as *incorrect* five times is producing wrong
+  proposals systematically, and the fix is in the generator rather than in the
+  queue"
+
+### PRP-049 · The ranking explains itself
+- **Area:** `propose/utility.py::UtilityScorer._explain`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a Tier 1 CDE proposal on a 20%-covered dataset from a rule
+  with three decisions, whose backtest flags 30%
+- **Steps:** read `utility.explanation`
+- **Expected:** four clauses — the tier and CDE, the unprotected share, the
+  rule's acceptance rate with its count, and the noise mark-down
+- **Why:** "a reviewer asking 'why is this at the top?' deserves 'because it is
+  a Tier 1 CDE with no control on it and the evidence is a check digit' and not
+  '0.87'"
+
+### PRP-050 · The explanation is assembled, never stored
+- **Area:** `propose/utility.py::UtilityScorer._explain`
+- **Type:** contract
+- **Priority:** P2
+- **Precondition:** a scored proposal, then a changed context
+- **Steps:** re-score; compare the explanation with the components
+- **Expected:** it moves with the score
+- **Why:** "a stored explanation drifts from the score it explains — and a wrong
+  explanation of a ranking is worse than none, because it is the one somebody
+  repeats"
+
+### PRP-051 · A rule's record is only mentioned once there is one
+- **Area:** `propose/utility.py::UtilityScorer._explain`
+- **Type:** boundary
+- **Priority:** P3
+- **Precondition:** a rule with two decisions, then three
+- **Steps:** read the explanation
+- **Expected:** the acceptance clause appears at three, not at two
+- **Why:** "50% of proposals from this rule have been accepted (2 decided)" is a
+  statistic that misleads more than it informs
+
+### PRP-052 · Ranking is stable between runs
+- **Area:** `propose/utility.py::rank`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** several proposals with identical scores
+- **Steps:** rank twice, with the input order shuffled between
+- **Expected:** identical output, ties broken on identity
+- **Why:** "a ranking that reshuffles equal items between refreshes looks broken
+  even when it is not, and a reviewer working down a list cannot lose their
+  place in it"
+
+### PRP-053 · Ranking without a context does not fail
+- **Area:** `propose/utility.py::rank`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** proposals whose `dataset` is absent from the context map
+- **Steps:** rank
+- **Expected:** scored against the default `Context()` — Tier 4, no coverage, no
+  CDE
+- **Why:** the default is the pessimistic one, which is the right direction, but
+  it means an unmapped dataset's Tier 1 proposals sort as Tier 4
+
+---
+
+## `learn/` — the loop, and whether it helped
+
+### PRP-054 · Arm assignment is deterministic
+- **Area:** `learn/loop.py::assign`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** none
+- **Steps:** assign the same identity ten times; then re-assign after a
+  re-proposal
+- **Expected:** the same arm every time
+- **Why:** "a re-run of a period reproduces the experiment exactly … an item
+  cannot drift between arms when it is re-proposed, which would contaminate both
+  sides at once and in opposite directions"
+
+### PRP-055 · The holdout is roughly the requested fraction
+- **Area:** `learn/loop.py::assign`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** ten thousand identities
+- **Steps:** assign at `holdout=0.1`, then 0.0, then 1.0
+- **Expected:** about a tenth control; none; all
+- **Why:** the split has to be the split the cost statement quotes
+
+### PRP-056 · The salt changes the split
+- **Area:** `learn/loop.py::assign`
+- **Type:** boundary
+- **Priority:** P3
+- **Precondition:** the same identities
+- **Steps:** assign with two salts
+- **Expected:** different assignments, each internally stable
+- **Why:** restarting an experiment must be possible without renaming every item
+
+### PRP-057 · Pending items are counted as neither accepted nor rejected
+- **Area:** `learn/loop.py::_summarise`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** an arm with five accepted, three rejected, ten pending
+- **Steps:** summarise
+- **Expected:** `surfaced == 18`, `reviewed == 8`, `accepted == 5`,
+  `pending == 10`, `precision == 0.625`
+- **Why:** "treating unreviewed items as rejected understates both arms and
+  treating them as accepted overstates both, and the bias is not equal between
+  arms when one surfaces more items than the other"
+
+### PRP-058 · Precision is `None` before anything is reviewed
+- **Area:** `learn/loop.py::ArmResult.precision`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** an arm with items surfaced and none reviewed
+- **Steps:** read `precision` and `describe()`
+- **Expected:** `None`; "none reviewed yet" — not 0%
+- **Why:** zero precision and no measurement are different claims, and one of
+  them is defamatory about a model
+
+### PRP-059 · Mean accepted rank is reported, because precision cannot see it
+- **Area:** `learn/loop.py::ArmResult.mean_accepted_rank`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** two arms accepting the same items at different ranks
+- **Steps:** measure
+- **Expected:** equal precision, different mean rank; the uplift sentence names
+  the places gained when the difference exceeds 0.5
+- **Why:** "a model that surfaces the same things in a better order has helped,
+  and its precision is unchanged"
+
+### PRP-060 · An uplift below thirty reviews per arm is not measurable
+- **Area:** `learn/loop.py::Uplift.is_measurable`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** 29 and 30 reviews on each side
+- **Steps:** read `is_measurable` and `describe()`
+- **Expected:** false then true; the false case says an interval on this much
+  data is wider than any effect worth claiming
+- **Why:** "a difference of five points on ninety reviews is noise, and
+  publishing it as a result is how a learning loop acquires a reputation for
+  claiming things"
+
+### PRP-061 · Significance is the interval excluding zero
+- **Area:** `learn/loop.py::Uplift.is_significant`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** intervals `(-0.01, 0.09)`, `(0.01, 0.09)`,
+  `(-0.09, -0.01)`
+- **Steps:** read the property
+- **Expected:** false, true, true
+- **Why:** "the only form in which 'the loop is working' is a claim rather than
+  a hope" — and a significant *regression* must also be significant
+
+### PRP-062 · The interval is a two-proportion normal approximation
+- **Area:** `learn/loop.py::_difference_interval`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** 80/100 against 70/100
+- **Steps:** compute
+- **Expected:** centred on +0.10, half-width `1.96 * sqrt(p(1-p)/n + …)`; zero
+  reviews on either side returns `(0.0, 0.0)`
+- **Why:** the method is stated as adequate and must be the method used
+
+### PRP-063 · The holdout cost is stated
+- **Area:** `learn/loop.py::Uplift.holdout_cost`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** any measurement
+- **Steps:** read `describe()`
+- **Expected:** the number of control-arm reviews, named as "the price of
+  knowing any of this"
+- **Why:** "a system that hides it is one where somebody eventually turns the
+  experiment off without understanding what they are giving up"
+
+### PRP-064 · Promotion is refused when the interval covers zero
+- **Area:** `learn/loop.py::consider`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a measurable uplift of +8% whose interval spans zero
+- **Steps:** `consider(uplift)`
+- **Expected:** not promoted; the reason says promoting on a point estimate is
+  how a loop that is doing nothing accumulates a series of promotions
+- **Why:** the whole reason the control arm exists
+
+### PRP-065 · A significant regression is reported as a regression
+- **Area:** `learn/loop.py::consider`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** a significant uplift of **-22%**
+- **Steps:** consider
+- **Expected:** not promoted; the reason says the learning arm is significantly
+  worse and points at the labels
+- **Why:** "the other order reported a significant -22% regression as 'a real
+  but small gain', which is exactly backwards and would hide a feedback loop
+  teaching the model the wrong thing" — the branch order is the test
+
+### PRP-066 · A real but small gain does not earn a refreeze
+- **Area:** `learn/loop.py::consider`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** significant gains of +2.9% and +3.1% against
+  `minimum_gain=0.03`
+- **Steps:** consider both
+- **Expected:** refused then promoted
+- **Why:** refreezing restarts the experiment, and the gain has to be worth the
+  restart
+
+### PRP-067 · A promotion states its evidence
+- **Area:** `learn/loop.py::consider`
+- **Type:** contract
+- **Priority:** P2
+- **Precondition:** a promotable uplift
+- **Steps:** read the reason
+- **Expected:** the difference, the interval and both review counts
+- **Why:** a promotion is a change to how every queue is ordered, and the record
+  of why has to survive the person who made it
+
+---
+
+## `induce/` — rules a model proposed, none of which reaches a person unchecked
+
+### IND-001 · A `Validated` cannot be built without every gate
+- **Area:** `induce/validate.py::Validated.__post_init__`
+- **Type:** security
+- **Priority:** P1
+- **Precondition:** a parsed control and a plan
+- **Steps:** construct `Validated(passed=(Gate.PARSE,))`
+- **Expected:** `ValueError` naming the missing gates and stating that building
+  one directly would reduce the guarantee to a comment
+- **Why:** "100% of LLM-generated PQL is parsed, type-checked and
+  sandbox-executed before display. Not 'should be' — the type below cannot be
+  constructed otherwise"
+
+### IND-002 · The five gates run in order, and the first failure stops
+- **Area:** `induce/validate.py::Validator.validate`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a catalogue and sample rows
+- **Steps:** submit a candidate that fails at each gate in turn
+- **Expected:** a `Rejection` naming exactly that gate; `passed` never contains a
+  gate after the failure
+- **Why:** "in the order that makes each one's failure cheap"
+
+### IND-003 · Prose is rejected at the parse gate
+- **Area:** `induce/validate.py::Validator.validate`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** none
+- **Steps:** submit "Sure! Here is a control that checks the amount is
+  positive."
+- **Expected:** `Gate.PARSE`, detail carrying the parser's message
+- **Why:** "it is PQL, not prose about PQL"
+
+### IND-004 · A fenced control is unwrapped and nothing else is edited
+- **Area:** `induce/validate.py::_strip_fencing`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** none
+- **Steps:** a ```` ```pql ```` fence with and without a closing fence; then a
+  candidate needing a character changed to parse
+- **Expected:** both fences unwrapped and parsed; the third rejected
+- **Why:** "rejecting a correct control for its packaging teaches nothing and
+  costs a retry"; but "whatever the edit fixed is what the next one will get
+  wrong too"
+
+### IND-005 · An invented column is rejected at the type-check gate
+- **Area:** `induce/validate.py::Validator.validate`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** a catalogue
+- **Steps:** a control referencing a column that does not exist
+- **Expected:** `Gate.TYPE_CHECK` with the checker's message
+- **Why:** the model is told "inventing one makes the control fail on its first
+  run", and the gate is what makes that true
+
+### IND-006 · Type-checking is skipped without a catalogue, and the gate still records as passed
+- **Area:** `induce/validate.py::Validator.validate`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** `catalogue=None`
+- **Steps:** validate a control naming any column
+- **Expected:** `Gate.TYPE_CHECK` appears in `passed` although nothing was
+  checked
+- **Why:** the `Validated` type is the guarantee, and a gate recorded as passed
+  when it did not run weakens the guarantee silently
+
+### IND-007 · A candidate that cannot be lowered is rejected, not raised
+- **Area:** `induce/validate.py::Validator.validate`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** a control that type-checks and cannot compile
+- **Steps:** validate
+- **Expected:** `Gate.COMPILE` rejection; no exception escapes
+- **Why:** "a model's output is untrusted input, and untrusted input that breaks
+  a compiler is the compiler's ordinary Tuesday"
+
+### IND-008 · A control that flags more than half the sample is rejected
+- **Area:** `induce/validate.py::MAXIMUM_VIOLATION_RATE`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** sample rows where a candidate flags 50% and then 51%
+- **Steps:** validate
+- **Expected:** accepted then rejected at `Gate.SANDBOX`, with the rate in the
+  detail
+- **Why:** "a control that fails half the data is describing it, not checking
+  it"
+
+### IND-009 · With no rows the sandbox rate check is skipped
+- **Area:** `induce/validate.py::Validator.validate`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** `rows=()`
+- **Steps:** validate a sound control
+- **Expected:** the rate branch is guarded by `if sample`, so it passes; the
+  counterfactual still runs, on probes built from an empty base row
+- **Why:** the commonest real case is a dataset with no retained sample, and the
+  gate that matters most must still run
+
+### IND-010 · The sandbox is bounded at 2,000 rows
+- **Area:** `induce/validate.py::SANDBOX_ROWS`
+- **Type:** performance
+- **Priority:** P2
+- **Precondition:** 10,000 rows
+- **Steps:** validate
+- **Expected:** `sandbox.scanned <= 2000`
+- **Why:** "this runs on every candidate a model produces, and a semantic
+  problem visible on ten thousand rows is visible on two thousand"
+
+### IND-011 · A control that cannot fail is rejected
+- **Area:** `induce/validate.py::Validator.validate`
+- **Type:** security
+- **Priority:** P1
+- **Precondition:** sample rows
+- **Steps:** submit `CHECK t.x IS NOT NULL OR t.x IS NULL`, and
+  `CHECK t.qty > -999999999`
+- **Expected:** `Gate.COUNTERFACTUAL` for both, detail saying rows were built
+  carrying values it should reject and it accepted every one
+- **Why:** "it parses, type-checks, compiles, executes, reports a clean pass on
+  every row, and is worth precisely nothing. Nothing in gates 1 to 4 can tell it
+  from a good control"
+
+### IND-012 · The null probe does not count as a value probe
+- **Area:** `induce/validate.py::SandboxResult.is_vacuous`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** a control that catches only the null probe
+- **Steps:** validate
+- **Expected:** `is_vacuous is True`; the rejection detail adds "it does reject a
+  missing value, but so does every row predicate in the language"
+- **Why:** "PQL inverts SQL's default, so an unknown is a violation, so a missing
+  value breaks every row predicate ever written" — counting it would make the
+  gate nearly inert
+
+### IND-013 · A nullity assertion is probed by the null, and counted as a value probe
+- **Area:** `induce/validate.py::Validator._probes`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** `CHECK t.a IS NOT NULL`
+- **Steps:** validate; read the sandbox result
+- **Expected:** `value_probes == 1`, `value_probes_caught == 1`,
+  `is_vacuous is False`
+- **Why:** "'0 of 0 value probes' reads as though the control was never really
+  tested, and it was"
+
+### IND-014 · Hostile values are chosen per operator
+- **Area:** `induce/validate.py::_hostile_values`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** one candidate per operator family — `in`, `in_codelist`,
+  `matches`, `is_valid`, `between`, each comparison
+- **Steps:** read the probes
+- **Expected:** a non-member for membership; a non-match and an empty string for
+  patterns; one value each side of a numeric bound; a perturbed string for a
+  string comparison
+- **Why:** "probing `IN ('BUY','SELL')` with another arbitrary string is the only
+  way to learn whether the membership test is being applied at all"
+
+### IND-015 · An assertion with no subject produces no probes and is not vacuous
+- **Area:** `induce/validate.py::_subject_of`, `SandboxResult.is_vacuous`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** a row-count or freshness assertion
+- **Steps:** validate
+- **Expected:** `value_probes == 0`, so `is_vacuous is False` and the
+  counterfactual gate passes without testing anything
+- **Why:** the gate the module exists for is silently inapplicable to a whole
+  class of assertion, and a model can reach `Validated` through it
+
+### IND-016 · A probe that cannot run is not a probe that was caught
+- **Area:** `induce/validate.py::Validator._count_caught`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a probe whose value makes the evaluator raise
+- **Steps:** validate
+- **Expected:** the exception is swallowed and the probe counts as uncaught
+- **Why:** counting it as caught would let a control that crashes on hostile
+  input pass the gate that exists to break it
+
+### IND-017 · The retry prompt quotes the rejection precisely
+- **Area:** `induce/llm.py::_with_feedback`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** a provider that fails then succeeds
+- **Steps:** induce; inspect the second prompt
+- **Expected:** the gate name, the parser's own message, and the gate's plain
+  meaning
+- **Why:** "a model given the position generally fixes it, where a model told
+  'that was invalid' generally does not"
+
+### IND-018 · Attempts are bounded at three and at least one
+- **Area:** `induce/llm.py::DEFAULT_ATTEMPTS`, `Inducer.__init__`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a provider that always fails
+- **Steps:** induce with the default, then with `attempts=0`
+- **Expected:** three provider calls, then one — `max(1, attempts)`
+- **Why:** "each retry is a paid call", and a zero configured attempt count must
+  not mean no attempt
+
+### IND-019 · A model declining is not a failure
+- **Area:** `induce/llm.py::Inducer.induce`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** a provider returning `NONE`, then one returning `ok=False`
+- **Steps:** induce
+- **Expected:** `None` in both cases, on the first attempt, with no retry
+- **Why:** "an ordinary outcome and not an error: every feature that uses this
+  has a deterministic path that does not need it"
+
+### IND-020 · A failed induction reports every attempt, not just the last
+- **Area:** `induce/llm.py::Inducer.induce_all`; `Rejection.attempts`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** three requests, each failing three times at the parse gate
+- **Steps:** `induce_all`; read `rejections` and `failures_by_gate()`
+- **Expected:** nine rejections, not three
+- **Why:** "counting three parse errors as one understates the failure rate in
+  the flattering direction, which is the direction it must never be wrong in"
+
+### IND-021 · The failure rate is published and correct
+- **Area:** `induce/llm.py::InductionReport.generation_failure_rate`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** ten requests, six induced, two declined, two rejected
+- **Steps:** read the rate and `describe()`
+- **Expected:** 0.4; the sentence separates declined from rejected; zero
+  requests yields 0.0 rather than a division by zero
+- **Why:** "a prompt whose output fails the gate half the time is a prompt
+  somebody should fix, and without the number nobody knows"
+
+### IND-022 · The response records whether the grammar was enforced
+- **Area:** `induce/llm.py::Inducer.induce`
+- **Type:** contract
+- **Priority:** P2
+- **Precondition:** a constraining provider and a non-constraining one
+- **Steps:** induce with each; read the provenance observations
+- **Expected:** "with the grammar enforced during decoding" against "validated
+  afterwards; the provider cannot constrain decoding"
+- **Why:** "a grammar-constrained provider emitting unparseable PQL is a
+  provider bug worth reporting, and an unconstrained one doing so is Tuesday"
+
+### IND-023 · Retrieval carries the interpretation, not just the schema
+- **Area:** `induce/llm.py::retrieve`, `Retrieved.render`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** a declaration with a purpose, a grain and an attribute with
+  a definition and an interpretation
+- **Steps:** render the retrieval
+- **Expected:** all of them present, with "How to read it:" carrying the
+  interpretation
+- **Why:** "'positions are reported gross of collateral' is the sentence that
+  decides whether a sign control is right or backwards, and it exists in no
+  schema"
+
+### IND-024 · Values are passed in, never read here
+- **Area:** `induce/llm.py::retrieve`
+- **Type:** security
+- **Priority:** P1
+- **Precondition:** a declaration with a PII attribute
+- **Steps:** call `retrieve` with no examples; inspect the rendered prompt
+- **Expected:** no values; the examples are the caller's decision, and the
+  sensitivity travels on the `Request`
+- **Why:** "whether a value may leave the building is a residency decision and
+  this module is the wrong place to make it"
+
+### IND-025 · Existing rules are listed so the model does not repeat them
+- **Area:** `induce/llm.py::Retrieved.render`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** three controls already in force
+- **Steps:** render
+- **Expected:** a "do not repeat these" block listing all three
+- **Why:** a duplicate proposal costs a reviewer the same as a wrong one
+
+### IND-026 · An induced control's provenance is checkable
+- **Area:** `induce/llm.py::Inducer.induce`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** a successful induction
+- **Steps:** read the provenance
+- **Expected:** origin `INDUCTION`, `source_ref` carrying the request
+  fingerprint, and observations naming the provider, the model, the gates passed
+  and the probes caught
+- **Why:** origin `INDUCTION` is the weakest authority (PRP-014), so the
+  observations are what a reviewer has instead of trust
+
+### IND-027 · A document rule is rejected when its quote is not in the document
+- **Area:** `induce/documents.py::DocumentInducer.extract`
+- **Type:** security
+- **Priority:** P1
+- **Precondition:** a document and a model that returns a plausible paraphrase
+- **Steps:** extract
+- **Expected:** the rule is discarded and counted in `fabricated_quotes`; no
+  `Extracted` produced
+- **Why:** "a rule invented wholesale cannot produce a quote that is really
+  there" — the check that turns the citation from decoration into a test
+
+### IND-028 · A reflowed quote still matches
+- **Area:** `induce/documents.py::Document.contains`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** a passage wrapped across lines
+- **Steps:** quote it with different whitespace, then with one word changed
+- **Expected:** matched, then not
+- **Why:** "a model that reflows a sentence across lines has still quoted it; one
+  that changes a word has not, and that difference is the whole check"
+
+### IND-029 · The fabrication rate is published
+- **Area:** `induce/documents.py::ExtractionReport.fabrication_rate`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** ten normative passages, two fabricated quotes
+- **Steps:** read the rate and `describe()`
+- **Expected:** 0.2, and a sentence naming it; zero considered yields 0.0
+- **Why:** "the number that matters, and the one nobody publishes"
+
+### IND-030 · Only normative passages are sent to the model
+- **Area:** `induce/documents.py::Passage.looks_normative`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** a document with descriptive and obligation-bearing
+  paragraphs
+- **Steps:** extract; count provider calls
+- **Expected:** one call per normative passage only; `considered` matches
+- **Why:** "the cost of passing a descriptive passage to the model is one call,
+  and the cost of filtering out a normative one is a rule nobody ever finds"
+
+### IND-031 · Short passages are skipped
+- **Area:** `induce/documents.py::MINIMUM_PASSAGE`
+- **Type:** boundary
+- **Priority:** P3
+- **Precondition:** a heading of 39 characters containing "must", and one of 40
+- **Steps:** read `passages()`
+- **Expected:** only the second is yielded; the paragraph index still advances
+  for both
+- **Why:** "a heading is not an instruction" — and the locator numbering must not
+  shift when a short block is skipped
+
+### IND-032 · A locator points at something a reader can find
+- **Area:** `induce/documents.py::Document._locate`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** passages beginning "Schedule H.1", "Field 23", "3.2.1", and
+  one with no heading
+- **Steps:** read the locators
+- **Expected:** the first three quoted verbatim; the last "paragraph N"
+- **Why:** "'Schedule H.1, field 23' sends somebody to the right page;
+  'paragraph 41' sends them to a scroll bar" — and an earlier pattern without
+  `field` and `item` "sent every citation in a filing manual to 'paragraph 3'"
+
+### IND-033 · An answer carrying only one of quote and control is rejected
+- **Area:** `induce/documents.py::_split`
+- **Type:** negative
+- **Priority:** P2
+- **Precondition:** a model returning a control with no `QUOTE:` line
+- **Steps:** extract
+- **Expected:** a `Gate.PARSE` rejection saying there is nothing to check the
+  rule against
+- **Why:** the citation is the test; a rule with no quote is unfalsifiable and
+  must not reach a reviewer
+
+### IND-034 · A quote is stripped of surrounding quotation marks
+- **Area:** `induce/documents.py::_split`
+- **Type:** boundary
+- **Priority:** P3
+- **Precondition:** a model returning a curly-quoted passage
+- **Steps:** extract
+- **Expected:** the marks stripped before the containment check
+- **Why:** a correct quote rejected for its punctuation costs a rule and teaches
+  nothing
+
+### IND-035 · The document is hashed as read
+- **Area:** `induce/documents.py::Document.content_hash`; `stale_citations`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** rules extracted from a document, then the document edited
+- **Steps:** `stale_citations(extracted, new_document)`
+- **Expected:** the rules from that document returned; rules citing a different
+  document are not
+- **Why:** "a rule whose source has changed underneath it is not necessarily
+  wrong, but it is no longer supported by what the citation points at … somebody
+  reads the new passage rather than deleting the rule"
+
+### IND-036 · Too few labels refuse to generalise
+- **Area:** `induce/examples.py::MINIMUM_LABELS`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** five labels, then six
+- **Steps:** generalise
+- **Expected:** a refusal naming the count and the minimum, then a real attempt
+- **Why:** "below this many labels, anything found is a description of the
+  labels"
+
+### IND-037 · All-good labels refuse, and say what to do
+- **Area:** `induce/examples.py::ExampleInducer.generalise`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** ten labels, all `good`
+- **Steps:** generalise
+- **Expected:** a refusal: "there is nothing for a rule to separate. Mark a
+  value you consider wrong"
+- **Why:** a rule induced from approval alone accepts everything
+
+### IND-038 · One false alarm eliminates a candidate outright
+- **Area:** `induce/examples.py::Scored.is_admissible`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** a candidate catching nine of ten bad values and flagging one
+  good one
+- **Steps:** score
+- **Expected:** inadmissible
+- **Why:** "with twenty labels, one false alarm is five percent, and a control
+  that flags five percent of good data is the one that gets the suite switched
+  off"
+
+### IND-039 · A candidate that catches nothing is inadmissible
+- **Area:** `induce/examples.py::Scored.is_admissible`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** a candidate that accepts every labelled value
+- **Steps:** score
+- **Expected:** inadmissible — `caught > 0` is required
+- **Why:** the counterfactual again: a rule that flags nothing is perfectly
+  precise and worth nothing
+
+### IND-040 · Memorisation is refused unless a value repeats
+- **Area:** `induce/examples.py::ExampleInducer._candidates`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** five distinct good LEIs, each seen once; then BUY and SELL
+  seen five times each
+- **Steps:** generalise
+- **Expected:** no `IN (...)` candidate in the first; one in the second
+- **Why:** "`IN ('5493001…', …)` has perfect recall on the labels and rejects
+  every valid LEI in the world that is not one of those five. It is memorisation
+  with a perfect score"
+
+### IND-041 · The membership candidate is bounded at twelve values
+- **Area:** `induce/examples.py::ExampleInducer._candidates`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** twelve repeated distinct good values, then thirteen
+- **Steps:** generalise
+- **Expected:** a candidate in the first, none in the second; and none when
+  there is only one distinct value
+- **Why:** a thirteen-value enumeration is a code list nobody declared, and a
+  one-value one is a constant
+
+### IND-042 · A validator candidate treats null as acceptable
+- **Area:** `induce/examples.py::_validator_accepts`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** labels including a `None` marked bad
+- **Steps:** generalise
+- **Expected:** every `IS VALID` candidate *misses* the null — only
+  `IS NOT NULL` catches it
+- **Why:** the separation of concerns is deliberate, and the resulting
+  generalisation proposes a completeness rule rather than a format one
+
+### IND-043 · Length and range candidates are built from the good values only
+- **Area:** `induce/examples.py::ExampleInducer._candidates`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** good values 10–100, bad values 5 and 500
+- **Steps:** generalise
+- **Expected:** `BETWEEN 10 AND 100` and `>= 10` candidates, both admissible,
+  the first with higher recall
+- **Why:** building the bound from all values would produce a range that accepts
+  the values the steward rejected
+
+### IND-044 · The best candidate is the highest recall, then the shortest
+- **Area:** `induce/examples.py::Generalisation.best`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** two admissible candidates with equal recall and different
+  predicate lengths
+- **Steps:** read `best`
+- **Expected:** the shorter predicate
+- **Why:** a tie broken on length prefers the general rule to the enumerated
+  one, which is the same instinct as IND-040
+
+### IND-045 · The next question is the value the survivors most disagree about
+- **Area:** `induce/examples.py::ExampleInducer._next_question`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** four admissible candidates and unlabelled values on which
+  they split 4-0, 3-1 and 2-2
+- **Steps:** read `next_question`
+- **Expected:** the 2-2 value, disagreement 1.0, with a reason saying the answer
+  eliminates about half of them
+- **Why:** "the difference between twenty labels and two hundred"
+
+### IND-046 · No question is asked when there is nothing to learn
+- **Area:** `induce/examples.py::ExampleInducer._next_question`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** one admissible candidate; then several but no unlabelled
+  values; then unanimous survivors
+- **Steps:** read `next_question`
+- **Expected:** `None` in all three; `is_settled` true when a best exists and no
+  question remains
+- **Why:** "a value they all agree about teaches nothing, whichever way the
+  steward answers"
+
+### IND-047 · When nothing separates the labels, the refusal suggests why
+- **Area:** `induce/examples.py::ExampleInducer.generalise`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** labels where the bad values are indistinguishable from the
+  good ones by any candidate
+- **Steps:** generalise
+- **Expected:** `scored` non-empty, `best is None`, and a refusal saying the
+  distinction "may depend on another column"
+- **Why:** the honest answer to an unlearnable labelling, and the one that sends
+  the steward somewhere useful
+
+### IND-048 · A generalisation's provenance quotes the label counts
+- **Area:** `induce/examples.py::generalisation_provenance`
+- **Type:** contract
+- **Priority:** P2
+- **Precondition:** twenty labels, six bad, a candidate catching four
+- **Steps:** read the provenance
+- **Expected:** origin `EXAMPLE`; observations naming both counts and stating
+  that it flags none of the accepted values
+- **Why:** the reviewer is being asked to trust a rule induced from twenty
+  judgements, and the counts are the whole basis
+
+---
+
+## `mine/` — what the data obeys, offered as candidates
+
+Finding **T9**: an acceptance test asserted `findings.dependencies or
+findings.discarded` and passed entirely on the second disjunct — mining found
+**0 dependencies and discarded 2**, and the loop body that checked the result
+never executed. Every case below says what "it worked" means in numbers.
+
+### MIN-001 · A sample below 200 rows mines nothing, and says so
+- **Area:** `mine/sample.py::MINIMUM_ROWS`; every miner's `mine`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** samples of 199 and 200 rows
+- **Steps:** run the key, dependency and constraint miners on each
+- **Expected:** at 199, empty findings with a `skipped` entry naming the row
+  count; at 200, a real search
+- **Why:** "a constraint that holds across two hundred rows holds across two
+  hundred rows" — and the skip must be visible, not silent
+
+### MIN-002 · Every mined finding carries the sample's caveats
+- **Area:** `mine/sample.py::Sample.caveats`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** a 500-row sample of a 4,000,000-row partitioned table,
+  spanning one partition
+- **Steps:** mine keys, dependencies and invariants
+- **Expected:** every `Evidence.caveats` carries all three notes — one
+  partition, 0.0% coverage, small sample
+- **Why:** "assembled here rather than at each miner, so a new miner cannot ship
+  without them. Every one of these has been the reason a mined constraint was
+  wrong in production"
+
+### MIN-003 · Caveats are computed from the sample, not written as boilerplate
+- **Area:** `mine/sample.py::Sample.caveats`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** a full scan of a 5,000-row table with several partitions
+- **Steps:** read the caveats
+- **Expected:** none — coverage is 1.0, more than one partition is seen, the
+  sample is over 1,000 rows
+- **Why:** the counterfactual to MIN-002; a caveat attached unconditionally
+  tells a reviewer nothing and is ignored within a week
+
+### MIN-004 · One partition is the classic false key, and is named as such
+- **Area:** `mine/sample.py::Sample.spans_one_partition`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a sample with `partition_column="business_date"` and one
+  distinct value
+- **Steps:** mine a key
+- **Expected:** the caveat says anything found holds *within* one business_date
+  and may not hold across them
+- **Why:** "`(account_id)` is perfectly unique within Monday and is not the key;
+  `(account_id, business_date)` is"
+
+### MIN-005 · An undeclared partition column produces no partition caveat
+- **Area:** `mine/sample.py::Sample.partitions_seen`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** a single-day sample with `partition_column=""`
+- **Steps:** read the caveats
+- **Expected:** `partitions_seen == 0`, `spans_one_partition is False`, no
+  partition caveat — the danger is real and unreportable
+- **Why:** the most dangerous sample produces the fewest warnings, because
+  nobody declared what it is partitioned by
+
+### MIN-006 · An unknown table size is stated rather than assumed
+- **Area:** `mine/sample.py::Sample.coverage`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** `total_rows=None`
+- **Steps:** read `coverage`, `is_representative`, the caveats
+- **Expected:** `None`, `False`, and a caveat saying the fraction cannot be
+  stated
+- **Why:** "without it a miner cannot tell a full read from a 1% sample, and the
+  two support very different claims"
+
+### MIN-007 · Representative means at least 90% of the table
+- **Area:** `mine/sample.py::REPRESENTATIVE_FRACTION`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** coverage of 0.89, 0.90 and 1.20 (a stale row count)
+- **Steps:** read `is_representative` and `coverage`
+- **Expected:** false, true, true with coverage clamped at 1.0
+- **Why:** a stale `total_rows` must not produce a coverage above one in a
+  report
+
+### MIN-008 · Evidence separates nulls from violations
+- **Area:** `mine/sample.py::Evidence`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** 1,000 rows, 900 supporting, 0 violating, 100 null-excluded
+- **Steps:** read `support`, `null_fraction`, `is_exact`, `describe()`
+- **Expected:** support over the *applicable* rows, not all rows; the sentence
+  names the excluded count and its percentage
+- **Why:** "SQL's aggregate functions silently skip them, and a 'unique' column
+  that is ninety percent null is not a key — it is an empty column with a few
+  values in it"
+
+### MIN-009 · Evidence with no applicable rows does not divide by zero
+- **Area:** `mine/sample.py::Evidence.support`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** `rows_examined == null_excluded`
+- **Steps:** read `support`
+- **Expected:** 0.0
+- **Why:** it is read by every `describe()` and every provenance sentence
+
+### MIN-010 · A key mined across a whole table is proposed with its evidence
+- **Area:** `mine/keys.py::KeyMiner.mine`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** 1,000 rows where `(trade_id)` is unique and never null
+- **Steps:** mine
+- **Expected:** exactly one candidate; `columns == ("trade_id",)`;
+  `is_exact is True`; evidence naming 1,000 rows examined and 1,000 distinct
+- **Why:** the positive control — "a mining acceptance test once passed while
+  mining found nothing"; this case states the number
+
+### MIN-011 · Supersets of a key are not proposed
+- **Area:** `mine/keys.py::KeyMiner.mine`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `(trade_id)` unique, five other eligible columns
+- **Steps:** mine at `max_arity=3`
+- **Expected:** one candidate, not twenty-one — "if `account_id` is unique then
+  so is every pair containing it"
+- **Why:** "proposing all of them buries the one that matters"
+
+### MIN-012 · A mostly-null column cannot be part of a key
+- **Area:** `mine/keys.py::MAXIMUM_NULL_FRACTION`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** a column with four distinct values and 996 nulls
+- **Steps:** mine
+- **Expected:** the column is in `excluded` with its null percentage and the
+  sentence about looking unique to any test that skips nulls; no candidate
+- **Why:** "that has fooled every profiler that did not check"
+
+### MIN-013 · The null threshold is 5%
+- **Area:** `mine/keys.py::MAXIMUM_NULL_FRACTION`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** columns at exactly 5% and 5.1% null, both otherwise unique
+- **Steps:** mine
+- **Expected:** the first eligible, the second excluded
+- **Why:** the comparison is `>`, and a key column with a handful of nulls is a
+  key with a data problem
+
+### MIN-014 · A continuous numeric column is excluded with a reason
+- **Area:** `mine/keys.py::_is_continuous`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a float `market_value` column, unique by accident
+- **Steps:** mine
+- **Expected:** excluded, with "its values are distinct because they are
+  measurements, not because they identify a row"
+- **Why:** "proposing a market value as a candidate key is the kind of finding
+  that makes people stop reading them"
+
+### MIN-015 · An integer identifier column is not excluded as continuous
+- **Area:** `mine/keys.py::_is_continuous`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** an integer account number column
+- **Steps:** mine
+- **Expected:** eligible — the test requires *all* populated values to be floats
+- **Why:** the counterfactual; excluding integers would exclude most real keys
+
+### MIN-016 · A near-unique column is an approximate key, not a non-key
+- **Area:** `mine/keys.py::APPROXIMATE_THRESHOLD`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** 10,000 rows with 3 duplicates (0.9997), then with 20
+  (0.998)
+- **Steps:** mine
+- **Expected:** the first is a candidate with `approximate is True` and a
+  description saying "which is what a key with a duplicate problem looks like,
+  not what a non-key looks like"; the second is not proposed
+- **Why:** "a column that is 99.99% unique is usually a key with a data problem
+  rather than a non-key" — and the finding is the duplicates
+
+### MIN-017 · A surrogate key is ranked last, not excluded
+- **Area:** `mine/keys.py::KeyFindings.best`, `_is_surrogate`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a dense integer `row_id` and a business key
+  `(account_id, business_date)`
+- **Steps:** mine; read `best` and `business_key_found`
+- **Expected:** the business key is `best` although it is wider;
+  `business_key_found is True`
+- **Why:** "'one row per row_id' answers 'what does one row represent?' with 'a
+  row', and offering it as the answer is worse than offering nothing, because it
+  looks like one"
+
+### MIN-018 · A table whose only key is a surrogate says its grain was not found
+- **Area:** `mine/keys.py::KeyFindings.business_key_found`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** only a UUID column is unique
+- **Steps:** read `best` and `business_key_found`
+- **Expected:** `best` is the surrogate, `business_key_found is False`
+- **Why:** the report has to be able to say "nothing here answers what a row is"
+
+### MIN-019 · Surrogate detection needs a shape, not just a name
+- **Area:** `mine/keys.py::_is_surrogate`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** `instrument_id` holding ISINs; `ref` holding 1..n;
+  `trade_id` holding fixed-width digits; `trade_id` holding variable-width
+  digits; a UUID column called `counterparty`
+- **Steps:** mine
+- **Expected:** not a surrogate; a surrogate; a surrogate; not a surrogate; a
+  surrogate
+- **Why:** "a column called `id` holding ISINs is not a surrogate, and a column
+  called `ref` holding 1..n is"
+
+### MIN-020 · Dense integers are surrogates and sparse ones are not
+- **Area:** `mine/keys.py::_is_surrogate`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** values 1..1000; then 1000 account numbers drawn from a range
+  of 100,000
+- **Steps:** mine
+- **Expected:** the first is a surrogate (density > 0.9), the second is not
+- **Why:** "a sequence does; an account number drawn from a wider space does
+  not"
+
+### MIN-021 · What was not searched is reported
+- **Area:** `mine/keys.py::KeyFindings.skipped`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** eight eligible columns at `max_arity=3`
+- **Steps:** mine
+- **Expected:** a `skipped` note naming the arity ceiling and the eligible count
+- **Why:** "a report that says 'found two keys' while having skipped every
+  three-column combination reads as completeness and is not"
+
+### MIN-022 · A mined key's provenance is re-runnable
+- **Area:** `mine/keys.py::as_provenance`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** a candidate over a partitioned sample
+- **Steps:** read the provenance
+- **Expected:** origin `MINING`; an observation stating the columns, the row
+  count and the duplicates; every sample caveat appended
+- **Why:** "'unique across 4.2m rows spanning 90 days' is checkable, where
+  'confidence 0.97' is not"
+
+### MIN-023 · A mined key is never auto-activated
+- **Area:** `mine/keys.py::as_provenance` → `propose.queue`
+- **Type:** security
+- **Priority:** P1
+- **Precondition:** a perfect exact key over a full scan
+- **Steps:** adapt it into the queue; read `auto_activatable`
+- **Expected:** absent — origin `MINING` may not auto-activate
+- **Why:** "a miner cannot distinguish 'this is the key' from 'nothing has
+  happened yet that would break it', and pretending otherwise turns the first
+  legitimate duplicate into an incident"
+
+### MIN-024 · A key candidate's identity is stable across runs
+- **Area:** `mine/keys.py::key_identity`
+- **Type:** contract
+- **Priority:** P2
+- **Precondition:** the same key mined from two different samples
+- **Steps:** compare identities
+- **Expected:** equal — the key is dataset, rule and column list
+- **Why:** a re-mined key must land on the existing proposal or on its
+  suppression, not appear as new every night
+
+### MIN-025 · A real functional dependency is found, with its number
+- **Area:** `mine/dependencies.py::DependencyMiner.mine`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** 1,000 rows where each `counterparty_lei` has exactly one
+  `rating`, over 50 distinct counterparties
+- **Steps:** mine
+- **Expected:** at least one dependency; `counterparty_lei -> rating` among
+  them; `is_exact is True`; support 1.0
+- **Why:** finding T9 — the acceptance test must assert the dependency it
+  expects, not `dependencies or discarded`
+
+### MIN-026 · The counterfactual corpus yields nothing
+- **Area:** `mine/dependencies.py::DependencyMiner.mine`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** the same table with `rating` drawn at random
+- **Steps:** mine
+- **Expected:** no dependency involving `rating`; `discarded` non-empty
+- **Why:** "the old corpus is kept as the counterfactual: a miner reporting a
+  rule *there* would be inventing them"
+
+### MIN-027 · A key determines everything, and none of it is reported
+- **Area:** `mine/dependencies.py::NEAR_KEY_FRACTION`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a table with a unique `trade_id` and eight other columns
+- **Steps:** mine
+- **Expected:** no dependency with `trade_id` as determinant;
+  `discarded["near_key_determinant"]` counts them
+- **Why:** "a miner without this filter reports one dependency per column and
+  none of them is a rule — they are a restatement of the key"
+
+### MIN-028 · The near-key threshold is 90% distinct
+- **Area:** `mine/dependencies.py::DependencyMiner._is_near_key`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** determinants at 89% and 90% distinct over 1,000 rows
+- **Steps:** mine
+- **Expected:** the first searched, the second discarded
+- **Why:** "a determinant with 4.19m distinct values in 4.2m rows determines
+  every column to within 0.2% — support that reads as overwhelming evidence and
+  is entirely an artefact of the cardinality. It would be true of a column of
+  random numbers"
+
+### MIN-029 · A constant column is dropped before the search
+- **Area:** `mine/dependencies.py::DependencyMiner._useful_columns`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `record_type` is `'P'` on every row
+- **Steps:** mine
+- **Expected:** no dependency naming it on either side;
+  `discarded["constant_column"]` incremented
+- **Why:** "a constant is determined by everything. Same arithmetic, same
+  worthlessness"
+
+### MIN-030 · A dependency implied by a narrower one is not reported
+- **Area:** `mine/dependencies.py::DependencyMiner.mine`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `a -> c` holds, and `b` is another eligible column
+- **Steps:** mine at `max_determinant=2`
+- **Expected:** `(a, b) -> c` not reported; `discarded["implied"]` counts it
+- **Why:** "if a → c holds then (a, b) → c holds for free, and reporting both
+  buries the one that says something"
+
+### MIN-031 · Rows with a null on either side are excluded, not counted as agreeing
+- **Area:** `mine/dependencies.py::DependencyMiner._evaluate`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** 1,000 rows where `rating` is null in 600
+- **Steps:** mine
+- **Expected:** `null_excluded == 600`; support computed over 400; the evidence
+  sentence says so
+- **Why:** "counting such rows as agreeing is how a column that is mostly null
+  gets reported as perfectly determined"
+
+### MIN-032 · Support below 95% is not a dependency
+- **Area:** `mine/dependencies.py::MINIMUM_SUPPORT`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** dependencies holding on 94% and 96% of rows
+- **Steps:** mine
+- **Expected:** only the second reported, `is_exact is False`, the description
+  naming the exceptions
+- **Why:** "an approximate dependency below this support is not a dependency
+  with exceptions; it is a pattern that does not hold"
+
+### MIN-033 · The g3 measure counts rows to remove, not groups
+- **Area:** `mine/dependencies.py::DependencyMiner._evaluate`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** one determinant value with 90 rows of `A` and 10 of `B`
+- **Steps:** mine
+- **Expected:** 90 agreeing and 10 violating — the majority value per group
+  survives
+- **Why:** a measure that counted the whole group as violating would reject
+  every real dependency with a handful of bad rows, which is the finding worth
+  having
+
+### MIN-034 · A conditional dependency true globally is not re-reported
+- **Area:** `mine/dependencies.py::DependencyMiner._conditional`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `instrument -> issuer` holds globally, and a twelve-valued
+  `status` column is passed as a condition
+- **Steps:** mine with conditions
+- **Expected:** no conditional copies; `discarded["conditional_restates_global"]`
+  counts them
+- **Why:** "a table with a twelve-valued status column produces twelve copies of
+  every real finding. The conditional ones worth a reviewer's time are exactly
+  the ones that are *false globally*"
+
+### MIN-035 · A conditional dependency false globally is reported
+- **Area:** `mine/dependencies.py::DependencyMiner._conditional`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `product -> settlement_days` holds within `region = 'US'`
+  and not overall, over at least 50 US rows and 5% of the sample
+- **Steps:** mine with `conditions=("region",)`
+- **Expected:** one conditional dependency, exact, rendering as
+  `product -> settlement_days WHERE region = 'US'`
+- **Why:** the discovery the filter exists to preserve
+
+### MIN-036 · A condition covering too few rows is discarded
+- **Area:** `mine/dependencies.py::MINIMUM_CONDITION_COVERAGE`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** a condition value covering 49 rows, then 50 but 4% of the
+  sample, then 50 and 6%
+- **Steps:** mine
+- **Expected:** discarded, discarded, searched — both guards apply
+- **Why:** "'the rule holds for the eleven rows where country = AD' is a
+  description of eleven rows"
+
+### MIN-037 · Conditional completeness is mined as its own shape
+- **Area:** `mine/dependencies.py::DependencyMiner._conditional_completeness`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `state` populated on every US row and null on some others
+- **Steps:** mine with `conditions=("country",)`
+- **Expected:** a `Dependency` with `is_completeness is True`, rendering as
+  `state IS NOT NULL WHERE country = 'US'` and describing itself as mandatory
+  under that condition
+- **Why:** "the alternative a global miner offers is `state IS NOT NULL`, which
+  fails on every non-US row and gets switched off"
+
+### MIN-038 · A column mandatory everywhere is not narrowed to a condition
+- **Area:** `mine/dependencies.py::DependencyMiner._conditional_completeness`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** a column with no nulls at all
+- **Steps:** mine with conditions
+- **Expected:** no conditional completeness finding
+- **Why:** "dressing it as a conditional one narrows a true rule for no reason"
+
+### MIN-039 · A conditional completeness finding proposes a declaration Γ can use
+- **Area:** `mine/dependencies.py::Dependency.is_completeness` → `derive`
+- **Type:** contract
+- **Priority:** P2
+- **Precondition:** the finding from MIN-037
+- **Steps:** follow it to a conditional optionality declaration and generate
+- **Expected:** an `attribute.completeness` control with
+  `WHERE country = 'US'` (DER-044)
+- **Why:** "it is worth mining because it lands somewhere specific" — the claim
+  needs an end-to-end case, not a miner-only one
+
+### MIN-040 · An inclusion dependency is a foreign key nobody declared
+- **Area:** `mine/dependencies.py::InclusionMiner.mine`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** every `counterparty_id` in trades exists in a
+  near-unique `parties.id`
+- **Steps:** mine
+- **Expected:** one `Inclusion`, exact, describing itself as a foreign key
+  nobody declared
+- **Why:** `FR-PRF-008`, and the input to a proposed `REFERENCES` relationship
+
+### MIN-041 · A partial inclusion is the interesting one
+- **Area:** `mine/dependencies.py::InclusionMiner.mine`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** 97% containment with three distinct orphan values
+- **Steps:** mine
+- **Expected:** an `Inclusion` with `is_exact is False`, up to five orphan
+  examples, and a description ending "this is a foreign key with a live defect
+  in it, not a coincidence"
+- **Why:** "that is a live defect somebody wants to know about today"
+
+### MIN-042 · Containment below 90% is coincidence
+- **Area:** `mine/dependencies.py::InclusionMiner.__init__`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** containment at 89% and 90%
+- **Steps:** mine
+- **Expected:** nothing, then a finding
+- **Why:** "two columns of country codes overlap heavily without one referencing
+  the other"
+
+### MIN-043 · A reference target must be near-unique
+- **Area:** `mine/dependencies.py::InclusionMiner._is_key`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** a right-hand `status` column with three distinct values over
+  200 rows
+- **Steps:** mine
+- **Expected:** no inclusion; `discarded["target_is_not_a_key"]` counts it
+- **Why:** "every column in the world is 'contained' in it"
+
+### MIN-044 · A foreign key with orphans is not rejected for having more distinct values
+- **Area:** `mine/dependencies.py::InclusionMiner._is_key`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** a left column with 103 distinct values, 100 of them in a
+  unique right column
+- **Steps:** mine
+- **Expected:** the partial inclusion is reported
+- **Why:** "an earlier version compared distinct counts instead … and that
+  destroyed the finding this miner exists for: a foreign key *with orphans* has
+  more distinct values on the left, because the orphans are exactly the extra
+  ones"
+
+### MIN-045 · The target's near-uniqueness threshold is 99%
+- **Area:** `mine/dependencies.py::InclusionMiner._is_key`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a dimension table with 3 duplicate rows in 1,000
+- **Steps:** mine
+- **Expected:** still a valid target — "refusing to notice the foreign key
+  because of them would hide two findings instead of one"
+- **Why:** the duplicate rows are themselves a finding, reported by the key
+  miner
+
+### MIN-046 · An ordering invariant is found with counterexamples
+- **Area:** `mine/constraints.py::ConstraintMiner._orderings`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** 1,000 rows where `trade_date <= settlement_date` on 985
+- **Steps:** mine
+- **Expected:** one ordering invariant, support 0.985, up to three
+  counterexample rows carrying only the involved columns
+- **Why:** "three concrete wrong rows beat any statistic"
+
+### MIN-047 · An arithmetic identity is tested with a tolerance, never exactly
+- **Area:** `mine/constraints.py::IDENTITY_TOLERANCE`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** `quantity * price = notional` computed in floating point, so
+  no row is bit-exact
+- **Steps:** mine
+- **Expected:** the identity is found
+- **Why:** "an identity miner testing exact equality finds nothing at all and
+  reports a clean table with no invariants in it — which is the most misleading
+  possible output, because it looks like a thorough search"
+
+### MIN-048 · The identity tolerance is relative to the magnitude
+- **Area:** `mine/constraints.py::_identity`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** values of order 1e9 differing in the twelfth significant
+  digit; and values of order 1e-6 differing by 1e-7
+- **Steps:** mine
+- **Expected:** the first holds, the second does not — the scale is
+  `max(|computed|, |target|, 1.0)`
+- **Why:** an absolute tolerance would accept a real difference on large numbers
+  and reject a rounding one on small
+
+### MIN-049 · One relationship is not reported three ways
+- **Area:** `mine/constraints.py::ConstraintMiner._identities`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `fees + net = notional` holding exactly
+- **Steps:** mine
+- **Expected:** one invariant, the `+` form; `discarded["algebraic_restatement"]`
+  counts the `-` restatements; `discarded["commutative_duplicate"]` counts
+  `net + fees`
+- **Why:** "a reviewer reading the second one has to work out that it is the
+  first before they can dismiss it"
+
+### MIN-050 · An ordering entailed by an identity is dropped
+- **Area:** `mine/constraints.py::ConstraintMiner._not_implied`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `fees + net = notional` with both parts non-negative
+- **Steps:** mine
+- **Expected:** `net <= notional` and `fees <= notional` discarded with
+  `discarded["implied_by_identity"]`; `fees <= net` kept
+- **Why:** "reporting the consequence next to the premise gives a reviewer three
+  findings where there is one fact, and the two weak ones make the strong one
+  harder to see"
+
+### MIN-051 · The entailment floor differs for additive and multiplicative identities
+- **Area:** `mine/constraints.py::ConstraintMiner._not_implied`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** `price * quantity = notional` with a quantity below 1
+- **Steps:** mine
+- **Expected:** the ordering is **not** dropped — the multiplicative floor is
+  1.0, not 0.0
+- **Why:** a factor below one shrinks rather than grows, so the entailment does
+  not hold and dropping the ordering would lose a real check
+
+### MIN-052 · Disjoint ranges produce no ordering
+- **Area:** `mine/constraints.py::ConstraintMiner._disjoint_ranges`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `fees` in 0..100 and `quantity` in 10,000..1,000,000
+- **Steps:** mine
+- **Expected:** no `fees <= quantity` invariant;
+  `discarded["disjoint_ranges"]` counts it
+- **Why:** "that is a fact about units, not a rule about the business, and a
+  control built on it can only fail if somebody changes the scale of a column"
+
+### MIN-053 · A strict ordering suppresses its weaker form
+- **Area:** `mine/constraints.py::ConstraintMiner._orderings`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** `valid_from < valid_to` holding on every row
+- **Steps:** mine
+- **Expected:** one invariant, the strict one; `discarded["weaker_ordering"]`
+  counts `<=`
+- **Why:** "the strict one is already the stronger claim and is found first" —
+  which depends on the operator loop order
+
+### MIN-054 · Columns of different families are not compared
+- **Area:** `mine/constraints.py::ConstraintMiner._same_family`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** a numeric quantity and a date string
+- **Steps:** mine
+- **Expected:** no invariant between them
+- **Why:** "comparing a quantity to a date raises in Python and would compare
+  lexically in some engines, which is worse — it produces an invariant that
+  holds on the sample and means nothing"
+
+### MIN-055 · A predicate that raises abandons the candidate rather than the run
+- **Area:** `mine/constraints.py::ConstraintMiner._test`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** mixed types in one column so the comparison raises
+- **Steps:** mine
+- **Expected:** that candidate returns `None`; the rest of the search completes
+- **Why:** one unmineable column pair must not empty the findings for a table
+
+### MIN-056 · Fewer than fifty applicable rows is not an invariant
+- **Area:** `mine/constraints.py::MINIMUM_APPLICABLE`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** a 300-row sample where only 49 rows have both columns
+  populated
+- **Steps:** mine
+- **Expected:** nothing; and the sparse column is counted in
+  `discarded["too_sparse"]`
+- **Why:** "a comparison that holds on every row because one side is always null
+  … is not an invariant"
+
+### MIN-057 · Invariant support below 97% is not reported
+- **Area:** `mine/constraints.py::MINIMUM_SUPPORT`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** orderings at 96% and 98%
+- **Steps:** mine
+- **Expected:** only the second
+- **Why:** "set lower than the dependency threshold on purpose: an ordering that
+  holds on 97% of rows is a real rule and a real backlog of 3% bad rows"
+
+### MIN-058 · The identity search is capped and the cap is reported
+- **Area:** `mine/constraints.py::ConstraintMiner.mine`
+- **Type:** contract
+- **Priority:** P2
+- **Precondition:** twelve numeric columns
+- **Steps:** mine
+- **Expected:** identities searched over the first eight; a `skipped` note
+  naming the count and the cubic cost
+- **Why:** the same rule as MIN-021 — a search that silently stopped early reads
+  as a complete one
+
+### MIN-059 · Every mined finding's provenance carries the observation and the caveats
+- **Area:** `mine/constraints.py::invariant_provenance`;
+  `dependency_provenance`; `inclusion_provenance`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** one finding of each kind over a caveated sample
+- **Steps:** read each provenance
+- **Expected:** origin `MINING`; a rule name of the form `mine.<kind>`; the
+  evidence sentence first; counterexample rows second for an invariant; every
+  sample caveat after
+- **Why:** the reviewer's only basis for a mined proposal, and the ordering is
+  what they read first
+
+### MIN-060 · Mined identities are stable and distinct
+- **Area:** `mine/dependencies.py::dependency_identity`, `inclusion_identity`;
+  `mine/constraints.py::invariant_identity`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a dependency and its conditional variant; two inclusions
+  from one column to two targets
+- **Steps:** compare identities
+- **Expected:** all distinct; the conditional variant's key includes the
+  condition
+- **Why:** a collision would let a conditional finding suppress the global one
+  it was meant to complement
+
+---
+
+## `er/match.py` — deciding whether two records are one thing
+
+### ER-001 · Agreement weight is the log-ratio, and it has units
+- **Area:** `er/match.py::Comparison.agreement_weight`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `Comparison(m=0.9, u=0.1)` and `Comparison(m=0.9, u=0.001)`
+- **Steps:** read the weights
+- **Expected:** about +3.17 and +9.8 bits
+- **Why:** "a matching surname is weak evidence in a population of Smiths and
+  strong evidence in a population of Nakagawas, and the arithmetic says so on
+  its own rather than needing somebody to notice"
+
+### ER-002 · Disagreement weight is negative and separately derived
+- **Area:** `er/match.py::Comparison.disagreement_weight`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** `m=0.9, u=0.1`
+- **Steps:** read it
+- **Expected:** about -3.17; a field with `m=0.5, u=0.5` weighs zero both ways
+- **Why:** a disagreement on a reliable field is strong evidence *against*, and
+  a model that only rewards agreement cannot express it
+
+### ER-003 · Probabilities are clamped away from zero and one
+- **Area:** `er/match.py::_clamp`, `EPSILON`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** `Comparison(m=1.0, u=0.0)`
+- **Steps:** read both weights
+- **Expected:** finite — no `inf`, no `ZeroDivisionError`
+- **Why:** "a field that agreed on every training pair produces an infinite
+  weight and one disagreement outvotes every other piece of evidence forever"
+
+### ER-004 · A missing value contributes nothing, not disagreement
+- **Area:** `er/match.py::Comparison.weigh`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** two records, one with an empty `lei`
+- **Steps:** weigh
+- **Expected:** `None`, and the field listed in `uninformative`
+- **Why:** "the single most common implementation error here, and it
+  systematically separates exactly the records most likely to be duplicates —
+  the sparse ones"
+
+### ER-005 · An empty string counts as missing
+- **Area:** `er/match.py::Comparison.agrees`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** `""` on one side, a value on the other, then `""` on both
+- **Steps:** weigh
+- **Expected:** `None` in both cases — two blanks do not agree
+- **Why:** two records both missing a LEI are not evidence that they are the
+  same party
+
+### ER-006 · `agrees` is separate from the sign of the weight
+- **Area:** `er/match.py::Comparison.agrees`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** `Comparison(m=0.5, u=0.5)` — weight exactly zero
+- **Steps:** call `agrees` on an agreeing pair
+- **Expected:** `True`, although `weight > 0` is false
+- **Why:** "with `m == u` the weight is zero, `weight > 0` is False, and every
+  agreement is counted as a disagreement — so EM initialised at 0.5/0.5 drives
+  both parameters to the floor and returns a field worth nothing"
+
+### ER-007 · A judgement records every contribution
+- **Area:** `er/match.py::Resolver.judge`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** seven comparisons, two of them uninformative
+- **Steps:** judge a pair
+- **Expected:** five contributions, two uninformative fields, the score their
+  sum; `describe()` names the three strongest and says the match rests on less
+  evidence than it looks like
+- **Why:** "a disputed match can be argued with rather than appealed to", and "a
+  match resting on two fields out of seven is a different claim from one resting
+  on seven"
+
+### ER-008 · Three decisions, not two
+- **Area:** `er/match.py::MATCH_THRESHOLD`, `NON_MATCH_THRESHOLD`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** scores of 4.0, 3.9, -2.0, -2.1
+- **Steps:** judge
+- **Expected:** match, review, non-match, non-match — both bounds inclusive
+- **Why:** "a single threshold forces every uncertain pair into a decision
+  nobody made, and the uncertain ones are exactly the ones worth a person"
+
+### ER-009 · The review band is returned, not discarded
+- **Area:** `er/match.py::Resolution.review`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a population producing matches and borderline pairs
+- **Steps:** resolve
+- **Expected:** both lists populated and sorted by descending score; non-matches
+  are not retained
+- **Why:** the band is the queue; a resolver that returns only matches has made
+  the uncertain decisions silently
+
+### ER-010 · Blocking reduces the comparisons and the reduction is reported
+- **Area:** `er/match.py::Resolution.reduction`
+- **Type:** performance
+- **Priority:** P1
+- **Precondition:** 1,000 records, blocking on postcode
+- **Steps:** resolve
+- **Expected:** `compared` far below `total_possible == 499,500`; `reduction`
+  close to 1.0; an empty population yields 0.0 rather than a division by zero
+- **Why:** "blocking is the only reason this runs at all"
+
+### ER-011 · A pair is compared once however many keys find it
+- **Area:** `er/match.py::Resolver._candidates`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** two blocking keys that both group the same pair
+- **Steps:** resolve
+- **Expected:** one entry in `pairs`; `by_key` counts it for both keys;
+  `unique_by_key` credits only the first
+- **Why:** "crediting only the first key makes every redundant key look broken,
+  and that is how somebody deletes the one carrying a population nobody had
+  thought about"
+
+### ER-012 · A key that brings nothing together is named as useless
+- **Area:** `er/match.py::Resolution.useless_keys`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a blocking key returning `None` for every record
+- **Steps:** resolve; read `describe()`
+- **Expected:** the key listed, with "which usually means the key is wrong
+  rather than that there is nothing to find"
+- **Why:** "a pair never compared can never match, so a blocking key that is
+  wrong loses records silently and no amount of downstream cleverness recovers
+  them"
+
+### ER-013 · A redundant key is reported as redundant, not as useless
+- **Area:** `er/match.py::Resolution.redundant_keys`
+- **Type:** boundary
+- **Priority:** P1
+- **Precondition:** a key whose every pair another key already found
+- **Steps:** resolve
+- **Expected:** listed under `redundant_keys` and **not** `useless_keys`, with
+  the sentence about keeping it if the population might grow
+- **Why:** the two have different remedies and the same symptom
+
+### ER-014 · A blocking key returning an empty string is skipped
+- **Area:** `er/match.py::Resolver._candidates`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** records whose blocking value is `""`
+- **Steps:** resolve
+- **Expected:** no bucket formed — the guard is `if value:`
+- **Why:** an empty bucket would compare every record with a missing postcode
+  against every other, which is the opposite of blocking
+
+### ER-015 · `estimate_u` is measured from random pairs and is deterministic
+- **Area:** `er/match.py::estimate_u`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** 1,000 records where surnames agree about 1% of the time
+- **Steps:** estimate twice with the same seed, then with another
+- **Expected:** about 0.01; identical for one seed, close for the other; fewer
+  than two records returns 0.5
+- **Why:** "almost every random pair from a population is a non-match … so a
+  random sample is a non-match sample to within a rounding error"
+
+### ER-016 · `estimate_m` falls back honestly with no labelled pairs
+- **Area:** `er/match.py::estimate_m`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** an empty pair list, then pairs where the field is always
+  missing
+- **Steps:** estimate
+- **Expected:** 0.9 in both — the stated default, not a computed value
+- **Why:** a fabricated estimate would be indistinguishable from a measured one
+  in the weight it produces
+
+### ER-017 · EM breaks the `m == u` symmetry before it starts
+- **Area:** `er/match.py::expectation_maximisation`
+- **Type:** regression
+- **Priority:** P1
+- **Precondition:** comparisons initialised at `m = u = 0.5`
+- **Steps:** run EM for twenty rounds
+- **Expected:** they are re-initialised to 0.9/0.1 and move from there; the
+  returned comparisons have non-zero weights
+- **Why:** "m == u is a saddle point … the algorithm sits there for as many
+  rounds as it is given — returning fields worth zero bits and no indication
+  that anything went wrong"
+
+### ER-018 · EM recovers plausible parameters from a synthetic population
+- **Area:** `er/match.py::expectation_maximisation`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** a generated population with a known duplicate rate and known
+  per-field agreement rates
+- **Steps:** run EM over blocked pairs; compare the recovered `m` and `u` with
+  the planted ones
+- **Expected:** within a stated tolerance, and `m > u` for every field
+- **Why:** the positive control — "it ran without raising" is not evidence that
+  it estimated anything
+
+### ER-019 · EM with no pairs returns the comparisons unchanged
+- **Area:** `er/match.py::expectation_maximisation`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** an empty pair list
+- **Steps:** run EM
+- **Expected:** the initialised comparisons returned, no exception
+- **Why:** a population with no candidate pairs is a blocking problem, and EM
+  must report it as unchanged rather than as converged
+
+### ER-020 · A field that is never comparable keeps its prior
+- **Area:** `er/match.py::expectation_maximisation`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** a field null on every record
+- **Steps:** run EM
+- **Expected:** `m` and `u` unchanged — the guards are
+  `if match_weight else comparison.m`
+- **Why:** a field with no observations must not be updated to zero and then
+  dominate every score
+
+### ER-021 · Conditional independence is documented as an assumption
+- **Area:** `er/match.py::expectation_maximisation` docstring
+- **Type:** documentation
+- **Priority:** P2
+- **Precondition:** comparisons on first name and last name, which co-vary
+- **Steps:** run EM; compare with a labelled ground truth
+- **Expected:** estimates biased in the direction the docstring predicts
+- **Why:** "it is routinely violated — first name and last name agree together
+  more often than chance because of families — so the estimates are approximate,
+  and treating them as exact is where this method gets a bad name"
+
+### ER-022 · Legal-form noise is normalised away
+- **Area:** `er/match.py::normalised`, `_LEGAL_FORMS`
+- **Type:** functional
+- **Priority:** P1
+- **Precondition:** "ACME Ltd.", "Acme Limited", "ACME Holdings Group"
+- **Steps:** compare each pair
+- **Expected:** the first two agree; check what the third does — every one of its
+  words but "acme" is a stripped legal form
+- **Why:** "a comparison that says otherwise makes every entity resolution over
+  company names useless before the arithmetic starts"; but a name that
+  normalises to a single common token is where it over-matches
+
+### ER-023 · A name that normalises to nothing does not match everything
+- **Area:** `er/match.py::_normalise_name`
+- **Type:** negative
+- **Priority:** P1
+- **Precondition:** "Group Holdings Ltd" and "Co Limited" — both normalise to
+  `""`
+- **Steps:** compare
+- **Expected:** currently `True`, because two empty strings are equal
+- **Why:** two unrelated shell companies would be judged in perfect agreement on
+  their strongest field
+
+### ER-024 · Trigram similarity has a defined answer for short strings
+- **Area:** `er/match.py::_trigram_similarity`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** `""` against `""`; `"a"` against `"a"`; `""` against `"a"`
+- **Steps:** compare at threshold 0.85
+- **Expected:** 1.0, 1.0, 0.0 — the padded form always yields trigrams, so
+  confirm which branch is taken
+- **Why:** the fallback `1.0 if left == right else 0.0` exists for a case the
+  padding may make unreachable
+
+### ER-025 · `exact` is case- and whitespace-insensitive
+- **Area:** `er/match.py::exact`
+- **Type:** boundary
+- **Priority:** P2
+- **Precondition:** `" gb00b03mlx29 "` against `"GB00B03MLX29"`; then `1` against
+  `"1"`
+- **Steps:** compare
+- **Expected:** both agree — values are stringified before comparison
+- **Why:** an identifier read from two sources differs in case and padding far
+  more often than in substance; the numeric coercion is the surprising half
+
+### ER-026 · Transitivity is not assumed, and nothing clusters
+- **Area:** `er/match.py::Resolver.resolve`
+- **Type:** contract
+- **Priority:** P1
+- **Precondition:** A matches B, B matches C, A does not match C
+- **Steps:** resolve
+- **Expected:** two match judgements and no cluster — the resolver returns
+  pairs, never entity groups
+- **Why:** the pairwise output is honest and the transitive closure is a
+  decision nobody has made here; a caller that unions matched pairs into
+  entities would merge A and C on evidence that says they are different
+
+### ER-027 · The identity field is configurable and missing ids degrade
+- **Area:** `er/match.py::Resolver.judge`
+- **Type:** boundary
+- **Priority:** P3
+- **Precondition:** records with no `id` key; then `identity="party_id"`
+- **Steps:** judge
+- **Expected:** `"?"` for both sides in the first; the named field used in the
+  second
+- **Why:** a judgement between two `?` records cannot be acted on, and the
+  blocking dedupe key uses the same field — so every id-less record collides in
+  `seen`
+
+### ER-028 · A resolution describes itself in numbers
+- **Area:** `er/match.py::Resolution.describe`
+- **Type:** functional
+- **Priority:** P2
+- **Precondition:** any resolution with a useless and a redundant key
+- **Steps:** read `describe()`
+- **Expected:** matches, review count, pairs compared, the reduction percentage,
+  and both key sentences
+- **Why:** the summary is what a steward reads before deciding whether to trust
+  the match list
 
