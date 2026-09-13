@@ -370,13 +370,16 @@ desc36 = analysis_close.describe()
 ok = "this is where to start rather than the answer" in desc36
 line("INC-036", "PASS" if ok else "FAIL", f"describe={desc36!r}")
 
-# ---- INC-037 ----
+# ---- INC-037 ---- 40 columns directly (fan-in) upstream of the origin, all within
+# LineageGraph.sources_of's MAXIMUM_DEPTH=12 traversal limit -- a 40-hop chain would
+# exceed that depth and undercount; a wide fan-in is the construction that matches
+# "forty upstream columns" without hitting the unrelated depth ceiling.
 g37 = LineageGraph()
-chain37 = [col(f"D{i}","c") for i in range(41)]  # D0 origin + 40 upstream
+origin37 = col("D0", "c")
 for i in range(40):
-    g37.add(Edge(source=chain37[i+1], target=chain37[i]))
-inc37 = Incident(identity="i37", findings=(Finding(identity="f",dataset="D0",column="c",at=base),), common_ancestor=chain37[0], opened_at=base)
-rc37 = RootCause(g37, priors={chain37[i].qualified: 1 for i in range(1,41)}, limit=5)
+    g37.add(Edge(source=col(f"U{i}", "c"), target=origin37))
+inc37 = Incident(identity="i37", findings=(Finding(identity="f",dataset="D0",column="c",at=base),), common_ancestor=origin37, opened_at=base)
+rc37 = RootCause(g37, priors={f"U{i}.c": 1 for i in range(40)}, limit=5)
 a37 = rc37.analyse(inc37)
 ok = a37.considered == 41 and len(a37.hypotheses) == 5
 line("INC-037", "PASS" if ok else "FAIL", f"considered={a37.considered} offered={len(a37.hypotheses)}")

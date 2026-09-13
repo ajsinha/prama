@@ -96,8 +96,14 @@ target_moment4 = datetime(2026,1,12,14,0)
 g4 = m4.group(thin_history, target_moment4)
 declared_survives_in_key = any(name.startswith("declared:") for name,_ in g4.key.facets)
 declared_in_relaxed = any(f == Facet.DECLARED for f in g4.relaxed)
-ok = g4.size == len(thin_history)  # fell back to everything
-line("MON-064", "INFO" if ok else "FAIL", f"final_key={g4.key.facets} declared_survives_in_key={declared_survives_in_key} relaxed={[f.value for f in g4.relaxed]} declared_in_relaxed={declared_in_relaxed}")
+fell_back_to_everything = g4.size == len(thin_history)
+# Expected: "the driver survives every relaxation, including the final fall-back" --
+# i.e. declared_survives_in_key should be True. Observed: the total fallback returns
+# SeasonKey() (empty), which drops the declared facet along with everything else,
+# AND relaxed=tuple(order) never includes Facet.DECLARED (order is [HOUR,DAY_OF_WEEK,
+# PERIOD_END,BUSINESS_DAY], DECLARED is not in it) -- so the loss is not even reported.
+ok = fell_back_to_everything and declared_survives_in_key
+line("MON-064", "PASS" if ok else "FAIL", f"final_key={g4.key.facets} declared_survives_in_key={declared_survives_in_key} relaxed={[f.value for f in g4.relaxed]} declared_in_relaxed={declared_in_relaxed} (expected the driver to survive the fallback; it does not, and its loss is not reported in `relaxed` either)")
 
 # MON-065 - group below minimum never returned: exactly 19 vs 20
 # construct 19 identical-key business days plus enough padding of a different key so relaxation would find only these matches

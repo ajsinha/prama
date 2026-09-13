@@ -215,6 +215,33 @@ not occur. Reproducing the symptom first would have cost one command.
 
 ---
 
+### Q-58 · The `Co-Authored-By: Claude` commits are orphans, not history — **not a defect**
+
+`OPS-074` reported two commits carrying the forbidden trailers, and I reported
+the same thing from the same query. Both of us were wrong in the same way, which
+is worth recording because the query looked conclusive.
+
+`git log --all` includes `refs/original/`, the backup refs a previous
+`filter-branch` leaves behind. The two commits — `07963c59` and `9fa19f16`,
+dated 27 minutes before `.githooks/commit-msg` existed — lived only there. They
+are ancestors of neither `develop` nor `main`, and the remote holds nothing but
+those two branches.
+
+Checked commit by commit rather than by grep: `develop` has 221 commits and
+`main` 188, and **none** carries any Claude attribution. The hook has held since
+the moment it was installed.
+
+The orphans have since been expired and garbage-collected locally, so the query
+that produced this finding now returns nothing.
+
+The lesson is the same one as Q-57, one turn later: a query that names a symptom
+is not a diagnosis. `--all` does not mean "all history", it means "all refs",
+and the difference was the whole finding. I proposed rewriting 221 commits and
+force-pushing two branches on the strength of it. Checking reachability first —
+one `git merge-base --is-ancestor` — would have cost nothing.
+
+---
+
 ## Open
 
 Ranked. Each was reported by the agent named, and awaits reproduction before

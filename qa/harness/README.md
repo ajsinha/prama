@@ -45,6 +45,18 @@ catalogue rather than re-run.
 That is the argument for this directory existing, made by the one area that
 does not have it.
 
+## Fixtures are generated, not stored
+
+A harness that needs a 1501-line file, a drifted `pyproject.toml` or a fake
+`.venv` **builds it at run time**. None of that is committed. The first attempt
+to keep these harnesses swept the generated inputs in with them, and the
+pre-commit hook refused the commit because one of them was a 1501-line file
+built specifically to prove the 1500-line ceiling refuses it — the guard
+catching a fixture written to test the guard.
+
+It was right to refuse. Those files are derived data: large, uninteresting, and
+reproducible by the script that needs them.
+
 ## Status
 
 These are working scripts, not curated tests. They hard-code paths, print

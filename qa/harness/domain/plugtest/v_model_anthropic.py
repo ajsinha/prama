@@ -1,7 +1,0 @@
-import anthropic
-from prama.classify.validators import SemanticValidator, Judgement, VALID
-class V(SemanticValidator):
-    name = "model_anthropic"
-    label="x"
-    def check(self, value):
-        return VALID
