@@ -271,7 +271,7 @@ class ControlFormatCommand(Command):
             return failure
         formatted = "\n\n".join(c.render() for c in controls) + "\n"
         if ctx.args.write:
-            Path(ctx.args.file).write_text(formatted, encoding="utf-8")
+            _write_source(Path(ctx.args.file), formatted)
             changed = formatted != source
             ctx.emit(f"{ctx.args.file}: {'rewritten' if changed else 'already canonical'}")
             return EXIT_OK
@@ -364,13 +364,14 @@ class ControlImportCommand(Command):
         if not path.is_file():
             ctx.emit(f"no such file: {path}")
             return EXIT_USAGE
-        result = importer(ctx.args.source_format).read_text(path.read_text(encoding="utf-8"))
+        result = importer(ctx.args.source_format).read_text(_read_source(path))
         if ctx.json_output:
             ctx.emit_json(result.to_dict())
             return EXIT_OK
         if ctx.args.out:
-            Path(ctx.args.out).write_text(
-                "\n\n".join(c.render() for c in result.controls) + "\n", encoding="utf-8"
+            _write_source(
+                Path(ctx.args.out),
+                "\n\n".join(c.render() for c in result.controls) + "\n",
             )
             ctx.emit(f"{result.imported} control(s) written to {ctx.args.out}.")
             ctx.emit("")
@@ -396,6 +397,57 @@ class ControlCommand(CommandGroup):
         ]
 
 
+def _write_source(path: Path, text: str) -> None:
+    """Write, or refuse in a way that says which file and why.
+
+    A path under an unwritable or non-existent directory raised
+    `FileNotFoundError` or `PermissionError` straight out of `io.open`, so the
+    person who mistyped `--out` got a stack trace through pathlib rather than
+    the path they mistyped. QA round 3, Q-68.
+    """
+    try:
+        path.write_text(text, encoding="utf-8")
+    except OSError as exc:
+        raise ValidationError(
+            f"{path} could not be written: {exc.strerror or exc}",
+            remedy=(
+                "Check the directory exists and is writable. `--out` names the "
+                "file to create, not the directory to create it in."
+            ),
+            context={"file": str(path)},
+        ) from None
+
+
+def _read_source(path: Path) -> str:
+    """The file's text, or a typed refusal naming why it could not be read.
+
+    `read_text(encoding="utf-8")` raises `UnicodeDecodeError` on a file saved as
+    latin-1 — which is what an editor on a Windows desktop produces by default —
+    and that reached the terminal as a stack trace ending in a codec frame.
+    Nothing in it said "your file is not UTF-8", and nothing said which byte.
+    QA round 3, Q-68.
+    """
+    try:
+        return path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise ValidationError(
+            f"{path} is not valid UTF-8: byte 0x{exc.object[exc.start]:02x} at position "
+            f"{exc.start} is not part of a UTF-8 character",
+            remedy=(
+                "Save the file as UTF-8. An editor defaulting to latin-1 or "
+                "cp1252 produces this whenever a control quotes an accented "
+                "word in its BECAUSE clause."
+            ),
+            context={"file": str(path), "position": exc.start},
+        ) from None
+    except OSError as exc:
+        raise ValidationError(
+            f"{path} could not be read: {exc.strerror or exc}",
+            remedy="Check the path exists and that you have permission to read it.",
+            context={"file": str(path)},
+        ) from None
+
+
 def _read(ctx: CommandContext) -> tuple[list[Control], str, int | None]:
     """Read and parse the file, or report why not.
 
@@ -406,7 +458,7 @@ def _read(ctx: CommandContext) -> tuple[list[Control], str, int | None]:
     if not path.is_file():
         ctx.emit(f"no such file: {path}")
         return [], "", EXIT_USAGE
-    source = path.read_text(encoding="utf-8")
+    source = _read_source(path)
     try:
         return list(parse(source).all_controls), source, None
     except PqlError as exc:

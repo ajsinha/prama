@@ -15,7 +15,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import argparse
-from datetime import date
+from datetime import MAXYEAR, MINYEAR, date
 from typing import Any
 
 from prama.cli.base import EXIT_OK, Command, CommandContext, CommandGroup
@@ -173,6 +173,20 @@ class PackCalendarCommand(Command):
                 remedy="TARGET2, FederalReserve, London or NYSE.",
                 context={"calendar": ctx.args.name},
             ) from None
+
+        # A year outside `datetime`'s range reaches `date(year, ...)` deep in
+        # the rule evaluation and raises a bare ValueError, which escapes the
+        # CLI's translation as a stack trace. Refused here, where the argument
+        # arrives, beside the calendar-name refusal above. QA round 3, Q-68.
+        if not MINYEAR <= ctx.args.year <= MAXYEAR:
+            raise ValidationError(
+                f"year {ctx.args.year} is outside the range a calendar can be computed for",
+                remedy=(
+                    f"Pass --year between {MINYEAR} and {MAXYEAR}. "
+                    "A closure calendar is only meaningful for years the regime existed."
+                ),
+                context={"year": ctx.args.year},
+            )
 
         closures = sorted(observed(wanted.rules, [ctx.args.year]))
         rows = [{"date": day.isoformat(), "weekday": day.strftime("%A")} for day in closures]

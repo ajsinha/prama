@@ -16,6 +16,7 @@ import textwrap
 from typing import Any
 
 from prama.cli.base import EXIT_OK, Command, CommandContext, CommandGroup
+from prama.core.errors import ValidationError
 
 
 class BenchTaxonomyCommand(Command):
@@ -30,7 +31,17 @@ class BenchTaxonomyCommand(Command):
 
         chosen = CLASSES
         if ctx.args.family:
-            wanted = Family(ctx.args.family.lower())
+            try:
+                wanted = Family(ctx.args.family.lower())
+            except ValueError:
+                # `Family("wizard")` raises a bare ValueError that reaches the
+                # terminal as a stack trace. The refusal names the families
+                # rather than making the reader find them. QA round 3, Q-68.
+                raise ValidationError(
+                    f"{ctx.args.family!r} is not a defect family",
+                    remedy="One of: " + ", ".join(f.value for f in Family) + ".",
+                    context={"family": ctx.args.family},
+                ) from None
             chosen = tuple(c for c in CLASSES if c.family is wanted)
 
         if ctx.json_output:

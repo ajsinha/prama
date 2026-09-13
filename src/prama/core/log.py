@@ -23,6 +23,7 @@ from contextvars import ContextVar
 from typing import Any, Final
 
 from prama.core import pjson
+from prama.core.errors import ConfigError
 
 correlation_id: ContextVar[str | None] = ContextVar("prama_correlation_id", default=None)
 tenant_id: ContextVar[str | None] = ContextVar("prama_tenant_id", default=None)
@@ -177,6 +178,24 @@ class LoggingConfigurator:
         handler.addFilter(ContextFilter())
         handler.addFilter(RedactionFilter())
         root.addHandler(handler)
+        # `setLevel` raises a bare ValueError ("Unknown level: 'LOUD'") for a
+        # name it does not know. It runs before any command, so the trace it
+        # produced named none of the valid levels and pointed at the logging
+        # module rather than at --log-level. QA round 3, Q-68.
+        if self._level not in logging.getLevelNamesMapping():
+            raise ConfigError(
+                f"{self._level!r} is not a logging level",
+                remedy=(
+                    "Use one of: "
+                    + ", ".join(
+                        name
+                        for name in logging.getLevelNamesMapping()
+                        if name not in ("WARN", "FATAL", "NOTSET")
+                    )
+                    + "."
+                ),
+                context={"level": self._level},
+            )
         root.setLevel(self._level)
 
 

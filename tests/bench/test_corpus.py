@@ -15,6 +15,7 @@ import pytest
 
 from prama.bench import corpus
 from prama.bench.corpus import CLASSES, Difficulty, Family
+from prama.core.errors import ValidationError
 
 
 class TestReproducibility:
@@ -162,11 +163,21 @@ class TestDateRelativeInjection:
 
 
 class TestRefusals:
+    """Refusals carry the taxonomy, because the CLI only translates that.
+
+    These asserted `ValueError` until QA round 3 (`Q-68`). A bare `ValueError`
+    is not caught by `Application.run`, so `prama bench run --rows 0` answered
+    with a stack trace rather than a refusal. The message was already right;
+    only the type was wrong, which is why the `match=` patterns are unchanged.
+    """
+
     @pytest.mark.parametrize("rate", [0.0, -0.1, 1.5])
     def test_an_impossible_rate_is_refused(self, rate: float) -> None:
-        with pytest.raises(ValueError, match="share of rows"):
+        with pytest.raises(ValidationError, match="share of rows") as caught:
             corpus.build(seed=1, rate=rate)
+        assert caught.value.remedy, "a refusal without a remedy is half an answer"
 
     def test_a_corpus_needs_rows(self) -> None:
-        with pytest.raises(ValueError, match="needs rows"):
+        with pytest.raises(ValidationError, match="needs rows") as caught:
             corpus.build(seed=1, rows=0)
+        assert caught.value.remedy, "a refusal without a remedy is half an answer"
