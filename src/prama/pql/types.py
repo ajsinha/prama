@@ -435,9 +435,8 @@ class TypeChecker:
         if isinstance(node, ast.FunctionCall):
             # Aggregates are part of the language rather than the scalar
             # catalogue: they belong to a metric, not to a row expression.
-            aggregate = _AGGREGATE_TYPES.get(node.name.upper())
-            if aggregate is not None:
-                return aggregate
+            if _used_as_aggregate(node.name.upper(), len(node.arguments)):
+                return _AGGREGATE_TYPES[node.name.upper()]
             declared = FUNCTIONS.find(node.name)
             return declared.returns if declared else UNKNOWN
         if isinstance(node, ast.BinaryOp):
@@ -452,14 +451,36 @@ class TypeChecker:
 #: Aggregates. Not in the function catalogue because they are not row
 #: expressions: an aggregate belongs to a metric, and a catalogue entry
 #: promises a per-row lowering it could not honour.
+#:
+#: `MIN` and `MAX`, not `MIN_AGG` and `MAX_AGG`. Those two spellings appeared
+#: nowhere else in the codebase — no parser, lowering or backend ever produced
+#: them — so a single-argument `MIN(notional)` missed this table entirely and
+#: was checked against the *scalar* two-argument `MIN`, which reported
+#: "MIN takes at least 2 argument(s), and was given 1" about a perfectly
+#: ordinary aggregate (QA findings PQL-186 and PQL-187).
 _AGGREGATE_TYPES: dict[str, str] = {
     "COUNT": NUMBER,
     "SUM": NUMBER,
     "AVG": NUMBER,
-    "MIN_AGG": NUMBER,
-    "MAX_AGG": NUMBER,
+    "MIN": NUMBER,
+    "MAX": NUMBER,
     "STDDEV": NUMBER,
 }
+
+#: The two names that are both an aggregate and a scalar function. `MIN(col)`
+#: is the smallest value in a column; `MIN(a, b)` is the smaller of two. They
+#: are told apart by arity, which is the only thing that distinguishes them and
+#: is exactly how SQL does it.
+_AGGREGATE_OR_SCALAR: frozenset[str] = frozenset({"MIN", "MAX"})
+
+
+def _used_as_aggregate(name: str, argument_count: int) -> bool:
+    """Whether this call is the aggregate rather than the scalar of that name."""
+    if name not in _AGGREGATE_TYPES:
+        return False
+    if name in _AGGREGATE_OR_SCALAR:
+        return argument_count == 1
+    return True
 
 
 def check_calls(node: ast.Expression) -> list[tuple[str, str, str]]:
@@ -477,7 +498,7 @@ def check_calls(node: ast.Expression) -> list[tuple[str, str, str]]:
     problems: list[tuple[str, str, str]] = []
     for call in _calls_in(node):
         name = call.name.upper()
-        if name in _AGGREGATE_TYPES:
+        if _used_as_aggregate(name, len(call.arguments)):
             continue
         declared = FUNCTIONS.find(name)
         if declared is None:

@@ -740,13 +740,29 @@ class ValidatorRegistry:
             ) from None
 
     def find(self, name: str) -> SemanticValidator | None:
-        return self._validators.get(name)
+        """A validator by name, however the author capitalised it.
+
+        Case-insensitive because PQL is written in upper case and these are
+        registered in lower. `IS VALID ISIN` — the spelling in two of the
+        parser's own remedies, and the one anybody would write — resolved to
+        nothing, so the error message told an author to type something that
+        does not work (QA finding PQL-075).
+
+        A semantic type is a name a person chooses, not an identifier a machine
+        mints, and `isin` and `ISIN` are the same name.
+        """
+        found = self._validators.get(name)
+        if found is not None:
+            return found
+        return self._validators.get(name.strip().lower())
 
     def names(self) -> tuple[str, ...]:
         return tuple(sorted(self._validators))
 
     def __contains__(self, name: object) -> bool:
-        return name in self._validators
+        if name in self._validators:
+            return True
+        return isinstance(name, str) and name.strip().lower() in self._validators
 
     def __len__(self) -> int:
         return len(self._validators)

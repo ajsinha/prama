@@ -411,7 +411,7 @@ class Parser:
         start = self._expect_keyword("SATISFIES").position
         if self._match_keyword("EXCEL"):
             return self._excel(start)
-        first = self._expression()
+        first = self._maybe_column_list(followed_by_determines=True) or self._expression()
         if self._match_keyword("DETERMINES"):
             determinant = _as_columns(first)
             if determinant is None:
@@ -419,7 +419,9 @@ class Parser:
                     "the left of DETERMINES must be one or more columns",
                     remedy="For example: SATISFIES account_id DETERMINES legal_entity_id",
                 )
-            dependent = _as_columns(self._expression())
+            dependent = _as_columns(
+                self._maybe_column_list(followed_by_determines=False) or self._expression()
+            )
             if dependent is None:
                 raise self._error(
                     "the right of DETERMINES must be one or more columns",
@@ -429,6 +431,37 @@ class Parser:
                 determinant=determinant, dependent=dependent, position=start
             )
         return ast.ExpressionAssertion(condition=first, position=start)
+
+    def _maybe_column_list(self, *, followed_by_determines: bool) -> ast.ListExpression | None:
+        """``(a, b)`` as a column list, if that is what it turns out to be.
+
+        Speculative, because `(` is ambiguous here: `SATISFIES (a + b) > 0` is
+        a parenthesised expression and `SATISFIES (a, b) DETERMINES (c, d)` is
+        a pair of column lists, and which one it is cannot be known until the
+        closing bracket. The expression parser reaches the comma first and
+        fails with "expected ')' and found ','", so the composite form of
+        DETERMINES could not be written at all — the grammar path existed and
+        was unreachable (QA finding PQL-101).
+
+        Backtracks by restoring the token index, so a `(` that turns out to be
+        an ordinary bracket costs one rewind and nothing else.
+        """
+        if not self._peek.is_punctuation("("):
+            return None
+        mark = self._index
+        try:
+            columns = self._column_list()
+        except PqlSyntaxError:
+            self._index = mark
+            return None
+        if followed_by_determines and not self._peek.is_keyword("DETERMINES"):
+            # On the left, a bracket is only a column list if DETERMINES comes
+            # next; `(a)` alone is an ordinary parenthesised expression. On the
+            # right there is nothing after it to disambiguate with, and nothing
+            # to disambiguate from — the keyword has already committed us.
+            self._index = mark
+            return None
+        return ast.ListExpression(items=columns, position=columns[0].position)
 
     def _excel(self, start: Position) -> ast.Assertion:
         """``SATISFIES EXCEL '=…'`` — a formula, in the syntax people write.

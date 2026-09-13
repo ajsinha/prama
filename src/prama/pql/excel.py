@@ -68,7 +68,13 @@ PRECEDENCE: Final[dict[str, int]] = {
 #: assignment nowhere; ``<>`` is inequality.
 OPERATORS: Final[dict[str, str]] = {
     "=": "=",
-    "<>": "!=",
+    # `<>`, not `!=`. PQL's not-equal is `<>` — it is in `ast.COMPARISONS` and
+    # in the SQL backend's INFIX table — and `!=` is in neither, so every Excel
+    # formula using the commonest operator in a spreadsheet produced an AST
+    # that compiled on no engine (QA finding PQL-331). The Excel surface exists
+    # to let a business author write what they already know; `<>` is what they
+    # already know.
+    "<>": "<>",
     "<": "<",
     "<=": "<=",
     ">": ">",

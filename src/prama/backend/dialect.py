@@ -64,6 +64,11 @@ class SqlDialect:
     #: alternative — SUM(CASE WHEN …) — is portable and slightly slower, and is
     #: what engines without it get.
     has_aggregate_filter: bool = False
+    #: Whether the engine has ``ILIKE``. SQLite does not, and does not need it:
+    #: its ``LIKE`` is already case-insensitive for ASCII. Declared here rather
+    #: than branched on a name at the call site, which is what this object
+    #: exists to prevent.
+    has_ilike: bool = False
 
     # -- identifiers and literals -----------------------------------------
 
@@ -216,6 +221,7 @@ class PostgresDialect(SqlDialect):
     )
     regex_flavour = "posix"
     has_aggregate_filter = True
+    has_ilike = True
 
     def regex_match(self, expression: str, pattern: str) -> str:
         return f"{expression} ~ {self.literal(pattern)}"
@@ -228,6 +234,7 @@ class DuckDbDialect(SqlDialect):
     )
     regex_flavour = "re2"
     has_aggregate_filter = True
+    has_ilike = True
 
     def regex_match(self, expression: str, pattern: str) -> str:
         return f"regexp_matches({expression}, {self.literal(pattern)})"

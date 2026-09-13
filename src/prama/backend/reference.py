@@ -277,6 +277,11 @@ class ReferenceEvaluator:
         if operator in ("MATCHES", "NOT MATCHES"):
             matched = self._matches(values[0], node.args[1].value)
             return _not(matched) if operator.startswith("NOT") else matched
+        if operator in ("LIKE", "NOT LIKE", "ILIKE", "NOT ILIKE"):
+            liked = _like(values[0], values[1], fold_case=operator.endswith("ILIKE"))
+            return _not(liked) if operator.startswith("NOT") else liked
+        if operator == "HAS FORMAT":
+            return _has_format(values[0], node.args[1].value)
         if operator in ("-", "+") and len(values) == 1:
             return _sign(operator, values[0])
         if operator in ("+", "-", "*", "/", "%"):
@@ -377,6 +382,51 @@ def _membership(value: Any, candidates: Any, *, negated: bool) -> Any:
     if any(item is UNKNOWN for item in items):
         return UNKNOWN
     return negated
+
+
+def _like(value: Any, pattern: Any, *, fold_case: bool) -> Any:
+    """SQL ``LIKE``, with the same unknown rule as everything else here.
+
+    `LIKE` and `ILIKE` reached this interpreter's final `_compare` fallback,
+    which meant a control that compiled fine on three engines was answered by
+    the reference with a comparison nobody asked for (QA finding BE-054). The
+    reference is the conformance oracle, so it disagreeing is worse than it
+    refusing.
+    """
+    if value is UNKNOWN or value is None or pattern is UNKNOWN or pattern is None:
+        return UNKNOWN
+    text, shape = str(value), str(pattern)
+    if fold_case:
+        text, shape = text.upper(), shape.upper()
+    return _sql_like(text, shape)
+
+
+def _sql_like(text: str, pattern: str) -> bool:
+    """``%`` is any run, ``_`` is one character, everything else is itself."""
+    expression = "".join(
+        ".*" if character == "%" else "." if character == "_" else re.escape(character)
+        for character in pattern
+    )
+    return re.fullmatch(expression, text, re.DOTALL) is not None
+
+
+def _has_format(value: Any, pattern: Any) -> Any:
+    """``HAS FORMAT '999-AAA'`` — 9 a digit, A a letter, X either, * a run.
+
+    The reference raised a bare, uncaught `KeyError: 'HAS FORMAT'` here, while
+    the SQL side refused with a well-formed error — the same control failing
+    two different ways depending on where it ran (QA finding PQL-093).
+
+    This is stricter than the SQL translation, which has no digit class and
+    settles for `_`. That is a deliberate asymmetry and it is the right way
+    round: the reference is what a residual check re-runs, so it may be exact
+    where the pushdown can only screen.
+    """
+    if value is UNKNOWN or value is None or pattern is UNKNOWN or pattern is None:
+        return UNKNOWN
+    classes = {"9": r"\d", "A": r"[A-Za-z]", "X": r"[A-Za-z0-9]", "*": r".*"}
+    expression = "".join(classes.get(character, re.escape(character)) for character in str(pattern))
+    return re.fullmatch(expression, str(value), re.DOTALL) is not None
 
 
 def _sign(operator: str, value: Any) -> Any:

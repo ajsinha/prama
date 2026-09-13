@@ -32,7 +32,13 @@ class TestItParsesWhatPeopleWrite:
             # The parentheses are PQL's own rendering, not something Excel
             # introduced: BinaryOp parenthesises a right operand of equal
             # binding so associativity survives a round trip.
-            ("=[a] <> [b]", "a != (b)"),
+            # `<>`, not `!=`. This pinned the rendering that made every Excel
+            # inequality uncompilable: `!=` is in neither ast.COMPARISONS nor
+            # the SQL backend's INFIX table, so the commonest operator in a
+            # spreadsheet produced an AST that ran on no engine (QA finding
+            # PQL-331). The test was green throughout, because it asserted the
+            # rendering and not that the rendering could run.
+            ("=[a] <> [b]", "a <> b"),
             ("=[a] = [b]", "a = b"),
             ("=[a] >= 1 AND [b] <= 2", "a >= 1 AND b <= 2"),
             ("=NOT(ISBLANK([a]))", "NOT ISBLANK(a)"),
