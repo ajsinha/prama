@@ -263,6 +263,37 @@ can review.
 
 ---
 
+### Q-60 · The conformance suite had never met PostgreSQL — new, found during B3
+
+While fixing the async engine I started a real PostgreSQL and ran the suite
+against it. Two things followed, and both are worth recording.
+
+**The `postgres` marker matched nothing.** `pyproject.toml` declares it,
+`tests/conftest.py` declares `postgres_config`, and no test used either. So the
+dialect with the broken async engine was also the dialect with no tests, which
+is not a coincidence — DB-070 survived because nothing could have caught it.
+`qa/regression-suite` now carries a `postgres`-marked test that connects for
+real and skips cleanly when no server is reachable.
+
+**The engine conformance suite fails on a real PostgreSQL.** With
+`PRAMA_TEST_POSTGRES_DSN` set, `tests/backend/test_engine_conformance.py` fails
+`modulo_on_a_negative` — which is `BE-024` from the language catalogue, found
+independently by reading. The suite whose entire purpose is to prove the
+engines agree had never been pointed at one of the three engines it names.
+
+That belongs to B6, where the interpreter/SQL divergences are grouped, and it
+arrives with a second source of evidence rather than one.
+
+**A correction to my own method.** My first run with a DSN produced 25 failures
+and 37 errors, and I nearly recorded that as a finding. The cause was my DSN:
+the repository's convention is a plain `postgresql://` libpq string, and I had
+passed the `postgresql+asyncpg://` driver form. The regression test now derives
+the async URL itself so one variable serves both spellings. Twenty-five
+failures that are your own setup look exactly like twenty-five defects until
+you check.
+
+---
+
 ## Open
 
 Ranked. Each was reported by the agent named, and awaits reproduction before
