@@ -140,7 +140,9 @@ Two further rules specific to this codebase:
 ```bash
 uv venv --python 3.13 && uv pip install -e ".[dev]"   # the interpreter is pinned in .python-version
 pip install -e ".[dev]"                  # or plain venv, if the interpreter is already right
-pytest -q                                # full suite
+pytest -q                                # full suite: tests/ and qa/regression-suite/
+pytest -q qa/regression-suite            # only the QA-derived regressions
+pytest -q -m "not slow"                  # skip the tens-of-seconds performance guards
 pytest -q tests/architecture             # layering, file length, no-model-verdict guards
 prama config show                        # effective merged configuration, secrets redacted
 prama control check suite.pql            # parse, type-check and lint; non-zero on error
@@ -180,7 +182,7 @@ PRAMA_TEST_POSTGRES_DSN=postgresql://prama:prama@127.0.0.1:55432/prama pytest -q
                                          # conformance on three real engines, not two
 PRAMA_TEST_KAFKA_BOOTSTRAP=127.0.0.1:19092 pytest -q tests/execute/test_kafka.py
                                          # offset semantics; needs pip install -e ".[kafka]"
-ruff check src tests && ruff format --check src tests
+ruff check src tests qa/regression-suite    # qa/harness is deliberately not linted
 mypy src
 ```
 

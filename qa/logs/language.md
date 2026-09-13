@@ -8,7 +8,7 @@
 · `prama.backend.conformance` · `prama.backend.corpus` · `prama.backend.generate` ·
 `prama.backend.example`.
 
-All 629 cases in `docs/qa/catalogue/language.md` were executed against the live codebase, split
+All 629 cases in `qa/catalogue/language.md` were executed against the live codebase, split
 across ten parallel execution passes (one per catalogue section group), each driving the real
 APIs directly: `prama.pql.tokens.tokenise`, `prama.pql.parser.parse`/`parse_control`,
 `prama.ir.lower.Lowerer`/`prama.ir.resolve.resolved`, `prama.backend.sql.SqlCompiler`/

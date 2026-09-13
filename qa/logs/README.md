@@ -1,7 +1,7 @@
 # QA execution logs — round 2
 
 One file per catalogue area. Each records the **executed** result of every case
-in the corresponding `docs/qa/catalogue/*.md` file.
+in the corresponding `qa/catalogue/*.md` file.
 
 ## The rule that matters
 

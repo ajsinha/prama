@@ -1,12 +1,12 @@
 # QA harnesses — round 2
 
-The scripts that **executed** the catalogue in `docs/qa/catalogue/`, kept
+The scripts that **executed** the catalogue in `qa/catalogue/`, kept
 because they are the difference between a QA round you can repeat and a QA
 round you have to take on trust.
 
 Each was written to run a batch of catalogue cases against the live tree and
 print one line per case: the id, the verdict, and what was actually observed.
-They are the evidence behind `docs/qa/logs/*.md` — a log without the thing
+They are the evidence behind `qa/logs/*.md` — a log without the thing
 that produced it is an assertion, not a record.
 
 ## Why these are kept rather than thrown away
@@ -23,7 +23,7 @@ a defect once is the cheapest possible guard against it returning.
 
 ## Shape
 
-    qa/harness/<area>/…        mirrors docs/qa/catalogue/<area>.md
+    qa/harness/<area>/…        mirrors qa/catalogue/<area>.md
 
 They are **not** pytest tests and are deliberately outside collection:
 `pyproject.toml` sets `testpaths = ["tests"]`, and `ruff` is pointed at

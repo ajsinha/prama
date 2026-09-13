@@ -19,8 +19,23 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 
+#: Everything that makes a claim about the code and is meant to be believed.
+#:
+#: `qa/catalogue` is here on purpose: a test case naming a module that does not
+#: exist is a case that will never run, and this guard has already caught two of
+#: them. `qa/logs` is deliberately absent, and the distinction is the point —
+#: a defect log's job is to name things that are broken or missing. It says
+#: `prama.profile.from_rows` precisely *because* importing that fails. Holding
+#: a defect report to "every module named here must exist" would forbid it from
+#: reporting the defect it was written to report.
 DOCUMENTS = sorted(
-    [*ROOT.glob("docs/**/*.md"), ROOT / "README.md", ROOT / "QUICKSTART.md", ROOT / "CLAUDE.md"]
+    [
+        *ROOT.glob("docs/**/*.md"),
+        *ROOT.glob("qa/catalogue/*.md"),
+        ROOT / "README.md",
+        ROOT / "QUICKSTART.md",
+        ROOT / "CLAUDE.md",
+    ]
 )
 
 #: A backticked repository path, e.g. `src/prama/pql/parser.py`.

@@ -1,7 +1,7 @@
 # Semantic layer — QA execution log
 
 `prama.semantic` · `prama.derive` · `prama.propose` · `prama.induce` · `prama.mine` · `prama.er` ·
-`prama.learn`. Every case in `docs/qa/catalogue/semantic.md` (600 cases) was executed against
+`prama.learn`. Every case in `qa/catalogue/semantic.md` (600 cases) was executed against
 the live codebase — a real SQLite database built via the same bootstrap pattern
 `tests/conftest.py` uses (`ConfigurationBuilder` + `Database.from_config` + `unit_of_work()`)
 for the services/gitops/bitemporal/proposal-queue cases, and direct in-process construction of

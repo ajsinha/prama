@@ -15,7 +15,7 @@ authoritative schema files of 1,047 lines each, one Helm chart, one Dockerfile,
 one CI workflow and five scripts.
 
 **What this is not.** Round 1 tested installation and operation as a *surface*
-([`cases-operate.md`](../cases-operate.md), [`log-operate.md`](../log-operate.md)):
+([`cases-operate.md`](../round-1/cases-operate.md), [`log-operate.md`](../round-1/log-operate.md)):
 somebody following the documentation, standing up a database, starting a server,
 sealing a bundle. This asks the other question — *is there any part of this
 nobody has looked at* — and the answer, for most of what is below, was no. The

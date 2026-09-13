@@ -2,7 +2,7 @@
 
 **Total:** 680 · **Passed:** 574 · **Failed:** 102 · **Blocked:** 4 · **Pass rate:** 84.4%
 
-Executed against the tree as it stands (branch `develop`), following docs/qa/catalogue/domain.md and docs/qa/logs/README.md. Every PASS below was run; every FAIL was reproduced a second time before being recorded; every BLOCKED states why it could not be executed. Nothing here was marked PASS on the strength of the code looking correct.
+Executed against the tree as it stands (branch `develop`), following qa/catalogue/domain.md and qa/logs/README.md. Every PASS below was run; every FAIL was reproduced a second time before being recorded; every BLOCKED states why it could not be executed. Nothing here was marked PASS on the strength of the code looking correct.
 
 ## Failures ranked by severity
 

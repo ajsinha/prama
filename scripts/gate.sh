@@ -8,8 +8,8 @@
 # remembered to write correctly.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-ruff check src tests scripts
-ruff format --check -q src tests scripts
+ruff check src tests scripts qa/regression-suite
+ruff format --check -q src tests scripts qa/regression-suite
 mypy src | tail -1
 python scripts/check_file_length.py
 # Documentation that is generated from the code must still match the code. A
