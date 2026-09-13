@@ -341,7 +341,7 @@ Two cases were added to the corpus so this cannot recur silently:
 
 ---
 
-### Q-63 · `plugins.disabled` works in the server and not the CLI — open
+### Q-63 · `plugins.disabled` works in the server and not the CLI — CLOSED
 
 Wiring the plugin loader (CFG-036) exposed an asymmetry rather than removing
 one. `create_app` reads `plugins.disabled` and passes it to `install_shipped`;
@@ -356,6 +356,24 @@ it matters, which makes this tolerable and not correct.
 The real fix is to load plugins lazily, on first use of the validator registry,
 where the configuration is known. That is a refactor rather than a repair, and
 it is not the kind of change to make inside a batch about inert settings.
+
+**Closed in Batch D, and it needed no refactor at all.** The premise above —
+that honouring the setting requires lazy loading — was wrong. `install_shipped`
+had exactly one ordering requirement, *before any command runs*, and
+`Application.run` satisfies it while also being after `--config` is parsed: the
+`CommandContext` already exists there, and `run` was already reading
+`ctx.config` for the logging level. Moving the call from `prama.cli.main` into
+`Application.run` removed the asymmetry in two lines.
+
+Checked before moving: nothing in `configure()` on any command reads the
+registry, so building the parser first costs nothing, and CLI startup is
+unchanged (1.3–1.8s either way, the spread being machine noise).
+
+Worth recording as a caution about findings in general. This one carried a
+confident prescription — "the real fix is to load plugins lazily" — written
+while looking at the constraint rather than at the requirement, and it would
+have bought a refactor to achieve what a move achieved. A finding's diagnosis
+deserves the same scepticism as a test's green.
 
 ---
 
@@ -395,7 +413,7 @@ start failing and force this note to be closed.
 
 ---
 
-### Q-65 · INC-010 needs a product decision, not a repair — open
+### Q-65 · INC-010 needs a product decision, not a repair — half closed
 
 `_shared_ancestor` orders candidates by `(vote count, name length)`, so the
 *broadest* shared ancestor wins. Its own docstring forbids exactly that:
@@ -783,6 +801,89 @@ verdict as a metric, a `_freshness_verdict` beside the other three, and a
 decision about `IS FRESH` with no column named — which has nothing in the data
 to measure and would otherwise fall back on the wall clock the language refuses.
 That is a wave, not a batch.
+
+### Q-73 · The incident tiebreak ranked columns by the length of their names
+
+Batch D, from [[Q-65]]. `_shared_ancestor` ranked candidates by
+``(vote count, len(key))`` — how many findings share the column, then **how many
+characters are in its name**. The docstring says what the second term is for:
+
+> Deepest rather than any: everything shares "the raw feed" eventually, and an
+> incident about the raw feed when the fault is in one derived column sends
+> people to the wrong system.
+
+Name length is a proxy for depth only by coincidence, and the coincidence fails
+in the ordinary direction: staging and ingestion columns carry the longest names
+in most warehouses, and they are the shallowest things in the graph. On a shape
+where `staging_raw.ingested_source_column` feeds `d.m`, which feeds both
+findings, the old ranking chose the staging column — naming the raw feed when
+the fault is in the derived column, which is the exact failure the docstring was
+written to prevent.
+
+Depth now comes from the lineage graph: how many sources a candidate has of its
+own. A raw feed has none; a derived column has some.
+
+**The counterfactual nearly did not exist.** The first scenario written to prove
+this used `raw.feed` → `derived.mid`, and the old code passed it — `derived.mid`
+is both deeper *and* longer, so the two rankings agree and the test proved
+nothing. The regression test therefore uses a long-named shallow column and a
+short-named deep one, which is the only shape where the rankings disagree, and a
+second test renames the columns and asserts the verdict does not move: a
+correlation's answer should be a property of the lineage, and under the old
+tiebreak it was a property of somebody's naming convention.
+
+**What is still open in [[Q-65]]**: the ordering between broadest and deepest
+when the vote counts genuinely *differ*. One upstream defect must produce one
+incident; two findings sharing a nearer derived column deserve their own. Those
+conflict, and resolving them needs incidents that can have a parent — group by
+deepest, link to a root, alert on the root — which changes what an incident is
+and touches alerting, the console and the API. A wave, not a sort key.
+
+### Q-74 · A failing test that skipped on every gate for a day
+
+Found by `scripts/sync_test_counts.py`, which refused to write a number into the
+README because the suite was not green — and it was not green in a way six full
+gate runs had reported as green.
+
+`tests/deploy/test_helm_chart.py` skips when `helm` is not on `PATH`, which is
+correct and is announced loudly. Today a QA agent fetched a real helm binary
+into `~/.local/bin` to run the `OPS-` cases by hand. The gate runs I launched
+did not have that directory on `PATH`; the sync script's run did. The arithmetic
+is the whole story:
+
+| run | passed | skipped | failed |
+|---|---:|---:|---:|
+| my gate | 4,963 | 117 | 0 |
+| sync | 4,983 | 96 | **1** |
+
+Twenty-one tests moved from skipped to run, and one of them failed.
+
+**What it caught.** `test_sqlite_with_one_replica_is_allowed` asserted that a
+bare sqlite install renders. The `OPS-014` fix made the chart refuse it, on good
+grounds: `readOnlyRootFilesystem` is on, so sqlite has nowhere to write, and an
+`emptyDir` default would start a pod that loses the evidence ledger on its first
+restart. The test encoded the pre-fix expectation and had been failing, unseen,
+since that fix landed.
+
+The test is now two: the evaluation path renders *with* `persistence.enabled=true`
+and produces a `PersistentVolumeClaim`, and the refusal without it must name the
+flag and say what is lost. The second half exists so that "update the test to
+match the chart" cannot quietly become "accept whatever the chart does" — the
+original concern was that the chart stay usable for the first thing anybody
+tries, and that concern is still asserted.
+
+**The transferable lesson is about skips, not helm.** A skip is a test that
+reports neither pass nor fail, and a suite summarised as "4,963 passed" reads as
+a green suite whatever the second number says. This is the same asymmetry the QA
+rounds keep finding — *the paths that decide "nothing to report" are weaker than
+the paths that decide "something to report"* — and here it hid a real failure
+from six consecutive gates.
+
+Worth noting what saved it: a script that **runs the suite rather than trusting a
+recorded number**, and that refuses to publish a count from a red run. Its own
+docstring says why — "a count taken from a red run is a claim about a product
+that does not work". It was written to stop a number rotting and it caught a
+defect instead.
 
 ---
 

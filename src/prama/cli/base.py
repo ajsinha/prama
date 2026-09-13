@@ -23,6 +23,7 @@ from prama.core import pjson
 from prama.core.config import Configuration, load_configuration
 from prama.core.errors import PramaError
 from prama.core.log import LoggingConfigurator
+from prama.packs import install_shipped
 
 EXIT_OK = 0
 EXIT_ERROR = 1
@@ -154,6 +155,15 @@ class Application:
             return EXIT_USAGE
         ctx = CommandContext(args, out=out)
         try:
+            # Before any command runs, so `prama control check` resolves the
+            # same functions `prama pack list` advertises — and *after* the
+            # configuration is known, so `plugins.disabled` is honoured here
+            # exactly as `create_app` honours it. Installing at the entry point
+            # instead meant reading the config was impossible: `--config` had
+            # not been parsed, and reading a file the caller was about to
+            # override would have been worse than reading none. QA round 3,
+            # Q-63.
+            install_shipped(disabled_plugins=ctx.config.get_list("plugins.disabled", []))
             LoggingConfigurator(
                 level=args.log_level or ctx.config.get_str("logging.level", "INFO"),
                 fmt="json" if args.json else ctx.config.get_str("logging.format", "text"),

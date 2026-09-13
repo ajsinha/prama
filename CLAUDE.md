@@ -138,7 +138,8 @@ Two further rules specific to this codebase:
 ## Commands
 
 ```bash
-uv venv --python 3.13 && uv pip install -e ".[dev]"   # the interpreter is pinned in .python-version
+uv venv --python 3.13 && uv sync --extra dev          # the interpreter is pinned in .python-version
+                                         # uv sync installs uv.lock exactly; uv pip install resolves afresh
 pip install -e ".[dev]"                  # or plain venv, if the interpreter is already right
 pytest -q                                # full suite: tests/ and qa/regression-suite/
 pytest -q qa/regression-suite            # only the QA-derived regressions
@@ -202,7 +203,9 @@ can delete.
 ```bash
 uv python install 3.13          # once; lands in ~/.local/share/uv/python, no sudo
 uv venv --python 3.13           # reads .python-version
-uv pip install -e ".[dev,serve,postgres,fast,audit,sso,kafka,rest,jdbc,snowflake]"
+uv sync --extra dev --extra serve --extra postgres --extra fast \
+        --extra audit --extra sso --extra kafka --extra rest \
+        --extra jdbc --extra snowflake
 ```
 
 The suite passes on 3.13 and on 3.14 — both were run before choosing, and every
@@ -210,8 +213,14 @@ dependency has wheels for both. The pin exists so that *which* one is in use is
 a decision recorded in the repository rather than a consequence of the last
 `apt upgrade`.
 
-**Dependency floors have no ceilings.** Every requirement in `pyproject.toml` is
-a `>=`, so a rebuild floats to the newest release of everything. Rebuilding on
-3.14 pulled mypy 2.3, pytest 9.1 and starlette 1.6 in one step and the gate
-stayed green — that was luck, not design. A lock file is the thing that would
-make it not luck.
+**Dependency floors have no ceilings, and `uv.lock` is what stops that
+mattering.** Every requirement in `pyproject.toml` is a `>=`, so a resolve from
+`pyproject.toml` alone floats to the newest release of everything. Rebuilding on
+3.14 once pulled mypy 2.3, pytest 9.1 and starlette 1.6 in a single step and the
+gate stayed green — luck, not design. The lock file is the design: `uv sync`
+installs exactly what was last resolved, so an upgrade is a commit somebody
+reviews rather than a consequence of when the venv was built.
+
+`uv pip install -e ".[dev]"` does **not** read the lock file — it resolves
+afresh. Use `uv sync --extra dev` when the point is to reproduce a known-good
+set, and update the lock deliberately with `uv lock --upgrade`.

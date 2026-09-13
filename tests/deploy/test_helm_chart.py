@@ -73,11 +73,40 @@ class TestItRefusesRatherThanDefaulting:
         message = refusal("existingSecret=s", "database.dialect=postgres")
         assert "needs database.postgres.host" in message
 
-    def test_sqlite_with_one_replica_is_allowed(self) -> None:
+    def test_sqlite_with_one_replica_is_allowed_once_it_has_a_volume(self) -> None:
         """It is the right shape for an evaluation, so refusing it outright
-        would make the chart useless for the first thing anybody does."""
-        docs = render("existingSecret=s", "database.dialect=sqlite", "replicaCount=1")
+        would make the chart useless for the first thing anybody does.
+
+        It is not refused outright: it needs one flag, and the refusal below
+        names that flag. This asserted a bare sqlite install rendered until
+        `OPS-014` — `readOnlyRootFilesystem` is on, so sqlite had nowhere to
+        write, and the chart started a pod that would lose the evidence ledger
+        on its first restart. For an evidence-first product, starting and
+        silently losing the ledger is the worse failure.
+        """
+        docs = render(
+            "existingSecret=s",
+            "database.dialect=sqlite",
+            "replicaCount=1",
+            "persistence.enabled=true",
+        )
         assert any(doc["kind"] == "Deployment" for doc in docs)
+        assert any(doc["kind"] == "PersistentVolumeClaim" for doc in docs), (
+            "sqlite rendered without a volume to write to, which is the state "
+            "OPS-014 was about"
+        )
+
+    def test_sqlite_without_a_volume_says_which_flag_to_set(self) -> None:
+        """A refusal that does not name the remedy is a wall.
+
+        The counterpart to the test above, and the reason changing it is not
+        merely accepting whatever the chart now does: the evaluation path has
+        to stay one obvious step away, and "obvious" means the message says the
+        flag rather than leaving the reader to find it.
+        """
+        message = refusal("existingSecret=s", "database.dialect=sqlite", "replicaCount=1")
+        assert "persistence.enabled=true" in message
+        assert "lose the evidence ledger" in message
 
 
 class TestTheSecurityPropertiesSurviveRendering:

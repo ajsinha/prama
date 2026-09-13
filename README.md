@@ -123,11 +123,17 @@ The worked example is in **[docs/07 §10](docs/07-rule-language-spec.md)**.
 ## Run it
 
 ```bash
-uv venv --python 3.13 && uv pip install -e ".[dev,serve]"
+uv venv --python 3.13 && uv sync --extra dev --extra serve
 python run_prama_web.py --init-secret --prepare
 ```
 
 Then open **http://127.0.0.1:8080/estate**.
+
+`uv sync` installs what `uv.lock` pins, so a fresh clone gets the set the gate
+last ran green on rather than whatever released this morning. It also *removes*
+anything outside the extras you name — that is what makes it reproducible, and
+it is why `uv pip install -e ".[dev,serve]"` is the right command when you are
+adding an extra to an environment you already have.
 
 That applies the schema, creates an estate, writes a session secret into the
 git-ignored local config, and starts the console and the API in one process. The
@@ -173,6 +179,7 @@ Start with **[QUICKSTART.md](QUICKSTART.md)** if you want to run it, or
 | 19 | [Implementation Roadmap — Ten Waves](docs/19-implementation-roadmap.md) | The engineering plan: what gets built, in what order, and what done means |
 | 20 | [Competitive Analysis](docs/20-competitive-analysis.md) | Head-to-head against Solidatus, Manta, Alation, Collibra, Monte Carlo and the rest — including where we are behind |
 | 21 | [How We Win](docs/21-how-we-win.md) | The plan to beat them: three asymmetric unlocks, honest moat ratings, and the traps we set |
+| 22 | [Distributed Execution](docs/22-distributed-execution.md) | Prama agents: an agent runs beside the data, does the work there, and sends findings rather than data |
 | — | [Brand](docs/brand.md) | Name, mark, slogan, palette, voice |
 | — | [Glossary](docs/glossary.md) | Terms of art |
 | — | [Academic Paper](docs/paper/) | Manuscript, bibliography, experiment plan |
@@ -220,11 +227,35 @@ Five contributions, targeting **ACM JDIQ** with a **VLDB Industrial** companion 
 ## Status
 
 **Implemented.** Eleven waves are complete; two tasks stay open on infrastructure
-rather than code. The suite is at <!--tests-->4,332 passing, 67 skipped<!--/tests-->,
+rather than code. The suite is at <!--tests-->4,985 passing, 96 skipped<!--/tests-->,
 derived from a green run by `scripts/sync_test_counts.py` rather than typed — a
-count in prose rots the first time somebody adds a test. That is the *base*
-suite, what a fresh clone gets; the skips are tests needing a service (a
-PostgreSQL, a Kafka, a JDBC driver) and they run when one is there.
+count in prose rots the first time somebody adds a test.
+
+That figure is from a run with `helm` installed and a PostgreSQL reachable, so
+it includes the chart and live-database tests. A bare clone sees about twenty
+more skips and the same number of failures — none. The remaining skips need a
+service nobody should have to install to read the code: MongoDB, ClickHouse, a
+JDBC driver and a JRE, an S3 endpoint. Each says so by name when skipped.
+
+A skip is worth reading rather than scrolling past. It reports neither pass nor
+fail, so a suite summarised by its first number looks green whatever the second
+one says — and on 2026-09-13 a chart test that had been failing since the
+`OPS-014` fix stayed invisible through six consecutive gate runs, because `helm`
+was not on the `PATH` those runs used. It surfaced only when a script that
+*runs* the suite refused to publish a count from a red one.
+
+It is two trees, both run by `pytest -q`: `tests/`, which mirrors the package
+tree, and `qa/regression-suite/`, which holds what the QA rounds found. The
+second exists because a defect found by hand is only fixed once, and a defect
+with a test that failed before the fix stays fixed. Each file there names the
+case that produced it and, where the fix was subtle, what the test would have
+passed on had it been written carelessly.
+
+`qa/` also holds the corpus behind them: a catalogue of 4,662 cases, the
+per-round execution logs, the harness scripts that produced them, and
+`findings.md` — which records what was *not* a defect as carefully as what was,
+because a findings list that only keeps the hits is one nobody can calibrate
+against.
 
 What that covers: the semantic layer and declaration model; PQL, its typed
 engine-neutral IR, and a conformance suite that runs the same control on DuckDB,
@@ -252,8 +283,9 @@ prama/
 ├── NOTICE             ← legal notice, trademarks, third-party references
 ├── SECURITY.md        ← reporting, what Prama holds, and what is unverified
 ├── CONTRIBUTING.md    ← the habits this codebase is held to
-├── src/prama/         ← the product: 40 packages
+├── src/prama/         ← the product: 43 packages
 ├── tests/             ← the suite, mirroring the package tree
+├── qa/                ← the QA corpus: catalogue, logs, harness, regressions
 ├── schema/            ← sqlite.sql and postgres.sql; there are no migrations
 ├── config/            ← application.yaml; secrets live in application.local.yaml
 ├── deploy/            ← Dockerfile, Helm chart, operator CRDs
