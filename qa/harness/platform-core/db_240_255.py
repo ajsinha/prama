@@ -86,25 +86,40 @@ async def main():
         tidA244, tidB244 = str(tA244.id), str(tB244.id)
         shared_ctl_id = new_ulid()
         await uow.evidence.append(mk_record(tidA244, control_id=shared_ctl_id, detail="tenantA-secret"), tenant_id=tidA244)
-    async with db.unit_of_work() as uow:
-        # a caller who only knows tenant B's context asks for evidence by a control id -- with no tenant check
-        leak244 = await uow.evidence.for_control(shared_ctl_id)
     import inspect
     from prama.db.dao.evidence import EvidenceDao
     takes_tenant_244 = "tenant_id" in inspect.signature(EvidenceDao.for_control).parameters
-    R("DB-244", takes_tenant_244,
-      f"for_control(control_id) takes tenant_id={takes_tenant_244} (it does not); called with only a control id "
-      f"(no tenant context) it returned {len(leak244)} record(s) belonging to tenant A, including detail={leak244[0].detail if leak244 else None!r}")
+    unscoped_244_refused = False
+    async with db.unit_of_work() as uow:
+        try:
+            await uow.evidence.for_control(shared_ctl_id)  # type: ignore[call-arg]
+        except TypeError:
+            unscoped_244_refused = True
+        # tenant B asking (correctly, with its own tenant_id) for tenant A's control id sees nothing
+        leak244 = await uow.evidence.for_control(shared_ctl_id, tenant_id=tidB244)
+        ownA244 = await uow.evidence.for_control(shared_ctl_id, tenant_id=tidA244)
+    R("DB-244", takes_tenant_244 and unscoped_244_refused and leak244 == [] and len(ownA244) == 1,
+      f"for_control(control_id) now takes tenant_id={takes_tenant_244} (required kw-only); calling without it "
+      f"raises TypeError={unscoped_244_refused}; tenant B scoped call for tenant A's control id returns "
+      f"{len(leak244)} record(s) (must be 0); tenant A's own scoped call returns {len(ownA244)}")
 
-    # DB-245: for_run not tenant-scoped
+    # DB-245: for_run -- now REQUIRES tenant_id (B1 remediation)
     async with db.unit_of_work() as uow:
         run245 = await uow.evidence_runs.start(tenant_id=tidA244, started_at="2026-01-01T00:00:00Z")
         await uow.evidence.append(mk_record(tidA244, detail="run-secret"), tenant_id=tidA244, run_id=str(run245.id))
-    async with db.unit_of_work() as uow:
-        leak245 = await uow.evidence.for_run(str(run245.id))
     takes_tenant_245 = "tenant_id" in inspect.signature(EvidenceDao.for_run).parameters
-    R("DB-245", takes_tenant_245,
-      f"for_run(run_id) takes tenant_id={takes_tenant_245} (it does not); returned {len(leak245)} record(s) with no tenant check")
+    unscoped_245_refused = False
+    async with db.unit_of_work() as uow:
+        try:
+            await uow.evidence.for_run(str(run245.id))  # type: ignore[call-arg]
+        except TypeError:
+            unscoped_245_refused = True
+        leak245 = await uow.evidence.for_run(str(run245.id), tenant_id=tidB244)
+        ownA245 = await uow.evidence.for_run(str(run245.id), tenant_id=tidA244)
+    R("DB-245", takes_tenant_245 and unscoped_245_refused and leak245 == [] and len(ownA245) == 1,
+      f"for_run(run_id) now takes tenant_id={takes_tenant_245} (required kw-only); calling without it raises "
+      f"TypeError={unscoped_245_refused}; tenant B scoped call for tenant A's run id returns {len(leak245)} "
+      f"record(s) (must be 0); tenant A's own scoped call returns {len(ownA245)}")
 
     # DB-246: latest_per_control counts each control once
     async with db.unit_of_work() as uow:

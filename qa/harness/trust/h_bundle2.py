@@ -24,6 +24,14 @@ def a_bundle():
     (d / "sqlite.sql").write_text("-- schema")
     return d
 
+def write_manifest_json(d, manifest):
+    """See h_bundle1.py's copy of this helper for why it is needed: verify()'s
+    declared_hash now defaults to manifest.json's content_hash on disk, so a
+    manifest built purely in memory (never written) makes manifest_intact --
+    and anything gated on it, like is_trustworthy -- False regardless of
+    whether the bundle is genuinely clean."""
+    (d / "manifest.json").write_text(json.dumps(manifest.to_dict()))
+
 def run_prama(args, cwd=None, env=None):
     full_env = dict(os.environ)
     if env:
@@ -34,6 +42,7 @@ def run_prama(args, cwd=None, env=None):
 # SEC-143: stripped seal is not a passing seal
 bundle = a_bundle()
 manifest = build_manifest(bundle, created_at=WHEN)
+write_manifest_json(bundle, manifest)
 result_no_seal = verify(bundle, manifest, key=KEY)  # no seal offered at all
 ok = result_no_seal.seal_holds is None and not result_no_seal.is_trustworthy and "proves nothing about where it came from" in result_no_seal.describe()
 line("SEC-143", "PASS" if ok else "FAIL", f"seal_holds={result_no_seal.seal_holds} is_trustworthy={result_no_seal.is_trustworthy} describe={result_no_seal.describe()!r}")
@@ -75,6 +84,7 @@ line("SEC-145", "PASS" if ok else "FAIL", f"exit={code_v3} stdout={out_v3!r}")
 # SEC-149: either signature suffices, neither silently assumed -- 4 bundles: seal only, signature only, both, neither
 bundle_both = a_bundle()
 m_both = build_manifest(bundle_both, created_at=WHEN)
+write_manifest_json(bundle_both, m_both)
 seal_both = m_both.seal(KEY)
 sig_both = m_both.sign(priv)
 r_seal_only = verify(bundle_both, m_both, key=KEY, seal=seal_both)

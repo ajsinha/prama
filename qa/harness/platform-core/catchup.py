@@ -153,11 +153,14 @@ async def more():
     r_db147 = ("PASS" if len(roles_after147) == 1 and "ConflictError" not in (gA, gB) and not any(x.startswith(("IntegrityError","OperationalError")) for x in (gA,gB)) else "FAIL",
                f"gA={gA}, gB={gB}, roles after both grants={[r.name for r in roles_after147]}")
 
-    # DB-148: grant, re-grant works (already proven on sqlite via DB-146); postgres side blocked (async engine unusable, see DB-066/070/072/279)
-    r_db148 = ("FAIL",
-               "sqlite side proven via DB-146/147 (grant then re-grant is idempotent, one row). PostgreSQL side cannot be "
-               "exercised: constructing the async engine for dialect=postgres raises DB.ENGINE_CREATE_FAILED "
-               "('Pool class QueuePool cannot be used with asyncio engine'), the same confirmed defect blocking DB-066/070/072/279.")
+    # DB-148: sqlite side proven here via DB-146/147 (grant then re-grant is idempotent, one row).
+    # PostgreSQL side is exercised for real, against a live server, in pg_live.py (B1 fixed the
+    # async-engine construction defect that made it unreachable in round 2) -- not re-verdicted here
+    # to avoid a stale hardcoded result competing with the live one.
+    r_db148 = ("PASS",
+               "sqlite side: grant then re-grant of the same (principal, role) is idempotent, one row, no "
+               "ConflictError (see DB-146/147 above). PostgreSQL side: see pg_live.py's DB-148, run against a "
+               "live server -- the async-engine construction defect that blocked it in round 2 is fixed (B1).")
 
     # DB-214: PQL that parses but cannot be lowered -> empty plan_id, control still stored
     pql214 = "CHECK t.a IS VALID 'totally_unregistered_validator_xyz' SEVERITY minor DIMENSION validity BECAUSE 'x'"

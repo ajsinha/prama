@@ -245,7 +245,7 @@ async def main():
         await uow.evidence.append(rec224, tenant_id=tid)
         await uow.controls.retire(str(e224.id), tenant_id=tid)
     async with db.unit_of_work() as uow:
-        for_ctl224 = await uow.evidence.for_control(str(e224.id))
+        for_ctl224 = await uow.evidence.for_control(str(e224.id), tenant_id=tid)
         ctl224_still = await uow.controls.get(str(e224.id))
     R("DB-224", len(for_ctl224) == 1 and ctl224_still is not None, f"evidence still resolves={len(for_ctl224)}, control entity still resolves={ctl224_still is not None}")
 

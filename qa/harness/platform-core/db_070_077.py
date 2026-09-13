@@ -7,7 +7,7 @@ results = []
 def R(id, ok, obs):
     results.append((id, "PASS" if ok else "FAIL", obs))
 
-DSN = os.environ.get("PRAMA_TEST_POSTGRES_DSN", "postgresql://prama:prama@127.0.0.1:55433/prama")
+DSN = os.environ.get("PRAMA_TEST_POSTGRES_DSN", "postgresql://prama:prama@127.0.0.1:55432/prama")
 m = re.match(r"postgresql://([^:]+):([^@]+)@([^:/]+):?(\d+)?/(\w+)", DSN)
 user, pw, host, port, database = m.group(1), m.group(2), m.group(3), m.group(4) or "5432", m.group(5)
 
@@ -26,29 +26,35 @@ def pg_settings(**overrides):
     return DbSettings.from_config(cfg)
 
 async def main():
-    # DB-070: async engine kwargs -- since it cannot be *constructed* due to the
-    # QueuePool/async incompatibility found in DB-066/069, test the KWARGS dict
-    # directly (that part of the code does run) but flag that a real connection
-    # is unreachable through the documented path.
-    settings70 = pg_settings(application_name="qa-app", statement_timeout="2500ms")
+    # DB-070: async engine kwargs -- B1 fixed the QueuePool/async-engine incompatibility
+    # (AsyncAdaptedQueuePool now used for is_async=True), so this connects for real and
+    # the configured values are read back from the live server, not just from the kwargs dict.
+    settings70 = pg_settings(application_name="qa-app-070", statement_timeout="2500ms")
     dialect70 = PostgresDialect(settings70)
     kwargs70 = dialect70.engine_kwargs(is_async=True)
     ca70 = kwargs70.get("connect_args", {}).get("server_settings", {})
-    kwargs_ok = (ca70.get("application_name") == "qa-app" and ca70.get("statement_timeout") == "2500"
+    kwargs_ok = (ca70.get("application_name") == "qa-app-070" and ca70.get("statement_timeout") == "2500"
                  and ca70.get("search_path") == "public")
     from sqlalchemy.ext.asyncio import create_async_engine
+    from sqlalchemy import text as satext70
+    engine70 = create_async_engine(dialect70.async_url(), **kwargs70)
     try:
-        create_async_engine(dialect70.async_url(), **kwargs70)
-        connect_ok = True
+        async with engine70.connect() as conn:
+            app_name, stmt_timeout, search_path = (await conn.execute(satext70(
+                "SELECT current_setting('application_name'), current_setting('statement_timeout'), "
+                "current_setting('search_path')"
+            ))).one()
+        server_ok = (app_name == "qa-app-070" and stmt_timeout == "2500ms" and search_path.startswith("public"))
+        R("DB-070", kwargs_ok and server_ok,
+          f"engine_kwargs(is_async=True) sets application_name={ca70.get('application_name')!r}, "
+          f"statement_timeout={ca70.get('statement_timeout')!r}ms, search_path={ca70.get('search_path')!r} (correct "
+          f"values); live connection over the async path (now constructible: B1 fixed poolclass=QueuePool -> "
+          f"AsyncAdaptedQueuePool) confirms the SERVER sees application_name={app_name!r}, "
+          f"statement_timeout={stmt_timeout!r}, search_path={search_path!r}")
     except Exception as e:
-        connect_ok = False
-        connect_err = e
-    R("DB-070", kwargs_ok and connect_ok,
-      f"engine_kwargs(is_async=True) sets application_name={ca70.get('application_name')!r}, "
-      f"statement_timeout={ca70.get('statement_timeout')!r}ms, search_path={ca70.get('search_path')!r} (correct values); "
-      f"but create_async_engine() itself {'succeeded' if connect_ok else f'FAILED: {type(connect_err).__name__}: {connect_err}'} "
-      f"-- confirms the same QueuePool/async-engine defect found under DB-066 blocks the whole path from ever reaching "
-      f"a real connection where these settings would actually be verified server-side")
+        R("DB-070", False, f"async connection failed: {type(e).__name__}: {e}")
+    finally:
+        await engine70.dispose()
 
     # DB-071: sync psycopg path passes sslmode -- require against a non-TLS server
     settings71 = pg_settings(sslmode="require")
@@ -67,24 +73,30 @@ async def main():
     finally:
         engine71.dispose()
 
-    # DB-072: sslmode on the async path -- since the async engine cannot even be
-    # constructed (DB-066/DB-070's finding), sslmode=require can never be honoured
-    # OR refused at start-up: the whole path is unreachable.
+    # DB-072: sslmode on the async path -- B1 also added an asyncpg SSL-mode mapping
+    # (_asyncpg_ssl), so sslmode=require now surfaces as connect_args['ssl'] and a
+    # connection to this non-TLS test server must be refused, not silently accepted.
     settings72 = pg_settings(sslmode="require")
     dialect72 = PostgresDialect(settings72)
     kwargs72 = dialect72.engine_kwargs(is_async=True)
-    has_sslmode_anywhere = "sslmode" in str(kwargs72)
+    ssl_kw72 = kwargs72.get("connect_args", {}).get("ssl")
     from sqlalchemy.ext.asyncio import create_async_engine as cae72
+    engine72 = cae72(dialect72.async_url(), **kwargs72)
+    refused72 = False
+    err72 = None
     try:
-        cae72(dialect72.async_url(), **kwargs72)
-        R("DB-072", False, "async engine construction unexpectedly succeeded")
+        async with engine72.connect() as conn:
+            await conn.execute(satext70("SELECT 1"))
+        R("DB-072", False, "async engine with sslmode=require connected in plaintext to a non-TLS server -- expected a refusal")
     except Exception as e:
-        R("DB-072", False,
-          f"sslmode=require is silently absent from engine_kwargs(is_async=True) (has_sslmode_anywhere={has_sslmode_anywhere}, "
-          f"matching the comment 'the driver negotiates TLS itself'), AND separately the async engine cannot even be "
-          f"constructed due to the QueuePool bug ({type(e).__name__}: {e}) -- so today sslmode=require against Postgres "
-          f"is neither honoured nor refused with an explanation on the async path; it simply cannot connect at all, "
-          f"for an unrelated reason, which masks the real gap")
+        refused72 = True
+        err72 = f"{type(e).__name__}: {e}"
+        R("DB-072", ssl_kw72 is not None and refused72,
+          f"engine_kwargs(is_async=True) with sslmode=require now sets connect_args['ssl']={ssl_kw72!r} (previously "
+          f"silently absent, matching the old comment 'the driver negotiates TLS itself'); connecting over the async "
+          f"path to this non-TLS test server is refused: {err72} -- sslmode=require is honoured, not silently dropped")
+    finally:
+        await engine72.dispose()
 
     # DB-073: statement_timeout cancels a long query -- sync engine only (async blocked)
     settings73 = pg_settings(statement_timeout="1s")

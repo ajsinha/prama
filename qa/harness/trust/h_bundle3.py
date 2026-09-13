@@ -49,7 +49,10 @@ line("SEC-154", "PASS" if ok else "FAIL",
 
 # SEC-157: --no-sbom possible, help text says rarely right
 code4, out4, err4 = run_prama(["bundle", "seal", "--help"])
-help_says_rarely_right = "rarely right" in out4
+help_says_rarely_right = "rarely right" in out4.lower()
+# NOTE (round 3): case-sensitive substring missed the sentence-initial,
+# capitalised "Rarely right:" the help text actually uses -- a harness bug,
+# not a product defect (round 2's own published verdict already caught this).
 bundle157 = a_bundle()
 code5, out5, err5 = run_prama(["bundle", "seal", str(bundle157), "--no-sbom"], env=ENV)
 manifest157 = json.loads((bundle157 / "manifest.json").read_text())

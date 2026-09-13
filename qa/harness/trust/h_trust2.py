@@ -38,7 +38,12 @@ n_hops = len(t41.derivation)
 explanation = t41.explain()
 # does the score reflect only 8 hops worth of traversal, i.e. NOT reaching all the way to t0 (0.5)?
 reached_t0 = "t0.x" in explanation or any(h.edge.source == C("t0.x") for h in t41.derivation)
-mentions_truncation = "truncat" in explanation.lower() or "bound" in explanation.lower() or "max_depth" in explanation.lower() or "8" in explanation
+mentions_truncation = "truncat" in explanation.lower() or "bound" in explanation.lower() or "max_depth" in explanation.lower()
+# NOTE (round 3): dropped the bare `or "8" in explanation` -- it is a substring
+# test that always matches incidentally via column names like "t8.x" regardless
+# of whether truncation is ever stated, producing a false PASS. See h_trust2a.py
+# for the full note; round 2's published verdict for SCR-041 was a manual
+# override to FAIL after reading explain() directly, which this now matches.
 line("SCR-041", "PASS" if (n_hops <= 8 and not reached_t0 and mentions_truncation) else "FAIL",
      f"n_hops_in_derivation={n_hops} reached_all_the_way_to_t0={reached_t0} explanation_mentions_truncation={mentions_truncation} score={t41.score} explanation={explanation!r}")
 
@@ -78,13 +83,15 @@ t47 = p47.trust(C("b.y"), local47)
 ok = t47.score == 0.4
 line("SCR-047", "PASS" if ok else "FAIL", f"local=0.4 with perfect upstream(1.0) -> score={t47.score} (expected 0.4, min(own, combined))")
 
-# SCR-048: inheritance flagged only when upstream actually lowered the score (epsilon guard)
-g48 = LineageGraph()
-g48.add_all([Edge(C("a.x"), C("b.y"), Transform.IDENTITY)])
-local48 = {C("a.x"): 0.80000000001, C("b.y"): 0.8}  # combined ~= local within float epsilon
-t48 = TrustPropagator(g48).trust(C("b.y"), local48)
-ok = t48.is_inherited is False
-line("SCR-048", "PASS" if ok else "FAIL", f"score={t48.score} local={t48.local} is_inherited={t48.is_inherited} (expected False -- epsilon guard)")
+# SCR-048: inheritance flagged only when upstream actually lowered the score
+# (epsilon guard). NOTE (round 3): see h_trust2a.py for why the propagator
+# version of this test is broken (multiplies two ~0.8 inputs to ~0.64, nowhere
+# near the 1e-9 boundary); corrected to probe Trust.is_inherited directly.
+t48a = Trust(column=C("b.y"), score=0.8 - 1e-12, local=0.8, semiring=Semiring.ALL_INPUTS_MATTER)
+t48b = Trust(column=C("b.y"), score=0.8 - 1e-7, local=0.8, semiring=Semiring.ALL_INPUTS_MATTER)
+ok = (t48a.is_inherited is False) and (t48b.is_inherited is True)
+line("SCR-048", "PASS" if ok else "FAIL",
+     f"score=local-1e-12: is_inherited={t48a.is_inherited} (expect False); score=local-1e-7: is_inherited={t48b.is_inherited} (expect True)")
 
 # SCR-049: explanation reconstructs the number, three-hop derivation
 g49 = LineageGraph()

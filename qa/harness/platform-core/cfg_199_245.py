@@ -100,13 +100,30 @@ async def main():
     R("CFG-204", not gave_up and count204 >= 5, f"count={count204}, gave_up={gave_up}")
     await sup204.shutdown()
 
-    # CFG-205
+    # CFG-205: B10 fixed the crash-loop throttle (a clean ALWAYS return no longer counts
+    # toward the give-up window, so a healthy poller is never backed off toward 30s or
+    # given up on). Measure both the catalogue's named field AND actual re-invocation,
+    # since the fix also redefines what .restarts means.
     sup205 = TaskSupervisor()
+    call_count205 = 0
     async def poller():
+        nonlocal call_count205
+        call_count205 += 1
         return None
     h205 = sup205.spawn("poll", poller, policy=RestartPolicy.ALWAYS)
     await asyncio.sleep(0.2)
-    R("CFG-205", h205.restarts > 2, f"restarts after 0.2s of an instantly-returning ALWAYS task={h205.restarts}")
+    still_running205 = h205.running
+    R("CFG-205", h205.restarts > 2,
+      f"restarts after 0.2s of an instantly-returning ALWAYS task={h205.restarts} (field literally named in the "
+      f"catalogue's Expected: 'it runs repeatedly, incrementing restarts'); actual re-invocation count in the same "
+      f"0.2s={call_count205}, still running (not given up on)={still_running205} -- B10 genuinely fixed the severe "
+      f"half of this (a healthy poller used to be throttled toward 30s backoff and eventually given up on as a "
+      f"crash loop; now it loops freely via asyncio.sleep(0) and is never given up on, confirmed by "
+      f"call_count205={call_count205} real invocations and still_running205={still_running205}); but the fix's own "
+      f"design choice -- 'a completed run is not a restart', so handle.restarts only counts failure-triggered "
+      f"restarts now -- means restarts stays 0 forever for a clean ALWAYS poller, which literally contradicts the "
+      f"catalogue's Expected wording ('incrementing restarts'). Genuinely still FAIL against the stated Expected, "
+      f"for a materially different and much less severe reason than round 2 found.")
     await sup205.shutdown()
 
     # CFG-206

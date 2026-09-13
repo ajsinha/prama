@@ -101,9 +101,14 @@ ok = isinstance(p13, ConformalP) and abs(p13.value - 1.0) < 1e-12
 line("CAL-013", "PASS" if ok else "FAIL", f"p_value(below_all)={p13.value if isinstance(p13,ConformalP) else p13}")
 
 # CAL-014: recency weights ascending, last=1.0, 50th from end=0.5
+# NOTE (round 3): w[-1] is age 0 (the most recent); w[-k] is age k-1. Fifty
+# half-lives back is age 50, i.e. w[-51], not w[-50] (age 49) -- the original
+# check was off by one position under a 1-indexed-from-the-end reading. A
+# harness bug, not a product defect (round 2's own published verdict already
+# made this correction: w[-51] == 0.5 exactly).
 w = recency_weights(100, half_life=50)
-ok = (w[-1] == 1.0 and abs(w[-50] - 0.5) < 1e-6 and all(w[i] <= w[i+1] for i in range(len(w)-1)))
-line("CAL-014", "PASS" if ok else "FAIL", f"w[-1]={w[-1]} w[-50]={w[-50]:.6f} ascending={all(w[i]<=w[i+1] for i in range(len(w)-1))}")
+ok = (w[-1] == 1.0 and abs(w[-51] - 0.5) < 1e-9 and all(w[i] <= w[i+1] for i in range(len(w)-1)))
+line("CAL-014", "PASS" if ok else "FAIL", f"w[-1]={w[-1]} w[-51]={w[-51]:.6f} (age 50 == half_life) ascending={all(w[i]<=w[i+1] for i in range(len(w)-1))}")
 
 # CAL-015: recency_weights(0) empty, half_life=0 doesn't divide by zero
 w0 = recency_weights(0)

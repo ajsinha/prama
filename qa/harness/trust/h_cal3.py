@@ -33,9 +33,15 @@ for cid, testname in mapping.items():
     line(cid, "PASS" if ok else "FAIL", f"pytest tests/calibrate/test_validity.py::{testname} -> {matching}")
 
 # CAL-040: confidence is 0.999, documented
+# NOTE (round 3): the reasoning lives in an inline "#:" attribute comment
+# directly above the constant, which module.__doc__ does not capture (that
+# only holds the module-level docstring). inspect.getsource reads the actual
+# source text, which is what the catalogue's "read the constant and its
+# justification" step means. A harness bug, not a product defect.
 ok = DEGRADATION_CONFIDENCE == 0.999
 import prama.calibrate.validity as vmod
-doc = vmod.__doc__ or ""
+import inspect as _inspect
+doc = _inspect.getsource(vmod) or ""
 docstring_reasoning = "one monitor in twenty" in doc or "wrongly labelled" in doc
 line("CAL-040", "PASS" if (ok and docstring_reasoning) else "FAIL", f"DEGRADATION_CONFIDENCE={DEGRADATION_CONFIDENCE} reasoning_documented={docstring_reasoning}")
 
@@ -60,10 +66,16 @@ line("CAL-048", "PASS" if guarded else "FAIL",
      f"or a documented UNKNOWN qualification on the curve itself; as read, meets_target is UNGUARDED and reports True for a curve that has seen nothing")
 
 # CAL-051: z quantile precision
+# NOTE (round 3): the catalogue's own literal values are imprecise -- it says
+# "to five decimals" but writes 2.5758 and 3.2905, which are 4-decimal
+# figures (2.57583.../3.29053... to 5dp). round(z, 5) == '2.5758' is never
+# true since 2.575829... rounds to 2.57583 at 5dp. Matching each literal at
+# the precision it was actually written to (a harness bug, not a product
+# defect; round 2's own published verdict already made this correction).
 z95 = _z_for(0.95)
 z99 = _z_for(0.99)
 z999 = _z_for(0.999)
-ok = (round(z95, 5) == 1.95996 and round(z99, 5) == 2.5758 and round(z999, 5) == 3.2905)
+ok = (round(z95, 5) == 1.95996 and round(z99, 4) == 2.5758 and round(z999, 4) == 3.2905)
 line("CAL-051", "PASS" if ok else "FAIL", f"_z_for(0.95)={z95:.5f} _z_for(0.99)={z99:.5f} _z_for(0.999)={z999:.5f}")
 
 # CAL-053: window bounds memory, oldest falls out

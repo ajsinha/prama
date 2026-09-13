@@ -121,13 +121,66 @@ call_sites = grep_calls.stdout
 missing_jurisdiction_kw = "jurisdiction=" not in call_sites  # crude signal
 line("SEC-039", "INFO", f"static grep of gate.require( call sites (manual review needed for full confirmation) -- see call sites: {len(call_sites.splitlines())} lines matched")
 
+# SEC-039 follow-up: read every gate.require() call site's jurisdiction= kwarg
+# against what security/egress.py::EGRESS_POINTS documents that point's
+# jurisdiction_from as being.
+rest_src = open(f"{REPO}/src/prama/connect/sources/rest.py").read()
+egress_src = open(f"{REPO}/src/prama/security/egress.py").read()
+source_read_doc = 'jurisdiction_from="the dataset\'s declared jurisdiction"' in egress_src
+rest_passes_region_as_jurisdiction = "jurisdiction=self._region" in rest_src
+rest_has_dataset_jurisdiction_field = "self._dataset_jurisdiction" in rest_src
+defect_present = source_read_doc and rest_passes_region_as_jurisdiction and not rest_has_dataset_jurisdiction_field
+line("SEC-039", "FAIL" if defect_present else "PASS",
+     f"EGRESS_POINTS['source-read'].jurisdiction_from still documented as \"the dataset's declared jurisdiction\": {source_read_doc}; "
+     f"connect/sources/rest.py:gate.require('source-read', ...) still passes jurisdiction=self._region (the connector-configured region, same as destination): {rest_passes_region_as_jurisdiction}; "
+     f"RestSource now has a genuine dataset-jurisdiction field feeding it: {rest_has_dataset_jurisdiction_field} -- "
+     f"{'defect persists: the call site does not pass what the registry says it passes' if defect_present else 'no longer a defect'}")
+
 # SEC-040: Vault fetch passes region as both destination and jurisdiction
 vault_src = open(f"{REPO}/src/prama/secrets/vault.py").read()
 mentions_region_both = "destination=" in vault_src and "jurisdiction=" in vault_src
 line("SEC-040", "INFO", f"vault.py mentions destination= and jurisdiction=: {mentions_region_both} -- see follow-up static inspection")
 
+vault_passes_region_both = "destination=self._region" in vault_src and "jurisdiction=self._region" in vault_src
+secret_fetch_doc = "the same region: a credential belongs wherever its store is" in egress_src
+line("SEC-040", "PASS" if (vault_passes_region_both and secret_fetch_doc) else "FAIL",
+     f"secrets/vault.py gate.require('secret-fetch', destination=self._region, jurisdiction=self._region, ...) present: {vault_passes_region_both}; "
+     f"EGRESS_POINTS['secret-fetch'].jurisdiction_from documents exactly this as deliberate ('the same region: a credential belongs wherever its store is, and there is no separate subject to ask'): {secret_fetch_doc} -- code and registry agree, this is a pinned deliberate decision")
+
 # SEC-041: architecture test enforces new modules register their egress -- confirmed by SEC-031's pytest run already covering this contract generically
 line("SEC-041", "INFO", "covered structurally by tests/architecture/test_egress.py's module-scan mechanism (see SEC-031); did not add a genuinely new scratch module performing network IO to prove the negative")
+
+# SEC-041 follow-up: actually prove the negative with a genuinely new
+# network-touching module the registry has never heard of, by replicating
+# test_egress.py's own scan logic (ast import-walk) against a temp copy of
+# src/prama with one added rogue module, rather than trusting the mechanism
+# exists without exercising it against a real violation. No file under real
+# src/ is modified.
+import importlib.util as _ilu, shutil as _shutil, tempfile as _tempfile
+from pathlib import Path as _Path
+_spec = _ilu.spec_from_file_location("qa_test_egress_mod", f"{REPO}/tests/architecture/test_egress.py")
+_mod = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(_mod)
+_TestEgress = next(getattr(_mod, n) for n in dir(_mod) if isinstance(getattr(_mod, n), type) and hasattr(getattr(_mod, n), "network_modules"))
+_inst = _TestEgress()
+_tmp = _Path(_tempfile.mkdtemp(prefix="qa_egress_"))
+_tmp_src = _tmp / "src"
+_shutil.copytree(f"{REPO}/src/prama", _tmp_src / "prama", ignore=_shutil.ignore_patterns("__pycache__"))
+_scratch = _tmp_src / "prama" / "scratch"
+_scratch.mkdir(parents=True, exist_ok=True)
+(_scratch / "leaky.py").write_text(
+    "import httpx\n\ndef send(payload):\n    return httpx.post('https://example.com/collect', json=payload)\n")
+_mod.SRC = _tmp_src
+_found = _inst.network_modules()
+_registered = {e.module.replace(".", "/") + ".py" for e in _mod.EGRESS_POINTS}
+_unaccounted = [n for n in _found if n not in _registered and n not in _inst.NOT_EGRESS]
+_scratch_caught = "prama/scratch/leaky.py" in _unaccounted
+_other_leaks = [u for u in _unaccounted if u != "prama/scratch/leaky.py"]
+_shutil.rmtree(_tmp)
+line("SEC-041", "PASS" if (_scratch_caught and not _other_leaks) else "FAIL",
+     f"unregistered scratch module using httpx.post() found by network_modules() scan and flagged as unaccounted: {_scratch_caught} -- "
+     f"this is exactly what test_every_module_that_can_reach_the_network_is_accounted_for would fail on; "
+     f"real modules besides the injected scratch one that the scan currently misses: {_other_leaks} (empty means no live gap)")
 
 # SEC-042: Gate.for_tenant carries tenant into refusal
 g3 = Gate.for_tenant("EU", tenant_id="01ACME")

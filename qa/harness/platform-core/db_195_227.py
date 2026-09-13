@@ -88,22 +88,31 @@ async def main():
     R("DB-200", crossB200a == [] and crossB200b is None and len(okA200) == 1,
       f"for_dataset cross={crossB200a}, for_attribute cross={crossB200b}, own={len(okA200)}")
 
-    # DB-201: AttributeDao.mapped_to_property -- NOT tenant scoped
+    # DB-201: AttributeDao.mapped_to_property -- now REQUIRES tenant_id (B1 remediation)
     async with db.unit_of_work() as uow:
         eDsB_temp, _ = await uow.datasets.create(tenant_id=tidB, name="DSB", slug="ds-b")
         eAttrB, vAttrB = await uow.attributes.create(tenant_id=tidB, identity_fields={"dataset_id": str(eDsB_temp.id)}, name="attrB")
         await uow.flush()
         vAttrB.concept_property_id = str(eCP.id)  # collide on same property id as tenant A's attribute
-    async with db.unit_of_work() as uow:
-        mapped = await uow.attributes.mapped_to_property(str(eCP.id))
     import inspect as _insp201
     from prama.db.dao.semantic import AttributeDao as _AD201
     takes_tenant = "tenant_id" in _insp.signature(_AD201.mapped_to_property).parameters
-    R("DB-201", takes_tenant,
-      f"mapped_to_property(property_id) takes tenant_id={takes_tenant} (it does not); calling it with tenant A's "
-      f"property id returned tenant B's attribute ({len(mapped)} row(s)) even though the call carried no tenant "
-      f"context at all -- a caller who only knows a property id belonging to another tenant can enumerate that "
-      f"tenant's attribute mappings")
+    unscoped_call_refused = False
+    async with db.unit_of_work() as uow:
+        try:
+            await uow.attributes.mapped_to_property(str(eCP.id))  # type: ignore[call-arg]
+        except TypeError:
+            unscoped_call_refused = True
+        mappedA = await uow.attributes.mapped_to_property(str(eCP.id), tenant_id=tidA)
+        mappedB = await uow.attributes.mapped_to_property(str(eCP.id), tenant_id=tidB)
+    # tenant B's attribute is the one mapped to this property id; tenant A owns the property itself but has no
+    # attribute mapped to it. Scoped correctly: A sees 0 (no leak of B's row into A's context), B sees its own 1.
+    no_leak = len(mappedA) == 0 and len(mappedB) == 1
+    R("DB-201", takes_tenant and unscoped_call_refused and no_leak,
+      f"mapped_to_property(property_id) now takes tenant_id={takes_tenant} (required kw-only); calling it "
+      f"without tenant_id raises TypeError={unscoped_call_refused}; scoped calls: tenant A (not the owner of the "
+      f"matching attribute) sees {len(mappedA)} row(s), tenant B (the owner) sees {len(mappedB)} row(s) -- no "
+      f"cross-tenant leak")
 
     # DB-202: DatasetDao.unbound
     async with db.unit_of_work() as uow:

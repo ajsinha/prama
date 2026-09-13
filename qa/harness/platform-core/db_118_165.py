@@ -256,21 +256,31 @@ async def main():
         p142b.external_idp = "okta"
         p142b.external_id = "collide-123"
         await uow.flush()
+        import inspect as _insp142
+        from prama.db.dao.platform import PrincipalDao as _PD142
+        from prama.core.errors import ConflictError as _CE142
+        takes_tenant_142 = "tenant_id" in _insp142.signature(_PD142.by_external_id).parameters
+        refused_cleanly_142 = False
+        translated_142 = False
         try:
-            got142 = await uow.principals.by_external_id("okta", "collide-123")
-            R("DB-142", False,
-              f"by_external_id('okta','collide-123') takes no tenant argument and both tenant A and B were able to "
-              f"write the SAME (idp, external_id) pair with no unique constraint stopping it (schema has no UNIQUE "
-              f"on (external_idp, external_id)); the lookup returned one arbitrary match "
-              f"({got142.tenant_id if got142 else None}) -- an SSO sign-in for this idp+external_id pair can "
-              f"resolve to the WRONG tenant's principal")
+            await uow.principals.by_external_id("okta", "collide-123")  # ambiguous, no tenant given
+        except _CE142 as e:
+            refused_cleanly_142 = True
+            translated_142 = True
         except Exception as e:
-            R("DB-142", False,
-              f"WORSE than a wrong-tenant match: by_external_id('okta','collide-123') raised a raw, untranslated "
-              f"{type(e).__name__} ({e}) once two tenants collide on the pair -- since by_external_id has no tenant "
-              f"argument at all and the schema has no UNIQUE constraint on (external_idp, external_id), the SSO "
-              f"sign-in path crashes with an unhandled SQLAlchemy exception rather than signing anyone in or "
-              f"refusing cleanly")
+            refused_cleanly_142 = False
+            translated_142 = False
+        gotA142 = await uow.principals.by_external_id("okta", "collide-123", tenant_id=ta_id)
+        gotB142 = await uow.principals.by_external_id("okta", "collide-123", tenant_id=tb_id)
+        disambiguated_142 = (
+            gotA142 is not None and gotA142.tenant_id == ta_id
+            and gotB142 is not None and gotB142.tenant_id == tb_id
+        )
+        R("DB-142", takes_tenant_142 and refused_cleanly_142 and disambiguated_142,
+          f"by_external_id takes tenant_id={takes_tenant_142} (optional kw-only); ambiguous call with no tenant "
+          f"raises a translated ConflictError={translated_142} (not a raw SQLAlchemy exception); passing the "
+          f"tenant disambiguates correctly: A->{gotA142.tenant_id if gotA142 else None}, "
+          f"B->{gotB142.tenant_id if gotB142 else None}")
 
     # DB-143
     async with db.unit_of_work() as uow:

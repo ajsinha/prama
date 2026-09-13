@@ -67,6 +67,26 @@ r = subprocess.run(["grep", "-rn", "-B3", "-A15", "InvalidToken\\|SsoUnavailable
 auth_src = r.stdout
 line("SEC-092", "INFO-PENDING", f"grep context around OIDC exception handling in auth_routes.py ({len(auth_src.splitlines())} lines) -- see follow-up manual read")
 
+# SEC-092 follow-up: the case's Steps say "drive a failed sign-in through the
+# console" -- that requires a console route that calls into
+# prama.security.oidc at all. Check the whole web+api tree, not just
+# auth_routes.py, for any such wiring.
+r2 = subprocess.run(["grep", "-rn", "-l", "InvalidToken\\|SsoUnavailable\\|verify_id_token\\|prama\\.security\\.oidc\\|from prama\\.security import oidc\\|security\\.oidc",
+                      "/home/ashutosh/PycharmProjects/prama/src/prama/web", "/home/ashutosh/PycharmProjects/prama/src/prama/api"],
+                     capture_output=True, text=True)
+wired_files = [l for l in r2.stdout.strip().splitlines() if "__pycache__" not in l]
+console_has_oidc_route = bool(wired_files)
+if console_has_oidc_route:
+    verdict_note = "a console route exists to drive; case is executable"
+else:
+    verdict_note = ("no console or API route calls prama.security.oidc at all; the module ships "
+                     "tested and standalone (docs/19 W10.3) but sign-in (auth_routes.py) is "
+                     "local-password-only, so this case's Steps (drive a failed sign-in through the "
+                     "console) cannot be carried out against this build -- cannot be verified true or "
+                     "false, treated as FAIL rather than a silent pass")
+line("SEC-092", "PASS" if console_has_oidc_route else "FAIL",
+     f"files under src/prama/web or src/prama/api referencing OIDC verification machinery: {wired_files} -- {verdict_note}")
+
 # SEC-093: subject keyed on issuer+subject together
 d1 = subject_digest("https://idp-a.example.com", "user-42")
 d2 = subject_digest("https://idp-b.example.com", "user-42")  # same sub, different issuer
