@@ -127,6 +127,7 @@ def test_the_known_broken_templates_are_still_broken(identity: str) -> None:
     template is repaired, this test starts failing and the entry has to come
     out — which is the only way a known-broken list stays true.
     """
+    from prama.backend.sql import compile_for
     from prama.ir.resolve import resolved
     from prama.pql.parser import parse
 
