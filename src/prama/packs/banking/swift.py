@@ -81,6 +81,41 @@ def _date(text: str) -> str:
     return f"20{text[0:2]}-{text[2:4]}-{text[4:6]}"
 
 
+def _entry_date(value_day: str, entry_day: str) -> str:
+    """An MT940 entry date, which carries ``MMDD`` and no year.
+
+    The year is taken from the value date, which is right except across a year
+    boundary — and a statement covering the turn of the year is not an edge
+    case, it is the first statement every January. A value date of 251231 with
+    an entry of 0102 gave 2025-01-02: a year early, and eleven months before
+    the value date it is supposed to sit beside (QA finding PCK-117).
+
+    Resolved by choosing the year that puts the entry *closest* to the value
+    date. An entry and its value date are days apart, so the nearest candidate
+    is the intended one, and the rule needs no knowledge of which direction the
+    boundary was crossed.
+    """
+    if not entry_day or len(value_day) != 6:
+        return ""
+    value = _date(value_day)
+    if not value:
+        return ""
+    from datetime import date
+
+    anchor = date.fromisoformat(value)
+    best: tuple[int, str] | None = None
+    for year in (anchor.year - 1, anchor.year, anchor.year + 1):
+        try:
+            candidate = date(year, int(entry_day[:2]), int(entry_day[2:4]))
+        except ValueError:
+            # 29 February in a year that has none, for one of the candidates.
+            continue
+        distance = abs((candidate - anchor).days)
+        if best is None or distance < best[0]:
+            best = (distance, candidate.isoformat())
+    return best[1] if best else ""
+
+
 @dataclasses.dataclass(frozen=True, slots=True)
 class Defect:
     """Something wrong with a message, named where it is."""
@@ -368,7 +403,7 @@ def _line(raw: str, reference: str, defects: list[Defect]) -> StatementLine | No
         credit = not credit
     return StatementLine(
         value_date=_date(value_day),
-        entry_date=_date(f"{value_day[:2]}{entry_day}") if entry_day else "",
+        entry_date=_entry_date(value_day, entry_day),
         amount=value if credit else -value,
         is_credit=credit,
         transaction_type=kind,
