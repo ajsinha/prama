@@ -327,9 +327,10 @@ class SqlCompiler:
             # through because all three agree on them. See finding C4.
             if operator == "/":
                 left, *rest = arguments
-                return "(" + " / ".join([self.dialect.as_real(left), *rest]) + ")"
+                divisors = [_no_zero(divisor) for divisor in rest]
+                return "(" + " / ".join([self.dialect.as_real(left), *divisors]) + ")"
             if operator == "%" and len(arguments) == 2:
-                return self.dialect.modulo(arguments[0], arguments[1])
+                return self.dialect.modulo(arguments[0], _no_zero(arguments[1]))
             return "(" + f" {operator} ".join(arguments) + ")"
         if operator == "NOT":
             return f"NOT ({arguments[0]})"
@@ -446,6 +447,28 @@ class SqlCompiler:
                 context={"dialect": self.dialect.name, "capability": rendered.capability},
             )
         return f"NOT ({rendered})" if negated else f"({rendered})"
+
+
+def _no_zero(divisor: str) -> str:
+    """A divisor that yields NULL rather than an engine's own idea of zero.
+
+    The three engines disagreed completely on division and modulo by zero:
+    PostgreSQL raises and **aborts the whole query**, DuckDB and SQLite return
+    NULL, and the reference interpreter returns UNKNOWN (QA finding BE-024).
+    So one bad row killed a control on one engine, was silently skipped on two,
+    and was correctly unknown in the oracle — four behaviours, no agreement.
+
+    `NULLIF(d, 0)` makes all three return NULL, which the Kleene logic already
+    reads as unknown, which is what the reference says. The engines now agree
+    with each other and with the oracle, and the answer they agree on is the
+    true one: a quotient by zero is not a number, and the control's
+    `TREAT UNKNOWN` policy decides what that means rather than the engine.
+
+    Aborting was the worst of the three. A control that cannot report a verdict
+    because one row was bad has told the operator nothing about the other
+    million.
+    """
+    return f"NULLIF({divisor}, 0)"
 
 
 def compile_for(

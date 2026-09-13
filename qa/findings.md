@@ -320,6 +320,27 @@ failure mode of fixing defects by their symptom.
 
 ---
 
+### Q-62 · PostgreSQL cannot take a modulo of a double — new, found in B6
+
+Not in the catalogue. PostgreSQL's `%` is defined for integer and numeric and
+not for double precision, so `notional % 3` on a DOUBLE column raises *operator
+does not exist: double precision % integer*. DuckDB and SQLite both accept it.
+
+So the corpus case `modulo_on_a_negative` — which exists specifically to prove
+the three engines agree about remainders — ran on two of them and could not run
+on the third. `PostgresDialect.modulo` now casts both sides to NUMERIC, which
+keeps a fractional dividend fractional; truncating to integer would have
+silently changed what the control asks.
+
+Found only because B3 pointed the conformance suite at a real PostgreSQL for the
+first time. The suite whose entire purpose is cross-engine agreement had never
+met one of the three engines it names, which is recorded separately as Q-60.
+
+Two cases were added to the corpus so this cannot recur silently:
+`division_by_zero` and `modulo_on_a_fraction`. Both fail against the old code.
+
+---
+
 ## Open
 
 Ranked. Each was reported by the agent named, and awaits reproduction before
