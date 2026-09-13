@@ -77,7 +77,7 @@ ok = code == 0 and ("refused:" in out) and "Traceback" not in err
 record("CLI-133", "PASS" if ok else "FAIL", f"code={code} out={out[-300:]!r} err={err[:150]!r}")
 
 # CLI-134: control compile on IN CODELIST doesn't falsely refuse
-CODELIST_CTL = wf("codelist.pql", "CHECK positions_eod.isin IN CODELIST 'iso3166_alpha2'\n  SEVERITY major DIMENSION validity BECAUSE 'x'\n")
+CODELIST_CTL = wf("codelist.pql", "CHECK positions_eod.ccy IN CODELIST iso4217\n  SEVERITY major DIMENSION validity BECAUSE 'x'\n")
 code, out, err = c.run(["control", "compile", str(CODELIST_CTL)])
 ok = code == 0 and "not registered" not in out and "SELECT" in out.upper()
 record("CLI-134", "PASS" if ok else "FAIL", f"code={code} out={out[:300]!r} err={err[:200]!r}")

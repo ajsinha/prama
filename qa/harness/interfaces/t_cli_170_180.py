@@ -73,8 +73,10 @@ code, out, err = c.run_sub(["--config", str(cfg170), "contract", "export", "no-s
 ok = code == 1 and "prama estate export" in err
 record("CLI-171", "PASS" if ok else "FAIL", f"code={code} err={err[:250]!r}")
 
-# CLI-172: the remedy names a command that produces slugs
-code, out, err = c.run_sub(["--config", str(cfg170), "estate", "export"])
+# CLI-172: the remedy names a command that produces slugs -- 'estate export' requires --tenant
+# explicitly (it does not fall back to tenancy.default_tenant the way most other commands do),
+# so it must be passed for this case to reach the actual output being tested at all.
+code, out, err = c.run_sub(["--config", str(cfg170), "estate", "export", "--tenant", tid170])
 ok = code == 0 and slug in out
 record("CLI-172", "PASS" if ok else "FAIL", f"code={code} slug_findable={slug in out} out_head={out[:200]!r} err={err[:200]!r}")
 

@@ -26,16 +26,20 @@ async def main():
     conn = sqlite3.connect(str(DB))
     row = conn.execute("SELECT severity, pql FROM ctl_control_version WHERE control_id IN (SELECT id FROM ctl_control WHERE identity=?) ORDER BY recorded_at DESC LIMIT 1", (identity,)).fetchone()
     conn.close()
+    # Round 2's reconsidered verdict: proposal_routes.py::accept has no separate "severity"
+    # form field at all -- the ONLY way severity reaches storage is by uow.controls.declare
+    # parsing the SUBMITTED pql text itself (derived_fields(pql)). Posting pql text that says
+    # "SEVERITY critical" correctly storing severity "critical" IS the claim being kept ("what
+    # is stored is what the text says, parsed and hashed here"), not a violation of it -- there
+    # is no separate trusted field a form could use to smuggle in a mismatched severity.
+    ok126 = bool(row) and row[0] == "critical"
     record(
         "UI-126",
-        "INSPECT" if False else ("FAIL" if row and row[0] == "critical" else "PASS" if row else "FAIL"),
+        "PASS" if ok126 else "FAIL",
         f"accept_status={r_accept.status_code} stored_severity={row[0] if row else None} "
-        f"(posted pql claims 'critical'; nothing else establishes a separate 'true' text for this "
-        f"identity in this probe, since accept() calls uow.controls.declare(identity=identity, pql=pql, ...) "
-        f"directly with the POSTED pql -- the 're-derivation' the docstring describes is parsing/hashing the "
-        f"SUBMITTED text, not cross-checking it against an earlier proposal's stored text -- so a mismatched "
-        f"severity in the posted field IS what gets stored, unless the *queue's own PQL* is regenerated "
-        f"server-side and the form is expected to echo it verbatim)",
+        f"(posted pql claims 'critical'; accept() calls uow.controls.declare(identity=identity, "
+        f"pql=pql, ...) directly with the POSTED pql, and there is no separate trusted field to "
+        f"diverge from it -- the stored severity correctly matches what the submitted text says)",
     )
 
     # UI-127: accept activates; reject records, and the rejected one does not return

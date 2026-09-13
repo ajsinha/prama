@@ -29,7 +29,9 @@ def rpc(*payloads):
 cfg261, d261, db261 = new_cfg("cli261")
 c.run_sub(["--config", str(cfg261), "db", "init"])
 proc = subprocess.run(["prama", "--config", str(cfg261), "mcp", "serve"], input=b"", capture_output=True, timeout=60, env=os.environ)
-ok = proc.returncode == 1 and b"CLI.NO_TENANT" in proc.stderr and b"cannot say which estate" in proc.stderr
+# round 2's actual wording is "An MCP client has no way to say which estate it means" -- match
+# that phrasing instead of the more literal (and never-shipped) "cannot say which estate".
+ok = proc.returncode == 1 and b"CLI.NO_TENANT" in proc.stderr and b"no way to say which estate" in proc.stderr
 record("CLI-261", "PASS" if ok else "FAIL", f"rc={proc.returncode} stderr={proc.stderr[:400]!r}")
 
 # CLI-262: mcp serve with a non-existent tenant -- refused at startup, or serves empty lists?

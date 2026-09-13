@@ -77,15 +77,19 @@ async def main():
     DB17 = c.WORKDIR / "ui017.db"
     env17 = u.UiEnv(str(DB17))
     await env17.start()
+    # catalogue Steps says "reload a page needing declaration:write" -- /controls/save needs
+    # control:propose since the UI-005/008/009 scope fix (owner never held that, even before
+    # revocation), so it no longer exercises what this case is about; /declarations/new (owner
+    # DOES hold declaration:write, via declaration:*) is the route the catalogue actually means.
     pid17 = await env17.create_principal("ownerrole17", "ownerpassword123", ["owner"])
     http17, r17 = await env17.signed_in_client("ownerrole17", "ownerpassword123")
-    r17a = await http17.post("/controls/save", data={"pql": "x"})
+    r17a = await http17.post("/declarations/new", data={"name": "ui017-ds", "shape": "unbound", "criticality": "4"})
     async with env17.database.unit_of_work() as uow:
         principal = await uow.principals.get(pid17)
         for role in list(principal.roles):
             await uow.roles.revoke(pid17, str(role.id))
         await uow.flush()
-    r17b = await http17.post("/controls/save", data={"pql": "x"})
+    r17b = await http17.post("/declarations/new", data={"name": "ui017-ds2", "shape": "unbound", "criticality": "4"})
     ok17 = r17a.status_code in (200, 302, 303, 400, 422) and r17b.status_code in (303, 403)
     record("UI-017", "PASS" if ok17 else "FAIL", f"before_revoke={r17a.status_code} after_revoke={r17b.status_code}")
     await http17.aclose()

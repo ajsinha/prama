@@ -71,14 +71,16 @@ async def main():
         # API-077/078: PUT /journeys/{id}/steps replaces wholesale, empty list
         r_j = await http.post("/journeys", json={"name": "journey-77"})
         j_id = r_j.json()["id"]
-        five_steps = [{"dataset_id": ds_a, "sequence": i, "label": f"step{i}"} for i in range(5)]
+        # JourneyStepIn's real fields are kind/dataset_id/description (not sequence/label,
+        # round 2's finding) -- order is the list order, not a submitted field.
+        five_steps = [{"kind": "dataset", "dataset_id": ds_a, "description": f"step{i}"} for i in range(5)]
         try:
             r_set5 = await http.put(f"/journeys/{j_id}/steps", json={"reason": "initial", "steps": five_steps})
             detail77 = f"set5_status={r_set5.status_code} body={r_set5.text[:200]}"
         except Exception as e:
             detail77 = f"set5 exception: {type(e).__name__} {str(e)[:200]}"
             r_set5 = None
-        three_steps = [{"dataset_id": ds_a, "sequence": i, "label": f"step{i}"} for i in range(3)]
+        three_steps = [{"kind": "dataset", "dataset_id": ds_a, "description": f"step{i}"} for i in range(3)]
         ok77 = False
         if r_set5 is not None and r_set5.status_code in (200, 201):
             try:

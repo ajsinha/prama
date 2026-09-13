@@ -11,6 +11,11 @@ async def main():
     await env.start()
     await env.create_principal("owner71", "ownerpassword1", ["owner"])
     http, _ = await env.signed_in_client("owner71", "ownerpassword1")
+    # POST /controls/check and /controls/completions need control:propose since the
+    # UI-005/008/009 scope fix (they are control-studio write actions, not declaration
+    # actions) -- owner never held that; steward does.
+    await env.create_principal("steward71", "stewardpassword1", ["steward"])
+    http_steward, _ = await env.signed_in_client("steward71", "stewardpassword1")
 
     # setup: a dataset with three attributes
     r_ds = await http.post("/declarations/new", data={"name": "studio-ds-71", "shape": "unbound", "criticality": "4"})
@@ -31,7 +36,7 @@ async def main():
 
     # UI-071: studio check matches CLI findings for the same suite
     bad_source = "CHECK studio_ds_71.field_a IS NOT NULL SEVERITY urgent\n"
-    r_check = await http.post("/controls/check", data={"source": bad_source})
+    r_check = await http_steward.post("/controls/check", data={"source": bad_source})
     check_text = r_check.text
     from prama.cli.base import Application
     from prama.cli.commands import all_commands
@@ -45,7 +50,7 @@ async def main():
     record("UI-071", "PASS" if ok71 else "FAIL", f"studio_status={r_check.status_code} studio_mentions_severities={'critical' in check_text.lower()} cli_mentions_severities={'critical' in cli_text.lower()}")
 
     # UI-072: studio catalogue derived from declarations
-    r_completions = await http.post("/controls/completions", data={"source": "CHECK studio_ds_71.", "line": "1", "column": "20"})
+    r_completions = await http_steward.post("/controls/completions", data={"source": "CHECK studio_ds_71.", "line": "1", "column": "20"})
     body72 = r_completions.text
     doc72 = json.loads(body72) if r_completions.status_code == 200 else None
     names_offered = [item.get("label", item.get("text", "")) for item in doc72.get("items", [])] if doc72 else []
@@ -92,20 +97,35 @@ async def main():
     record("UI-133", "PASS" if ok133 else "FAIL", f"scorecards_status={r_scorecards.status_code} evidence_status={r_evidence.status_code}")
     await env2.stop()
 
-    # UI-135: CSRF -- a cross-origin POST with a valid session cookie (same_site=lax only defence)
-    # Cannot truly simulate a cross-SITE browser navigation via ASGITransport (no real Origin/Referer
-    # enforcement exists to test unless the server checks headers itself); confirm by code inspection
-    # whether ANY Origin/Referer check or CSRF token exists anywhere in the console routes.
+    # UI-135: CSRF -- a cross-origin POST with a valid session cookie. Expected: "refused -- by
+    # a token, an origin check, or SameSite proving sufficient for all of them" -- SameSite=lax
+    # (confirmed present at UI-002) is an acceptable defence on its own, PROVIDED it is a
+    # documented, deliberate decision rather than an unexamined default (the catalogue's Why:
+    # "it should be a decision rather than an inheritance"). The previous version of this check
+    # grepped all of src/prama/web including vendored JS (codemirror.min.js, sigma.min.js
+    # legitimately contain the substring "Origin" internally) and a template column literally
+    # labelled "Origin" -- neither is a CSRF mechanism or documentation of one, and any grep hit
+    # at all, genuine or not, was treated as PASS. Search only the Python source (excluding
+    # static/vendor) for a real token/origin/referer check OR a comment documenting SameSite as
+    # the deliberate CSRF decision, matching round 2's own (manual) exclusion of those same
+    # false positives.
     import subprocess
-    grep = subprocess.run(["grep", "-rln", "csrf\\|Origin\\|Referer", str(c.REPO_ROOT / "src/prama/web")], capture_output=True, text=True)
-    hits = grep.stdout.strip().splitlines()
+    grep = subprocess.run(
+        ["grep", "-rln", "-i", "csrf\\|referer\\|origin.*check\\|deliberate.*decision"],
+        capture_output=True, text=True,
+        cwd=str(c.REPO_ROOT / "src/prama/web"),
+    )
+    hits = [h for h in grep.stdout.strip().splitlines() if not h.startswith("static/") and not h.startswith("./static/")]
+    ok135 = bool(hits)
     record(
         "UI-135",
-        "FAIL" if not hits else "PASS",
-        f"grep for csrf/Origin/Referer handling in src/prama/web: {hits} -- "
-        f"{'no CSRF token, Origin check, or Referer check exists anywhere; SameSite=lax on the session '
-           'cookie (confirmed present at UI-002) is the entire defence, exactly as the catalogue states, '
-           'and it is undocumented as a deliberate decision anywhere in the code' if not hits else ''}",
+        "PASS" if ok135 else "FAIL",
+        f"grep -i csrf/referer/'origin check'/'deliberate decision' in Python source and templates "
+        f"(static/vendor excluded): {hits} -- "
+        + ("" if ok135 else
+           "no CSRF token, Origin check, or Referer check exists anywhere, and SameSite=lax on the "
+           "session cookie (confirmed present at UI-002) -- the entire defence -- is nowhere "
+           "documented as a deliberate, reviewed decision; it is an inherited default"),
     )
 
     await env.stop()

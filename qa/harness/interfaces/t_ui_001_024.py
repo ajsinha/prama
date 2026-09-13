@@ -32,7 +32,8 @@ async def main():
     http2 = env2.client()
     r = await http2.post("/sign-in", data={"username": "alice2", "password": "alicepassword1", "tenant": "acme-bank"})
     set_cookie = r.headers.get("set-cookie", "")
-    ok2 = "prama_session" in set_cookie and "HttpOnly" in set_cookie and "samesite=lax" in set_cookie.lower()
+    # Starlette emits the attribute lowercase ("httponly"); match case-insensitively.
+    ok2 = "prama_session" in set_cookie and "httponly" in set_cookie.lower() and "samesite=lax" in set_cookie.lower()
     # https_only defaults True in the real config; our test harness sets cookies_https_only False for
     # httpx-over-ASGI convenience (there is no real TLS in-process) -- check the DEFAULT separately below.
     record("UI-002", "PASS" if ok2 else "FAIL", f"set_cookie={set_cookie!r}")

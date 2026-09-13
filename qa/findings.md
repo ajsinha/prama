@@ -531,6 +531,69 @@ including a path traversal in secret resolution, and the one it led with was
 not. That is a good hit rate for a reading pass and a bad reason to trust one
 without reproduction.
 
+### Q-66 · `/controls/check` demands an authoring scope to lint text — open, found in round 3
+
+Round 3's interfaces pass put seven console cases into 403 where round 2 had
+them at 200. The cause is not damage: before B7 the console **authenticated a
+session and then checked nothing**, so every page rendered for anybody who got
+through the door. Adding `ui_scope` turned pages that always rendered into pages
+that can refuse, and the round-2 harnesses — which signed in as `owner` — began
+to be refused. That is the guard working.
+
+One of the refusals is worth a decision rather than a fixture change.
+`POST /controls/check` and `/controls/completions` now require
+`control:propose`. Neither writes anything: `check` parses, type-checks and
+lints a PQL string and returns findings. `owner` holds `control:approve` and
+`control:read`, and deliberately not `control:propose` — the role split is
+"the steward authors, the owner approves".
+
+So the business owner — the persona in the first sentence of `docs/00`, the
+"business-owned" in the product's own description — can activate a control but
+cannot lint the text of one before approving it. Approving what you were not
+permitted to check reads backwards, and the natural workaround is to grant
+owners `control:propose`, which erases the separation the two scopes exist to
+create.
+
+`control:read` is the defensible requirement for both routes: they read the
+language, not the estate. But that is a statement about what the role boundary
+*means*, so it belongs to the product rather than to a QA pass, and it is
+recorded here instead of changed. Related: [[Q-63]].
+
+**Not** a regression. The round-2 PASS was a page that could not say no.
+
+### Q-67 · The role built to attest cannot read an attestation — new, found in round 3
+
+`BUILTIN_ROLES["owner"]` grants `attestation:sign` and not `attestation:read`.
+Measured across all four built-in roles:
+
+| role | `attestation:sign` | `attestation:read` | both |
+|---|---|---|---|
+| `admin` | yes | yes | yes — via `*` |
+| `owner` | **yes** | **no** | **no** |
+| `steward` | no | no | no |
+| `auditor` | no | yes | no |
+
+So the only principal who can sign an attestation and then look at it is the
+wildcard admin. An `owner` — the role whose whole purpose is to attest, and the
+persona the product is named for — can sign, and cannot open the draft before
+signing it or the signed record afterwards through the console.
+
+`tests/architecture/test_scopes.py` does not catch this, and is right not to by
+its current rule: it checks that no role grants a permission no route requires,
+and that no route requires a permission no role can hold. `attestation:read` is
+held by `auditor`, so both directions pass. The missing rule is the third one —
+**a role must hold the reads implied by the writes it holds.** Signing a thing
+you cannot read is not a permission set anyone would write down on purpose.
+
+Found because the B7 scope work made the console able to refuse at all; before
+it, every page rendered for anybody who got through the door, so the gap existed
+and could not be observed. Same shape as [[Q-66]]: the guard did not create these
+problems, it made them visible.
+
+The repair is one entry in `BUILTIN_ROLES` plus the third architecture rule, and
+the counterfactual is cheap — grant, assert the console renders, revoke, assert
+403. Batch it with Q-66 if Q-66 is decided as a change.
+
 ---
 
 ## What held

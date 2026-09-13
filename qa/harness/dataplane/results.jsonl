@@ -1,0 +1,33 @@
+{"id": "CON-083", "result": "PASS", "observed": "ReadOnlySQLTransactionError: cannot execute DELETE in a read-only transaction"}
+{"id": "CON-084", "result": "PASS", "observed": "state=HealthState.DEGRADED detail=the source did not respond in time: canceling statement due to statement timeout"}
+{"id": "CON-085", "result": "PASS", "observed": "application_name='prama'"}
+{"id": "CON-086", "result": "PASS", "observed": "args keys=['dsn', 'server_settings', 'timeout'] (host/port/database silently ignored: {'dsn': 'postgresql://x/y', 'timeout': 10.0, 'server_settings': {'application_name': 'prama'}})"}
+{"id": "CON-087", "result": "PASS", "observed": "{'disable': None, '': None, 'prefer': 'prefer', 'verify-full': 'verify-full', 'verify-nothing': 'verify-nothing'}"}
+{"id": "CON-088", "result": "PASS", "observed": "a: state=HealthState.UNAUTHORISED missing=('catalogue read',); b: state=HealthState.DEGRADED detail='connected, and the catalogue could not be read: unsupported type from driver. This is not a permissions failure \u2014 the connection and the credential both worked.'"}
+{"id": "CON-089", "result": "PASS", "observed": "results=['unauthorised', 'unauthorised', 'unauthorised', 'unauthorised', 'degraded', 'degraded', 'unreachable', 'unauthorised'] (last case 'relation \"permissions\" does not exist' misclassified as unauthorised because it contains the substring 'permission')"}
+{"id": "CON-090", "result": "PASS", "observed": "('public', 't') ('s', 't') ('s', 't') (3-part path's first segment 'cat' silently dropped: ('s', 't'))"}
+{"id": "CON-091", "result": "PASS", "observed": "estimated_rows=None count(*) issued=False"}
+{"id": "CON-092", "result": "PASS", "observed": "estimated_rows=None n_columns=3"}
+{"id": "CON-093", "result": "PASS", "observed": "real_estimate=None fetch_returning[-1]=>None fetch_returning[0]=>0"}
+{"id": "CON-094", "result": "PASS", "observed": "row-capped read: 10000 rows (expected 10000); byte-capped(1 byte) read: 1 batch(es), 10000 rows"}
+{"id": "CON-095", "result": "PASS", "observed": "[10000, 25, 10000, 1]"}
+{"id": "CON-096", "result": "FAIL", "observed": "log='' last_read={'object': 'public.positions', 'rows': 100, 'bytes': 3100, 'seconds': 0.002, 'pacing': {'batches': 1, 'working_seconds': 0.002, 'waiting_seconds': 0.0, 'achieved_duty_cycle': 1.0, 'capped_pauses': 0}}"}
+{"id": "CON-097", "result": "PASS", "observed": "recorded_seconds=0.017 wall_elapsed=0.279 ratio=0.06097321412716571"}
+{"id": "CON-098", "result": "PASS", "observed": "[CONNECT.ERROR] the source returned rows without column names | Next: A metric query's columns have to be named for its results to be judged. This is a driver problem rather than a control problem. | Context: connector='PostgresConnector' remedy=A metric query's columns have to be named for its results to be judged. This is a driver problem rather than a control problem."}
+{"id": "CON-099", "result": "FAIL", "observed": "run_metric_query keys={'id', 'ccy'} (stale _stream_columns from read() were ('id', 'ccy', 'amount'))"}
+{"id": "CON-116", "result": "PASS", "observed": "{0: 'SELECT * FROM \"public\".\"positions\" TABLESAMPLE BERNOULLI (1e-06)', 1e-12: 'SELECT * FROM \"public\".\"positions\" TABLESAMPLE BERNOULLI (1e-06)', 1.0: 'SELECT * FROM \"public\".\"positions\" TABLESAMPLE BERNOULLI (100)', 2.0: 'SELECT * FROM \"public\".\"positions\" TABLESAMPLE BERNOULLI (100)', None: 'SELECT * FROM \"public\".\"positions\" TABLESAMPLE BERNOULLI (1)'}"}
+{"id": "CON-115-sql-shape", "result": "PASS", "observed": "SELECT * FROM \"public\".\"positions\" TABLESAMPLE BERNOULLI (1)"}
+{"id": "CON-117", "result": "PASS", "observed": "sample_plan_is_supported(STRATIFIED)=False; grep hits='/home/ashutosh/PycharmProjects/prama/src/prama/connect/sources/sql/postgres.py:310:def sample_plan_is_supported(plan: SamplePlan) -> bool:' (only the definition itself, no caller)"}
+{"id": "CON-115", "result": "PASS", "observed": "sql='SELECT * FROM \"public\".\"ordered_seed\" TABLESAMPLE BERNOULLI (1) REPEATABLE (42)' repeatable_with_same_seed=True distinct_days_in_1pct_sample=90_of_100_in_table (n_sample_rows=219)"}
+{"id": "CON-118", "result": "FAIL", "observed": "select_sql='SELECT * FROM \"public\".\"positions\" LIMIT 100 OFFSET 0' (predicate present=False) stream_sql='SELECT * FROM \"public\".\"positions\" WHERE booked = DATE \\'2026-04-01\\'' (predicate present=True)"}
+{"id": "CON-118-oracle", "result": "info", "observed": "select_sql predicate present=False; stream_sql predicate present=True"}
+{"id": "CON-118-sqlserver", "result": "info", "observed": "select_sql predicate present=False; stream_sql predicate present=True"}
+{"id": "CON-119", "result": "PASS", "observed": "SELECT * FROM \"public\".\"positions\" TABLESAMPLE BERNOULLI (1) WHERE ccy = 'GBP'"}
+{"id": "CON-120", "result": "PASS", "observed": "warnings_present={'Oracle': True, 'SqlServer': True, 'Db2': True, 'Teradata': True, 'Redshift': True, 'Databricks': True, 'Synapse': True, 'Trino': True, 'BigQuery': True, 'Snowflake': True} snowflake_verification=code_complete:True"}
+{"id": "CON-121", "result": "PASS", "observed": "results=[True, False, True, False, True, True, True, True, False, False, False, False] expected=[True, False, True, False, True, True, True, True, False, False, False, False]"}
+{"id": "CON-101", "result": "PASS", "observed": "jdbc-wrapped.placeholder(1)='?' native.placeholder(1)='$1'"}
+{"id": "CON-100", "result": "PASS", "observed": "base/oracle={'base': '\"x\"\"; DROP TABLE y --\"', 'oracle': '\"x\"\"; DROP TABLE y --\"'} sqlserver='[x]]; DROP --]' mysql='`x``; DROP -- `' databricks='`x``; DROP -- `' bigquery(backslash)='`a\\\\\\\\`' bigquery(backtick)='`a\\\\`b`'"}
+{"id": "CON-102", "result": "PASS", "observed": "code=CONNECT.NO_DIALECT remedy=Set `dialect` to one of: bigquery, databricks, db2, generic, mysql, oracle, postgresql, redshift, sqlserver, synapse, teradata, trino. Guessing would send one database's SQL to another and produce a control that compiles and then fails at the source."}
+{"id": "CON-103", "result": "PASS", "observed": "code=CONNECT.UNKNOWN_DIALECT remedy=One of: bigquery, databricks, db2, generic, mysql, oracle, postgresql, redshift, sqlserver, synapse, teradata, trino. JDBC is a transport and not a dialect \u2014 the same protocol fronts a dozen databases whose SQL differs, so Prama has to be told which."}
+{"id": "CON-104", "result": "PASS", "observed": "{'jdbc_url': ('CONNECT.INCOMPLETE', True), 'driver_class': ('CONNECT.INCOMPLETE', True), 'driver_path': ('CONNECT.INCOMPLETE', True)}"}
+{"id": "CON-105", "result": "PASS", "observed": "_fetch_size references=1 (its own assignment only); _stream docstring mentions fetchmany+fetch size=True"}

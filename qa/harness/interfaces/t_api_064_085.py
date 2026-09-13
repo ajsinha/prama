@@ -42,7 +42,9 @@ async def main():
         res66["amend"] = (await other_http.post(f"/datasets/{ds_a}/amend", json={"reason": "x", "changes": {}})).status_code
         res66["correct"] = (await other_http.post(f"/datasets/{ds_a}/correct", json={"reason": "x", "changes": {}})).status_code
         res66["retire"] = (await other_http.delete(f"/datasets/{ds_a}")).status_code
-        res66["bind"] = (await other_http.post(f"/datasets/{ds_a}/bindings", json={"connection_id": "01NOSUCH00000000000000000", "physical_path": "x"})).status_code
+        # BindingIn's real field is `physical_ref` (a dict), not `physical_path` -- the wrong
+        # field name (round 2's finding) makes Pydantic 422 before the tenant check ever runs.
+        res66["bind"] = (await other_http.post(f"/datasets/{ds_a}/bindings", json={"connection_id": "01NOSUCH00000000000000000", "physical_ref": {"schema": "s", "object": "o"}})).status_code
     bad66 = {k: v for k, v in res66.items() if v != 404}
     # confirm estate A's dataset unchanged
     async with env.client(env.api_key) as http:

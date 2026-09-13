@@ -6,14 +6,21 @@ import cli_common as c
 
 
 async def tamper_cookie(env, http, **overrides):
+    # Starlette's SessionMiddleware signs with TimestampSigner (no salt) and encodes the
+    # payload with STANDARD (not URL-safe) base64 -- itsdangerous.base64_encode/decode are
+    # URL-safe, so round-tripping through them silently produces a cookie the middleware
+    # cannot decode at all (session reads back empty, not merely tampered). Match the real
+    # mechanism exactly, the same way ui_common.py::tamper_session_cookie already does.
+    from base64 import b64decode, b64encode
+
     secret = env.config.raw()["security"]["session_secret"]
-    signer = itsdangerous.TimestampSigner(secret, salt="starlette.sessions")
+    signer = itsdangerous.TimestampSigner(secret)
     raw_cookie = http.cookies.get("prama_session")
-    payload_b64 = raw_cookie.split(".")[0]
-    payload = json.loads(itsdangerous.base64_decode(payload_b64))
+    data = signer.unsign(raw_cookie.encode())
+    payload = json.loads(b64decode(data))
     payload.update(overrides)
-    new_b64 = itsdangerous.base64_encode(json.dumps(payload).encode())
-    new_cookie = signer.sign(new_b64).decode()
+    new_data = b64encode(json.dumps(payload).encode("utf-8"))
+    new_cookie = signer.sign(new_data).decode("utf-8")
     http.cookies.set("prama_session", new_cookie)
     return payload
 
@@ -77,14 +84,21 @@ async def main():
     await http21b.aclose()
     await env21.stop()
 
-    # UI-022: sign-out revokes other sessions too (both are cookie-based sessions of the same account)
+    # UI-022: sign-out revokes other sessions too. Round 2 found the literal "sign in twice,
+    # then sign out from one" scenario can never produce two SIMULTANEOUSLY valid sessions to
+    # begin with: PrincipalDao.authenticate() bumps principal.updated_at on every sign-in, so
+    # the SECOND sign-in already revokes the first's session as a side effect, before any
+    # sign-out happens. The real test is two clients sharing the SAME cookie from one sign-in
+    # (two tabs of the one login) -- signing out from one must revoke the other's copy too.
     DB22 = c.WORKDIR / "ui022.db"
     env22 = u.UiEnv(str(DB22))
     await env22.start()
     await env22.create_principal("alice22", "alicepassword22", ["owner"])
     http_browser1, _ = await env22.signed_in_client("alice22", "alicepassword22")
-    http_browser2, _ = await env22.signed_in_client("alice22", "alicepassword22")
     r_b1_before = await http_browser1.get("/estate")
+    shared_cookie = http_browser1.cookies.get("prama_session")
+    http_browser2 = env22.client()
+    http_browser2.cookies.set("prama_session", shared_cookie)
     r_b2_before = await http_browser2.get("/estate")
     await http_browser1.post("/sign-out")
     r_b2_after = await http_browser2.get("/estate")
@@ -92,12 +106,13 @@ async def main():
     record(
         "UI-022",
         "PASS" if ok22 else "FAIL",
-        f"b1_before={r_b1_before.status_code} b2_before={r_b2_before.status_code} b2_after_b1_signout={r_b2_after.status_code} -- "
-        f"revocation is keyed on principal.updated_at (see UI-017's mechanism), and signing out via this "
-        f"route does not appear to touch updated_at directly (it only clears the CALLING client's own "
-        f"cookie) -- so this specific probe checks whether ANY server-side mechanism revokes the other "
-        f"session too",
+        f"two tabs sharing ONE sign-in's cookie: b1_before={r_b1_before.status_code} "
+        f"b2_before(shared cookie)={r_b2_before.status_code} b2_after_b1_signout={r_b2_after.status_code} -- "
+        f"revocation is keyed on principal.updated_at, and auth_routes.py::sign_out sets it too "
+        f"('it revokes the other browser the user forgot about too'), so both copies of the one "
+        f"session are refused after either tab signs out",
     )
+    await http_browser2.aclose()
     await http_browser1.aclose()
     await http_browser2.aclose()
     await env22.stop()

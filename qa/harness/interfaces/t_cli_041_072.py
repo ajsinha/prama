@@ -323,16 +323,23 @@ doc_a = json.loads(out_a)
 doc_b = json.loads(out_b)
 users_a = {p["username"] for p in doc_a["principals"]}
 users_b = {p["username"] for p in doc_b["principals"]}
-ok = users_a == {"alice-a"} and users_b == {"alice-b"} and users_a.isdisjoint(users_b)
-# by slug (the broken path found in CLI-066)
+ok_isolation = users_a == {"alice-a"} and users_b == {"alice-b"} and users_a.isdisjoint(users_b)
+# by slug -- round 2 marked this case FAIL over this specifically, not only the id-based
+# isolation check: PrincipalListCommand.run passes ctx.args.tenant straight to
+# uow.principals.list_for_tenant() without ever calling _resolve_tenant (unlike
+# PrincipalCreateCommand), so the idiom every other command in this section supports silently
+# returns an empty list rather than that estate's principals -- keeping the verdict gated on
+# id-only isolation and never checking this let a still-broken command read as "fixed".
 code_as, out_as, _ = c.run_sub(["--json", "--config", str(cfg69), "principal", "list", "--tenant", "bank-a"])
 users_as = {p["username"] for p in json.loads(out_as)["principals"]}
+ok_slug = users_as == {"alice-a"}
+ok = ok_isolation and ok_slug
 record(
     "CLI-069",
     "PASS" if ok else "FAIL",
-    f"by tenant id: users_a={users_a} users_b={users_b} isolation_ok={ok} -- "
-    f"by tenant slug 'bank-a': users={users_as} (expect {{'alice-a'}}, got empty — "
-    f"PrincipalListCommand does not resolve a slug at all, see CLI-066)",
+    f"by tenant id: users_a={users_a} users_b={users_b} isolation_ok={ok_isolation} -- "
+    f"by tenant slug 'bank-a': users={users_as} (expect {{'alice-a'}}, got {users_as or 'empty'} — "
+    f"{'resolved correctly' if ok_slug else 'PrincipalListCommand does not resolve a slug at all, see CLI-066'})",
 )
 
 # CLI-070: principal roles needs no database (config present, but the database it names is unreachable)
