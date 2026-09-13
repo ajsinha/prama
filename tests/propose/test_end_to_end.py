@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import dataclasses
 
+from prama.backend.execute import unanswerable
 from prama.classify.codelists import REGISTRY as CODELISTS
 from prama.core.provenance import Origin
 from prama.derive.declaration import AttributeDeclaration, DatasetDeclaration
@@ -115,7 +116,17 @@ def test_every_proposed_control_would_actually_run() -> None:
     is a queue that turns into an incident on approval day."""
     lowerer = Lowerer(codelists=CODELISTS.resolve())
     for control in ControlGenerator().generate(positions()).controls:
-        assert lowerer.control(control.control).plan_id
+        plan = lowerer.control(control.control)
+        assert plan.plan_id
+        # The docstring above said "assert the rendered artefact" while the
+        # assertion checked only that a plan id existed. QA round 3, Q-71.
+        # Freshness is knowingly unanswerable and pinned by a strict xfail
+        # below rather than silently tolerated here: excluding it keeps this
+        # assertion live for every other kind. QA round 3, Q-64 and Q-71.
+        if plan.assertion_kind == "freshness":
+            continue
+        reason = unanswerable(plan)
+        assert not reason, f"{control.control.render().splitlines()[0]}: {reason}"
 
 
 def test_a_backtest_moves_a_noisy_control_out_of_the_one_click_path() -> None:

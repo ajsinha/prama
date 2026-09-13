@@ -182,6 +182,60 @@ def judge_segments(
     )
 
 
+#: The metrics each dedicated verdict rule reads before it can answer. A kind
+#: absent from this table is judged by its threshold, so what it needs is
+#: whatever metric the threshold names.
+#:
+#: Kept beside the functions it describes, because it is the one place that can
+#: be wrong without anything failing: a rule that reads a metric nobody emits
+#: returns INDETERMINATE forever, and an indeterminate control looks like
+#: caution rather than like a defect.
+VERDICT_METRICS: dict[str, frozenset[str]] = {
+    "row_count": frozenset({"scanned_rows"}),
+    "functional_dependency": frozenset({"distinct_determinants", "distinct_pairs", "scanned_rows"}),
+    "unique_key": frozenset({"scanned_rows", "distinct_keys"}),
+}
+
+
+def unanswerable(plan: ControlPlan) -> str:
+    """Why *plan* can never reach PASS or FAIL, or ``""`` when it can.
+
+    A control that compiles, runs, and returns INDETERMINATE whatever the data
+    says is worse than one that refuses: it occupies a line on a scorecard and
+    contributes nothing, and nobody investigates a control that has never been
+    red. QA round 3 found `IS FRESH` in exactly that state (`Q-64`), reached by
+    four separate producers, under four tests named for runnability that only
+    checked that lowering succeeded (`Q-71`).
+
+    Derived from `VERDICT_METRICS` and the plan's own declared metrics rather
+    than restated as a list of supported kinds — a restated list is what lets a
+    new assertion kind arrive and be judged by a threshold nobody emits.
+    """
+    emitted = {metric.name for metric in plan.metrics}
+    needed = VERDICT_METRICS.get(plan.assertion_kind)
+    if needed is None:
+        # No dedicated rule: the threshold decides, so its metric must exist.
+        if plan.threshold.metric not in emitted:
+            return (
+                f"assertion kind {plan.assertion_kind!r} is judged by its threshold on "
+                f"{plan.threshold.metric!r}, which this plan does not emit "
+                f"(it emits {sorted(emitted)})"
+            )
+        if plan.threshold.relative_to and plan.threshold.relative_to not in emitted:
+            return (
+                f"the threshold is relative to {plan.threshold.relative_to!r}, "
+                f"which this plan does not emit (it emits {sorted(emitted)})"
+            )
+        return ""
+    missing = sorted(needed - emitted)
+    if missing:
+        return (
+            f"the verdict rule for {plan.assertion_kind!r} reads {missing}, "
+            f"which this plan does not emit (it emits {sorted(emitted)})"
+        )
+    return ""
+
+
 def _verdict(plan: ControlPlan, metrics: dict[str, float]) -> Verdict:
     if plan.assertion_kind == "row_count":
         return _row_count_verdict(plan, metrics)
