@@ -118,8 +118,21 @@ r8b = rec8.record(plan8b, a_result(plan_id=plan8b.plan_id, verdict=Verdict.FAIL)
 same_digest = r8a.samples_digest == r8b.samples_digest
 store2.forget(r8a.samples_digest)
 other_gone = store2.get(r8b.samples_digest) is None
-ok = same_digest and other_gone
-line("EVD-084", "PASS" if ok else "FAIL", f"same_digest={same_digest} digest={r8a.samples_digest} forgetting_one_also_forgets_other={other_gone} (content-addressed sharing, not reference-counted)")
+# NOTE (round 3): the original assertion checked only the mechanics
+# (same_digest, forgetting-one-forgets-both), which already held in round 2
+# too -- round 2's own published verdict FAILED this case on a requirement
+# the saved script never encoded: the catalogue also requires the sharing
+# behaviour to be *stated*, not merely true, and SampleStore.put/forget carry
+# no docstring sentence about shared digests or the retention consequence. A
+# harness completeness gap, not a change in the underlying mechanics.
+import inspect as _inspect6
+store_src = _inspect6.getsource(SampleStore)
+documented = ("shared" in store_src.lower() or "content-address" in store_src.lower()
+              or "same digest" in store_src.lower() or "identical" in store_src.lower())
+ok = same_digest and other_gone and documented
+line("EVD-084", "PASS" if ok else "FAIL",
+     f"same_digest={same_digest} digest={r8a.samples_digest} forgetting_one_also_forgets_other={other_gone} "
+     f"(content-addressed sharing, not reference-counted) documented_in_SampleStore_docstrings={documented}")
 
 # EVD-085: sample digest format sha256: + 32 hex chars (128 bits)
 s = store2.put([{"a": 1}])

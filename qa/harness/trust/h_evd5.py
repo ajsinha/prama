@@ -186,6 +186,18 @@ grep = subprocess.run(["grep", "-rn", "-i", "signed", "/home/ashutosh/PycharmPro
 hits = grep.stdout.strip().splitlines()
 line("EVD-073", "INFO" if hits else "FAIL", f"grep -rni 'signed' src/prama/cli src/prama/api -> {len(hits)} hits: {hits[:10]}")
 
+# EVD-073 follow-up: the INFO grep alone is not decisive (it finds unrelated
+# "signed" hits -- CLI bundle-manifest signing, attestation sign). What decides
+# the case is whether evidence.ledger.sign()/verify_signature() are called from
+# any CLI command or API route at all, since that is the only surface on which
+# a "what the signature proves" caveat sentence could appear.
+grep2 = subprocess.run(["grep", "-rn", "verify_signature\\|\\.sign(", "/home/ashutosh/PycharmProjects/prama/src/prama"], capture_output=True, text=True)
+sign_hits = [l for l in grep2.stdout.splitlines() if "evidence/ledger.py" not in l and "evidence/__init__.py" not in l and "__pycache__" not in l]
+ledger_sign_used_outside = any("ledger" in l.lower() and ("sign(" in l or "verify_signature" in l) for l in sign_hits)
+line("EVD-073", "FAIL" if not ledger_sign_used_outside else "PASS",
+     f"evidence.ledger.sign()/verify_signature() called outside evidence/ledger.py+__init__.py: {ledger_sign_used_outside} -- other 'sign('/'verify_signature' hits are unrelated mechanisms (CLI bundle manifest Ed25519 signing, attestation.sign): {sign_hits}. "
+     f"No CLI command or API route renders a signed chain head, so there is no surface for a caveat sentence to appear on.")
+
 # EVD-074: published root + signed head detects re-chained forgery
 l = a_chain(10)
 recs = l.records()

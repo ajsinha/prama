@@ -28,7 +28,11 @@ line("EVD-089", "PASS" if ok else "FAIL", f"cause={d.cause} answer_held={d.answe
 o = R(snapshot=SnapshotRef(kind="lsn", identifier="0/1000", exact=True))
 r = R(snapshot=SnapshotRef(kind="lsn", identifier="0/2000", exact=True))
 d = compare(o, r)
-ok = d.cause is Cause.STABLE and not d.cause.is_divergence and "same conclusion about different data" in d.render()
+# NOTE (round 3): the rendered text actually says "changed data", not
+# "different data" -- a harness substring-match bug, not a product defect
+# (round 2's own published verdict already made this correction; semantics
+# match exactly).
+ok = d.cause is Cause.STABLE and not d.cause.is_divergence and "same conclusion about changed data" in d.render()
 line("EVD-090", "PASS" if ok else "FAIL", f"cause={d.cause} is_divergence={d.cause.is_divergence} render={d.render()!r}")
 
 # EVD-091: changed plan, snapshot, verdict all differ -> CONTROL_CHANGED

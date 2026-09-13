@@ -134,11 +134,64 @@ except RegistryError as e:
     ok = "has been disabled" in str(e) and "disabled in code, not in configuration" in e.remedy
     R("CFG-255", ok, str(e))
 
-# CFG-256: plugins.disabled config key wiring
-import subprocess
-hits = subprocess.run(["grep", "-rn", r"\.disable(", "src/prama", "--include=*.py"], capture_output=True, text=True).stdout
-R("CFG-256", bool(hits.strip()), f"no call to Registry.disable(...) found anywhere in src/prama (grep for '.disable(' across *.py): {hits!r}; "
-  f"config/application.yaml ships plugins.disabled: [] but nothing reads it")
+# CFG-256: plugins.disabled config key wiring -- B8 wired it into load_entry_points()
+# (filtering admission, not Registry.disable() after the fact), reached from create_app()
+# via install_shipped(disabled_plugins=...). Exercise the real mechanism with a fake
+# entry point rather than grepping for a call shape the fix does not use.
+import importlib.metadata as _im256
+from prama.classify.plugins import load_entry_points as _lep256, ENTRY_POINT_GROUP as _epg256
+from prama.classify.validators import ValidatorRegistry as _VR256, SemanticValidator as _SV256, Judgement as _J256
+
+def _mk_validator_cls(vname):
+    class _V(_SV256):
+        name = vname
+        def check(self, value):
+            return _J256(True, "")
+    return _V
+
+class _FakeDist:
+    name = "qa-fake-dist"
+
+class _FakeEntry:
+    def __init__(self, name):
+        self.name = name
+        self.dist = _FakeDist()
+    def load(self):
+        return _mk_validator_cls(self.name)
+
+def _fake_entry_points(*, group):
+    assert group == _epg256
+    return [_FakeEntry("qa-plugin-a"), _FakeEntry("qa-plugin-b")]
+
+class _FakePlugins:
+    """Stand-in for PLUGINS -- skips forbidden_imports/check_determinism, which
+    inspect the calling module's own source and would trip on this QA harness
+    file's unrelated top-level imports. Only the disabled-filtering loop in
+    load_entry_points() is under test here."""
+    def admit(self, validator, *, distribution=""):
+        return None
+
+real_entry_points = _im256.entry_points
+_im256.entry_points = _fake_entry_points
+try:
+    reg256 = _VR256()
+    _lep256(reg256, plugins=_FakePlugins(), disabled=[])
+    reg256b = _VR256()
+    _lep256(reg256b, plugins=_FakePlugins(), disabled=["qa-plugin-a"])
+finally:
+    _im256.entry_points = real_entry_points
+
+both_admitted_when_none_disabled = "qa-plugin-a" in reg256 and "qa-plugin-b" in reg256
+only_b_admitted_when_a_disabled = "qa-plugin-a" not in reg256b and "qa-plugin-b" in reg256b
+R("CFG-256", both_admitted_when_none_disabled and only_b_admitted_when_a_disabled,
+  f"load_entry_points() now filters by plugins.disabled BEFORE admission (not Registry.disable() after -- a "
+  f"different, and better, mechanism than the grep this case's round-2 harness looked for): with disabled=[] both "
+  f"fake plugins are admitted ({both_admitted_when_none_disabled}); with disabled=['qa-plugin-a'] only 'b' is "
+  f"admitted ({only_b_admitted_when_a_disabled}). Reached from create_app() via install_shipped(disabled_plugins="
+  f"config.get_list('plugins.disabled', [])) -- the SERVER path honours the key. `prama.cli.main` still does not "
+  f"(Q-63, tracked as open, not re-reported here): it calls install_shipped() with no disabled_plugins argument "
+  f"because argparse has not run yet and --config is not known, so a CLI invocation admits a plugin the server "
+  f"would have excluded.")
 
 # CFG-257
 R("CFG-257", reg.keys() == sorted(["good2","good3"]) or set(reg.keys())=={"good2","good3"},

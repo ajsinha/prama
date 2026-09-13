@@ -142,11 +142,23 @@ except SecretMissingError:
 except Exception as e:
     R("CFG-013", False, f"{type(e).__name__}: {e}")
 
-# CFG-014 -- comment/value mismatch check (documentation case, expected: mismatch found -> corrected)
-comment_text = "Off in development only because a developer on http://localhost would"
+# CFG-014 -- comment/value mismatch check: read the REAL current comment beside the
+# real current value, rather than a hardcoded copy of round 2's finding (a hardcoded
+# copy cannot ever detect that the comment was fixed).
+import inspect as _insp014
+import prama.core.config.defaults as _defmod014
 value = DEFAULTS["security"]["cookies_https_only"]
-mismatch = (value is True)  # comment claims "off" but value is True (on)
-R("CFG-014", not mismatch, f"comment says 'Off in development' near cookies_https_only={value!r} (True means ON)")
+src014 = _insp014.getsource(_defmod014)
+# isolate the comment block immediately preceding the cookies_https_only assignment
+idx014 = src014.index('"cookies_https_only"')
+block014 = src014[max(0, idx014 - 800):idx014]
+comment_lines014 = [l.strip().lstrip("#").strip() for l in block014.splitlines() if l.strip().startswith("#")]
+comment_joined014 = " ".join(comment_lines014).lower()
+claims_off = "off" in comment_joined014 and "on by default" not in comment_joined014
+mismatch014 = (value is True) and claims_off
+R("CFG-014", not mismatch014,
+  f"cookies_https_only={value!r}; comment immediately above it (read live from source)={comment_joined014[:200]!r}; "
+  f"claims 'off'-while-value-is-True mismatch={mismatch014}")
 
 # CFG-015
 R("CFG-015", DEFAULTS["tenancy"]["default_tenant"] == "", repr(DEFAULTS["tenancy"]["default_tenant"]))

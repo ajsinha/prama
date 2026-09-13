@@ -631,6 +631,79 @@ pass the test — the flattering direction. Each site needs the specific typed
 error naming what was wrong, and the top-level handler is the last resort that
 should still be reached by nothing.
 
+### Q-69 · A performance gate that straddles its own budget — new, found in round 3
+
+`SCR-042` asserts a scoring pass completes inside a 30-second budget. Across
+eight runs of code `git log` proves unchanged — zero commits to
+`src/prama/score/trust.py` since round 2 — the observed time ranged from
+**26.6s to 49.9s**. The budget sits inside the spread.
+
+So the case passes or fails on machine load. Round 3 recorded it FAIL to match
+round 2 rather than credit a coin flip, which is the right call for a log whose
+job is comparison, but it leaves a gate that cannot answer the question it
+was written to ask.
+
+This is the counterfactual rule pointed at a timing assertion. A control that
+cannot fail is worth nothing; a control that fails at random is worse, because
+it trains whoever reads it to ignore a red result. The repair is one of:
+
+- measure work rather than wall-clock — rows scanned per unit of a calibrated
+  reference operation, so the number does not move with what else is running;
+- raise the budget above the observed ceiling and label it a smoke bound, which
+  is honest but concedes the case no longer measures performance;
+- mark it `slow` and run it alone, on the model of
+  `PRAMA_MEASURE_ESTATE_MAP=1` — the repository already has this pattern for
+  exactly this reason, and this case predates it.
+
+The third is closest to existing practice and cheapest. Note that the round-2
+and round-3 logs both record FAIL, so this has never been a passing case; it
+is being recorded now because round 3 is the first time anyone ran it eight
+times and noticed the verdict was not stable.
+
+### Q-70 · ULID monotonicity breaks under contention — new, found in round 3
+
+`UlidFactory.new()` reads the clock **outside** the lock that protects the
+state the reading is compared against (`src/prama/core/ids.py:48-63`):
+
+```python
+def new(self) -> str:
+    ms = self._clock.epoch_millis()      # line 49 -- outside
+    with self._lock:                     # line 50
+        if ms == self._last_ms: ...
+        else:
+            self._last_ms = ms           # a stale ms is written back
+```
+
+The interleaving, with two threads either side of a millisecond boundary:
+
+1. **A** reads `ms = 100`, and is descheduled before taking the lock.
+2. **B** reads `ms = 101`, takes the lock, sets `_last_ms = 101`, emits an id.
+3. **A** takes the lock. `100 != 101`, so it takes the `else` branch, sets
+   `_last_ms = 100` — **regressing the high-water mark** — and emits an id
+   stamped 100, which sorts *before* the id B already issued.
+
+Confirmed by execution: 8 failures in 15 runs under heavy contention (16
+threads, 100k ids), 25 passes in 25 runs in isolation. `git diff
+ec16cfe..03dcf7c -- src/prama/core/ids.py` is empty, so this is pre-existing
+and not remediation damage; round 2 recorded `CFG-168` as PASS because it
+never ran the case under load.
+
+**Why this one is worse than its severity label suggests.** ULIDs are the
+identifier scheme for the entire system — `SERIAL`/`AUTOINCREMENT` are
+forbidden precisely so an id can be minted client-side without a round trip.
+Sort order is load-bearing: the evidence ledger is a *sequence*, and
+`Archivist.bundle()` exports a **range**. An id that sorts before one already
+issued is not a cosmetic defect in that context.
+
+The repair is to move the clock read inside the lock — one line. The
+counterfactual already exists and is unusually good: the case fails 8 times in
+15 under contention against the current code, and must pass 25 of 25 after.
+Note that a fix verified only in isolation proves nothing here, since the
+unfixed code also passes 25 of 25 that way.
+
+Second instance of the load-dependent class, with [[Q-69]]. Both were recorded
+as PASS or FAIL by a single run before anyone ran them repeatedly.
+
 ---
 
 ## What held

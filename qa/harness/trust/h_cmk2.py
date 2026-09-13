@@ -108,7 +108,12 @@ line("SEC-065", "PASS" if hits else "FAIL", f"grep hits for the 'no cloud KMS ex
 
 # SEC-066: LocalTestKeyProvider not selectable via configuration
 r3 = subprocess.run(["grep", "-rln", "LocalTestKeyProvider", "/home/ashutosh/PycharmProjects/prama/src", "/home/ashutosh/PycharmProjects/prama/config"], capture_output=True, text=True)
-non_test_hits = [l for l in r3.stdout.strip().splitlines() if "cmk.py" not in l]
+# NOTE (round 3): the original filter excluded only literal "cmk.py", which is
+# NOT a substring of the compiled "cmk.cpython-313.pyc" -- so that build
+# artifact of the very same file slipped through as a second "hit". It is not
+# a second reference. Excluding __pycache__ paths generically (a harness bug,
+# not a product defect; round 2's published verdict already made this call).
+non_test_hits = [l for l in r3.stdout.strip().splitlines() if "cmk.py" not in l and "__pycache__" not in l]
 line("SEC-066", "PASS" if not non_test_hits else "FAIL", f"grep -rln LocalTestKeyProvider src/ config/ -> {r3.stdout.strip().splitlines()} (excluding its own definition file, hits: {non_test_hits})")
 
 print("SECTION SEC-059..066 DONE")

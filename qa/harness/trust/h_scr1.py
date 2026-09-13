@@ -79,11 +79,21 @@ line("SCR-014", "PASS" if ok else "FAIL", f"at_0.1_disagree={s_at.methods_disagr
 s_single = Score(dataset="x", composites={Method.MEAN: 0.5})
 line("SCR-015", "PASS" if s_single.methods_disagree is False else "FAIL", f"single_composite_disagree={s_single.methods_disagree}")
 
-# SCR-017: dimension rollup sums rows/violations, uses weighted rate not raw ratio
-s17 = score("ds", [M("a", D.COMPLETENESS, 100, 10, Criticality.TIER_1), M("b", D.COMPLETENESS, 900, 90, Criticality.TIER_4)])
+# SCR-017: dimension rollup sums rows/violations, uses weighted rate not raw ratio.
+# NOTE (round 3): the original parameters (10/100 TIER_1, 90/900 TIER_4) give
+# BOTH controls the identical 90% pass rate, so the tier-weighted combination
+# and the naive ratio come out equal (0.9 == 0.9) by coincidence -- that
+# proves nothing about whether weighting is actually applied. Per
+# _weighted_rate's own docstring, tiers combine by criticality weight alone
+# (TIER_1=16, TIER_4=1) once normalised within each tier, so two controls at
+# *different* pass rates is what actually exercises the distinction: TIER_1
+# 10 scanned/5 violations (50% pass), TIER_4 990 scanned/0 violations (100%
+# pass) -> tier_weighted = (16*0.5 + 1*1.0)/17 = 9/17, naive = 1 - 5/1000.
+# A harness test-data bug, not a product defect.
+s17 = score("ds", [M("a", D.COMPLETENESS, 10, 5, Criticality.TIER_1), M("b", D.COMPLETENESS, 990, 0, Criticality.TIER_4)])
 dim = s17.dimensions[0]
-raw_ratio = 1 - (100/1000)  # naive: 1000 scanned, 100 violations combined -> 0.9
-ok = dim.scanned == 1000 and dim.violations == 100 and dim.controls == 2 and abs(dim.score - raw_ratio) > 0.001
+raw_ratio = 1 - (5/1000)  # naive: 1000 scanned, 5 violations combined -> 0.995
+ok = dim.scanned == 1000 and dim.violations == 5 and dim.controls == 2 and abs(dim.score - raw_ratio) > 0.001
 line("SCR-017", "PASS" if ok else "FAIL", f"scanned={dim.scanned} violations={dim.violations} controls={dim.controls} tier_weighted_score={dim.score} naive_raw_ratio={raw_ratio}")
 
 # SCR-018: deterministic dimension ordering regardless of input order
