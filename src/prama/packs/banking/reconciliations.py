@@ -64,6 +64,13 @@ class ReconciliationTemplate:
     #: same-day only, which is right for a general ledger and wrong for a
     #: custodian.
     date_window: int = 0
+    #: Which key column the window applies to. Named rather than assumed to be
+    #: the last: `cashbook-to-statement` keys on (account, value_date,
+    #: reference), so a window of three days was shifting a reference string
+    #: and pairing nothing, while the setting read as configured and working
+    #: (QA finding PCK-209). Empty keeps the old behaviour for the templates
+    #: whose date genuinely is last.
+    date_column: str = ""
     note: str = ""
 
     def bind(
@@ -249,6 +256,9 @@ TEMPLATES: tuple[ReconciliationTemplate, ...] = (
         ),
         expected_breaks=(BreakKind.TIMING, BreakKind.MISSING, BreakKind.EXTRA),
         date_window=3,
+        # The window applies to the date, which is not the last key
+        # component here — see ReconciliationDefinition.date_column.
+        date_column="value_date",
         note=(
             "Three days, for items in transit. Unpresented cheques and in-transit "
             "credits are timing, and classifying them as genuine fills the queue "
@@ -270,6 +280,9 @@ TEMPLATES: tuple[ReconciliationTemplate, ...] = (
         tolerance_rationale="Zero. Two banks either agree about a movement or do not.",
         expected_breaks=(BreakKind.TIMING, BreakKind.MISSING),
         date_window=2,
+        # The window applies to the date, which is not the last key
+        # component here — see ReconciliationDefinition.date_column.
+        date_column="value_date",
     ),
     ReconciliationTemplate(
         identity="repository-to-trade-store",

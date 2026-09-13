@@ -30,9 +30,15 @@ DEFAULTS: dict[str, Any] = {
         # Empty on purpose: a fresh clone must refuse to serve rather than run
         # on a public secret. Put the real value in application.local.yaml.
         "session_secret": "",
-        # Off in development only because a developer on http://localhost would
-        # otherwise never receive the cookie at all and would spend an afternoon
-        # on it. Any real deployment sets it true.
+        # On by default, which is what a real deployment needs: a session
+        # cookie that can travel over plain HTTP is one that can be read off
+        # the wire. A developer on http://localhost will not receive it at all
+        # and should turn it off in application.local.yaml rather than here.
+        #
+        # The comment used to say it was "off in development" while the value
+        # beside it was True, which is the most misleading possible pairing —
+        # a reader checking whether the default is safe is told it is not
+        # (QA finding CFG-014).
         "cookies_https_only": True,
     },
     "tenancy": {
@@ -107,5 +113,12 @@ DEFAULTS: dict[str, Any] = {
             # folded into the plan id of every control that names it.
             "prama.validators",
         ],
+        # Entry points an operator has switched off by name. Present in the
+        # shipped YAML since plugins existed, absent from here, and read by
+        # nothing — because the loader itself had no caller (QA finding
+        # CFG-036). This mapping is the authority and the file is
+        # documentation, so a key that lives only in the file is a setting
+        # nobody can rely on.
+        "disabled": [],
     },
 }

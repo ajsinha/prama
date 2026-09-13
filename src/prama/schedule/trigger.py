@@ -113,13 +113,25 @@ class CalendarTrigger(Trigger):
 
     at: time = time(6, 30)
     calendar: BusinessCalendar = ALWAYS_OPEN
+    #: Minutes to shift this control's firing time within the day, so that a
+    #: hundred controls declared `06:30 TARGET2` do not all hit the warehouse
+    #: at 06:30. `spec.parse` computed the stagger and passed it only to
+    #: IntervalTrigger, so every calendar-scheduled control fired
+    #: simultaneously — which is the shape that takes a source down (QA finding
+    #: SCH-014).
+    #:
+    #: Derived from the control id rather than random, so the same control
+    #: keeps the same slot across restarts and its history stays comparable.
+    offset_minutes: int = 0
     kind: TriggerKind = dataclasses.field(default=TriggerKind.CALENDAR, init=False)
 
     def next_after(self, moment: datetime) -> datetime:
         day = moment.date()
         for _ in range(400):  # a year of holidays is the practical bound
             if self.calendar.is_business_day(day):
-                due = self.calendar.expected_at(day, self.at)
+                due = self.calendar.expected_at(day, self.at) + timedelta(
+                    minutes=self.offset_minutes
+                )
                 if due > moment:
                     return due
             day = day + timedelta(days=1)
@@ -131,6 +143,10 @@ class CalendarTrigger(Trigger):
 
     def describe(self) -> str:
         where = f" on {self.calendar.name} business days" if self.calendar.name else ""
+        # The offset is deliberately not described. It is a few minutes of
+        # load-spreading, not a property of the schedule anybody declared, and
+        # saying "at 06:34" about a control whose author wrote 06:30 invites a
+        # bug report about the wrong thing.
         return f"at {self.at.strftime('%H:%M')}{where}"
 
 

@@ -36,6 +36,7 @@ import ast as python_ast
 import dataclasses
 import hashlib
 import inspect
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -392,19 +393,35 @@ class PluginRegistry:
 PLUGINS = PluginRegistry()
 
 
-def load_entry_points(registry: Any, plugins: PluginRegistry | None = None) -> list[Provenance]:
+def load_entry_points(
+    registry: Any,
+    plugins: PluginRegistry | None = None,
+    *,
+    disabled: Iterable[str] = (),
+) -> list[Provenance]:
     """Load every advertised validator, refusing the ones that break a rule.
 
     A plugin that fails is refused *loudly* and the others still load: one bad
     distribution must not take an estate's validators down with it, and a
     refusal nobody sees is a validator silently missing from every control that
     named it.
+
+    *disabled* names entry points an operator has switched off, from
+    `plugins.disabled`. That setting existed in the shipped YAML, in no
+    defaults mapping, and was read by nothing (QA finding CFG-036) — because
+    this function was called by nothing either.
     """
     from importlib.metadata import entry_points
 
     plugins = plugins or PLUGINS
+    refused = {name.strip().lower() for name in disabled if name.strip()}
     admitted: list[Provenance] = []
     for entry in entry_points(group=ENTRY_POINT_GROUP):
+        if entry.name.lower() in refused:
+            # Said out loud. A validator that is missing because somebody
+            # turned it off must not look the same as one that failed to load.
+            _log.info("validator plugin %s is disabled by configuration", entry.name)
+            continue
         try:
             validator = entry.load()()
             provenance = plugins.admit(

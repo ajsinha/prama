@@ -341,6 +341,24 @@ Two cases were added to the corpus so this cannot recur silently:
 
 ---
 
+### Q-63 · `plugins.disabled` works in the server and not the CLI — open
+
+Wiring the plugin loader (CFG-036) exposed an asymmetry rather than removing
+one. `create_app` reads `plugins.disabled` and passes it to `install_shipped`;
+`prama.cli.main` cannot, because it installs before argparse has run and so
+does not yet know whether `--config` names a different file. Reading a
+configuration the caller is about to override would be worse than reading none.
+
+So a validator switched off in configuration stays off in the server and loads
+in the CLI. Disabling a plugin is a deployment decision and the server is where
+it matters, which makes this tolerable and not correct.
+
+The real fix is to load plugins lazily, on first use of the validator registry,
+where the configuration is known. That is a refactor rather than a repair, and
+it is not the kind of change to make inside a batch about inert settings.
+
+---
+
 ## Open
 
 Ranked. Each was reported by the agent named, and awaits reproduction before

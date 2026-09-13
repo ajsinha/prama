@@ -114,7 +114,7 @@ def create_app(config: Configuration | None = None, *, database: Database | None
     # The console and the API author and check controls too, so the shipped
     # packs' functions must resolve here for the same reason they must in the
     # CLI — see prama.packs.install_shipped.
-    install_shipped()
+    install_shipped(disabled_plugins=config.get_list("plugins.disabled", []))
 
     app.include_router(meta.router, prefix=API_PREFIX)
     app.include_router(semantic.router, prefix=API_PREFIX)

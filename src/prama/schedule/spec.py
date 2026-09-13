@@ -68,7 +68,7 @@ def parse(
 ) -> Trigger:
     """One schedule string as a trigger.
 
-    ``offset_minutes`` staggers interval triggers so that two datasets on an
+    ``offset_minutes`` staggers triggers so that two datasets on an
     hourly cadence do not both fire at the top of the hour and collide on the
     same source. It belongs to the schedule rather than to a worker, which is
     why it is a parameter here.
@@ -112,7 +112,11 @@ def parse(
         # An unknown calendar is refused by the registry rather than treated as
         # weekdays: a control declared against a calendar nobody loaded would
         # look right and fire on the wrong days.
-        return CalendarTrigger(at=time(hour, minute), calendar=registry.get(at.group(3)))
+        return CalendarTrigger(
+            at=time(hour, minute),
+            calendar=registry.get(at.group(3)),
+            offset_minutes=offset_minutes,
+        )
 
     raise ValidationError(
         f"{text!r} is not a schedule Prama understands",

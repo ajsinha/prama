@@ -32,6 +32,8 @@ from collections.abc import Mapping, Sequence
 from decimal import Decimal
 from typing import Any
 
+from prama.core.errors import ValidationError
+
 #: Below this match rate the run is reported as a configuration problem rather
 #: than a break population. Set where it is because a genuine reconciliation
 #: between systems that are meant to agree matches almost everything: a tenth
@@ -296,10 +298,40 @@ class ToleranceMatcher(Matcher):
     with the wrong day.
     """
 
-    def __init__(self, key: MatchKey, *, window: int = 1) -> None:
+    def __init__(self, key: MatchKey, *, window: int = 1, near: str = "") -> None:
         super().__init__(key)
         self._window = window
         self._key_spec = key
+        #: Which component of the key is allowed to be near. Named, because a
+        #: key's order expresses identity and says nothing about which field is
+        #: fuzzy — and assuming the last one made `date_window` silently inert
+        #: wherever the date was not last. The banking pack's
+        #: `cashbook-to-statement` keys on (account, value_date, reference), so
+        #: a window of three days was shifting a reference string and matching
+        #: nothing (QA finding PCK-209).
+        #:
+        #: Defaults to the last component, which is what every existing caller
+        #: relies on.
+        self._near = self._near_index(key, near)
+
+    @staticmethod
+    def _near_index(key: MatchKey, near: str) -> int:
+        if not near:
+            return -1
+        # `left`, because the near column is named as the caller's own side
+        # knows it. A MatchKey pairs left and right columns positionally, so
+        # the index found here is the right one for both.
+        names = list(key.left)
+        if near not in names:
+            raise ValidationError(
+                f"{near!r} is not part of this match key",
+                remedy=(
+                    "The near column has to be one the rows are matched on. "
+                    f"This key is ({', '.join(names)})."
+                ),
+                context={"near": near, "key": ", ".join(names)},
+            )
+        return names.index(near)
 
     def match(
         self,
@@ -341,12 +373,12 @@ class ToleranceMatcher(Matcher):
     def _nearby(
         self, key: tuple[Any, ...], candidates: Mapping[tuple[Any, ...], Unmatched]
     ) -> tuple[Any, ...] | None:
-        head, tail = key[:-1], key[-1]
+        index = self._near if self._near >= 0 else len(key) - 1
         for offset in range(1, self._window + 1):
-            for shifted in (_shift(tail, offset), _shift(tail, -offset)):
+            for shifted in (_shift(key[index], offset), _shift(key[index], -offset)):
                 if shifted is None:
                     continue
-                probe = (*head, shifted)
+                probe = (*key[:index], shifted, *key[index + 1 :])
                 if probe in candidates:
                     return probe
         return None
