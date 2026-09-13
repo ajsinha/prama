@@ -176,7 +176,10 @@ def scan_source(path: str) -> list[tuple[str, str]]:
 
     Entry-point loading cannot avoid importing — that is how Python plugins
     work — so this is the pre-flight an operator runs against a distribution
-    before enabling it, and ``prama validators scan`` is its front end.
+    before enabling it. It has **no CLI front end yet** — this docstring named
+    ``prama validators scan`` for four waves and that command has never
+    existed, which is the same overclaim as findings H1 and H7. Call
+    :func:`scan_source` directly until there is one.
     """
     try:
         tree = python_ast.parse(Path(path).read_text(encoding="utf-8"))

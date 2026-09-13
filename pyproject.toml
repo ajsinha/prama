@@ -113,7 +113,15 @@ testpaths = ["tests"]
 addopts = "--import-mode=importlib"
 asyncio_mode = "auto"
 filterwarnings = ["error::DeprecationWarning:prama.*"]
-markers = ["postgres: requires a reachable PostgreSQL instance"]
+markers = [
+    "postgres: requires a reachable PostgreSQL instance",
+    # Kept as a marker so they can be selected — `pytest -m casestudy` — but
+    # NOT excluded from the default run. Measured at ~2.5s each, and they are
+    # the product's own demonstration that it works. QA found all four dead on
+    # committed code because nothing under tests/ exercised them; ten seconds
+    # is a cheap price for never repeating that.
+    "casestudy: runs a case study end to end",
+]
 
 [tool.ruff]
 line-length = 100

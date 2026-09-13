@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 
+from prama.cli.apikey import ApiKeyCommand
 from prama.cli.base import EXIT_DRIFT, EXIT_OK, Command, CommandContext, CommandGroup
 from prama.cli.bench import BenchCommand
 from prama.cli.bundle import BundleCommand
@@ -257,6 +258,7 @@ def all_commands() -> list[Command]:
         PackCommand(),
         BenchCommand(),
         PrincipalCommand(),
+        ApiKeyCommand(),
         ServeCommand(),
         TenantCommand(),
     ]

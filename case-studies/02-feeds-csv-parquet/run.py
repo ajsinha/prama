@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from typing import Any
 import sys
 from pathlib import Path
 
@@ -168,7 +169,7 @@ ESTATE = [
 ]
 
 
-async def main(serve: bool, port: int) -> None:
+async def main(serve: bool, port: int) -> Any:
     workspace = HERE / "workspace"
     banner(
         "Case study 2 — daily feeds, CSV and Parquet",
@@ -213,8 +214,12 @@ async def main(serve: bool, port: int) -> None:
     finally:
         await harness.stop()
 
-    if serve:
-        harness.serve(port=port)
+    # Returned rather than served here. `harness.serve` calls `uvicorn.run`,
+    # which calls `asyncio.run`, and this function is already inside one — so
+    # the console never started and the study died on
+    # "asyncio.run() cannot be called from a running event loop". Found by a QA
+    # pass; nothing under tests/ exercises case-studies/.
+    return harness if serve else None
 
 
 async def _arrival_report(harness: Harness, landing: Path) -> None:
@@ -281,4 +286,7 @@ if __name__ == "__main__":
     parser.add_argument("--no-serve", action="store_true")
     parser.add_argument("--port", type=int, default=8802)
     args = parser.parse_args()
-    asyncio.run(main(serve=not args.no_serve, port=args.port))
+    started = asyncio.run(main(serve=not args.no_serve, port=args.port))
+    if started is not None:
+        # Outside the loop, where uvicorn can own one of its own.
+        started.serve(port=args.port)
