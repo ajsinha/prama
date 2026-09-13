@@ -93,7 +93,21 @@ def create_app(config: Configuration | None = None, *, database: Database | None
         the paths where everything else has gone wrong.
         """
         cid = new_correlation_id(request)
-        response: Response = await call_next(request)
+        try:
+            response: Response = await call_next(request)
+        except Exception as exc:
+            # Handled here rather than left to the outermost handler. Starlette
+            # registers `add_exception_handler(Exception, …)` on
+            # ServerErrorMiddleware, which sits *outside* this one — so an
+            # unhandled exception propagated out through `call_next`, the line
+            # below never ran, and the 500 was built beyond the reach of the
+            # header. Every deliberate status carried a correlation id and the
+            # one case where a user most needs something to quote did not
+            # (QA finding API-006, and Q-24 before it).
+            #
+            # The same handler produces the body, so there is one error shape
+            # and not two that drift apart.
+            response = await unexpected_error_handler(request, exc)
         response.headers["X-Correlation-Id"] = cid
         return response
 
