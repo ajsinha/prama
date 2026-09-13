@@ -141,13 +141,33 @@ class TestTheCodelistIsClosedOver:
         control = next(c for c in parse(worked.SUITE).all_controls if "currency" in c.render())
         assert narrow.control(control).plan_id != wide.control(control).plan_id
 
-    def test_an_unregistered_codelist_is_refused(self) -> None:
+    def test_a_registered_codelist_compiles(self) -> None:
+        """The worked example names `iso4217`, which the product ships.
+
+        Through `resolved`, which is the entry point that resolves them — a
+        bare `Lowerer` still refuses, and must, because that is what proves
+        `resolved` does something (see `test_resolve.py`).
+
+        This test used to assert the worked example's control was *refused*
+        outright, which passed only because `prama control compile` never
+        resolved either (QA finding Q-14). It pinned the defect: it named a
+        registered list and asserted the error you get for an unregistered one.
+        """
+        from prama.ir.resolve import resolved
+
+        plan = resolved(
+            next(c for c in parse(worked.SUITE).all_controls if "currency" in c.render())
+        )
+        assert plan.plan_id
+
+    def test_an_unregistered_codelist_is_still_refused(self) -> None:
+        """The property the test above was reaching for, with a name that is
+        genuinely not registered and never will be."""
         from prama.core.errors import ValidationError
+        from prama.pql.parser import parse_control
 
         with pytest.raises(ValidationError, match="not registered"):
-            Lowerer().control(
-                next(c for c in parse(worked.SUITE).all_controls if "currency" in c.render())
-            )
+            Lowerer().control(parse_control("CHECK t.ccy IN CODELIST 'no_such_list' BECAUSE 'x'"))
 
 
 class TestHonestyAboutTheGap:

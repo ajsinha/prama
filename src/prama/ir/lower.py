@@ -68,6 +68,15 @@ class Lowerer:
         #: over its permitted values. Resolving at run time instead would mean
         #: a codelist edited on Tuesday silently changes what Monday's evidence
         #: was asserting — and the plan hash would not move to say so.
+        #:
+        #: Empty by default, and deliberately: resolving the shipped lists is
+        #: `prama.ir.resolve.resolved`'s job, and that module exists because
+        #: "each caller remembering is how three of six call sites end up
+        #: subtly different". `prama control compile` was one of the callers
+        #: that did not use it, so it answered "the codelist 'iso4217' is not
+        #: registered" about a list the product ships (QA finding Q-14) — the
+        #: fix belongs at that call site, not in a default here that would make
+        #: bare lowering quietly reach for a registry.
         self._codelists = codelists or {}
 
     def control(self, control: ast.Control, *, source: str = "") -> ControlPlan:

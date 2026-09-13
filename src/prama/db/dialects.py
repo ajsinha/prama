@@ -111,6 +111,42 @@ class Dialect(ABC):
         return f"{self.name}"
 
 
+def _refuse_double_quoted_strings(dbapi_connection: Any) -> None:
+    """Turn off SQLite's double-quoted-string fallback.
+
+    SQLite accepts a double-quoted identifier it cannot resolve as a **string
+    literal**, for MySQL compatibility. So a control on a column that does not
+    exist does not fail — `"no_such_column" IS NOT NULL` is the constant string
+    `'no_such_column'`, which is not null on every row, and the control reports
+    **pass over the whole table** (QA finding Q-08). The identical control is an
+    `error` on DuckDB: two engines, opposite verdicts, and the wrong one is
+    silent.
+
+    A typo in a column name is the commonest way a control stops checking
+    anything, and this made it the least visible. With the flag off SQLite says
+    `no such column: "no_such" - should this be a string literal in
+    single-quotes?`, which is both correct and a better error than Prama would
+    have written.
+
+    Best-effort: `setconfig` arrived in Python 3.12, and an older interpreter or
+    a driver without it simply keeps SQLite's default. Prama pins 3.13, so the
+    supported configuration always gets the strict behaviour.
+    """
+    import sqlite3
+
+    setconfig = getattr(dbapi_connection, "setconfig", None)
+    flag = getattr(sqlite3, "SQLITE_DBCONFIG_DQS_DML", None)
+    if setconfig is None or flag is None:  # pragma: no cover - older interpreters
+        return
+    try:
+        setconfig(flag, False)
+        ddl = getattr(sqlite3, "SQLITE_DBCONFIG_DQS_DDL", None)
+        if ddl is not None:
+            setconfig(ddl, False)
+    except Exception:  # pragma: no cover - a driver that does not support it
+        return
+
+
 class SqliteDialect(Dialect):
     """SQLite: development, single-node deployments, tests, and the air-gapped
     all-in-one image. Not a scale-out database, and the platform never pretends
@@ -161,6 +197,7 @@ class SqliteDialect(Dialect):
 
     def on_connect(self, dbapi_connection: Any) -> None:
         s = self.settings.sqlite
+        _refuse_double_quoted_strings(dbapi_connection)
         cursor = dbapi_connection.cursor()
         try:
             if s.foreign_keys:

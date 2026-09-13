@@ -798,6 +798,24 @@ class Parser:
             self._advance()
             column = self._name("a column name after the dot")
             return ast.ColumnRef(name=column, dataset=name, position=token.position)
+        # A bare `CURRENT_DATE` is not a column. Every engine here spells these
+        # without parentheses, so the guard on `_call` below never saw them:
+        # `CHECK t.d < CURRENT_DATE` parsed as a comparison against a column of
+        # that name and sailed through (QA finding Q-16). On an engine where it
+        # resolves, the control reads the clock and its evidence cannot be
+        # replayed; on one where it does not, the control fails for a reason
+        # nobody can see.
+        if name.upper() in NON_DETERMINISTIC:
+            raise self._error(
+                f"{name} cannot be used in a control",
+                remedy=(
+                    "A control that reads the clock or a random source produces a "
+                    "different verdict each time it runs, so its evidence cannot be "
+                    "replayed. Use $business_date, which the run supplies and the "
+                    "evidence records."
+                ),
+                token=token,
+            )
         return ast.ColumnRef(name=name, position=token.position)
 
     def _call(self, name: str, token: Token) -> ast.Expression:

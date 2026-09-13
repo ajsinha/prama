@@ -34,7 +34,7 @@ from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from typing import Any
 
-from prama.backend import compile_for, judge
+from prama.backend import compile_for, judge, judge_segments
 from prama.classify.validators import ValidatorRegistry, default_registry
 from prama.core.clock import Clock, SystemClock
 from prama.core.errors import PramaError
@@ -324,25 +324,60 @@ class ControlRun:
                 version, run_id, started, f"{type(exc).__name__}: {exc}"
             )
 
-        metrics = _metrics_from(rows)
-        result = judge(plan, metrics, engine=self._engine)
+        # A segmented control returns one row per segment, and judging only the
+        # first is judging one desk and reporting the trading floor. `rows[0]`
+        # was all `_metrics_from` ever looked at, so 1 segment of 5 decided the
+        # verdict, the totals came from that segment alone, and the samples in
+        # the same record contradicted its own metrics (QA finding Q-11).
+        # `judge_segments` has been in the backend all along: the control fails
+        # if *any* segment does, because aggregating them back into one number
+        # restores exactly the averaging segmentation exists to avoid.
+        if plan.scope.segment_by and len(rows) > 1:
+            result = judge_segments(
+                plan, _segments_from(rows, plan.scope.segment_by), engine=self._engine
+            )
+            metrics = dict(result.metrics)
+        else:
+            metrics = _metrics_from(rows)
+            result = judge(plan, metrics, engine=self._engine)
+            # The *derived* metrics, not the raw ones. `judge` enriches a copy,
+            # so `violating_rows` for a uniqueness or functional-dependency
+            # control — which no engine returns and Prama computes from the two
+            # counts — existed only inside the result and never reached the
+            # ledger (QA finding Q-13). The verdict was right and the evidence
+            # supporting it was missing the number it was based on.
+            metrics = dict(result.metrics)
         verdict = result.verdict.value
         detail = ""
 
-        if not compiled.is_complete and verdict == "pass":
-            # The whole reason the two-stage design exists. A lower bound of
-            # zero is not "clean" — it is "not established" — and reporting it
-            # as a pass is a false assurance about exactly the columns whose
-            # validation SQL cannot express.
-            verdict = "indeterminate"
+        if not compiled.is_complete:
             residuals = ", ".join(
                 f"{name} on {column}" for name, column in compiled.residual_validators
             )
-            detail = (
-                "the query applied a screen rather than the exact test, so the "
-                f"violation count is a lower bound; the residual ({residuals}) has "
-                "not been run, and a pass cannot be reported from a screen alone"
-            )
+            if verdict == "pass":
+                # The whole reason the two-stage design exists. A lower bound of
+                # zero is not "clean" — it is "not established" — and reporting
+                # it as a pass is a false assurance about exactly the columns
+                # whose validation SQL cannot express.
+                verdict = "indeterminate"
+                detail = (
+                    "the query applied a screen rather than the exact test, so the "
+                    f"violation count is a lower bound; the residual ({residuals}) has "
+                    "not been run, and a pass cannot be reported from a screen alone"
+                )
+            else:
+                # A *failing* count from a screen is understated too, and this
+                # caveat used to be attached only when the verdict would have
+                # been a pass — so 11-of-23 and 3-of-9 were recorded as
+                # completed measurements with nothing said (QA finding Q-10).
+                # Disclosed exactly when the understatement was zero, and
+                # silent whenever it was not.
+                detail = (
+                    "the query applied a screen rather than the exact test, so "
+                    f"{metrics.get('violating_rows', 0):g} is a LOWER BOUND on the "
+                    f"violations; the residual ({residuals}) has not been run and "
+                    "the true count may be higher"
+                )
 
         digest, sample_count = await self._store_samples(compiled, verdict)
         finished = self._clock.now()
@@ -358,6 +393,17 @@ class ControlRun:
                 coverage="full",
                 verdict=verdict,
                 metrics=metrics,
+                # The threshold the verdict was measured against. Without it,
+                # four records can carry identical metrics and opposite
+                # verdicts, distinguishable only by `plan_id` — a hash, so
+                # answering "why did this fail?" means resolving the plan
+                # (QA finding Q-15). It sits inside `content()`, so the record
+                # hash covers it like everything else.
+                parameters={
+                    "threshold": ", ".join(
+                        f"{key}={value}" for key, value in sorted(plan.threshold.to_dict().items())
+                    )
+                },
                 samples_digest=digest,
                 sample_count=sample_count,
                 started_at=started.isoformat(),
@@ -429,6 +475,27 @@ class ControlRun:
         )
         _log.warning("control %s did not run: %s", version.control_id, detail)
         return Outcome(control_id=str(version.control_id), record=record, error=detail)
+
+
+def _segments_from(
+    rows: Sequence[dict[str, Any]], segment_by: Sequence[str]
+) -> list[tuple[str, dict[str, float]]]:
+    """One (label, metrics) pair per segment, from the grouped metric query.
+
+    The label is the segment's own key values joined, because that is what a
+    reader needs to act: "EMEA failed" is a finding and "segment 3 failed" is a
+    lookup.
+    """
+    pairs: list[tuple[str, dict[str, float]]] = []
+    for row in rows:
+        key = " / ".join(str(row.get(column, "")) for column in segment_by)
+        numbers = {
+            str(name): float(value)
+            for name, value in row.items()
+            if isinstance(value, (int, float)) and not isinstance(value, bool)
+        }
+        pairs.append((key or "(unlabelled)", numbers))
+    return pairs
 
 
 def _metrics_from(rows: Sequence[dict[str, Any]]) -> dict[str, float]:

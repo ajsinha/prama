@@ -11,11 +11,19 @@ from __future__ import annotations
 
 import pytest
 
+from prama.backend.execute import judge
 from prama.backend.reference import ReferenceEvaluator
 from prama.backend.sql import SqlCompiler
 from prama.core.errors import ValidationError
 from prama.ir.lower import Lowerer
+from prama.ir.model import Comparator, Threshold, Verdict
 from prama.pql.parser import parse_control
+
+
+def a_plan(source: str):
+    """One control, lowered to its plan."""
+    return Lowerer().control(parse_control(source))
+
 
 REAL = "5493001KJTIIGC8Y1R12"
 LEGACY = "HWUPKR0MPOU8FGXBT394"
@@ -156,3 +164,65 @@ def test_conformance_permits_an_engine_to_find_fewer_but_never_more() -> None:
 
     compiled = SqlCompiler("duckdb").compile(run.plan_for(case))
     assert not compiled.is_complete
+
+
+class TestNothingScannedIsNotAPass:
+    """QA finding Q-09. The guard existed on one branch of two.
+
+    `Threshold.evaluate` refused an empty scan when the threshold was a
+    *percentage* — its comment says "an empty scope is a fact about the scope,
+    and calling it a pass is how a broken feed reports green" — and reported
+    PASS when the threshold was *absolute*, which is the default every predicate
+    control lowers to. Zero rows give zero violations, and `0 <= 0` holds.
+
+    Same scan, same metrics, opposite verdicts, and the one that said PASS was
+    the common path. It is finding C5 one layer down: C5 was the scorecard
+    turning no evidence into full marks, and this is the engine doing it first —
+    so the ledger recorded `pass` for the very records the scorecard described
+    as "nothing has been measured".
+    """
+
+    def absolute(self) -> Threshold:
+        return Threshold(metric="violating_rows", comparator=Comparator.LE, value=0.0)
+
+    def relative(self) -> Threshold:
+        return Threshold(
+            metric="violating_rows",
+            comparator=Comparator.LE,
+            value=0.0,
+            relative_to="scanned_rows",
+        )
+
+    def test_an_absolute_threshold_refuses_an_empty_scan(self) -> None:
+        empty = {"scanned_rows": 0.0, "violating_rows": 0.0}
+        assert self.absolute().evaluate(empty) is Verdict.INDETERMINATE
+
+    def test_a_relative_threshold_still_refuses_one(self) -> None:
+        """The branch that was already right, kept."""
+        empty = {"scanned_rows": 0.0, "violating_rows": 0.0}
+        assert self.relative().evaluate(empty) is Verdict.INDETERMINATE
+
+    def test_the_two_agree(self) -> None:
+        """The property, rather than two separate assertions: how a threshold
+        is *spelled* must not change what an empty scan means."""
+        empty = {"scanned_rows": 0.0, "violating_rows": 0.0}
+        assert self.absolute().evaluate(empty) is self.relative().evaluate(empty)
+
+    def test_a_clean_scan_of_real_rows_is_still_a_pass(self) -> None:
+        """The counterfactual. A guard that refused everything would make every
+        control indeterminate and pass the tests above."""
+        clean = {"scanned_rows": 1_000.0, "violating_rows": 0.0}
+        assert self.absolute().evaluate(clean) is Verdict.PASS
+        assert self.relative().evaluate(clean) is Verdict.PASS
+
+    def test_a_dirty_scan_still_fails(self) -> None:
+        dirty = {"scanned_rows": 1_000.0, "violating_rows": 4.0}
+        assert self.absolute().evaluate(dirty) is Verdict.FAIL
+
+    def test_a_row_count_control_still_judges_an_empty_table(self) -> None:
+        """`row_count` does not come through `Threshold.evaluate`, and must not:
+        an empty table genuinely *is* a row count of zero, and
+        `HAS ROW COUNT BETWEEN 1 AND 8` has to fail on it rather than shrug."""
+        plan = a_plan("CHECK corpus HAS ROW COUNT BETWEEN 1 AND 8 BECAUSE 'x'")
+        result = judge(plan, {"scanned_rows": 0.0})
+        assert result.verdict is Verdict.FAIL
