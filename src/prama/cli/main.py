@@ -9,20 +9,15 @@ import sys
 
 from prama.cli.base import Application
 from prama.cli.commands import all_commands
-from prama.packs import install_shipped
 
 
 def main(argv: list[str] | None = None) -> int:
-    # Before any command runs, so `prama control check` resolves the same
-    # functions `prama pack list` advertises. See prama.packs.install_shipped.
-    #
-    # `plugins.disabled` is not honoured here and is honoured by `create_app`.
-    # The asymmetry is real and is stated rather than hidden: this runs before
-    # argparse, so `--config` is not yet known, and reading a configuration
-    # file the caller may be about to override would be worse than not reading
-    # one. Disabling a plugin is a deployment decision and the server is where
-    # it takes effect. Recorded as Q-63.
-    install_shipped()
+    # Packs are installed inside `Application.run`, once `--config` has been
+    # parsed and the effective configuration is known. They used to be
+    # installed here, which was before argparse, so `plugins.disabled` could
+    # not be read and a validator switched off in configuration stayed on in
+    # the CLI while being off in the server. Recorded as Q-63; the asymmetry is
+    # now gone rather than documented.
     return Application(all_commands()).run(argv if argv is not None else sys.argv[1:])
 
 

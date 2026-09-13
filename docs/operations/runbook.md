@@ -62,8 +62,14 @@ it. If the venv is broken anyway:
 ```bash
 uv python install 3.13
 uv venv --python 3.13
-uv pip install -e ".[dev,serve,postgres,fast,audit,sso,kafka,rest]"
+uv sync --extra dev --extra serve --extra postgres --extra fast \
+        --extra audit --extra sso --extra kafka --extra rest
 ```
+
+`uv sync` installs exactly what `uv.lock` pins, which is the point on a
+server: the host gets the set the gate ran green on, not whatever released
+between the build and the deploy. It also removes anything outside the extras
+named, so list every extra the host needs in one command.
 
 ---
 

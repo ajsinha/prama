@@ -43,10 +43,18 @@ uv python install 3.13
 
 # The project
 uv venv --python 3.13
-uv pip install -e ".[dev,serve]"
+uv sync --extra dev --extra serve
 ```
 
-Plain `venv` works too, if the interpreter on your PATH is already 3.11+:
+`uv sync` installs exactly what `uv.lock` pins — the set the gate last ran green
+on, rather than whatever released this morning. It also removes anything outside
+the extras you name, which is what makes it reproducible; to *add* an extra to
+an environment you already have, use `uv pip install -e ".[postgres]"` instead,
+as the PostgreSQL section below does.
+
+Plain `venv` works too, if the interpreter on your PATH is already 3.11+. Note
+that `pip` cannot read `uv.lock`, so this path floats to the newest release of
+every dependency:
 
 ```bash
 python -m venv .venv && source .venv/bin/activate

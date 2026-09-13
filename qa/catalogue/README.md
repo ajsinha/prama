@@ -3,7 +3,7 @@
 Every part of Prama, enumerated as test cases, written from the code and the
 documentation rather than from memory. Round 1 covered five *surfaces* — the
 CLI, the console, the API, installation, and the data path — and found 170
-failures in 1,014 cases. This catalogue covers the **42 packages**, which is a
+failures in 1,014 cases. This catalogue covers the **43 packages**, which is a
 different question: round 1 asked "does the product work when you use it", and
 this asks "is there any part of it nobody has looked at".
 

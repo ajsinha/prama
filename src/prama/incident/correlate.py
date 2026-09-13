@@ -416,8 +416,33 @@ class Correlator:
                 counts[shared] = counts.get(shared, 0) + 1
         if not counts:
             return finding.qualified
-        best = max(counts, key=lambda key: (counts[key], len(key)))
+        # Vote count first, then *depth measured from the graph* -- how many
+        # sources a candidate has of its own. A raw feed has none; a derived
+        # column has some; so more sources means further downstream.
+        #
+        # This tiebreak was `len(key)`, the length of the column's name, which
+        # is a proxy for depth only by coincidence: `gl.balance` is deeper than
+        # `subledger_staging.x` and shorter. QA round 3, Q-65.
+        #
+        # The ordering between broadest and deepest when the vote counts differ
+        # is NOT changed here. That is the open question -- one upstream defect
+        # must produce one incident, and two findings sharing a nearer derived
+        # column deserve their own -- and it needs incidents that can have a
+        # parent before it can be answered, not a different sort key.
+        best = max(counts, key=lambda key: (counts[key], self._depth(key)))
         return Column.parse(best)
+
+    def _depth(self, qualified: str) -> int:
+        """How far downstream a column sits, from the graph rather than its name."""
+        if self._graph is None:
+            return 0
+        try:
+            return len(self._graph.sources_of(Column.parse(qualified)))
+        except Exception:
+            # A candidate the graph does not know cannot be ranked by depth;
+            # ranking it zero leaves the vote count to decide, which is the
+            # behaviour when there is no graph at all.
+            return 0
 
     def _by_dataset_and_time(
         self, findings: Sequence[Finding]
