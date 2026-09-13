@@ -164,6 +164,33 @@ that decide *something to report*."**
 | Q-47 | `page.total` ignores the filter beside it | API |
 | Q-48 | Declaring a `reconciles_with` relationship generates nothing, though the console instructs you to do it | data path |
 
+
+### From the catalogue reading (round 2 authoring)
+
+Surfaced by reading the code to write test cases, not by executing anything.
+**Each was reproduced by hand before being listed here**, and one of the
+agent's four headline findings did not survive that — recorded below, because a
+findings list that only keeps the hits is a list nobody can calibrate against.
+
+| # | Finding | Severity | Verified |
+|---|---|---|---|
+| Q-49 | `default_resolver()` has no `file_root`, so `file:///etc/hostname` resolves — any file the process can read. `FileSecretProvider`'s own docstring says "without a root it would be a way to read any file the process can read", and the default is exactly that | **Critical** | Reproduced: returned the host name |
+| Q-50 | `bundle.verify` computes `intact = manifest.content_hash == sha256(manifest.content())`, and `content_hash` is a *computed property* — so it is `X == X` and can never be false. The T11 tautology, in the artefact a bank checks before installing | **Critical** | Reproduced by reading: `content_hash` at `bundle.py:138` |
+| Q-51 | `core/pjson.canonical` serialises with `ensure_ascii=False`; `scripts/verify_evidence.py::canonical` uses `json.dumps`'s default, which is `True`. Any record containing a non-ASCII character — a dataset named `posições_eod` — hashes differently in the two implementations, so the independent verifier reports a forgery | **Critical** | Reproduced: differing bytes and differing digests |
+| Q-52 | `RedactionFilter` substitutes over `record.msg` only, never `record.args`, so the lazy-formatting logging call the standard library recommends writes credentials out in full | **High** | Reported, not yet reproduced |
+
+**Not a defect — reported as the headline P1 and wrong.** The agent claimed
+`Ledger.verify` and `scripts/verify_evidence.py` compare the first record's
+`previous_hash` against `GENESIS` *unconditionally*, so every bundle not
+starting at sequence 0 would report a broken chain at its own first record.
+Both call sites guard with `and sequence == 0` — `ledger.py:197` and
+`verify_evidence.py:198`. The construction was misread in both places.
+
+Worth stating plainly: three of that agent's four headline findings were real,
+including a path traversal in secret resolution, and the one it led with was
+not. That is a good hit rate for a reading pass and a bad reason to trust one
+without reproduction.
+
 ---
 
 ## What held
