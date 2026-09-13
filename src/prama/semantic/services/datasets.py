@@ -183,7 +183,7 @@ class DatasetService(SemanticService):
                 remedy="Declare the dataset before declaring its attributes.",
                 context={"dataset_id": dataset_id},
             )
-        existing = await self._uow.attributes.for_dataset(dataset_id)
+        existing = await self._uow.attributes.for_dataset(dataset_id, tenant_id=tenant_id)
         if any(a.name == name for a in existing):
             raise ConflictError(
                 f"attribute {name!r} is already declared on this dataset",

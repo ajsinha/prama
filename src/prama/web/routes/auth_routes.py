@@ -98,7 +98,7 @@ class AuthRoutes(UiRoutes):
         tenant: Annotated[str, Form()] = "",
     ) -> Any:
         config = request.app.state.config
-        tenant_id = tenant.strip() or config.get_str("tenancy.default_tenant", "")
+        tenant_id = await _sign_in_tenant(uow, tenant, config)
         principal = None
         if tenant_id:
             principal = await uow.principals.authenticate(tenant_id, username.strip(), password)
@@ -164,6 +164,35 @@ class AuthRoutes(UiRoutes):
 _URL_IGNORED = str.maketrans({"\t": None, "\n": None, "\r": None})
 
 
+async def _sign_in_tenant(uow: Any, given: str, config: Any) -> str:
+    """The estate this sign-in is against, or "" if it cannot be known.
+
+    Three sources, in order, and the third is the one that was missing.
+
+    The form field, resolved as a **slug or an id** — a person knows
+    `acme-bank`, the schema knows a ULID, and passing the slug straight to
+    `authenticate` compares it against a tenant id and refuses every password.
+
+    Then `tenancy.default_tenant`, which is the single-tenant deployment.
+
+    Then, if there is exactly **one** estate, that one. A single-estate install
+    is the overwhelmingly common case, and requiring somebody to name the only
+    tenant there is — in a field the form did not render — is how this console
+    became unenterable: the form posted no tenant, the default was unset, and
+    every correct password was answered 401 (QA finding, console).
+    """
+    for candidate in (given.strip(), str(config.get_str("tenancy.default_tenant", "")).strip()):
+        if not candidate:
+            continue
+        if await uow.tenants.get(candidate) is not None:
+            return candidate
+        by_slug = await uow.tenants.by_slug(candidate)
+        if by_slug is not None:
+            return str(by_slug.id)
+    only = await uow.tenants.list_active(limit=2)
+    return str(only[0].id) if len(only) == 1 else ""
+
+
 def _safe_next(target: str) -> str:
     r"""A redirect target, or nothing.
 
@@ -202,10 +231,18 @@ async def _no_way_in(uow: Any, request: Request) -> bool:
     it will try their password four more times before suspecting the
     installation.
     """
-    tenant = request.app.state.config.get_str("tenancy.default_tenant", "")
-    if not tenant:
-        return True
-    return not await uow.principals.any_for(tenant)
+    tenant = await _sign_in_tenant(uow, "", request.app.state.config)
+    if tenant:
+        return not await uow.principals.any_for(tenant)
+    # No tenant resolved, and that means one of two opposite things. No estates
+    # at all is a fresh `db init` and nothing else: nobody can sign in, and
+    # saying so is the whole point of this function. Several estates and no
+    # default is the other case — this installation has principals and we
+    # simply do not know which estate the person in front of us belongs to.
+    # Claiming "nobody has been created" there is a lie, and it said exactly
+    # that while four principals existed, sending an operator to look for a bug
+    # in `principal create`.
+    return not await uow.tenants.list_active(limit=1)
 
 
 __all__ = ["LANDING", "REFUSED", "AuthRoutes"]

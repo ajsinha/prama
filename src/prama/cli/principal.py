@@ -83,13 +83,35 @@ def _read_password(confirm: bool = True) -> str:
     read it while it is being set.
     """
     if not sys.stdin.isatty():
-        piped = sys.stdin.read().strip()
+        lines = sys.stdin.read().splitlines()
+        # `.read().strip()` took the whole stream as one value, so piping a
+        # password twice — the natural thing to do, because the interactive
+        # path asks twice — stored a password containing a newline. The account
+        # was created, the command reported success, and nobody could ever sign
+        # in to it. Found by a QA pass; the failure was silent in both
+        # directions, because the CLI said "created" and the console said
+        # "invalid credentials".
+        piped = [line for line in lines if line.strip()]
         if not piped:
             raise ValidationError(
                 "no password on stdin",
                 remedy="Pipe one: printf '%s' \"$PASSWORD\" | prama principal create alice",
             )
-        return piped
+        if len(piped) == 2 and piped[0] != piped[1]:
+            raise ValidationError(
+                "the two passwords on stdin did not match",
+                remedy="Nothing was written. Pipe the password once, or twice identically.",
+            )
+        if len(piped) > 2:
+            raise ValidationError(
+                f"stdin carried {len(piped)} lines; a password is one",
+                remedy=(
+                    "Pipe the password once, or twice identically to confirm it. "
+                    "More than that is almost certainly a file being piped by mistake, "
+                    "and accepting it would set a password nobody can type."
+                ),
+            )
+        return piped[0]
     first = getpass.getpass("Password: ")
     if confirm and first != getpass.getpass("Again: "):
         raise ValidationError(

@@ -161,7 +161,9 @@ class ContractExportCommand(Command):
                     version = next((v for v in versions if v.slug == ctx.args.dataset), None)
                     if version is None:
                         return None
-                    attributes = await uow.attributes.for_dataset(version.dataset_id)
+                    attributes = await uow.attributes.for_dataset(
+                        version.dataset_id, tenant_id=tenant
+                    )
                     return dataset_declaration_of(version, attributes)
             finally:
                 await database.stop()

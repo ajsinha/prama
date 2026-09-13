@@ -304,7 +304,9 @@ class TestAttributes:
                     name=name,
                     ordinal=ordinal,
                 )
-            assert [a.name for a in await uow.attributes.for_dataset(dataset.id)] == ["c", "a", "b"]
+            assert [
+                a.name for a in await uow.attributes.for_dataset(dataset.id, tenant_id=tenant_id)
+            ] == ["c", "a", "b"]
 
 
 class TestRelationships:
@@ -509,7 +511,10 @@ class TestConcepts:
                     name=name,
                     is_identifier=True,
                 )
-            assert [p.name for p in await uow.concept_properties.for_concept(concept.id)] == [
+            assert [
+                p.name
+                for p in await uow.concept_properties.for_concept(concept.id, tenant_id=tenant_id)
+            ] == [
                 "CUSIP",
                 "ISIN",
             ]

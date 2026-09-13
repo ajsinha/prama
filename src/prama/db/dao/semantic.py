@@ -100,12 +100,26 @@ class AttributeDao(VersionedDao[SemAttribute, SemAttributeVersion]):
     version_model = SemAttributeVersion
     entity_key = "attribute_id"
 
-    async def for_dataset(self, dataset_id: str) -> list[SemAttributeVersion]:
+    async def for_dataset(self, dataset_id: str, *, tenant_id: str) -> list[SemAttributeVersion]:
+        """Every current attribute of one dataset, in declared order.
+
+        The tenant is required, and this is why: the by-parent reads on these
+        DAOs took a parent id and nothing else, so a caller holding an
+        identifier from another estate read that estate's rows in full — a 200
+        with the data, not a 404 (QA finding F-02). Sibling methods on the same
+        classes, `critical_data_elements` and `drifted`, always filtered; these
+        four did not, and the tenant sweep in
+        `tests/security/test_tenant_isolation.py` could not see them because it
+        probes methods whose *first* parameter is `tenant_id`.
+        """
         await self._session.flush()
         stmt = TemporalQuery.current(
             select(SemAttributeVersion)
             .join(SemAttribute, SemAttribute.id == SemAttributeVersion.attribute_id)
-            .where(SemAttribute.dataset_id == dataset_id),
+            .where(
+                SemAttribute.dataset_id == dataset_id,
+                SemAttribute.tenant_id == tenant_id,
+            ),
             SemAttributeVersion,
         ).order_by(SemAttributeVersion.ordinal, SemAttributeVersion.name)
         return list((await self._session.execute(stmt)).scalars().all())
@@ -159,7 +173,20 @@ class ConceptPropertyDao(VersionedDao[SemConceptProperty, SemConceptPropertyVers
     version_model = SemConceptPropertyVersion
     entity_key = "property_id"
 
-    async def for_concept(self, concept_id: str) -> list[SemConceptPropertyVersion]:
+    async def for_concept(
+        self, concept_id: str, *, tenant_id: str
+    ) -> list[SemConceptPropertyVersion]:
+        """Every current property of one concept.
+
+        The tenant is required, and this is why: the by-parent reads on these
+        DAOs took a parent id and nothing else, so a caller holding an
+        identifier from another estate read that estate's rows in full — a 200
+        with the data, not a 404 (QA finding F-02). Sibling methods on the same
+        classes, `critical_data_elements` and `drifted`, always filtered; these
+        four did not, and the tenant sweep in
+        `tests/security/test_tenant_isolation.py` could not see them because it
+        probes methods whose *first* parameter is `tenant_id`.
+        """
         await self._session.flush()
         stmt = TemporalQuery.current(
             select(SemConceptPropertyVersion)
@@ -167,7 +194,10 @@ class ConceptPropertyDao(VersionedDao[SemConceptProperty, SemConceptPropertyVers
                 SemConceptProperty,
                 SemConceptProperty.id == SemConceptPropertyVersion.property_id,
             )
-            .where(SemConceptProperty.concept_id == concept_id),
+            .where(
+                SemConceptProperty.concept_id == concept_id,
+                SemConceptProperty.tenant_id == tenant_id,
+            ),
             SemConceptPropertyVersion,
         ).order_by(SemConceptPropertyVersion.name)
         return list((await self._session.execute(stmt)).scalars().all())
@@ -276,18 +306,50 @@ class BindingDao(VersionedDao[SemBinding, SemBindingVersion]):
     version_model = SemBindingVersion
     entity_key = "binding_id"
 
-    async def for_dataset(self, dataset_id: str) -> list[SemBindingVersion]:
+    async def for_dataset(self, dataset_id: str, *, tenant_id: str) -> list[SemBindingVersion]:
+        """Every current binding of one dataset.
+
+        The tenant is required, and this is why: the by-parent reads on these
+        DAOs took a parent id and nothing else, so a caller holding an
+        identifier from another estate read that estate's rows in full — a 200
+        with the data, not a 404 (QA finding F-02). Sibling methods on the same
+        classes, `critical_data_elements` and `drifted`, always filtered; these
+        four did not, and the tenant sweep in
+        `tests/security/test_tenant_isolation.py` could not see them because it
+        probes methods whose *first* parameter is `tenant_id`.
+        """
         await self._session.flush()
         stmt = TemporalQuery.current(
-            select(SemBindingVersion).where(SemBindingVersion.dataset_id == dataset_id),
+            select(SemBindingVersion)
+            .join(SemBinding, SemBinding.id == SemBindingVersion.binding_id)
+            .where(
+                SemBindingVersion.dataset_id == dataset_id,
+                SemBinding.tenant_id == tenant_id,
+            ),
             SemBindingVersion,
         )
         return list((await self._session.execute(stmt)).scalars().all())
 
-    async def for_attribute(self, attribute_id: str) -> SemBindingVersion | None:
+    async def for_attribute(self, attribute_id: str, *, tenant_id: str) -> SemBindingVersion | None:
+        """The current binding of one attribute, if it has one.
+
+        The tenant is required, and this is why: the by-parent reads on these
+        DAOs took a parent id and nothing else, so a caller holding an
+        identifier from another estate read that estate's rows in full — a 200
+        with the data, not a 404 (QA finding F-02). Sibling methods on the same
+        classes, `critical_data_elements` and `drifted`, always filtered; these
+        four did not, and the tenant sweep in
+        `tests/security/test_tenant_isolation.py` could not see them because it
+        probes methods whose *first* parameter is `tenant_id`.
+        """
         await self._session.flush()
         stmt = TemporalQuery.current(
-            select(SemBindingVersion).where(SemBindingVersion.attribute_id == attribute_id),
+            select(SemBindingVersion)
+            .join(SemBinding, SemBinding.id == SemBindingVersion.binding_id)
+            .where(
+                SemBindingVersion.attribute_id == attribute_id,
+                SemBinding.tenant_id == tenant_id,
+            ),
             SemBindingVersion,
         )
         return (await self._session.execute(stmt)).scalars().first()

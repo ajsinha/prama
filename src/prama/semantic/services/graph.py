@@ -79,7 +79,7 @@ class ConceptService(SemanticService):
                 remedy="Declare the concept before declaring its properties.",
                 context={"concept_id": concept_id},
             )
-        existing = await self._uow.concept_properties.for_concept(concept_id)
+        existing = await self._uow.concept_properties.for_concept(concept_id, tenant_id=tenant_id)
         if any(p.name == name for p in existing):
             raise ConflictError(
                 f"property {name!r} is already declared on this concept",

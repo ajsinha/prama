@@ -58,7 +58,9 @@ class ProposalRoutes(UiRoutes):
         accepted_already = 0
         rejected_already = 0
         for version in versions:
-            attributes = await uow.attributes.for_dataset(version.dataset_id)
+            attributes = await uow.attributes.for_dataset(
+                version.dataset_id, tenant_id=caller.tenant_id
+            )
             declaration = dataset_declaration_of(version, attributes)
             try:
                 generation = generator.generate(declaration)

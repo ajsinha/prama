@@ -983,3 +983,188 @@ class TestTheSuiteCannotFallBehind:
         known = self.all_daos()
         missing = sorted((COVERED | UNSWEPT.keys()) - known)
         assert not missing, f"named in COVERED or UNSWEPT and not a DAO: {missing}"
+
+
+#: DAO read methods that legitimately take no tenant, each with the reason.
+#: An entry is an admission that this method's boundary rests on something
+#: other than its own query, and names what.
+UNSCOPED_READS: dict[str, str] = {
+    # -- the root of the scoping ------------------------------------------
+    "TenantDao.by_slug": "a tenant is what scoping is *by*; there is nothing to filter it with",
+    "TenantDao.list_active": "as TenantDao.by_slug",
+    # -- deliberate derivations -------------------------------------------
+    "VersionedDao.tenant_of": (
+        "answers 'whose is it', not 'may this caller see it'. Added for the CLI "
+        "paths that hold an identifier and no tenant; its docstring forbids using "
+        "it to satisfy a caller-supplied scope, which would make the check a "
+        "tautology."
+    ),
+    "AttributeDao.tenant_of": "inherited from VersionedDao.tenant_of",
+    "BindingDao.tenant_of": "inherited from VersionedDao.tenant_of",
+    "ConceptDao.tenant_of": "inherited from VersionedDao.tenant_of",
+    "ConceptPropertyDao.tenant_of": "inherited from VersionedDao.tenant_of",
+    "ConnectionDao.tenant_of": "inherited from VersionedDao.tenant_of",
+    "ControlDao.tenant_of": "inherited from VersionedDao.tenant_of",
+    "DatasetDao.tenant_of": "inherited from VersionedDao.tenant_of",
+    "DomainDao.tenant_of": "inherited from VersionedDao.tenant_of",
+    "JourneyDao.tenant_of": "inherited from VersionedDao.tenant_of",
+    "RelationshipDao.tenant_of": "inherited from VersionedDao.tenant_of",
+    # -- authentication, which runs before a tenant is known ---------------
+    "ApiKeyDao.by_prefix": (
+        "the key is how the tenant is established; requiring one here would need "
+        "the answer before the question"
+    ),
+    "PrincipalDao.by_external_id": "as ApiKeyDao.by_prefix, for the SSO path",
+    # -- reached only by an id already established as the caller's ---------
+    "ApiKeyDao.active_for_principal": "a principal is tenant-scoped; its keys inherit that",
+    "PrincipalDao.roles_of": "as ApiKeyDao.active_for_principal",
+    "AttributeDao.mapped_to_property": (
+        "the property id reaching it comes from ConceptPropertyDao.for_concept, "
+        "which is scoped. Derived rather than caller-supplied — verified, not assumed"
+    ),
+    # -- scoped by the caller, which is the S2 shape and is written down ---
+    "EvidenceDao.for_control": (
+        "the ledger indexes by control. triage_routes filters the result on "
+        "`r.tenant_id == caller.tenant_id` immediately after, with a comment saying "
+        "why. Checked, but remembered rather than enforced — the shape finding S2 "
+        "was about, and the next caller is the risk"
+    ),
+    "EvidenceDao.for_run": "as EvidenceDao.for_control",
+    "AttestationDao.value": (
+        "attestation_routes fetches the row through `in_tenant` first and 404s on "
+        "None, so the unscoped read is never reached with another estate's id. "
+        "Confirmed by probe: a cross-tenant GET returns 404 and leaks nothing"
+    ),
+    "AttestationDao.verify": "as AttestationDao.value",
+    # -- known gaps, not yet closed ---------------------------------------
+    # SampleDao.get and .require are inherited from Dao, so this scan does not
+    # reach them; they are recorded in UNSWEPT above, where the gap belongs.
+    "SampleDao.forget": (
+        "takes no tenant at all, so a known digest deletes another estate's "
+        "samples. An open gap, recorded here and in UNSWEPT rather than implied "
+        "by an absence"
+    ),
+    "SampleDao.expired": "the retention sweep is cross-tenant by design: it deletes by age",
+}
+
+
+class TestEveryDaoReadTakesATenant:
+    """QA finding F-02. Four by-parent reads took a parent id and nothing else.
+
+    `AttributeDao.for_dataset`, `ConceptPropertyDao.for_concept`,
+    `BindingDao.for_dataset` and `BindingDao.for_attribute` filtered on the
+    parent and never on the estate, so `GET /datasets/{id}/attributes` with a
+    valid key from *another* tenant returned **200 with the data**, not a 404.
+    Sibling methods on the same classes — `critical_data_elements`, `drifted` —
+    always filtered. Four missed filters, not a design failure.
+
+    **The sweep could not see them.** `TestEveryTenantAwareReadIsScoped` probes
+    methods callable with a tenant *alone*, so it enumerates by looking for
+    `tenant_id` as the **first** parameter. A method taking `dataset_id` is
+    invisible to it however carefully it is written, and all four were.
+
+    So this one reads signatures rather than calling anything: every public read
+    on every DAO must accept a tenant *somewhere*, or be declared above with the
+    reason it does not. It is a weaker check than the sweep — it proves the
+    parameter exists, not that the query uses it — and the two together are what
+    cover the surface. Writing the declarations is the point: three of the seven
+    entries below are gaps somebody now has to look at rather than absences
+    nobody could see.
+    """
+
+    #: Verbs that write. A write takes its tenant from what it is writing.
+    WRITES: ClassVar[frozenset[str]] = frozenset(
+        {
+            "create",
+            "add",
+            "delete",
+            "record",
+            "append",
+            "declare",
+            "sign",
+            "observe",
+            "put",
+            "start",
+            "finish",
+            "amend",
+            "correct",
+            "retire",
+            "activate",
+            "suppress",
+            "grant",
+            "revoke",
+            "set_password",
+            "disable",
+            "forget_gaps",
+            "acknowledge",
+            "erase",
+            "flush",
+            "commit",
+            "rollback",
+            "close",
+            "count",
+        }
+    )
+
+    def reads(self) -> list[tuple[str, str, object]]:
+        import inspect
+
+        import prama.db.dao as package
+        from prama.db.dao.base import Dao, TenantScopedDao
+
+        found = []
+        for class_name in dir(package):
+            candidate = getattr(package, class_name)
+            if (
+                not isinstance(candidate, type)
+                or not issubclass(candidate, Dao)
+                or candidate in (Dao, TenantScopedDao)
+            ):
+                continue
+            for name, method in inspect.getmembers(candidate, inspect.isfunction):
+                if name.startswith("_") or name in self.WRITES:
+                    continue
+                if method.__qualname__.split(".")[0] in ("Dao", "TenantScopedDao"):
+                    continue  # inherited plumbing, not this DAO's surface
+                found.append((class_name, name, method))
+        return found
+
+    def test_there_are_reads_to_check(self) -> None:
+        """Anti-vacuity. A scan that enumerated nothing would pass while
+        checking nothing, which is how F-02 survived a sweep named for it."""
+        assert len(self.reads()) >= 25
+
+    def test_every_read_accepts_a_tenant_or_is_declared(self) -> None:
+        import inspect
+
+        unscoped: list[str] = []
+        for class_name, name, method in self.reads():
+            key = f"{class_name}.{name}"
+            if key in UNSCOPED_READS:
+                continue
+            parameters = set(inspect.signature(method).parameters)
+            if "tenant_id" not in parameters:
+                unscoped.append(key)
+        assert not unscoped, (
+            "these DAO reads take no tenant at all, so a caller holding an "
+            f"identifier from another estate reads that estate's rows: {sorted(unscoped)}. "
+            "Add a tenant_id, or declare it in UNSCOPED_READS with the reason its "
+            "boundary rests elsewhere."
+        )
+
+    def test_the_declarations_are_still_true(self) -> None:
+        """An admission about a method that has since grown a tenant is dead
+        weight, and makes the list look more considered than it is."""
+        import inspect
+
+        stale = []
+        for class_name, name, method in self.reads():
+            key = f"{class_name}.{name}"
+            if key in UNSCOPED_READS and "tenant_id" in inspect.signature(method).parameters:
+                stale.append(key)
+        assert not stale, f"declared unscoped and now takes a tenant: {stale}"
+
+    def test_every_declared_method_exists(self) -> None:
+        known = {f"{c}.{n}" for c, n, _ in self.reads()}
+        missing = sorted(UNSCOPED_READS.keys() - known)
+        assert not missing, f"declared in UNSCOPED_READS and not a DAO read: {missing}"

@@ -94,7 +94,7 @@ async def declare_property(
 @router.get("/concepts/{concept_id}/properties", response_model=list[ConceptPropertyOut])
 async def list_properties(concept_id: str, caller: Reader, uow: Uow) -> list[ConceptPropertyOut]:
     out: list[ConceptPropertyOut] = []
-    for version in await uow.concept_properties.for_concept(concept_id):
+    for version in await uow.concept_properties.for_concept(concept_id, tenant_id=caller.tenant_id):
         mapped = await uow.attributes.mapped_to_property(version.property_id)
         out.append(concept_property_out(version, concept_id=concept_id, mapped_count=len(mapped)))
     return out
@@ -264,7 +264,10 @@ async def bind(dataset_id: str, body: BindingIn, caller: Writer, uow: Uow) -> Bi
 
 @router.get("/datasets/{dataset_id}/bindings", response_model=list[BindingOut])
 async def list_bindings(dataset_id: str, caller: Reader, uow: Uow) -> list[BindingOut]:
-    return [binding_out(v) for v in await uow.bindings.for_dataset(dataset_id)]
+    return [
+        binding_out(v)
+        for v in await uow.bindings.for_dataset(dataset_id, tenant_id=caller.tenant_id)
+    ]
 
 
 @router.get("/bindings/drifted", response_model=list[BindingOut])

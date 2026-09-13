@@ -111,7 +111,7 @@ class TestDeclarationToVerdict:
         # 2. Γ derives the controls the declaration implies.
         async with started_database.unit_of_work() as uow:
             stored = await uow.datasets.require_current(dataset_id, tenant_id=tenant_id)
-            attributes = await uow.attributes.for_dataset(dataset_id)
+            attributes = await uow.attributes.for_dataset(dataset_id, tenant_id=tenant_id)
             generation = ControlGenerator().generate(dataset_declaration_of(stored, attributes))
             derived = [c for c in generation.controls if c.rule.startswith("grain")]
             assert derived, "the grain should generate at least one control"

@@ -90,7 +90,9 @@ class ControlRoutes(UiRoutes):
         """
         catalogue = Catalogue()
         for version in await uow.datasets.list_current(caller.tenant_id, limit=5000):
-            attributes = await uow.attributes.for_dataset(version.dataset_id)
+            attributes = await uow.attributes.for_dataset(
+                version.dataset_id, tenant_id=caller.tenant_id
+            )
             catalogue = catalogue.with_dataset(
                 DatasetSchema(
                     name=version.slug,
@@ -235,7 +237,12 @@ class ControlRoutes(UiRoutes):
             questions=builder.QUESTIONS,
             datasets=sorted(v.slug for v in versions),
             columns={
-                v.slug: [a.name for a in await uow.attributes.for_dataset(v.dataset_id)]
+                v.slug: [
+                    a.name
+                    for a in await uow.attributes.for_dataset(
+                        v.dataset_id, tenant_id=caller.tenant_id
+                    )
+                ]
                 for v in versions
             },
             submitted={},

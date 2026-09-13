@@ -82,3 +82,67 @@ async def test_another_tenant_cannot_retire_a_dataset(
 
     still = await client.get(f"/datasets/{victim_dataset}")
     assert still.status_code == 200, "another estate retired the declaration"
+
+
+class TestABySubresourceReadIsScopedToo:
+    """QA finding F-02. The S2 fix scoped every by-*id* read on `VersionedDao`
+    and missed the by-*parent* reads on its subclasses.
+
+    `GET /datasets/{id}/attributes` with a valid key from another estate
+    returned **200 with the declarations in full** — not a 404, and not an empty
+    list. Same for `/datasets/{id}/bindings` and `/concepts/{id}/properties`.
+    `AttributeDao.for_dataset`, `BindingDao.for_dataset`,
+    `BindingDao.for_attribute` and `ConceptPropertyDao.for_concept` filtered on
+    the parent and never on the estate, while siblings in the same classes —
+    `critical_data_elements`, `drifted` — always filtered.
+
+    The sweep in `tests/security/test_tenant_isolation.py` could not see them:
+    it probes methods callable with a tenant alone, enumerating by `tenant_id`
+    as the **first** parameter, and a method taking `dataset_id` is invisible to
+    it however carefully it is written. `TestEveryDaoReadTakesATenant` is the
+    static half added alongside these.
+
+    Found by a QA pass driving the HTTP API, not by 4,666 unit tests.
+    """
+
+    async def dataset_with_an_attribute(self, client: httpx.AsyncClient) -> str:
+        created = await client.post(
+            "/datasets", json={"name": "settlement_instructions", "criticality": 3}
+        )
+        assert created.status_code == 201, created.text
+        dataset_id = str(created.json()["id"])
+        added = await client.post(
+            f"/datasets/{dataset_id}/attributes",
+            json={"name": "counterparty_lei", "definition": "who we owe it to"},
+        )
+        assert added.status_code == 201, added.text
+        return dataset_id
+
+    async def test_another_tenant_cannot_list_attributes(
+        self, client: httpx.AsyncClient, intruder: httpx.AsyncClient
+    ) -> None:
+        dataset_id = await self.dataset_with_an_attribute(client)
+        response = await intruder.get(f"/datasets/{dataset_id}/attributes")
+        assert response.status_code in (200, 404), response.text
+        if response.status_code == 200:
+            assert response.json() == [], (
+                "another estate's attributes were returned in full: " + response.text
+            )
+        assert "counterparty_lei" not in response.text
+
+    async def test_the_owner_still_sees_them(self, client: httpx.AsyncClient) -> None:
+        """The positive control. A filter that returns nothing to everybody is
+        not isolation, it is an outage — and it would pass the test above."""
+        dataset_id = await self.dataset_with_an_attribute(client)
+        response = await client.get(f"/datasets/{dataset_id}/attributes")
+        assert response.status_code == 200, response.text
+        assert [a["name"] for a in response.json()] == ["counterparty_lei"]
+
+    async def test_another_tenant_cannot_list_bindings(
+        self, client: httpx.AsyncClient, intruder: httpx.AsyncClient
+    ) -> None:
+        dataset_id = await self.dataset_with_an_attribute(client)
+        response = await intruder.get(f"/datasets/{dataset_id}/bindings")
+        assert response.status_code in (200, 404)
+        if response.status_code == 200:
+            assert response.json() == [], response.text

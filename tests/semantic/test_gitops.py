@@ -62,7 +62,7 @@ class TestSerialisation:
                 is_cde=True,
                 obligations=["FRTB"],
             )
-            attributes = await uow.attributes.for_dataset(str(dataset.id))
+            attributes = await uow.attributes.for_dataset(str(dataset.id), tenant_id=tenant_id)
 
             serialiser = EstateSerialiser()
             document = serialiser.dataset_document(version, attributes)

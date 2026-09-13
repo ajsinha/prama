@@ -40,7 +40,9 @@ class EstateService(SemanticService):
 
         attributes: list[Any] = []
         for dataset in datasets:
-            attributes.extend(await self._uow.attributes.for_dataset(dataset.dataset_id))
+            attributes.extend(
+                await self._uow.attributes.for_dataset(dataset.dataset_id, tenant_id=tenant_id)
+            )
 
         relationships = [
             r
@@ -77,7 +79,9 @@ class EstateService(SemanticService):
         """Every disagreement between attributes claiming one canonical meaning."""
         found: list[SemanticConflict] = []
         for concept in await self._uow.concepts.list_current(tenant_id, limit=10_000):
-            for prop in await self._uow.concept_properties.for_concept(concept.concept_id):
+            for prop in await self._uow.concept_properties.for_concept(
+                concept.concept_id, tenant_id=tenant_id
+            ):
                 mapped = await self._uow.attributes.mapped_to_property(prop.property_id)
                 found.extend(
                     self._detector.detect(prop.property_id, f"{concept.name}.{prop.name}", mapped)

@@ -19,7 +19,7 @@ import pytest
 from httpx import ASGITransport
 
 from prama.api import create_app
-from prama.core.config import Configuration
+from prama.core.config import Configuration, ConfigurationBuilder
 from prama.core.errors import ValidationError
 from prama.db import Database
 from prama.db.security import PasswordHasher
@@ -505,3 +505,101 @@ class TestTheSignInPageIsReachableWithoutSigningIn:
         response = await stranger.get("/estate", follow_redirects=False)
         assert response.status_code == 303
         assert response.headers["location"] == "/sign-in"
+
+
+class TestAFreshDeploymentCanBeSignedIntoAtAll:
+    """QA found the console unenterable on the one configuration a real
+    deployment uses: a tenant, a principal, and no `tenancy.default_tenant`.
+
+    Two independent defects, either of which alone locks the door.
+
+    **The tenant was never resolved.** `sign_in` took
+    `form_field or tenancy.default_tenant`, `auth/sign_in.html` renders no
+    tenant field, so with the default unset `tenant_id` was always `""`,
+    `authenticate` was never called, and every correct password got a 401.
+    Supplying `tenant=acme-bank` by hand did not help either — that is a slug,
+    and `authenticate` compares it against a tenant *id*, which is the same
+    slug-versus-id seam that broke `principal create --tenant`.
+
+    **And the page said nobody existed.** `_no_way_in` returned `True` whenever
+    the default was empty, without counting anything, so the sign-in page
+    announced *"Nobody has been created on this installation yet"* while four
+    principals existed — sending an operator to look for a bug in
+    `principal create`.
+
+    Every existing fixture sets `tenancy.default_tenant`, which is the
+    pre-authentication path. That is why 4,699 tests passed over a locked door.
+    """
+
+    @pytest.fixture
+    def no_default_tenant(self, sqlite_config: Configuration) -> Configuration:
+        """A deployment that has not been told which estate it is."""
+        return (
+            ConfigurationBuilder()
+            .with_defaults(sqlite_config.raw())
+            .with_mapping({"tenancy": {"default_tenant": ""}}, name="no-default")
+            .build()
+        )
+
+    @pytest.fixture
+    async def door(
+        self, no_default_tenant: Configuration, started_database: Database
+    ) -> AsyncIterator[httpx.AsyncClient]:
+        app = create_app(no_default_tenant, database=started_database)
+        async with (
+            httpx.AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://testserver"
+            ) as http,
+            app.router.lifespan_context(app),
+        ):
+            yield http
+
+    async def test_a_correct_password_gets_in(
+        self, door: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        await _principal(started_database, tenant_id)
+        response = await door.post("/sign-in", data={"username": "alice", "password": PASSWORD})
+        assert response.status_code == 303, (
+            f"a correct password was refused ({response.status_code}) on a deployment "
+            "with no default tenant — the console cannot be entered at all"
+        )
+
+    async def test_a_wrong_password_is_still_refused(
+        self, door: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """The counterfactual. Resolving the tenant must not let anybody in."""
+        await _principal(started_database, tenant_id)
+        response = await door.post(
+            "/sign-in", data={"username": "alice", "password": "wrong-but-long-enough"}
+        )
+        assert response.status_code == 401
+
+    async def test_the_slug_is_accepted_in_the_form(
+        self, door: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        """A person knows `acme-bank`; the schema knows a ULID."""
+        async with started_database.unit_of_work() as uow:
+            tenant = await uow.tenants.get(tenant_id)
+            assert tenant is not None
+            slug = tenant.slug
+        await _principal(started_database, tenant_id)
+        response = await door.post(
+            "/sign-in", data={"username": "alice", "password": PASSWORD, "tenant": slug}
+        )
+        assert response.status_code == 303, response.text
+
+    async def test_the_page_does_not_claim_nobody_exists(
+        self, door: httpx.AsyncClient, started_database: Database, tenant_id: str
+    ) -> None:
+        await _principal(started_database, tenant_id)
+        body = (await door.get("/sign-in")).text
+        assert "Nobody has been created" not in body, (
+            "the page told the operator nobody exists while a principal did"
+        )
+
+    async def test_it_still_says_so_when_nobody_does(self, door: httpx.AsyncClient) -> None:
+        """The other counterfactual: the message is worth having when true.
+        A form that cannot possibly succeed must say so, or somebody tries
+        their password four more times before suspecting the installation."""
+        body = (await door.get("/sign-in")).text
+        assert "Nobody has been created" in body

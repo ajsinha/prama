@@ -228,7 +228,7 @@ async def declare_attribute(
 async def list_attributes(dataset_id: str, caller: Reader, uow: Uow) -> list[AttributeOut]:
     return [
         attribute_out(v, dataset_id=dataset_id)
-        for v in await uow.attributes.for_dataset(dataset_id)
+        for v in await uow.attributes.for_dataset(dataset_id, tenant_id=caller.tenant_id)
     ]
 
 
