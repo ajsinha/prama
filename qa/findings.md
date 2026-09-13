@@ -704,6 +704,54 @@ unfixed code also passes 25 of 25 that way.
 Second instance of the load-dependent class, with [[Q-69]]. Both were recorded
 as PASS or FAIL by a single run before anyone ran them repeatedly.
 
+### Q-71 · Four producers emit freshness controls, and four tests claim they run
+
+Found while implementing [[Q-64]]'s interim — make `IS FRESH` refuse at lowering
+rather than compile to a control that can never answer. The refusal was expected
+to be a contained change. It is not, and what it breaks is the finding.
+
+Removing the `FreshnessAssertion` branch from `ir/lower.py` so it falls through
+to the existing "cannot yet be lowered" refusal fails exactly four tests:
+
+| Test | The producer it covers |
+|---|---|
+| `tests/derive/test_generator.py::test_every_generated_control_lowers_to_a_plan` | the Γ generator, from a declared rhythm |
+| `tests/importers/test_importers.py::…test_every_control_lowers_to_a_runnable_plan[soda]` | the soda importer |
+| `tests/propose/test_end_to_end.py::test_every_proposed_control_would_actually_run` | the proposer |
+| `qa/regression-suite/domain/test_shipped_templates_resolve.py::test_every_template_compiles_once_its_placeholders_are_filled` | shipped template `mifir-t1-report-arrives` |
+
+So freshness is not a language corner nobody reaches. **Declaring a rhythm
+generates one. Importing from soda generates one. The proposer proposes them.
+Three shipped banking templates use `IS FRESH`** — `packs/banking/obligations.py`
+and two in `packs/banking/regimes.py`.
+
+**The second half is worse than the first.** Read those four test names again.
+`test_every_proposed_control_would_actually_run`. `…lowers_to_a_runnable_plan`.
+They assert that lowering *succeeds* — and lowering a freshness assertion does
+succeed. It returns a plan, the plan compiles to real SQL, the SQL runs, and the
+verdict is then read from a metric nobody emitted. Every one of those tests
+passes today on a control that cannot pass and cannot fail.
+
+Four tests named for runnability, none of which checks it. This is the house
+failure mode exactly — *assert the rendered artefact, not the intent* — sitting
+inside the tests written to enforce it.
+
+**What this does to Q-64's options.** "Refuse loudly until freshness is
+implemented" is no longer the cheap interim it looked like: it withdraws a
+shipped MiFIR template and breaks three generators. The remaining choices are
+
+- implement freshness against `Snapshot.captured_at`, which already exists on
+  every evidence record and carries an `exact` flag — deterministic, replayable,
+  and requiring no new concept in the language; or
+- keep lowering, but have the verdict name *freshness has no execution strategy*
+  rather than fall out of an absent `scanned_rows`, so the silence becomes a
+  stated indeterminate.
+
+The second is small and honest and leaves the templates shipping. The first is
+the actual repair. Either way the four tests above need to assert a verdict
+rather than a successful lowering, and that change should land first — it is
+the control that would have caught this.
+
 ---
 
 ## What held

@@ -45,6 +45,11 @@ BUILTIN_ROLES: dict[str, tuple[str, list[str]]] = {
             "control:approve",
             "control:read",
             "attestation:sign",
+            # Signing a thing you cannot read is not a permission set anybody
+            # writes down on purpose. Without this the owner — the role that
+            # exists to attest — could sign an attestation and open neither the
+            # draft it was signing nor its own signed record. QA round 3, Q-67.
+            "attestation:read",
             "evidence:read",
             "report:read",
         ],

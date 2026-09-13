@@ -46,15 +46,24 @@ class UlidFactory:
         self._last_rand = 0
 
     def new(self) -> str:
-        ms = self._clock.epoch_millis()
         with self._lock:
-            if ms == self._last_ms:
+            # Read the clock *inside* the lock. Outside it, a thread descheduled
+            # between the reading and the lock presents a stale millisecond: it
+            # compares against a `_last_ms` some other thread has already moved
+            # forward, takes the `else` branch, writes its stale reading back
+            # over the later one, and emits an id sorting before one already
+            # issued. QA `CFG-168`, finding `Q-70`.
+            ms = self._clock.epoch_millis()
+            if ms <= self._last_ms:
+                # The same millisecond, or a clock that went backwards — an NTP
+                # correction does that, and so does a stalled thread. Both mean
+                # the same thing here: never emit below the high-water mark.
+                ms = self._last_ms
                 self._last_rand += 1
                 if self._last_rand >= (1 << _RANDOM_BITS):
                     # Astronomically unlikely; wait for the next millisecond
                     # rather than emit a non-monotonic id.
-                    ms += 1
-                    self._last_ms = ms
+                    ms = self._last_ms = ms + 1
                     self._last_rand = int.from_bytes(os.urandom(10), "big")
             else:
                 self._last_ms = ms
