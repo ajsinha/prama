@@ -359,6 +359,42 @@ it is not the kind of change to make inside a batch about inert settings.
 
 ---
 
+### Q-64 · `IS FRESH` has no execution strategy at all — open, and larger than PQL-083
+
+`PQL-083` recorded that a freshness plan carries no `violating_rows` metric, so
+every freshness control is permanently indeterminate. Looking for the fix found
+something worse: **nothing handles freshness at execution anywhere.** There is
+no branch for it in `execute/run.py`, none in `backend/execute.py`, and no
+`_freshness_verdict` beside the row-count, unique-key and dependency ones.
+
+So `IS FRESH WITHIN 4 HOURS` parses, type-checks, lowers to a plan with an
+`assertion_kind` of `"freshness"`, compiles to a query that counts rows, and is
+then judged by a threshold reading a metric nobody emitted. It cannot pass and
+it cannot fail.
+
+This is the `BE-054` shape again — syntax the grammar accepts that no engine
+runs — but one level deeper: the SQL compiles, so it does not even announce
+itself as unsupported.
+
+**It blocks a shipped template.** `gdpr-retention-floor` names `DATE_SUB`,
+which no pack registers, so it cannot compile either. The obvious repair is to
+express a retention floor as `IS FRESH WITHIN {retention_days} DAYS` — it says
+exactly the right thing and needs no new function — and that would move the
+template from "cannot compile" to "can never produce a verdict", which is worse
+because it is quieter.
+
+Deferred deliberately. Implementing freshness means deciding what it is
+evaluated *against* — a snapshot time, a business date, the clock — and PQL
+refuses the clock because evidence must replay. That is a design decision about
+the language, not a repair, and it should not be made inside a batch about
+domain packs.
+
+Recorded here, and pinned in `qa/regression-suite` as a strict xfail so the day
+somebody implements freshness, the test that proves the template is broken will
+start failing and force this note to be closed.
+
+---
+
 ## Open
 
 Ranked. Each was reported by the agent named, and awaits reproduction before
