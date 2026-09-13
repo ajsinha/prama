@@ -38,6 +38,7 @@ from datetime import date, timedelta
 from typing import Any, Final
 
 from prama.bench.scoring import Defect
+from prama.core.errors import ValidationError
 
 __all__ = [
     "CLASSES",
@@ -706,10 +707,21 @@ def build(
 
     One window per class, dated sequentially from 2026-01-01.
     """
+    # ValidationError, not ValueError: a bare ValueError escapes the CLI's
+    # translation and reaches the terminal as a stack trace. QA round 3, Q-68.
+    # The messages were already right; only the type was wrong.
     if not 0 < rate <= 1:
-        raise ValueError(f"rate must be a share of rows in (0, 1], got {rate}")
+        raise ValidationError(
+            f"rate must be a share of rows in (0, 1], got {rate}",
+            remedy="Pass --rate above 0 and at most 1, as in --rate 0.05 for five percent.",
+            context={"rate": rate},
+        )
     if rows < 1:
-        raise ValueError(f"a corpus needs rows, got {rows}")
+        raise ValidationError(
+            f"a corpus needs rows, got {rows}",
+            remedy="Pass --rows with a positive count, as in --rows 10000.",
+            context={"rows": rows},
+        )
 
     chosen = tuple(classes) if classes is not None else CLASSES
     rng = random.Random(seed)

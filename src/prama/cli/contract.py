@@ -73,9 +73,35 @@ def _rows(path: str) -> list[dict[str, Any]]:
 
         with target.open(newline="") as handle:
             return list(csv.DictReader(handle))
+    # `_contract` above already refuses unreadable JSON in the taxonomy; this
+    # path did not, so a truncated or hand-edited data file reached the terminal
+    # as a json.decoder stack trace. The position is the useful part of that
+    # trace and is the part kept. QA round 3, Q-68.
     if target.suffix in (".jsonl", ".ndjson"):
-        return [json.loads(line) for line in target.read_text().splitlines() if line.strip()]
-    payload = json.loads(target.read_text())
+        rows: list[dict[str, Any]] = []
+        for number, line in enumerate(target.read_text().splitlines(), start=1):
+            if not line.strip():
+                continue
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError as exc:
+                raise ValidationError(
+                    f"{target} line {number} is not valid JSON: {exc.msg} at column {exc.colno}",
+                    remedy=(
+                        "Each line of a .jsonl file is one complete JSON object. "
+                        "A trailing comma or an unclosed brace makes the line unreadable."
+                    ),
+                    context={"path": str(target), "line": number},
+                ) from None
+        return rows
+    try:
+        payload = json.loads(target.read_text())
+    except json.JSONDecodeError as exc:
+        raise ValidationError(
+            f"{target} is not valid JSON: {exc.msg} at line {exc.lineno}, column {exc.colno}",
+            remedy="Give a JSON array of rows, a .jsonl file, or a .csv.",
+            context={"path": str(target), "line": exc.lineno, "column": exc.colno},
+        ) from None
     if isinstance(payload, dict):
         payload = payload.get("rows", [])
     if not isinstance(payload, list):
