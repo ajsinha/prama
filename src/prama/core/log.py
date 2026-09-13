@@ -61,7 +61,24 @@ class RedactionFilter(logging.Filter):
 
     def filter(self, record: logging.LogRecord) -> bool:
         if isinstance(record.msg, str):
-            record.msg = _SENSITIVE_TEXT.sub(lambda m: f"{m.group(1)}={REDACTED}", record.msg)
+            if record.args:
+                # Format first, then redact. Substituting over the template
+                # ate the placeholder: `logger.warning("password=%s", secret)`
+                # became `password=***` with an argument still to apply, so
+                # `record.getMessage()` raised "not all arguments converted",
+                # logging trapped it, dropped the record, and printed its own
+                # traceback to stderr — a traceback whose `Arguments:` line
+                # contained the secret. The redaction step was the leak.
+                try:
+                    merged = record.getMessage()
+                except (TypeError, ValueError):  # pragma: no cover - malformed call
+                    # A caller's own formatting bug. Leave it for logging to
+                    # report, but never with the arguments still attached.
+                    merged = record.msg
+                record.msg = _SENSITIVE_TEXT.sub(lambda m: f"{m.group(1)}={REDACTED}", merged)
+                record.args = ()
+            else:
+                record.msg = _SENSITIVE_TEXT.sub(lambda m: f"{m.group(1)}={REDACTED}", record.msg)
         fields = getattr(record, "prama_fields", None)
         if isinstance(fields, dict):
             record.prama_fields = redact_mapping(fields)

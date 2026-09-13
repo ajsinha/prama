@@ -115,7 +115,7 @@ class TestTheLoopIsClosed:
             report = await ControlRun(
                 uow, tenant_id, execute=rows_for(scanned_rows=10, violating_rows=0)
             ).execute_all()
-            assert len(await uow.evidence.for_run(report.run_id)) == 1
+            assert len(await uow.evidence.for_run(report.run_id, tenant_id=tenant_id)) == 1
             [run] = await uow.evidence_runs.recent(tenant_id)
         assert run.status == "complete"
         assert run.record_count == 1

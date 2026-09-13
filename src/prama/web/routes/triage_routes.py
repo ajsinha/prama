@@ -117,11 +117,16 @@ class TriageRoutes(UiRoutes):
     async def incident_detail(
         self, request: Request, control_id: str, caller: Caller, uow: Uow
     ) -> Any:
-        history = await uow.evidence.for_control(control_id, limit=HISTORY)
-        # Scoped after the fetch rather than trusted: the ledger indexes by
-        # control, and an identifier out of a URL belongs to whoever typed it
-        # until it has been checked against the caller's tenant.
-        history = [r for r in history if r.tenant_id == caller.tenant_id]
+        # Scoped in the query rather than after it. This used to fetch by
+        # control id and filter the result here, with a comment explaining that
+        # an identifier out of a URL belongs to whoever typed it. The reasoning
+        # was right and the filter worked; what it could not do was bind the
+        # next caller, and QA round 2 found the unscoped read reachable with
+        # another estate's control id (DB-244). The DAO enforces it now, so
+        # there is nothing left to remember.
+        history = await uow.evidence.for_control(
+            control_id, tenant_id=caller.tenant_id, limit=HISTORY
+        )
         version = await uow.controls.by_control_id(caller.tenant_id, control_id)
 
         if not history and version is None:

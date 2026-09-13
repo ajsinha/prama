@@ -242,6 +242,27 @@ one `git merge-base --is-ancestor` — would have cost nothing.
 
 ---
 
+### Q-59 · Evidence can be appended with an empty tenant — new, found while fixing B1
+
+Not from the catalogue. `EvidenceDao.append` and `EvidenceDao.extend` both
+declare `tenant_id: str = ""`, so a caller that forgets the estate writes
+evidence attributed to `""` rather than being refused. Every current caller
+passes one, so nothing is wrong in the ledger today; the defect is that the
+signature permits it, in the one table whose whole value is that a record
+belongs to somebody.
+
+Found because the tenant-isolation sweep was strengthened from "accepts a
+tenant" to "requires a tenant" while fixing `DB-201`/`DB-244`/`DB-245`, and the
+new check immediately flagged `extend`. It flagged it as an unscoped *read*,
+which it is not — `append` was in the sweep's `WRITES` exclusion list and
+`extend` had been missed — but the underlying signature is worth fixing.
+
+Deferred rather than folded into B1, which is about containment and secrets.
+A batch that quietly grows to include whatever turns up next is a batch nobody
+can review.
+
+---
+
 ## Open
 
 Ranked. Each was reported by the agent named, and awaits reproduction before

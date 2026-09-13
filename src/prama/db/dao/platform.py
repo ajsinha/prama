@@ -13,7 +13,7 @@ from sqlalchemy import delete, select, text
 
 from prama.core import pjson
 from prama.core.clock import utc_now
-from prama.core.errors import ValidationError
+from prama.core.errors import ConflictError, ValidationError
 from prama.db.dao.base import Dao, TenantScopedDao
 from prama.db.models import (
     ApiKey,
@@ -74,12 +74,43 @@ class PrincipalDao(TenantScopedDao[Principal]):
             )
         )
 
-    async def by_external_id(self, idp: str, external_id: str) -> Principal | None:
-        return await self._one_or_none(
-            select(Principal).where(
-                Principal.external_idp == idp, Principal.external_id == external_id
-            )
+    async def by_external_id(
+        self, idp: str, external_id: str, *, tenant_id: str | None = None
+    ) -> Principal | None:
+        """The principal an identity provider's subject maps to.
+
+        The tenant is optional here, and deliberately so: this is a step in
+        authentication, which runs *before* a tenant is known. Requiring one
+        would need the answer before the question — the same reason
+        `ApiKeyDao.by_prefix` is unscoped.
+
+        What was wrong was the ambiguous case. `(external_idp, external_id)` has
+        no uniqueness constraint, and two estates federating with the same
+        provider will legitimately see the same subject — a contractor at two
+        banks is not an error. `_one_or_none` met that with a raw, untranslated
+        `MultipleResultsFound`, so the sign-in path would have crashed rather
+        than refusing (QA finding DB-142).
+
+        Now it refuses, and says what to do: pass the tenant when the caller
+        knows it. Guessing which of two principals was meant is the one thing
+        an authentication path must never do.
+        """
+        stmt = select(Principal).where(
+            Principal.external_idp == idp, Principal.external_id == external_id
         )
+        if tenant_id is not None:
+            stmt = stmt.where(Principal.tenant_id == tenant_id)
+        matches = list((await self._session.execute(stmt)).scalars().all())
+        if len(matches) > 1:
+            raise ConflictError(
+                "that identity matches a principal in more than one estate",
+                remedy=(
+                    "Pass the tenant this sign-in is for. The identity provider's "
+                    "subject is unique within an estate, not across them."
+                ),
+                context={"idp": idp, "estates": str(len(matches))},
+            )
+        return matches[0] if matches else None
 
     def create(
         self,

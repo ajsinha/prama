@@ -496,7 +496,7 @@ class TestConcepts:
                     concept_property_id=prop.id,
                     semantic_type="lei",
                 )
-            mapped = await uow.attributes.mapped_to_property(prop.id)
+            mapped = await uow.attributes.mapped_to_property(prop.id, tenant_id=tenant_id)
             assert len(mapped) == 2  # author once, enforce everywhere
 
     async def test_properties_belong_to_their_concept(

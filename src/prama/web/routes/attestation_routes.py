@@ -155,6 +155,16 @@ class AttestationRoutes(UiRoutes):
             import dataclasses
 
             if supersedes:
+                # Checked against the caller's own estate before it is
+                # recorded. The id arrives in a form field, and this used to be
+                # applied verbatim: signing from one estate while naming
+                # another estate's attestation id succeeded, and the record
+                # then claimed to supersede an attestation its signer had no
+                # standing over (QA finding UI-122). `in_tenant` raises a
+                # not-found for an id outside the estate, which is the right
+                # answer twice over — it refuses, and it does not confirm that
+                # the id exists somewhere else.
+                await uow.attestations.in_tenant(supersedes, caller.tenant_id)
                 attestation = dataclasses.replace(
                     attestation, supersedes=supersedes, supersedes_because=supersedes_because
                 )

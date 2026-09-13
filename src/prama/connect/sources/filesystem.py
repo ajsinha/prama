@@ -277,6 +277,39 @@ class FilesystemConnector(Connector):
         except ValueError:  # pragma: no cover - defensive
             return (file.name,)
 
+    def _contained(self, path: tuple[str, ...]) -> Path:
+        """The file this path names, provided it is inside the configured root.
+
+        `root_path` is what an operator is shown as the boundary of a
+        connection, and it used to bound nothing: `_resolve` built its target
+        with `self._root.joinpath(*path)` and checked only that the result was
+        a file. A component of `..` walked straight out, so `describe()`
+        returned the columns of a file outside the root and `snapshot()` hashed
+        its contents (QA finding CON-132).
+
+        The read policy is checked first and is a different question — which
+        paths this connection is *allowed* to name. This is the question of
+        which paths it is *able* to name, and it has to hold even when the
+        policy is permissive, because the permissive policy is the default.
+
+        `resolve()` before comparing, so a symlink pointing out of the root is
+        caught too: following one is the same escape with an extra step.
+        """
+        candidate = self._root.joinpath(*path).resolve()
+        root = self._root.resolve()
+        if not candidate.is_relative_to(root):
+            from prama.connect.spi import UnauthorisedError
+
+            raise UnauthorisedError(
+                f"that path resolves outside this connection's root: {'/'.join(path)}",
+                remedy=(
+                    f"Reads are confined to {root}. Point the connection at the "
+                    "directory that holds the data, or move the file into it."
+                ),
+                context={"path": "/".join(path)},
+            )
+        return candidate
+
     def _resolve(self, path: tuple[str, ...]) -> Path:
         if not self.policy.permits_path(path):
             from prama.connect.spi import UnauthorisedError
@@ -289,7 +322,7 @@ class FilesystemConnector(Connector):
                 ),
                 context={"path": "/".join(path)},
             )
-        file = self._root.joinpath(*path)
+        file = self._contained(path)
         if not file.is_file():
             raise ConnectorError(
                 f"no such file: {'/'.join(path)}",

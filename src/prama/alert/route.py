@@ -420,11 +420,38 @@ class Router:
         absence is why nobody believes a dashboard.
         """
         self._sent.pop(alert.fingerprint, None)
+        recipients = self._recipients(alert)
+
+        blocked = self._residency_refusals(alert, recipients)
+        if blocked:
+            # The same gate `dispatch` applies, for the same reason. It was
+            # missing here, so an alert correctly withheld on residency was
+            # followed by a resolution that went out regardless (QA finding
+            # INC-071) — the residency rule holding for the bad news and not
+            # for the good.
+            #
+            # A resolution is not a smaller disclosure than an alert. It names
+            # the dataset and the control, and "this is fixed now" tells a
+            # reader what was wrong a moment ago. Whether the body quotes a
+            # value is not the question; that the message crosses the boundary
+            # at all is.
+            return Dispatch(
+                alert=alert,
+                delivery=Delivery.QUIET,
+                change=Change.RESOLVED,
+                recipients=recipients,
+                reason=(
+                    "withheld on residency: " + "; ".join(blocked) + ". A resolution "
+                    "names the dataset and the control it was raised on, so it moves "
+                    "the tenant's data as surely as the alert did"
+                ),
+            )
+
         return Dispatch(
             alert=alert,
             delivery=Delivery.IMMEDIATE if alert.needs_immediate else Delivery.DIGEST,
             change=Change.RESOLVED,
-            recipients=self._recipients(alert),
+            recipients=recipients,
             reason="resolved",
         )
 

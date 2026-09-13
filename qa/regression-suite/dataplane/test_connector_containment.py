@@ -32,7 +32,6 @@ def estate(tmp_path: Path) -> Path:
     return tmp_path
 
 
-@pytest.mark.xfail(strict=True, reason="QA-2 CON-132: _resolve does not contain the path")
 async def test_a_dotdot_path_cannot_escape_the_configured_root(estate: Path) -> None:
     connector = FilesystemConnector({"root_path": str(estate / "landing")})
     async with connector:
@@ -48,7 +47,6 @@ async def test_a_dotdot_path_cannot_escape_the_configured_root(estate: Path) -> 
         assert "password" not in str(refusal.value)
 
 
-@pytest.mark.xfail(strict=True, reason="QA-2 CON-132: snapshot hashes a file outside the root")
 async def test_an_escaping_path_is_not_snapshotted(estate: Path) -> None:
     """Refusing `describe` and allowing `snapshot` would leak the file anyway.
 

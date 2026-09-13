@@ -94,7 +94,29 @@ class FileSecretProvider(SecretProvider):
     def _locate(self, reference: SecretRef) -> Path:
         relative = reference.location.lstrip("/")
         if self._root is None:
-            return Path("/" + relative)
+            # Refuse rather than widen. This used to return `Path("/" + ...)`,
+            # which made an unset root mean "anywhere on disk" — the most
+            # permissive possible reading of a missing setting, in the one
+            # provider whose own docstring says that a reference "is a stored
+            # value that an authenticated user can edit".
+            #
+            # And the root was never set: `secrets.file.root` appeared only in
+            # the remedy below, in no configuration file, and the live caller
+            # builds the resolver with no argument. So the confinement this
+            # class describes has never been in effect anywhere.
+            #
+            # Refusing is the house style — the shipped `security.session_secret`
+            # is empty on purpose so a fresh clone will not boot — and it is the
+            # only option that cannot fail quietly.
+            raise SecretResolutionError(
+                "no secrets directory is configured, so a file reference cannot be resolved",
+                remedy=(
+                    "Set secrets.file.root to the directory your secrets are mounted "
+                    "in — /run/secrets under Docker, or the volume's mountPath under "
+                    "Kubernetes. References are then confined to it."
+                ),
+                context={"reference": reference.render()},
+            )
         candidate = (self._root / relative).resolve()
         if not candidate.is_relative_to(self._root):
             raise SecretResolutionError(
