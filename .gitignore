@@ -20,7 +20,12 @@ htmlcov/
 *.sqlite
 *.sqlite3
 data/
-logs/
+# Anchored to the repository root: this is for runtime log output a running
+# instance drops beside the code. Unanchored, it also swallowed
+# `docs/qa/logs/`, which is the QA evidence — checked-in documentation that
+# happens to live in a directory called logs. A test log nobody can review
+# because version control quietly discarded it is worth nothing.
+/logs/
 
 # JetBrains project files — local to one developer's machine.
 .idea/
