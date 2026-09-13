@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import pytest
 
+from prama.backend.execute import unanswerable
 from prama.classify.codelists import REGISTRY as CODELISTS
 from prama.core.provenance import Origin
 from prama.derive.declaration import AttributeDeclaration, DatasetDeclaration
@@ -100,10 +101,25 @@ def test_every_generated_control_re_parses_to_itself() -> None:
         assert parse_control(text).render() == text, text
 
 
-def test_every_generated_control_lowers_to_a_plan() -> None:
+def test_every_generated_control_can_reach_a_verdict() -> None:
+    """Lowering is not the property worth asserting; answerability is.
+
+    This asserted `plan_id` alone until QA round 3 (`Q-71`). A freshness control
+    lowers cleanly, compiles to real SQL, runs, and is then judged against a
+    metric nobody emits — so it can never pass and never fail. The old
+    assertion held the whole time.
+    """
     lowerer = Lowerer(codelists=CODELISTS.resolve())
     for derived in ControlGenerator().generate(positions()).controls:
-        assert lowerer.control(derived.control).plan_id
+        plan = lowerer.control(derived.control)
+        assert plan.plan_id
+        # Freshness is knowingly unanswerable and pinned by a strict xfail
+        # below rather than silently tolerated here: excluding it keeps this
+        # assertion live for every other kind. QA round 3, Q-64 and Q-71.
+        if plan.assertion_kind == "freshness":
+            continue
+        reason = unanswerable(plan)
+        assert not reason, f"{derived.control.render().splitlines()[0]}: {reason}"
 
 
 # -- grain -------------------------------------------------------------------
@@ -467,3 +483,27 @@ def test_a_dataset_with_no_profile_yet_is_taken_at_its_word() -> None:
 def test_each_documented_declaration_generates_its_stated_control(rule: str) -> None:
     """docs/03 §5, row by row."""
     assert ControlGenerator().generate(positions()).by_rule(rule)
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="Q-64: IS FRESH has no execution strategy, so a generated freshness "
+    "control can never reach a verdict. This marker fails the day it can.",
+)
+def test_a_generated_freshness_control_can_reach_a_verdict() -> None:
+    """Pinned, not tolerated.
+
+    Declaring a rhythm generates a freshness control, so this is not a language
+    corner nobody reaches — it is the ordinary output of the Γ generator. The
+    strict marker means the day freshness is implemented, this test starts
+    failing as XPASS and forces the note in qa/findings.md to be closed.
+    """
+    lowerer = Lowerer(codelists=CODELISTS.resolve())
+    fresh = [
+        lowerer.control(d.control)
+        for d in ControlGenerator().generate(positions()).controls
+        if lowerer.control(d.control).assertion_kind == "freshness"
+    ]
+    assert fresh, "the generator no longer produces a freshness control"
+    for plan in fresh:
+        assert not unanswerable(plan), unanswerable(plan)

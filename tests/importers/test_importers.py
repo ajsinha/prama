@@ -13,6 +13,7 @@ import json
 
 import pytest
 
+from prama.backend.execute import unanswerable
 from prama.core.errors import RegistryError
 from prama.importers import IMPORTERS, importer
 from prama.ir.lower import Lowerer
@@ -126,9 +127,22 @@ class TestEveryImportedControlIsReal:
 
     @pytest.mark.parametrize("name", sorted(IMPORTERS))
     def test_every_control_lowers_to_a_runnable_plan(self, name: str) -> None:
+        """Runnable means it can answer, not merely that it lowered.
+
+        QA round 3, `Q-71`: this checked the plan id and nothing else, so an
+        imported freshness control counted as runnable while being incapable of
+        any verdict.
+        """
         for control in imported(name).controls:
             plan = Lowerer(codelists={"iso4217": ("GBP",)}).control(control)
             assert plan.plan_id.startswith("ir:sha256:")
+            # Freshness is knowingly unanswerable and pinned by a strict xfail
+            # below rather than silently tolerated here: excluding it keeps this
+            # assertion live for every other kind. QA round 3, Q-64 and Q-71.
+            if plan.assertion_kind == "freshness":
+                continue
+            reason = unanswerable(plan)
+            assert not reason, f"{name}: {control.render().splitlines()[0]}: {reason}"
 
     @pytest.mark.parametrize("name", sorted(IMPORTERS))
     def test_every_control_says_where_it_came_from(self, name: str) -> None:

@@ -704,7 +704,7 @@ unfixed code also passes 25 of 25 that way.
 Second instance of the load-dependent class, with [[Q-69]]. Both were recorded
 as PASS or FAIL by a single run before anyone ran them repeatedly.
 
-### Q-71 · Four producers emit freshness controls, and four tests claim they run
+### Q-71 · Four producers emit freshness controls, and four tests claim they run — tests fixed, freshness still open
 
 Found while implementing [[Q-64]]'s interim — make `IS FRESH` refuse at lowering
 rather than compile to a control that can never answer. The refusal was expected
@@ -751,6 +751,38 @@ The second is small and honest and leaves the templates shipping. The first is
 the actual repair. Either way the four tests above need to assert a verdict
 rather than a successful lowering, and that change should land first — it is
 the control that would have caught this.
+
+### Q-72 · `unanswerable()` — the control that would have caught Q-71
+
+Landed as part of [[Q-71]]'s repair, recorded because it is the reusable half.
+
+`backend/execute.py::unanswerable(plan)` returns why a plan can never reach PASS
+or FAIL, or `""` when it can. It derives the answer from `VERDICT_METRICS` — the
+metrics each dedicated verdict rule reads — and the plan's own declared metrics,
+rather than from a restated list of supported assertion kinds. A restated list
+is precisely what lets a new kind arrive and be judged by a threshold on a
+metric nobody emits, which is how freshness got here.
+
+The three producer tests now assert it for every kind **except** freshness, and
+freshness is pinned by one strict xfail. The split matters: marking the whole
+test xfail would have suspended the check for every other assertion kind in
+order to tolerate one, and the next kind to arrive broken would have been
+tolerated with it.
+
+**Why a control that returns INDETERMINATE forever is worse than one that
+refuses.** It occupies a line on a scorecard and contributes nothing, and
+nobody investigates a control that has never been red. A refusal at least sends
+somebody to the language. This is the same asymmetry the QA rounds keep
+finding — *the paths that decide "nothing to report" are weaker than the paths
+that decide "something to report"* — expressed in the verdict layer.
+
+Still open, and deliberately not attempted inside a fix batch: freshness itself.
+It needs `MAX(column)` compiled across three dialects whose date arithmetic
+already disagreed once (`B6`), the snapshot's `captured_at` carried into the
+verdict as a metric, a `_freshness_verdict` beside the other three, and a
+decision about `IS FRESH` with no column named — which has nothing in the data
+to measure and would otherwise fall back on the wall clock the language refuses.
+That is a wave, not a batch.
 
 ---
 
