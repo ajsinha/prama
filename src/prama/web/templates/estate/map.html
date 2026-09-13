@@ -94,7 +94,7 @@
 <script src="{{ url_for('static', filename='vendor/graphology/graphology.umd.min.js') }}"></script>
 <script src="{{ url_for('static', filename='vendor/sigma/sigma.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/estate-map.js') }}"></script>
-<script>
+<script nonce="{{ csp_nonce() }}">
   window.pramaEstateMap({
     graph: {{ url_for('estate_graph') | tojson }},
     detail: {{ url_for('dataset_detail', dataset_id='__ID__') | tojson }},

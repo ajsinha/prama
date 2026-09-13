@@ -109,6 +109,7 @@ class Sample:
 
 
 class TriageRoutes(UiRoutes):
+    SUBJECT = "incident"
     """The one-incident screen."""
 
     def register(self) -> None:

@@ -117,3 +117,66 @@ async def console_for_ours(
         app.router.lifespan_context(app),
     ):
         yield http
+
+
+@pytest.fixture
+async def signed_in_console(
+    qa_config: Configuration, estate: Database, two_tenants: tuple[str, str]
+) -> AsyncIterator[httpx.AsyncClient]:
+    """A console with a real session, established by signing in.
+
+    Separate from `console_for_ours`, which relies on `tenancy.default_tenant`
+    — the pre-auth wildcard that let 4,666 round-1 tests pass over a sign-in
+    door that did not work. Anything conditional on *being signed in* has to be
+    tested through the door, or the assertion passes because the condition is
+    never reached.
+    """
+    from prama.api import create_app
+    from prama.cli.principal import BUILTIN_ROLES
+
+    ours, _ = two_tenants
+    password = "correct-horse-battery-staple"
+    async with estate.unit_of_work() as uow:
+        principal = uow.principals.create(tenant_id=ours, username="alice", display_name="Alice")
+        uow.principals.set_password(principal, password)
+        principal.status = "active"
+        await uow.flush()
+        # An admin role, because these tests are about the session rather than
+        # about permissions: a principal with no roles signs in successfully
+        # and is then refused every page, which would make every assertion
+        # below fail for a reason unrelated to what it is testing.
+        description, permissions = BUILTIN_ROLES["admin"]
+        role = uow.roles.create(
+            tenant_id=ours,
+            name="admin",
+            permissions=permissions,
+            description=description,
+            builtin=True,
+        )
+        await uow.flush()
+        await uow.roles.grant(str(principal.id), str(role.id))
+        await uow.flush()
+
+    # No `tenancy.default_tenant`. That setting is a pre-auth wildcard: with it
+    # set, pages render without a session, so signing out cannot be observed
+    # and neither can being signed out. Round 1 passed 4,666 tests over a
+    # completely broken sign-in door for exactly this reason.
+    #
+    # This fixture therefore runs the configuration a real deployment runs, and
+    # gets its access the way a real person does — by signing in.
+    app = create_app(qa_config, database=estate)
+    async with (
+        httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as http,
+        app.router.lifespan_context(app),
+    ):
+        # The estate is named, because two exist and neither is the default.
+        # Sign-in correctly refuses with a 401 when it cannot tell which estate
+        # a username belongs to — that refusal is finding Q-02's fix working,
+        # and a fixture that set a default tenant to dodge it would be testing
+        # the wildcard rather than the door.
+        response = await http.post(
+            "/sign-in",
+            data={"username": "alice", "password": password, "tenant": "acme-bank"},
+        )
+        assert response.status_code == 303, f"sign-in failed: {response.status_code}"
+        yield http

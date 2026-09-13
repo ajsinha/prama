@@ -113,7 +113,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce() }}">
   jQuery(function ($) {
     /* Profiling fills the panel; it never fills the form. A suggestion lands in
        a field only when somebody presses "Use it", because a form that arrives

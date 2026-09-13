@@ -33,6 +33,24 @@ class UiRoutes:
 
     #: The scope a page needs when it does not say. Reading is the default
     #: because the console is mostly reading; a page that writes says so.
+    #: What this group of pages is *about*. `scope="auto"` builds the required
+    #: permission from it, so an incidents page asks for `incident:read` rather
+    #: than for a declaration scope that has nothing to do with it.
+    #:
+    #: It used to be fixed at `declaration`, for all forty-seven auto routes.
+    #: The console's whole permission matrix was therefore accidental: a person
+    #: holding `incident:read` and nothing else was refused the incidents page,
+    #: and a person holding `declaration:write` could reach the break workbench
+    #: (QA finding UI-005). The scopes existed, were checked, and described the
+    #: wrong thing.
+    SUBJECT = "declaration"
+    #: The scope a mutating page in this group requires. Declared separately
+    #: from SUBJECT because the vocabulary is finer than read/write and says
+    #: so: authoring a control is `control:propose`, signing an attestation is
+    #: `attestation:sign`, and neither is a "write". Deriving `{subject}:write`
+    #: would have invented three scopes nobody granted and locked every holder
+    #: out of the pages they are meant to use.
+    WRITE_SCOPE: str | None = None
     DEFAULT_READ = "declaration:read"
     DEFAULT_WRITE = "declaration:write"
 
@@ -66,7 +84,29 @@ class UiRoutes:
         verbs = methods or ["GET"]
         if scope == "auto":
             mutating = bool({"POST", "PUT", "PATCH", "DELETE"} & set(verbs))
-            scope = self.DEFAULT_WRITE if mutating else self.DEFAULT_READ
+            if mutating:
+                scope = self.WRITE_SCOPE or f"{self.SUBJECT}:write"
+            else:
+                scope = f"{self.SUBJECT}:read"
+            # Checked here, at registration, so a derived scope that nobody
+            # grants cannot reach a running console. The vocabulary is finer
+            # than read/write — `control:propose`, `attestation:sign` — so a
+            # class whose write verb is not literally "write" must say so, and
+            # this is where it finds out it has not.
+            #
+            # A page requiring a scope no role can hold is unreachable by
+            # everybody, which reads as a broken page rather than as a
+            # permission error. Failing at import makes it a five-second fix
+            # instead of a support call.
+            from prama.security.scopes import SCOPES
+
+            if scope not in SCOPES:
+                raise ValueError(
+                    f"{type(self).__name__} derives the scope {scope!r} for "
+                    f"{'/'.join(verbs)} {path}, and no such scope is declared. "
+                    f"Add it to prama.security.scopes.SCOPES, or set WRITE_SCOPE "
+                    f"on the class to the verb the vocabulary already has."
+                )
         self.app.add_api_route(
             path,
             handler,

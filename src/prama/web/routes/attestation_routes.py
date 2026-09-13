@@ -30,6 +30,8 @@ from prama.web.routes.base import UiRoutes
 
 
 class AttestationRoutes(UiRoutes):
+    SUBJECT = "attestation"
+    WRITE_SCOPE = "attestation:sign"
     """The sign-off screen, the register, and the pack."""
 
     def register(self) -> None:

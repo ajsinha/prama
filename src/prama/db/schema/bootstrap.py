@@ -62,6 +62,7 @@ class SchemaBootstrapper:
     def apply(self, engine: Engine, *, applied_by: str | None = None) -> BootstrapResult:
         schema = self._loader.load(self._dialect.settings.schema_file)
         before = set(self._dialect.list_tables(engine))
+        self._refuse_if_drifted(engine, schema)
         executed = self._execute(engine, schema)
         after = self._dialect.list_tables(engine)
         self._record_state(engine, schema, applied_by=applied_by)
@@ -72,6 +73,51 @@ class SchemaBootstrapper:
             statements_executed=executed,
             tables_present=len(after),
             created=set(after) != before,
+        )
+
+    def _refuse_if_drifted(self, engine: Engine, schema: SchemaFile) -> None:
+        """Stop before overwriting the record of what this database was built from.
+
+        `_record_state` upserts unconditionally, so running `db init` against a
+        database built from a different schema file re-stamped the new digest
+        and the drift became invisible — the evidence erased by the command
+        that was supposed to be safe (QA finding CLI-040).
+
+        That is the hard rule in CLAUDE.md, inverted: "a live schema that has
+        drifted is a loud failure, never a silent migration." The DDL here is
+        idempotent, so applying a changed file does not alter an existing
+        table; the database stays as it was and only the digest moves. Which
+        means the stamp claimed a match that had not happened.
+
+        Missing row, or an equal digest, is the ordinary case and passes
+        through. `db verify` is the command for seeing *what* differs; this one
+        only has to refuse to pretend nothing does.
+        """
+        try:
+            with engine.connect() as conn:
+                row = conn.execute(
+                    text("SELECT file_digest FROM schema_state WHERE id = 1")
+                ).first()
+        except SQLAlchemyError:
+            # No schema_state table yet: this is a first initialisation, which
+            # is the whole point of the command.
+            return
+        if row is None or not row[0] or row[0] == schema.digest:
+            return
+        raise DatabaseError(
+            "this database was built from a different schema file",
+            remedy=(
+                "Run `prama db verify` to see what differs. The schema files are "
+                "the authority and there are no migrations, so a database that no "
+                "longer matches one is restored from backup or rebuilt — not "
+                "re-stamped. Applying the file again would not alter the existing "
+                "tables; it would only overwrite the record of what they came from."
+            ),
+            context={
+                "recorded_digest": str(row[0])[:12],
+                "file_digest": schema.digest[:12],
+                "schema_path": str(schema.path),
+            },
         )
 
     def _execute(self, engine: Engine, schema: SchemaFile) -> int:

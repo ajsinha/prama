@@ -17,7 +17,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from prama.core.config import Configuration
 from prama.core.log import get_logger
-from prama.web import rendering
+from prama.web import headers, rendering
 from prama.web.deps import NotSignedIn
 from prama.web.rendering import STATIC_DIR
 from prama.web.routes import ROUTE_CLASSES
@@ -32,6 +32,11 @@ def mount_ui(app: FastAPI, config: Configuration) -> None:
     # attached. Restating the check here would give the same failure two
     # messages that could drift apart.
     secret = config.require_secret("security.session_secret")
+
+    # Before the session middleware in source order, which puts it *outside*
+    # in the stack: every response leaves through it, including the redirects
+    # and error pages the handlers below produce.
+    headers.install(app)
 
     app.add_middleware(
         SessionMiddleware,

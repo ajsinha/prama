@@ -48,6 +48,8 @@ STARTER = """CHECK positions_eod HAS UNIQUE KEY (account_id, instrument_id, as_o
 
 
 class ControlRoutes(UiRoutes):
+    SUBJECT = "control"
+    WRITE_SCOPE = "control:propose"
     """The studio, and the two endpoints its editor calls."""
 
     def register(self) -> None:
@@ -72,12 +74,28 @@ class ControlRoutes(UiRoutes):
             self.control_activate,
             name="control_activate",
             methods=["POST"],
+            # `control:approve`, not the class's `control:propose`. The
+            # vocabulary separates authoring a control from activating one
+            # precisely so the same person need not do both — that is the
+            # maker-checker rule, expressed as a scope. A class-level verb
+            # collapsed them and locked an owner, who holds `control:approve`
+            # and not `control:propose`, out of the only action their role
+            # exists for.
+            scope="control:approve",
         )
         self.page(
             "/controls/{control_id}/suppress",
             self.control_suppress,
             name="control_suppress",
             methods=["POST"],
+            # `control:approve`, not the class's `control:propose`. The
+            # vocabulary separates authoring a control from activating one
+            # precisely so the same person need not do both — that is the
+            # maker-checker rule, expressed as a scope. A class-level verb
+            # collapsed them and locked an owner, who holds `control:approve`
+            # and not `control:propose`, out of the only action their role
+            # exists for.
+            scope="control:approve",
         )
 
     async def _catalogue(self, caller: Caller, uow: Uow) -> Catalogue:

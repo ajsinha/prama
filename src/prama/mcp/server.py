@@ -29,7 +29,7 @@ from typing import Any, TextIO
 from prama.assistant.safety import fence, scan_output
 from prama.assistant.tools import Capability, ToolRegistry
 from prama.core.errors import PramaError
-from prama.core.log import get_logger
+from prama.core.log import correlation_id, get_logger
 from prama.mcp.protocol import (
     INTERNAL_ERROR,
     INVALID_PARAMS,
@@ -198,9 +198,25 @@ class Server:
                     "isError": True,
                 },
             )
-        except Exception as exc:
+        except Exception:
+            # The exception text does not go to the client. A SQLAlchemy error
+            # stringifies to the full statement and its bound parameters, so an
+            # unschema'd database answered `list_datasets` with Prama's own SQL
+            # and column names in the JSON-RPC error — to a model, over a
+            # protocol designed to be handed to one (QA finding MCP-024, and
+            # Q-38 before it).
+            #
+            # The detail is logged with the traceback, where an operator can
+            # reach it, and the client gets the correlation id to quote. That
+            # is the same bargain the HTTP layer already makes.
             _log.exception("tool %s failed", name)
-            return error(request.id, INTERNAL_ERROR, f"{name} failed: {exc}")
+            reference = correlation_id.get() or "unknown"
+            return error(
+                request.id,
+                INTERNAL_ERROR,
+                f"{name} failed. The detail is in the server log against "
+                f"correlation id {reference}.",
+            )
 
         rendered = (
             fence(outcome.content, provenance=outcome.provenance or name).render()

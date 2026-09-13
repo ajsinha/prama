@@ -171,6 +171,22 @@ def render(request: Request, template: str, status_code: int = 200, **context: A
     )
     context.setdefault("app_version", VERSION)
     context.setdefault("app_tagline", PRODUCT_TAGLINE)
+    # Who is signed in, for the shell. The sign-out control needs to know
+    # whether there is a session to end, and the template had no way to ask:
+    # `caller` is a route dependency and never reached the context, so a
+    # `{% if caller %}` in the shell would have been permanently false — the
+    # same defect as having no control at all, wearing a fix (QA finding
+    # UI-023).
+    session = getattr(request, "session", {}) or {}
+    context.setdefault(
+        "signed_in",
+        {
+            "username": session.get("username", ""),
+            "display_name": session.get("display_name", ""),
+        }
+        if session.get("principal_id")
+        else None,
+    )
     return templates.TemplateResponse(
         request=request, name=template, context=context, status_code=status_code
     )
@@ -223,6 +239,18 @@ def install_globals() -> None:
     import jinja2
 
     @jinja2.pass_context
+    def _csp_nonce(context: Any) -> str:
+        """The nonce this response's Content-Security-Policy will name.
+
+        Read from request state rather than generated here, so the value in the
+        attribute and the value in the header are the same one. Generating it
+        in the template would produce a nonce the policy does not list, which
+        blocks the script just as thoroughly as having none.
+        """
+        request = context.get("request")
+        return str(getattr(getattr(request, "state", None), "csp_nonce", "") or "")
+
+    @jinja2.pass_context
     def _url_for(context: Any, name: str, **params: Any) -> str:
         return url_for(context["request"], name, **params)
 
@@ -234,6 +262,8 @@ def install_globals() -> None:
     # place a percentage is formatted, so no screen can round a real defect
     # away by using the wrong one.
     templates.env.filters["rate"] = _rate
+
+    templates.env.globals["csp_nonce"] = _csp_nonce
 
     templates.env.globals["url_for"] = _url_for
     templates.env.globals["get_flashed_messages"] = _flashed
