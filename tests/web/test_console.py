@@ -11,6 +11,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import re
+from decimal import Decimal
 
 import httpx
 import pytest
@@ -541,7 +542,11 @@ class TestTolerance:
 
         tolerance = _parse_tolerance("", "", "0.1")
         assert tolerance is not None
-        assert tolerance.relative == 0.001
+        # Exactly one thousandth, which is what "0.1%" means. Parsed straight
+        # from the typed text to `Decimal`: `float("0.1") / 100` is not this
+        # number, and the bound a person wrote should be the bound stored
+        # (`Q-78`).
+        assert tolerance.relative == Decimal("0.001")
 
     def test_a_currency_is_normalised(self) -> None:
         from prama.web.routes.relationship_routes import _parse_tolerance

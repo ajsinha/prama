@@ -92,8 +92,7 @@ class TestItRefusesRatherThanDefaulting:
         )
         assert any(doc["kind"] == "Deployment" for doc in docs)
         assert any(doc["kind"] == "PersistentVolumeClaim" for doc in docs), (
-            "sqlite rendered without a volume to write to, which is the state "
-            "OPS-014 was about"
+            "sqlite rendered without a volume to write to, which is the state OPS-014 was about"
         )
 
     def test_sqlite_without_a_volume_says_which_flag_to_set(self) -> None:

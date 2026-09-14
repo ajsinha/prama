@@ -54,7 +54,7 @@ def test_the_cli_honours_plugins_disabled_the_way_create_app_does() -> None:
         "it must still happen somewhere the effective configuration is known — "
         "moving it back to the entry point reintroduces Q-63."
     )
-    assert 'plugins.disabled' in cli_source, (
+    assert "plugins.disabled" in cli_source, (
         "Application.run installs packs without passing plugins.disabled, so a "
         "validator switched off in configuration still loads in the CLI while "
         "being off in the server"
