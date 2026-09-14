@@ -38,7 +38,6 @@ from datetime import date, timedelta
 from typing import Any, Final
 
 from prama.bench.scoring import Defect
-from prama.core.errors import ValidationError
 
 __all__ = [
     "CLASSES",
@@ -707,21 +706,19 @@ def build(
 
     One window per class, dated sequentially from 2026-01-01.
     """
-    # ValidationError, not ValueError: a bare ValueError escapes the CLI's
-    # translation and reaches the terminal as a stack trace. QA round 3, Q-68.
-    # The messages were already right; only the type was wrong.
+    # `ValueError`, which is what Python means by "right type, wrong value" —
+    # and what a benchmark script driving this module would write `except` for.
+    #
+    # This briefly raised the Prama taxonomy instead, so that `prama bench run`
+    # would print a typed refusal rather than a stack trace (QA `Q-68`). That
+    # fixed the terminal and broke the library: `ValidationError` is not a
+    # `ValueError`, so every `except ValueError` around this call stopped
+    # catching, which `BCH-015`/`BCH-016` caught and `Q-77` records. The CLI now
+    # translates at its own boundary instead, so both contracts hold.
     if not 0 < rate <= 1:
-        raise ValidationError(
-            f"rate must be a share of rows in (0, 1], got {rate}",
-            remedy="Pass --rate above 0 and at most 1, as in --rate 0.05 for five percent.",
-            context={"rate": rate},
-        )
+        raise ValueError(f"rate must be a share of rows in (0, 1], got {rate}")
     if rows < 1:
-        raise ValidationError(
-            f"a corpus needs rows, got {rows}",
-            remedy="Pass --rows with a positive count, as in --rows 10000.",
-            context={"rows": rows},
-        )
+        raise ValueError(f"a corpus needs rows, got {rows}")
 
     chosen = tuple(classes) if classes is not None else CLASSES
     rng = random.Random(seed)

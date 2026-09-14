@@ -15,7 +15,6 @@ import pytest
 
 from prama.bench import corpus
 from prama.bench.corpus import CLASSES, Difficulty, Family
-from prama.core.errors import ValidationError
 
 
 class TestReproducibility:
@@ -163,21 +162,26 @@ class TestDateRelativeInjection:
 
 
 class TestRefusals:
-    """Refusals carry the taxonomy, because the CLI only translates that.
+    """`ValueError` — Python's meaning for "right type, wrong value".
 
-    These asserted `ValueError` until QA round 3 (`Q-68`). A bare `ValueError`
-    is not caught by `Application.run`, so `prama bench run --rows 0` answered
-    with a stack trace rather than a refusal. The message was already right;
-    only the type was wrong, which is why the `match=` patterns are unchanged.
+    These briefly asserted `ValidationError`, when `Q-68`'s fix for a stack
+    trace in `prama bench run` was made by raising the taxonomy from the
+    library. That broke every caller written as `except ValueError`, which
+    `BCH-015`/`BCH-016` caught and `Q-77` resolved: the library keeps
+    `ValueError` and `prama.cli.bench` translates at its boundary. The remedy
+    lives there too, because that layer knows the flags are `--rate` and
+    `--rows` and this one does not.
+
+    `qa/regression-suite/platform/test_bench_refusals_keep_both_contracts.py`
+    holds both halves together, so neither can be restored by breaking the
+    other.
     """
 
     @pytest.mark.parametrize("rate", [0.0, -0.1, 1.5])
     def test_an_impossible_rate_is_refused(self, rate: float) -> None:
-        with pytest.raises(ValidationError, match="share of rows") as caught:
+        with pytest.raises(ValueError, match="share of rows"):
             corpus.build(seed=1, rate=rate)
-        assert caught.value.remedy, "a refusal without a remedy is half an answer"
 
     def test_a_corpus_needs_rows(self) -> None:
-        with pytest.raises(ValidationError, match="needs rows") as caught:
+        with pytest.raises(ValueError, match="needs rows"):
             corpus.build(seed=1, rows=0)
-        assert caught.value.remedy, "a refusal without a remedy is half an answer"

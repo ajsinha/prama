@@ -975,7 +975,7 @@ Found only because the agent was told to go beyond re-running saved cases in the
 area under suspicion. The suspicion was misplaced — see the correction in
 [[Q-70]] — and the looking paid anyway.
 
-### Q-77 · Retyping a library's refusal broke a caller — the first real regression of round 4
+### Q-77 · Retyping a library's refusal broke a caller — RESOLVED, translation moved to the boundary
 
 `BCH-015` and `BCH-016` passed in round 3 and fail in round 4. Attributable to a
 specific commit: Batch B (`53b9043`) changed `bench/corpus.py`'s `rate` and
@@ -1017,9 +1017,32 @@ was considered and rejected: Batch B also uses `ValidationError` for an
 unwritable path and an unreadable file, which are not value errors in any sense,
 so the inheritance would be a lie for those call sites.
 
-Not changed here because the tree is frozen for round 4. The decision belongs
-with the product: either update the two catalogue cases to name the taxonomy, or
-move the translation to the CLI boundary and restore `ValueError` to the library.
+**Resolved: the second option.** The library raises `ValueError` again, with
+the messages unchanged, and `prama.cli.bench` translates at its own boundary.
+Both contracts now hold — `BCH-015`/`BCH-016` see the `ValueError` they name,
+and `prama bench run --rows 0` still answers with a typed refusal rather than a
+stack trace.
+
+The remedy text moved to the CLI with the translation, which is where it always
+belonged: that layer knows the flags are called `--rate` and `--rows`, and the
+library does not. A remedy naming a flag, raised from a module that has never
+heard of the command line, was a small piece of the same confusion.
+
+`qa/regression-suite/platform/test_bench_refusals_keep_both_contracts.py` holds
+both halves in one file **on purpose**. Either can be satisfied by reintroducing
+the other's defect — assert only the `ValueError` and the traceback returns;
+assert only the typed refusal and the library contract breaks again — so a fix
+that trades one for the other fails half the file rather than passing a whole
+one. A third test pins *where* the translation lives, because the two response
+tests both pass if somebody moves the taxonomy back into the library and drops
+the CLI's `except` in the same change.
+
+One note on that third test, because it was briefly wrong in an instructive way.
+It first asserted `"ValidationError" not in inspect.getsource(corpus.build)` —
+and failed, because the function's new comment *explains why the taxonomy is not
+raised there*. A check that cannot distinguish a prohibition from its own
+rationale is exactly the kind this suite exists to be sceptical of. It now looks
+for `raise ValidationError`.
 
 ---
 
