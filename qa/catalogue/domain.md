@@ -3198,11 +3198,26 @@ turn against published values.
 - **Priority:** P1
 - **Precondition:** none
 - **Steps:** `contains('ZWL', when=2023-06-01)`, `when=2024-04-04`,
-  `when=2024-04-05`, `when=2025-01-01`
-- **Expected:** True, True, **False**, False
+  `when=2024-04-05`, `when=2025-03-30`, `when=2025-03-31`
+- **Expected:** True, True, True, True, **False**
 - **Why:** the effective date is 2024-04-05, so 04-04 and 04-05 are the two
-  sides of the boundary. "A control that resolves the currency list to whatever
-  is current today reports last year's perfectly correct data as invalid."
+  sides of the boundary — of the version, not of ZWL's validity. "A control that
+  resolves the currency list to whatever is current today reports last year's
+  perfectly correct data as invalid."
+
+  Both the third step's expectation and the fourth step's *date* were wrong until
+  round 4, and the second error was hidden by the first. The outgoing code is
+  retired one version **after** its replacement arrives, deliberately and with a
+  comment saying so: the 2024-04-05 version adds ZWG and keeps ZWL; the
+  2025-03-31 version retires it. Removing it in the same step is how a correct
+  payment file gets rejected mid-transition, which is what `CLS-062` fixed.
+
+  So ZWL is valid at 2024-04-05, and the original fourth probe — 2025-01-01,
+  chosen to mean "in 2025" — still falls inside the 2024 version, where ZWL is
+  also valid. Correcting only the third step would have left this case asserting
+  `False` on a date where the answer is `True`, for a different reason than the
+  one it started with. The probe now straddles the real retirement boundary,
+  2025-03-30 and 2025-03-31, which is what the case was always trying to test.
 
 ### CLS-060 · ZWG is absent before 2024-04-05 and present after
 - **Area:** `codelists.py::_ISO4217_2024`
@@ -3221,10 +3236,17 @@ turn against published values.
 - **Precondition:** none
 - **Steps:** `contains('ANG', when=2025-03-30)`, `when=2025-03-31`;
   `contains('XCG', ...)` at the same two dates
-- **Expected:** ANG True then False; XCG False then True
+- **Expected:** ANG True then **True**; XCG False then True
 - **Why:** the second real version change the module ships, and the one that
   tests whether the version machinery generalises past a single hard-coded
   transition.
+
+  ANG expected `False` at the boundary until round 4, for the same reason
+  `CLS-059` did: the 2025 version adds XCG and keeps ANG, and ANG is retired in
+  2026. XCG's half of this case — absent before the boundary, present after — is
+  what actually exercises the version machinery, and it is unchanged. Together
+  with `CLS-059` this now asserts the transition rule in both directions: the
+  incoming code appears at its version, the outgoing one survives it.
 
 ### CLS-062 · The outgoing code is removed in the same step as the incoming one
 - **Area:** `codelists.py::_ISO4217_2024`, `_ISO4217_2025` vs their own comment
@@ -6355,11 +6377,16 @@ turn against published values.
 - **Area:** `importers/soda.py::_threshold`
 - **Type:** functional
 - **Priority:** P1
-- **Precondition:** `invalid_percent(ccy) < 2 %` and `missing_percent(x) = 0`
+- **Precondition:** `invalid_percent(ccy) <= 2 %` and `missing_percent(x) = 0`
 - **Steps:** import
 - **Expected:** `BELOW 2%`, then `BELOW 0%`
 - **Why:** the `%` suffix and the metric-name suffix are two independent ways
-  of saying the same thing, and both have to work.
+  of saying the same thing, and both have to work. The precondition used a
+  **strict** `<`, which `_threshold` refuses on purpose and reports rather than
+  importing: a strict bound on a rate has no representable predecessor, so
+  treating it as `BELOW` would silently widen the control. The contract importer
+  refuses the same shape for the same reason. A case asserting the widening would
+  have required the importer to guess.
 
 ### IMP-031 · A lower bound on failures is refused
 - **Area:** `importers/soda.py::_threshold`

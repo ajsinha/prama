@@ -10273,11 +10273,16 @@ mapping "is the authority and the file is documentation".
 - **Area:** `deploy/helm/prama/templates/_helpers.tpl`
 - **Type:** boundary
 - **Priority:** P2
-- **Precondition:** `dialect=sqlite`, `replicaCount=1`, a secret supplied
+- **Precondition:** `dialect=sqlite`, `replicaCount=1`, a secret supplied,
+  `persistence.enabled=true`
 - **Steps:** `helm template`
-- **Expected:** renders
+- **Expected:** renders, including a `PersistentVolumeClaim`
 - **Why:** the counterfactual; a guard that refused every SQLite deployment would
-  remove the single-node option the product advertises.
+  remove the single-node option the product advertises. The precondition gained
+  `persistence.enabled` when `OPS-014` was fixed: `readOnlyRootFilesystem` is on,
+  so SQLite has nowhere to write, and an `emptyDir` default would start a pod that
+  loses the evidence ledger on its first restart. The single-node option survives —
+  it is one flag away, and the refusal names that flag.
 
 ### OPS-004 · PostgreSQL without a host is refused
 - **Area:** `deploy/helm/prama/templates/_helpers.tpl`
