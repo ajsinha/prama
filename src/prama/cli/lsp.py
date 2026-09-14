@@ -110,7 +110,22 @@ class LspCatalogueCommand(Command):
             "tenant": tenant,
             "datasets": datasets,
         }
-        Path(ctx.args.out).write_text(json.dumps(payload, indent=2) + "\n")
+        # An --out under a path segment that is a file, or in a directory
+        # nobody may write, reached the terminal as NotADirectoryError or
+        # PermissionError. The command's whole job is to produce a file, so
+        # failing to is the one outcome it must explain. QA round 4, CLI-253.
+        out = Path(ctx.args.out)
+        try:
+            out.write_text(json.dumps(payload, indent=2) + "\n")
+        except OSError as exc:
+            raise ValidationError(
+                f"{out} could not be written: {exc.strerror or exc}",
+                remedy=(
+                    "Check the directory exists and is writable. --out names the "
+                    "file to create, not the directory to create it in."
+                ),
+                context={"path": str(out)},
+            ) from None
         columns = sum(len(v) for v in datasets.values())
         if ctx.json_output:
             ctx.emit_json({"path": ctx.args.out, "datasets": len(datasets), "columns": columns})

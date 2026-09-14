@@ -36,8 +36,10 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -203,6 +205,63 @@ def test_a_file_refusal_is_typed_and_not_a_traceback(fixtures, case: str) -> Non
     assert "next:" in combined or '"remedy"' in combined, (
         f"the refusal carries no remedy:\n{combined[-500:]}"
     )
+
+
+@pytest.mark.parametrize(
+    "case",
+    ["run-against-a-directory", "catalogue-out-unwritable", "bundle-manifest-not-json"],
+)
+def test_a_path_refusal_is_typed_and_not_a_traceback(tmp_path, case: str) -> None:
+    """Round-4 additions: three sites the round-3 enumeration did not reach.
+
+    Each needs a configured estate before it can be reached at all, which is why
+    the first attempt to reproduce them found nothing — every invocation refused
+    earlier for want of a tenant, and "no traceback" meant "never got there".
+
+    `control run --against` a *directory* reached DuckDB and came back as
+    `_duckdb.IOException: Is a directory`: a driver's error for a mistake made
+    three layers above it, from an `exists()` check where `is_file()` was meant.
+    That same confusion was found in `cli/contract.py::_rows`, which is the
+    third time this shape has appeared.
+    """
+    config = tmp_path / "cfg.yaml"
+    config.write_text(
+        "database:\n  dialect: sqlite\n"
+        f"  schema_dir: {Path(__file__).resolve().parents[3] / 'schema'}\n"
+        f"  sqlite:\n    path: {tmp_path / 'j.db'}\n"
+        "security:\n  session_secret: regression-secret-0123456789abcdef\n"
+        "tenancy:\n  default_tenant: acme-bank\n"
+    )
+    env = {**os.environ, "PRAMA_CONFIG": str(config)}
+    for argv in (["db", "init"], ["tenant", "create", "acme-bank"]):
+        subprocess.run(
+            [PRAMA or "prama", *argv], capture_output=True, text=True, env=env, timeout=120
+        )
+
+    a_directory = tmp_path / "adir"
+    a_directory.mkdir()
+    a_file = tmp_path / "plain.csv"
+    a_file.write_text("a,b\n1,2\n")
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    (bundle / "manifest.json").write_text("junk")
+
+    argv = {
+        "run-against-a-directory": ["control", "run", "--against", str(a_directory)],
+        "catalogue-out-unwritable": ["lsp", "catalogue", "--out", str(a_file / "nested.json")],
+        "bundle-manifest-not-json": ["bundle", "verify", str(bundle)],
+    }[case]
+
+    if PRAMA is None:  # pragma: no cover
+        pytest.skip("the `prama` console script is not on PATH")
+    result = subprocess.run([PRAMA, *argv], capture_output=True, text=True, env=env, timeout=180)
+    combined = result.stdout + result.stderr
+
+    assert "Traceback (most recent call last)" not in combined, (
+        f"`prama {' '.join(argv)}` answered with a stack trace:\n{combined[-700:]}"
+    )
+    assert "code:" in combined, f"refused without a taxonomy code:\n{combined[-400:]}"
+    assert "next:" in combined, f"the refusal carries no remedy:\n{combined[-400:]}"
 
 
 def test_the_census_is_still_the_census() -> None:

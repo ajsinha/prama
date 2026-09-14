@@ -55,6 +55,19 @@ def executor_for(
             remedy="Check the path. A control cannot examine data that is not there.",
             context={"path": str(target)},
         )
+    if not target.is_file():
+        # `exists()` is true for a directory, which then reached DuckDB and came
+        # back as `_duckdb.IOException: Is a directory` — a driver's error for a
+        # mistake made three layers above it. The same `exists()`-not-`is_file()`
+        # confusion was found in `cli/contract.py::_rows`. QA round 4, `CLI-139`.
+        raise ValidationError(
+            f"{target} is not a file",
+            remedy=(
+                "--against names one data file for the control to read — a .csv, "
+                ".parquet or .duckdb — not a directory of them."
+            ),
+            context={"path": str(target)},
+        )
     builder = BUILDERS.get(engine)
     if builder is None:
         raise ValidationError(

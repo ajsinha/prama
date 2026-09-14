@@ -1398,6 +1398,92 @@ were. That is now four batches running where verifying the diagnosis changed
 what got done ([[Q-79]], [[Q-80]], [[Q-82]], and this), and the ratio is
 consistent enough to treat as the normal case rather than the exception.
 
+### Q-84 · `UI-123` — superseding without a reason, and a test helper with the same defect
+
+`attestation_sign` validated the signer's name and, when `supersedes` was set,
+checked the superseded attestation belonged to the caller's estate ([[Q-75]]'s
+`UI-122`, which worked). It never checked `supersedes_because`, so an
+attestation could be withdrawn with an empty reason and the row was written.
+
+The catalogue's *Why* carries the argument: **"an attestation withdrawn without
+a reason is an audit trail with a hole in exactly the interesting place."** Every
+other record here carries its justification — a control has `BECAUSE`, an
+incident its signals, a break its explanation. The one record that says "what I
+previously attested no longer stands" could be written with nothing.
+
+**The fix is three lines. Measuring it took four attempts**, and the failures
+are the reason this entry exists.
+
+1. `attestations.for_tenant` — does not exist. Every case failed, including the
+   ones that should pass, which is at least a loud way to be wrong. Sixth
+   invented interface in this session.
+2. `attestations.current` — reads correctly and is wrong. It filters
+   `superseded_by IS NULL`, so a **successful** supersede leaves the count
+   unchanged: it cannot distinguish "the write was refused" from "the write
+   happened and replaced the old row". That is *precisely* the `status_code !=
+   303` measurement this case exists because of, reproduced inside the test
+   written to fix it.
+3. `attestations.history` — every row ever signed, superseded included. Correct.
+
+Step 2 surfaced only because the file carried a control asserting that a
+supersede **with** a reason still works. That test exists so the file cannot be
+satisfied by refusing every supersede — removing the capability rather than
+guarding it. It caught a measurement error instead, which is not the job it was
+written for and is the strongest argument for writing it.
+
+**The gate then caught a test that relied on the defect.**
+`tests/web/test_attestation_flow.py::test_a_superseded_attestation_says_so_on_its_page`
+superseded with no reason, so the guard refused it and the page never said "was
+superseded". Worth noting rather than quietly patching: the sibling test twenty
+lines above **already supplied a reason**. The codebase knew the rule and one
+path did not follow it, which is evidence the guard matches the intended design
+rather than imposing a new one.
+
+### Q-85 · Batch J, partly — three of eight CLI sites, and why the first probe of all eight was worthless
+
+[[Q-68]]'s class, continued. The round-4 triage enumerated eight call sites in
+`cli/` where a plain Python exception escapes `Application.run`'s
+`except PramaError`, and was explicit that this is **eight repairs, not one**.
+Three are done.
+
+| site | what escaped |
+|---|---|
+| `connect/sources/query.py::executor_for` | a directory passed `exists()` and reached DuckDB: `_duckdb.IOException: Is a directory` |
+| `cli/lsp.py::LspCatalogueCommand` | unguarded `write_text` → `NotADirectoryError` |
+| `cli/bundle.py::_load` | unguarded `json.loads`, then `payload["product"]` and `entry["sha256"]` indexed directly |
+
+**The first attempt to reproduce all eight found no traceback anywhere, and that
+was not good news.** Every invocation refused earlier for want of a tenant or a
+schema — `no tenant to run`, `that contract declares no schema` — so not one of
+them reached the code under test. "No traceback" meant "never got there". Only
+after building a configured estate with a real database and tenant did three
+reproduce.
+
+That is the same failure as `CLI-109`/`CLI-110` in [[Q-82]], as the
+`status_code != 303` measurement in [[Q-84]], and as my own `current`-instead-of-
+`history` helper in the same entry: **a check that cannot reach the thing it
+describes reports the answer you were hoping for.** Four instances in one
+session, in four different shapes.
+
+**`exists()` where `is_file()` was meant is now the third appearance of one
+shape** — after `cli/contract.py::_rows` and `_load` in the same file. A
+directory satisfies `exists()`, and each of these then hands it to something
+that assumes a file: DuckDB, `read_text`, `open`. Worth naming as a class rather
+than fixing three times and calling it three bugs.
+
+**Two sites could not be reproduced at all** — `apikey --expires-in-days`
+overflow (`CLI-081`) and `estate export --out` under a file (`CLI-185`) — and
+are recorded as unreproduced rather than as fixed. They may have been closed by
+earlier batches or my invocation may still miss them; both readings are
+consistent with what was observed, and claiming the favourable one is the habit
+this file exists to resist.
+
+**Remaining in J**: roughly five interface sites, plus the data-stack twelve and
+the language-stack eleven. `CLI-017`, the whole-session census over
+`qa/harness/interfaces/cli_call_log.jsonl`, is the measure that will say when it
+is finished — it read 14 in round 3 and 2 in round 4, and a by-hand enumeration
+under-counted both times.
+
 ---
 
 ## What held

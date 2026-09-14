@@ -770,3 +770,10 @@
 {"id": "CLI-124", "result": "PASS", "observed": "unchanged=True out='/tmp/prama-qa-cli-rnj8utxn/control/messy.pql: already canonical'"}
 {"id": "CLI-125", "result": "PASS", "observed": "code=1 out='' err='\\nerror: /tmp/prama-qa-cli-rnj8utxn/control/ro.pql could not be written: Permission denied\\n code: INPUT.INVALID\\n next: Check the directory exists and is writable. `--out` names the file to create, not the directory to create it in.\\n file: /tmp/pram'"}
 {"id": "CLI-126", "result": "PASS", "observed": "code=1 comments_survived=True after_text=\"# a leading comment\\nCHECK t.a IS NOT NULL BECAUSE 'x'\\n\\n# a comment between\\nCHECK t.b IS NOT NULL BECAUSE 'y'\\n\""}
+{"id": "UI-118", "result": "PASS", "observed": "status=200 (tested with auditor, who holds attestation:read) -- separately, and NOT part of this case's verdict: owner (the role BUILTIN_ROLES grants attestation:sign to, specifically so it can attest) gets 200 on this same route, because attestation:read was never granted alongside attestation:sign -- no built-in role holds both scopes, so nobody can complete view-then-sign through the console end-to-end; a genuine gap left by the UI-005/008/009 scope fix, worth its own remediation"}
+{"id": "UI-120", "result": "PASS", "observed": "results(status, n_attestations_created)={'empty-name': (422, 0), 'empty-statement': (422, 0), 'whitespace-name': (303, 0)} bad={}"}
+{"id": "UI-121", "result": "FAIL", "observed": "results={'reversed': 500, 'unparsable': 500} bad(not a clean 4xx refusal)={'reversed': 500, 'unparsable': 500}"}
+{"id": "UI-122", "result": "PASS", "observed": "status=303 location='/attestations/new?scope=estate' rows_before=0 rows_after=0 -- posting estate B's attestation id as 'supersedes' from estate A's session"}
+{"id": "UI-123", "result": "PASS", "observed": "status=303 location='/attestations/new?scope=estate' rows_before=1 rows_after=1"}
+{"id": "UI-124", "result": "PASS", "observed": "status=200 draft_page_mentions_key_nature=True"}
+{"id": "UI-125", "result": "PASS", "observed": "status=404"}
