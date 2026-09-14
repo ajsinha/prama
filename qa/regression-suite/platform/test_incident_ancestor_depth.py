@@ -58,9 +58,11 @@ def test_the_nearest_shared_column_wins_even_when_the_raw_feed_has_a_longer_name
         ]
     )
 
-    incidents = Correlator(graph).correlate(
-        [Finding("a.one", "a", "one", OPENED), Finding("a.two", "a", "two", OPENED)]
-    ).incidents
+    incidents = (
+        Correlator(graph)
+        .correlate([Finding("a.one", "a", "one", OPENED), Finding("a.two", "a", "two", OPENED)])
+        .incidents
+    )
 
     assert len(incidents) == 1
     ancestor = incidents[0].common_ancestor

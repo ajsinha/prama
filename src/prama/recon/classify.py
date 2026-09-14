@@ -277,7 +277,11 @@ class Classifier:
         )
 
     def _within_tolerance(self, difference: Decimal, magnitude: Decimal) -> bool:
-        return self._tolerance.permits(float(difference), float(magnitude))
+        # No `float()`. Every amount reaching here is exact, and the tolerance
+        # holds `Decimal` bounds; converting at the instant the break verdict is
+        # decided is what made a difference of exactly one basis point, against a
+        # one-basis-point bound, a break. QA round 4, `Q-78`.
+        return self._tolerance.permits(difference, magnitude)
 
     @staticmethod
     def _exact_multiple(left: Decimal, right: Decimal) -> int | None:

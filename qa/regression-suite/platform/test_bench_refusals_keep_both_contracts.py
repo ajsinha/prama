@@ -50,8 +50,9 @@ BAD = [
 ]
 
 
-@pytest.mark.parametrize("kwargs,fragment", [(p.values[0], p.values[1]) for p in BAD],
-                         ids=[p.id for p in BAD])
+@pytest.mark.parametrize(
+    "kwargs,fragment", [(p.values[0], p.values[1]) for p in BAD], ids=[p.id for p in BAD]
+)
 def test_the_library_refuses_with_a_plain_value_error(kwargs: dict, fragment: str) -> None:
     """The half `Q-77` is about: a caller may write `except ValueError`."""
     with pytest.raises(ValueError) as caught:

@@ -1044,7 +1044,7 @@ raised there*. A check that cannot distinguish a prohibition from its own
 rationale is exactly the kind this suite exists to be sceptical of. It now looks
 for `raise ValidationError`.
 
-### Q-78 · Exact arithmetic that becomes float at the moment of the verdict
+### Q-78 · Exact arithmetic that becomes float at the moment of the verdict — reconciliation half FIXED, interpreter half open
 
 Found by the round-4 triage, in two places independently, and **not tied to any
 catalogued case** — which is why four rounds of QA did not surface it. Both were
@@ -1093,6 +1093,67 @@ after, proving nothing.
 
 Related: [[Q-51]], where the same class of mismatch between two implementations
 of one calculation made an independent verifier report a forgery.
+
+---
+
+**Reconciliation half: fixed.** `Tolerance` carries `Decimal` bounds, coerced in
+`__post_init__` from whatever a caller has — a form string, a YAML value, a pack
+constant. The conversion goes through `str()` deliberately: `Decimal(0.0001)` is
+the binary approximation to sixty digits, `Decimal(str(0.0001))` is exactly what
+the author wrote.
+
+**Five conversion sites, where the triage had named one.** `mypy` found the other
+four once the type became exact, which is the argument for changing the
+declaration rather than only the call:
+
+| site | what it decides |
+|---|---|
+| `recon/classify.py::_within_tolerance` | break or no break, two-sided |
+| `recon/nway.py::_all_agree` | whether an n-way reconciliation balances at all |
+| `recon/nway.py` (odd-one-out) | **which side gets blamed** |
+| `recon/nway.py` (per-entry) | which entries become breaks |
+| `web/routes/relationship_routes.py` | `float(percent) / 100` on the analyst's typed text |
+
+The last is its own small defect: the console took what an analyst typed, made
+it a float, and divided by 100 — so "0.1%" became a bound that is not exactly a
+tenth of a percent before the declaration was even stored.
+
+`Tolerance.render()` needed repairing alongside, and that is worth recording
+rather than hiding: with `Decimal` bounds it began printing *"within 1.0 EUR or
+0.100%"* where it had printed *"within 1 EUR or 0.1%"*. Arithmetically correct
+and wrong on a screen — the sentence a data owner approves had changed without
+anybody changing the materiality. A `_plain()` helper normalises for display
+only; verdicts never see it.
+
+**One consequence found by the gate, not by the triage or by me.** With
+`Decimal` bounds, `Tolerance.to_dict()` serialised to JSON as a **string** —
+`"1.0"` where the API had always sent the number `1.0`. JSON has no exact
+decimal type, so a client reading `tolerance.absolute` and multiplying by it
+would have got string concatenation. That is [[Q-77]] in the other direction:
+there, an internal fix broke a library contract; here it would have broken a
+wire contract.
+
+`to_dict` now converts back to `float` on the way out, and only there. It is the
+declared bound being *reported*, never a verdict — every comparison happens
+server-side on the `Decimal`, and a materiality a person typed round-trips
+through a double without loss at any scale money is written in. The exactness is
+kept where it decides something and dropped where it would break a caller.
+
+**Interpreter half: still open, deliberately.** `reference._arithmetic` converts
+to `float` while `pql/library.py::_number` uses `Decimal` and says why in its
+own docstring — *"a reconciliation that summed in binary floating point would
+manufacture exactly the small discrepancies it exists to detect"*. The rule is
+written down in one file and contradicted in its sibling.
+
+It is not a type change. `_arithmetic` is the **oracle** the IR conformance
+suite holds DuckDB, SQLite and PostgreSQL against, so changing its arithmetic
+changes what three engines are required to agree with. Its `%` uses `math.fmod`
+rather than Python's `%` precisely because Python floors where every SQL engine
+truncates — evidence that the float semantics here were chosen to match the
+engines, not inherited by accident. Making the oracle exact may be right, but it
+is a question about what conformance *means*, and answering it inside a batch
+about tolerance bounds would be the kind of change this project keeps having to
+revert.
 
 ### Q-79 · A triage finding that was wrong, recorded because the process matters
 

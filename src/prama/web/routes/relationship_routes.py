@@ -15,6 +15,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import Form, Request
@@ -261,8 +262,11 @@ def _parse_tolerance(absolute: str, currency: str, relative_percent: str) -> Tol
     thousand times wider than intended, and nothing about the resulting run
     looks wrong.
     """
-    absolute_value = float(absolute) if absolute.strip() else None
-    relative_value = float(relative_percent) / 100 if relative_percent.strip() else None
+    # `Decimal` straight from the typed text, not via `float`. What the analyst
+    # wrote is what the materiality means, and `float("0.1") / 100` is not
+    # exactly one tenth of a percent. QA round 4, `Q-78`.
+    absolute_value = Decimal(absolute.strip()) if absolute.strip() else None
+    relative_value = Decimal(relative_percent.strip()) / 100 if relative_percent.strip() else None
     if absolute_value is None and relative_value is None:
         # Not an error here: only some kinds need one, and the declaration
         # itself refuses — with the right message — when this kind does.

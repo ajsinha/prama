@@ -30,6 +30,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import dataclasses
+from decimal import Decimal
 from typing import Any
 
 from prama.core.errors import ValidationError
@@ -151,17 +152,19 @@ class ReconciliationTemplate:
         }
 
 
-_EXACT = Tolerance(absolute=0.0)
+_EXACT = Tolerance(absolute=Decimal("0"))
 
 
-def _materiality(amount: float, relative: float = 0.0001) -> Tolerance:
+def _materiality(amount: str | Decimal, relative: str | Decimal = "0.0001") -> Tolerance:
     """A penny or a basis point, whichever is larger — operations' own rule.
 
     Both bounds must be breached for a difference to count, which is the
     convention finance already uses. Encoding it means the generated control
     agrees with the spreadsheet somebody is checking it against.
     """
-    return Tolerance(absolute=amount, relative=relative)
+    # Through `Decimal(str(...))`, never `Decimal(float)`: the latter is the
+    # binary approximation to sixty digits rather than the penny somebody wrote.
+    return Tolerance(absolute=Decimal(str(amount)), relative=Decimal(str(relative)))
 
 
 TEMPLATES: tuple[ReconciliationTemplate, ...] = (
@@ -177,7 +180,7 @@ TEMPLATES: tuple[ReconciliationTemplate, ...] = (
             "and across dates after an amendment. All three together identify the "
             "version of the trade both systems think they are holding."
         ),
-        tolerance=_materiality(0.01),
+        tolerance=_materiality("0.01"),
         tolerance_rationale=(
             "Zero on the count and materiality on the value: a missing trade is "
             "never acceptable, a penny of FX rounding usually is."
@@ -202,7 +205,7 @@ TEMPLATES: tuple[ReconciliationTemplate, ...] = (
             "day. Keying on account alone aggregates across cost centres and "
             "nets two errors into an agreement."
         ),
-        tolerance=_materiality(0.01),
+        tolerance=_materiality("0.01"),
         tolerance_rationale=(
             "Currency-specific materiality. A yen ledger has no minor unit, so a "
             "tolerance of one hundredth is a tolerance of nothing."

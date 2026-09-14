@@ -85,15 +85,15 @@ def invoke(argv: list[str]) -> subprocess.CompletedProcess[str]:
     )
 
 
-@pytest.mark.parametrize("argv,fragment", [(p.values[0], p.values[1]) for p in REFUSALS],
-                         ids=[p.id for p in REFUSALS])
+@pytest.mark.parametrize(
+    "argv,fragment", [(p.values[0], p.values[1]) for p in REFUSALS], ids=[p.id for p in REFUSALS]
+)
 def test_a_refusal_is_typed_and_not_a_traceback(argv: list[str], fragment: str) -> None:
     result = invoke(argv)
     combined = result.stdout + result.stderr
 
     assert "Traceback (most recent call last)" not in combined, (
-        f"`prama {' '.join(argv)}` answered with a Python traceback:\n"
-        f"{combined[-700:]}"
+        f"`prama {' '.join(argv)}` answered with a Python traceback:\n{combined[-700:]}"
     )
     assert result.returncode != 0, "a refusal must not exit 0"
 
@@ -126,9 +126,7 @@ def fixtures(tmp_path):
     # A BECAUSE clause with an accented word, saved the way an editor defaulting
     # to cp1252 saves it. This is the realistic origin of the case, not a
     # contrived byte.
-    latin1.write_bytes(
-        "CHECK positions_eod.isin IS NOT NULL BECAUSE 'café'\n".encode("latin-1")
-    )
+    latin1.write_bytes("CHECK positions_eod.isin IS NOT NULL BECAUSE 'café'\n".encode("latin-1"))
     schema = tmp_path / "schema.yml"
     schema.write_text(
         "version: 2\nmodels:\n  - name: t\n    columns:\n      - name: c\n"
@@ -145,9 +143,7 @@ def fixtures(tmp_path):
                         "name": "positions_eod",
                         "logicalType": "object",
                         "physicalType": "table",
-                        "properties": [
-                            {"name": "isin", "logicalType": "string", "required": True}
-                        ],
+                        "properties": [{"name": "isin", "logicalType": "string", "required": True}],
                     }
                 ],
             }
@@ -178,12 +174,20 @@ def test_a_file_refusal_is_typed_and_not_a_traceback(fixtures, case: str) -> Non
         "non-utf8-check": ["control", "check", str(fixtures["latin1"])],
         "non-utf8-format": ["control", "format", str(fixtures["latin1"]), "--write"],
         "unwritable-out": [
-            "control", "import", str(fixtures["schema"]),
-            "--from", "dbt", "--out", fixtures["unwritable"],
+            "control",
+            "import",
+            str(fixtures["schema"]),
+            "--from",
+            "dbt",
+            "--out",
+            fixtures["unwritable"],
         ],
         "truncated-data": [
-            "contract", "check", str(fixtures["contract"]),
-            "--data", str(fixtures["truncated"]),
+            "contract",
+            "check",
+            str(fixtures["contract"]),
+            "--data",
+            str(fixtures["truncated"]),
         ],
     }[case]
 

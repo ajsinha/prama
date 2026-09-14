@@ -166,8 +166,11 @@ class TestTolerances:
         operations already use, so the generated control agrees with the
         spreadsheet somebody checks it against."""
         tolerance = template("subledger-to-gl").tolerance
-        assert tolerance.absolute == 0.01
-        assert tolerance.relative == 0.0001
+        # `Decimal("0.01")`, not `0.01`. The two are different numbers: the float
+        # is 0.01000000000000000020816681711721685... and comparing them returns
+        # False, which is the point of the bounds being exact (`Q-78`).
+        assert tolerance.absolute == Decimal("0.01")
+        assert tolerance.relative == Decimal("0.0001")
 
 
 class TestTimingWindows:

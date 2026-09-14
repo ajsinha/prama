@@ -194,7 +194,9 @@ def _all_agree(positions: Sequence[SidePosition], tolerance: Tolerance) -> bool:
     first = positions[0].total
     assert first is not None
     return all(
-        tolerance.permits(float(item.total - first), float(first))  # type: ignore[operator]
+        # The third and last conversion in this module. `_all_agree` decides
+        # whether an n-way reconciliation balances at all. `Q-78`.
+        tolerance.permits(item.total - first, first)  # type: ignore[operator]
         for item in positions[1:]
     )
 
@@ -216,7 +218,9 @@ def _odd_one_out(
         reference = others[0].total
         assert reference is not None
         if all(
-            tolerance.permits(float(item.total - reference), float(reference))  # type: ignore[operator]
+            # Exact here too. This one decides which side is the odd one out,
+            # so a float rounding picks a different side to blame. `Q-78`.
+            tolerance.permits(item.total - reference, reference)  # type: ignore[operator]
             for item in others[1:]
         ):
             return candidate.side, reference
@@ -269,7 +273,9 @@ def check_roll_forward(entries: Sequence[RollForward], tolerance: Tolerance) -> 
     """
     breaks: list[Break] = []
     for entry in entries:
-        if tolerance.permits(float(entry.difference), float(entry.expected or 1)):
+        # Exact, like the two-sided classifier: this is a verdict boundary too,
+        # and n-way differences are sums of Decimals that float rounds. `Q-78`.
+        if tolerance.permits(entry.difference, entry.expected or Decimal(1)):
             continue
         breaks.append(
             Break(

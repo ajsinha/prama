@@ -42,10 +42,14 @@ PASSWORD = "correct-horse-battery-staple"
 LANGUAGE_ROUTES = (
     ("/controls/check", {"source": "CHECK positions_eod.isin IS NOT NULL"}),
     ("/controls/completions", {"source": "CHECK positions_eod.", "line": "0", "column": "20"}),
-    ("/controls/hover", {"source": "CHECK positions_eod.isin IS NOT NULL", "line": "0",
-                         "column": "7"}),
-    ("/controls/compile", {"source": "CHECK positions_eod.isin IS NOT NULL",
-                           "target": "postgresql"}),
+    (
+        "/controls/hover",
+        {"source": "CHECK positions_eod.isin IS NOT NULL", "line": "0", "column": "7"},
+    ),
+    (
+        "/controls/compile",
+        {"source": "CHECK positions_eod.isin IS NOT NULL", "target": "postgresql"},
+    ),
 )
 
 

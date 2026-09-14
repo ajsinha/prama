@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import dataclasses
 import enum
+from decimal import Decimal
 from typing import Any
 
 from prama.core.errors import ValidationError
@@ -193,6 +194,24 @@ class MatchKey:
         return cls(left=data["left"], right=data.get("right"))
 
 
+def _plain(value: Decimal) -> str:
+    """A `Decimal` as a person would write it: no trailing zeros, no exponent.
+
+    `f"{Decimal('1.0'):g}"` is `1.0` where `f"{1.0:g}"` was `1`, and
+    `Decimal('0.001') * 100` is `0.100` rather than `0.1`. Both are correct
+    arithmetic and wrong on a screen: the sentence a data owner approves said
+    "within 1 EUR or 0.1%" before the bounds became exact, and a materiality
+    that renders differently after a change nobody made to it is the kind of
+    drift that costs an approval. QA round 4, `Q-78`.
+    """
+    normalised = value.normalize()
+    _, _, exponent = normalised.as_tuple()
+    if isinstance(exponent, int) and exponent > 0:
+        # `Decimal('100').normalize()` is `1E+2`; spell it out.
+        return f"{normalised:,.0f}".replace(",", "")
+    return f"{normalised:f}"
+
+
 @dataclasses.dataclass(frozen=True, slots=True)
 class Tolerance:
     """How much difference is acceptable before it is a break.
@@ -203,13 +222,31 @@ class Tolerance:
     the generated control matches the manual process it replaces.
     """
 
-    absolute: float | None = None
-    relative: float | None = None
+    #: `Decimal`, not `float`. A materiality bound is money or a rate, and
+    #: binary floating point holds neither exactly: a one-basis-point allowance
+    #: on a position of 527,712.72 is 52.771272, and `0.0001 * 527712.72` in
+    #: float is 52.771271999999996 — so a difference of exactly the declared
+    #: allowance was classified a break. QA round 4, `Q-78`.
+    #:
+    #: Floats and strings are accepted and converted in `__post_init__`, because
+    #: every caller — a JSON body, a YAML declaration, a pack constant — has one
+    #: of those. The conversion goes through `str()` deliberately:
+    #: `Decimal(0.0001)` is the binary approximation to sixty digits, while
+    #: `Decimal(str(0.0001))` is exactly `0.0001`, which is what the author
+    #: wrote and what the control means.
+    absolute: Decimal | None = None
+    relative: Decimal | None = None
     currency: str | None = None
     #: Compare after rounding to this many decimal places, if set.
     rounding_scale: int | None = None
 
     def __post_init__(self) -> None:
+        for field in ("absolute", "relative"):
+            value = getattr(self, field)
+            if value is not None and not isinstance(value, Decimal):
+                # `str()` first: see the note on the fields above.
+                object.__setattr__(self, field, Decimal(str(value)))
+
         if self.absolute is None and self.relative is None:
             raise ValidationError(
                 "a tolerance needs an absolute or a relative bound",
@@ -228,7 +265,7 @@ class Tolerance:
                 context={"relative": self.relative},
             )
 
-    def permits(self, difference: float, magnitude: float) -> bool:
+    def permits(self, difference: Decimal, magnitude: Decimal) -> bool:
         """Whether *difference* is within tolerance for a value of *magnitude*.
 
         Both bounds must be breached for a difference to count as a break — the
@@ -239,8 +276,11 @@ class Tolerance:
         and so made a 500 EUR difference on a million-EUR position a break under
         a declared materiality of 10 bps.
         """
-        difference = abs(difference)
-        allowances: list[float] = []
+        difference = abs(
+            Decimal(str(difference)) if not isinstance(difference, Decimal) else difference
+        )
+        magnitude = Decimal(str(magnitude)) if not isinstance(magnitude, Decimal) else magnitude
+        allowances: list[Decimal] = []
         if self.absolute is not None:
             allowances.append(self.absolute)
         if self.relative is not None and magnitude:
@@ -256,15 +296,26 @@ class Tolerance:
     def render(self) -> str:
         parts = []
         if self.absolute is not None:
-            parts.append(f"{self.absolute:g}{' ' + self.currency if self.currency else ''}")
+            parts.append(f"{_plain(self.absolute)}{' ' + self.currency if self.currency else ''}")
         if self.relative is not None:
-            parts.append(f"{self.relative * 100:g}%")
+            parts.append(f"{_plain(self.relative * 100)}%")
         return "within " + " or ".join(parts)
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "absolute": self.absolute,
-            "relative": self.relative,
+            # `float` on the way out, `Decimal` in the model. JSON has no exact
+            # decimal type, so a `Decimal` serialises as a *string* — and a
+            # client that was reading a number and multiplying by it gets string
+            # concatenation instead. Making the bounds exact (`Q-78`) must not
+            # change the wire contract; the same mistake in the other direction
+            # is `Q-77`.
+            #
+            # Safe here and nowhere else: this is the declared bound being
+            # reported, never a verdict. Every comparison happens server-side on
+            # the `Decimal`, and a materiality a person typed round-trips
+            # through a double without loss at any scale money is written in.
+            "absolute": float(self.absolute) if self.absolute is not None else None,
+            "relative": float(self.relative) if self.relative is not None else None,
             "currency": self.currency,
             "rounding_scale": self.rounding_scale,
         }
