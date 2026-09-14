@@ -78,7 +78,30 @@ class BenchRunCommand(Command):
         from prama.bench.baselines import NOT_RUN, compare
         from prama.bench.corpus import build
 
-        corpus = build(seed=ctx.args.seed, rows=ctx.args.rows, rate=ctx.args.rate)
+        # The library refuses a bad rate or row count with `ValueError`, which is
+        # Python's meaning for "right type, wrong value" and what a benchmark
+        # script driving `prama.bench.corpus` would catch. `Application.run`
+        # translates only `PramaError`, so without this the refusal reached the
+        # terminal as a stack trace (QA `Q-68`).
+        #
+        # Translated *here*, at the boundary, rather than in the library: raising
+        # the taxonomy from `build()` fixed the terminal and broke every
+        # `except ValueError` caller, which is `Q-77`. The remedy belongs here
+        # anyway — this layer knows the flags are called `--rate` and `--rows`,
+        # and the library does not.
+        try:
+            corpus = build(seed=ctx.args.seed, rows=ctx.args.rows, rate=ctx.args.rate)
+        except ValueError as exc:
+            bad_rate = not 0 < ctx.args.rate <= 1
+            raise ValidationError(
+                str(exc),
+                remedy=(
+                    "Pass --rate above 0 and at most 1, as in --rate 0.05 for five percent."
+                    if bad_rate
+                    else "Pass --rows with a positive count, as in --rows 10000."
+                ),
+                context=({"rate": ctx.args.rate} if bad_rate else {"rows": ctx.args.rows}),
+            ) from None
         comparison = compare(corpus)
 
         if ctx.json_output:
