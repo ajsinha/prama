@@ -944,7 +944,7 @@ interfaces and read output. It may not contain a second copy of the logic under
 test. Where a harness needs the product's own table — roles, scopes, calendars —
 it must import it rather than transcribe it.
 
-### Q-76 · A bundle's declared range is not checked against what it contains
+### Q-76 · A bundle's declared range is not checked against what it contains — FIXED
 
 Found in round 4 by the trust agent while going beyond the catalogue in the area
 [[Q-70]] had put under suspicion. **Not caused by batches A–D**, and not scored
@@ -1226,6 +1226,53 @@ expectation was executed rather than reasoned about.
 A case edited to match the code, and then not run, is worth less than the broken
 case it replaced: it now agrees with the implementation by assumption rather
 than by test, which is the failure this catalogue exists to prevent.
+
+### Q-81 · Batch M — three single-repair items, and what each nearly got wrong
+
+**E — every API error is now `problem+json`.** `api/app.py` registered handlers
+for `PramaError` and `Exception`, and Starlette answered its own
+`HTTPException` (an unknown path, a wrong method) and FastAPI's
+`RequestValidationError` (a malformed parameter) *first* — with
+`{"detail": "Not Found"}` and `content-type: application/json`. The two error
+classes a caller hits most often were the only ones outside the documented
+contract. Closes `API-010`, `API-011`, `API-012`, `API-013`, `API-017`,
+`API-058` — four P1.
+
+The `router_error_handler` omits `remedy` rather than inventing one. There is no
+`PramaError` to ask, and a made-up remedy in front of somebody who mistyped a
+URL is worse than none. `validation_error_handler` keeps FastAPI's `.errors()`
+verbatim in `context`, because the field name is the only part a caller can act
+on — and stringifies each value, since `.errors()` can carry an exception object
+under `ctx` that would turn a 422 into a 500.
+
+**G — the operations screens declare their subject.** `OperationsRoutes` set no
+`SUBJECT`, so `/incidents`, `/reconciliation`, `/scorecards` and `/evidence` all
+fell back to `declaration:read`. A caller granted the scope for browsing the
+dataset catalogue could read every incident, break, scorecard and evidence
+record in the estate. `TriageRoutes` sets `SUBJECT = "incident"` and got it
+right, which is how the omission surfaced: the incident *detail* route required
+`incident:read` while the incident *list* did not.
+
+No class-level `SUBJECT` was added, because these four serve four different
+subjects — a single one would have been the same mistake with a better default.
+
+**F — [[Q-76]] closed.** `Bundle.check()` now compares the manifest's
+`from_sequence`/`to_sequence` against the sequences actually present, before the
+chain is verified.
+
+**Three API mistakes in one batch, all mine, all caught by running things.**
+The `UI-009` test was fine, but both others started from invented interfaces:
+`Ledger.append(tenant_id=..., kind=..., payload=...)` — it takes an
+`EvidenceRecord`; `Archivist.bundle(from_sequence=..., to_sequence=...)` — it
+takes a list of records. And the API test used `valid_at="not-a-date"` assuming
+it was date-validated. It is not; that request returns **200**, so two
+assertions were failing for a reason unrelated to the defect. Switched to
+`limit="lots"`, which `Query(ge=1, le=500)` genuinely refuses.
+
+That is the fourth time today a counterfactual failed for the wrong reason. The
+pattern is consistent enough to name: **writing a test against an interface from
+memory produces a red that means nothing**, and red is exactly the colour that
+stops people looking closer.
 
 ---
 

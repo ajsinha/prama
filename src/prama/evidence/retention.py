@@ -211,6 +211,25 @@ class Bundle:
         digest = hashlib.sha256(self.payload.encode("utf-8")).hexdigest()
         if digest != self.manifest.payload_digest:
             return False, "the records do not match the digest in the manifest"
+        # The manifest's own range, against the records it describes. Every
+        # check above establishes that the records are *unaltered*; none
+        # establishes that they are the records the manifest **says** they are.
+        # A bundle is what an auditor is handed, and `from_sequence`/`to_sequence`
+        # are how they know which period they are looking at — so a payload that
+        # is internally perfect and mislabelled answers a different question than
+        # the one asked, and used to verify clean. Editing two integers needs no
+        # forgery at all, which makes it the cheaper attack. QA round 4, `Q-76`.
+        sequences = [json.loads(line).get("sequence") for line in lines]
+        present = [n for n in sequences if isinstance(n, int)]
+        if present:
+            first, last = min(present), max(present)
+            if (self.manifest.from_sequence, self.manifest.to_sequence) != (first, last):
+                return (
+                    False,
+                    f"the manifest claims sequence {self.manifest.from_sequence}-"
+                    f"{self.manifest.to_sequence} and the file holds {first}-{last}; "
+                    "this bundle is not the range it says it is",
+                )
         result = verify(json.loads(line) for line in lines)
         if not result.is_intact:
             return False, result.render()

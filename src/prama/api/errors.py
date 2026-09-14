@@ -13,7 +13,9 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from prama.core.errors import (
     ConflictError,
@@ -81,6 +83,69 @@ async def prama_error_handler(request: Request, exc: Exception) -> JSONResponse:
         _log.error("%s", exc, exc_info=exc)
     document = problem_document(exc, status=status, instance=str(request.url.path))
     return JSONResponse(status_code=status, content=document, media_type="application/problem+json")
+
+
+async def router_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    """A 404 or a 405 from the router itself, as a problem document.
+
+    Starlette raises `HTTPException` before any Prama code runs — an unknown
+    path, a method the route does not accept — and answers it with its own
+    handler, producing `{"detail": "Not Found"}` and `content-type:
+    application/json`. Every other error this API emits is `problem+json` with a
+    `code` an integrator can branch on; these two, the ones a caller hits most
+    often, were the exceptions. QA round 4, cluster B1.
+
+    The `code` is synthesised rather than taken from the taxonomy: there is no
+    `PramaError` here to ask, and inventing one would put a made-up remedy in
+    front of somebody who mistyped a URL. `type`, `title`, `status` and `code`
+    are real; `remedy` is omitted rather than guessed, because a remedy that
+    does not help is worse than none.
+    """
+    assert isinstance(exc, StarletteHTTPException)
+    status = exc.status_code
+    code = "HTTP.NOT_FOUND" if status == 404 else f"HTTP.{status}"
+    document: dict[str, Any] = {
+        "type": PROBLEM_TYPE_BASE + code.lower().replace(".", "-"),
+        "title": str(exc.detail),
+        "status": status,
+        "code": code,
+        "instance": str(request.url.path),
+    }
+    if cid := correlation_id.get():
+        document["correlation_id"] = cid
+    headers = getattr(exc, "headers", None)
+    return JSONResponse(
+        status_code=status,
+        content=document,
+        media_type="application/problem+json",
+        headers=headers,
+    )
+
+
+async def validation_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    """A malformed query or body, as a problem document.
+
+    FastAPI raises `RequestValidationError` before the handler runs, and its
+    `.errors()` already names the offending field and why. That detail is kept
+    verbatim in `context`: a problem document that cannot say *which* parameter
+    was wrong is prose with a schema, and the field name is the only part a
+    caller can act on.
+    """
+    assert isinstance(exc, RequestValidationError)
+    document: dict[str, Any] = {
+        "type": PROBLEM_TYPE_BASE + "input-invalid",
+        "title": "the request could not be understood",
+        "status": 422,
+        "code": "INPUT.INVALID",
+        "remedy": "Correct the fields listed in context and send the request again.",
+        # `str()` per error: `.errors()` may carry an exception object under
+        # `ctx`, which is not JSON-serialisable and would turn a 422 into a 500.
+        "context": {"errors": [{k: str(v) for k, v in e.items()} for e in exc.errors()]},
+        "instance": str(request.url.path),
+    }
+    if cid := correlation_id.get():
+        document["correlation_id"] = cid
+    return JSONResponse(status_code=422, content=document, media_type="application/problem+json")
 
 
 async def unexpected_error_handler(request: Request, exc: Exception) -> JSONResponse:
