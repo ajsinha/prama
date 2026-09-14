@@ -1044,6 +1044,85 @@ raised there*. A check that cannot distinguish a prohibition from its own
 rationale is exactly the kind this suite exists to be sceptical of. It now looks
 for `raise ValidationError`.
 
+### Q-78 · Exact arithmetic that becomes float at the moment of the verdict
+
+Found by the round-4 triage, in two places independently, and **not tied to any
+catalogued case** — which is why four rounds of QA did not surface it. Both were
+verified by reading the code, not taken from the triage reports.
+
+**Reconciliation.** `recon/classify.py` carries every amount as `Decimal` — the
+whole engine does — and then:
+
+```python
+def _within_tolerance(self, difference: Decimal, magnitude: Decimal) -> bool:
+    return self._tolerance.permits(float(difference), float(magnitude))
+```
+
+The conversion happens at the exact instant the break/no-break decision is made,
+because `semantic/relationships.py::Tolerance` declares `absolute` and
+`relative` as native `float`. A difference of exactly one cent against a
+tolerance of exactly one cent is then decided in binary floating point, where
+neither value is representable.
+
+**The reference interpreter.** `backend/reference.py::_arithmetic` uses
+`float()`; `pql/library.py::_number` uses `Decimal`. One interpreter, two
+arithmetic models, depending on which path reaches the value. Four catalogued
+cases sit on this (`PQL-300`, `BE-078`, `BE-079`, `BE-080`), three of them P1 —
+but they read as four separate rounding complaints rather than one cause.
+
+**Why this is worse here than in most systems.** The reference interpreter
+exists to be the oracle the compiled SQL is checked against; the conformance
+suite's whole job is to require three engines to agree with it. An oracle that
+computes in `float` on one path and `Decimal` on another cannot be the thing
+three engines are held to. And a reconciliation verdict is *the* artefact this
+product sells — `docs/12` names reconciliation as banking's most expensive
+quality failure. "Declare it. Prove it. Trust it." does not survive a pass/fail
+boundary evaluated in a representation that cannot hold the numbers on either
+side of it.
+
+The repair is not one line. `Tolerance` would have to carry `Decimal` bounds,
+and every producer of a `Tolerance` — declaration parsing, the Γ generator, the
+importers — would have to supply them. That is a contained wave, not a batch.
+
+**The counterfactual is unusually easy and unusually convincing**: a
+reconciliation with a tolerance of `0.01` and a difference of exactly `0.01`,
+and the same for `0.1 + 0.2` against `0.3`. Today the verdict depends on
+representation; afterwards it must not. A careless version of that test uses
+values that happen to be representable — `0.5`, `0.25` — and passes before and
+after, proving nothing.
+
+Related: [[Q-51]], where the same class of mismatch between two implementations
+of one calculation made an independent verifier report a forgery.
+
+### Q-79 · A triage finding that was wrong, recorded because the process matters
+
+The data-stack triage reported the ISO 4217 table as retiring every currency one
+version late, presenting it as two cases closed by one edit (`CLS-059`,
+`CLS-061`). It is not a defect. `classify/codelists.py` reads:
+
+```python
+_ISO4217_2024 = _ISO4217_2023 | {"ZWG"}              # ZWG added, ZWL still valid
+_ISO4217_2025 = (_ISO4217_2024 | {"XCG"}) - {"ZWL"}  # XCG added, ZWL retired
+```
+
+directly beneath a comment ending *"The outgoing code is retired one version
+later, which is what 'still accepted for a period' means."* The lag **is** the
+`CLS-062` fix: removing an outgoing currency in the same step is how a correct
+payment file gets rejected mid-transition. Round 3's judgement — that
+`CLS-059`/`CLS-061` are stale catalogue probe dates — stands.
+
+The agent saw the shape of an off-by-one and did not read the comment that
+exists to explain why the offset is deliberate. It had been warned, in its own
+brief, that a batch which "fixes" a deliberate decision is worse than no batch.
+
+Recorded because the near-miss is the point: three of this effort's remediation
+attempts have been reverted for exactly this reason ([[Q-61]], [[Q-64]],
+[[Q-65]]), and the only thing that caught it this time was checking a claim that
+contradicted a decision already on record. **A triage finding is a hypothesis.**
+The ones that contradict something previously decided deserve more scepticism
+than the ones that do not, not less — the temptation is to treat them as
+discoveries.
+
 ---
 
 ## What held
