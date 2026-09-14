@@ -272,17 +272,42 @@ async def main():
                 mapped_by="bob",
             )
         async with database.unit_of_work() as uow:
-            rows_for_a = await uow.attributes.mapped_to_property(str(prop_a.id))
-            rows_for_b = await uow.attributes.mapped_to_property(str(prop_b.id))
+            # round 4: AttributeDao.mapped_to_property() has a required
+            # tenant_id= keyword-only argument (round 3's finding, confirmed
+            # unchanged in this tree -- see src/prama/db/dao/semantic.py).
+            rows_for_a = await uow.attributes.mapped_to_property(
+                str(prop_a.id), tenant_id=tenant_a
+            )
+            rows_for_b = await uow.attributes.mapped_to_property(
+                str(prop_b.id), tenant_id=tenant_b
+            )
+            # explicit cross-tenant probe: tenant_b asking for tenant_a's
+            # property_id must not see tenant_a's attribute. Not "the call
+            # didn't raise" -- an actual attempted read across the boundary.
+            rows_cross = await uow.attributes.mapped_to_property(
+                str(prop_a.id), tenant_id=tenant_b
+            )
         ids_a = {str(r.attribute_id) for r in rows_for_a}
         ids_b = {str(r.attribute_id) for r in rows_for_b}
-        ok = ids_a == {str(attr_a.id)} and ids_b == {str(attr_b.id)}
+        ids_cross = {str(r.attribute_id) for r in rows_cross}
+        # also confirm the call is refused outright when tenant_id is omitted
+        no_tenant_typeerror = None
+        try:
+            await uow.attributes.mapped_to_property(str(prop_a.id))  # type: ignore[call-arg]
+        except TypeError as e:
+            no_tenant_typeerror = str(e)
+        ok = (
+            ids_a == {str(attr_a.id)}
+            and ids_b == {str(attr_b.id)}
+            and ids_cross == set()
+            and no_tenant_typeerror is not None
+        )
         record(
             "SEM-202",
             ok,
-            f"mapped_to_property(prop_a)={ids_a}; mapped_to_property(prop_b)={ids_b}; "
-            f"attr_a={attr_a.id}; attr_b={attr_b.id} -- no explicit tenant filter in DAO SQL "
-            f"but property_id is a unique ULID per tenant so no cross-tenant leak occurs",
+            f"same-tenant reads isolated (ids_a={ids_a}, ids_b={ids_b}); "
+            f"cross-tenant read (tenant_b requesting tenant_a's property_id)={ids_cross!r}; "
+            f"omitting tenant_id raises TypeError={no_tenant_typeerror!r}",
         )
     except Exception:
         record("SEM-202", False, "EXC:" + traceback.format_exc())

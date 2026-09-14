@@ -706,12 +706,27 @@ ec16cfe..03dcf7c -- src/prama/core/ids.py` is empty, so this is pre-existing
 and not remediation damage; round 2 recorded `CFG-168` as PASS because it
 never ran the case under load.
 
-**Why this one is worse than its severity label suggests.** ULIDs are the
-identifier scheme for the entire system — `SERIAL`/`AUTOINCREMENT` are
-forbidden precisely so an id can be minted client-side without a round trip.
-Sort order is load-bearing: the evidence ledger is a *sequence*, and
-`Archivist.bundle()` exports a **range**. An id that sorts before one already
-issued is not a cosmetic defect in that context.
+**Why it matters — corrected in round 4, because the first version of this
+paragraph was wrong.** It originally read: "the evidence ledger is a *sequence*,
+and `Archivist.bundle()` exports a **range**, so an id that sorts before one
+already issued is not cosmetic". Round 4's trust agent checked rather than
+accepted it and found the ledger's `sequence` is a plain `int` counter
+(`evidence/ledger.py:58`) with **no ULID import anywhere in the evidence
+package**. The chain and the minting path are architecturally decoupled. The
+severity argument was invented from the shape of the words "sequence" and
+"range", not read from the code.
+
+What the defect actually costs, from the two docstrings that state it:
+`core/ids.py` — "they sort by time, so a B-tree index on a primary key is
+append-friendly"; `UlidFactory` — "several stores rely on id order to page
+deterministically". So: non-deterministic paging in those stores, and lost index
+locality. Real, worth the one-line fix, and narrower than first claimed.
+
+Recorded this way rather than quietly edited because a findings file that
+silently improves its own reasoning is one nobody can calibrate against — and
+because the error is instructive. It is the same move the QA rounds keep
+catching in the product: a plausible claim, asserted from adjacency rather than
+established by reading, that nothing downstream checks.
 
 The repair is to move the clock read inside the lock — one line. The
 counterfactual already exists and is unusually good: the case fails 8 times in
@@ -884,6 +899,127 @@ recorded number**, and that refuses to publish a count from a red run. Its own
 docstring says why — "a count taken from a red run is a claim about a product
 that does not work". It was written to stop a number rotting and it caught a
 defect instead.
+
+### Q-75 · Two harnesses that reimplemented the product instead of calling it
+
+Round 4, found independently by two agents in one afternoon, in unrelated files.
+Recorded together because it is one defect wearing two coats, and because both
+were invisible while green.
+
+**`qa/harness/platform-core/cfg_165_176.py` (`CFG-168`).** Its `_TracedFactory`
+did not call `UlidFactory.new()` at all. It was a hand-copied reimplementation
+of the algorithm — clock read outside the lock, `==` rather than `<=` — written
+in round 3 to get an honest trace of mint order without a racy append. It
+described the shipped code accurately *at the moment it was written*, because
+the shipped code was that algorithm. It describes nothing now. Re-run unmodified
+against the fixed tree it reports `strictly increasing=False` in 9 of 10 trials,
+and would have printed as a **regression that does not exist**.
+
+Rewritten to wrap the real, unmodified `new()` with a tracing lock — true
+serialisation order, zero product logic duplicated. 100,000 ids from 16 threads,
+strictly increasing, on 5 consecutive runs including 3 under deliberate CPU load,
+plus a jitter-clock variant returning a reading at-or-below the high-water mark
+40% of the time. That is the verification `Q-70`'s fix deserved and had not had.
+
+**`qa/harness/interfaces/ui_common.py`.** `UiEnv.BUILTIN_ROLES` was a hand-copy
+of `prama.cli.principal.BUILTIN_ROLES`, and had not gained owner's
+`attestation:read`. Verdict impact: zero. Consequence: the harness **could not
+have exercised `Q-67`'s fix**, because its owner role was the old one. The fix
+was verified for the first time only when the agent tested a real `owner`.
+
+**Why this class is worse than an ordinary broken test.** A test that
+reimplements what it tests passes for as long as the copy and the original agree,
+and *diverges silently at exactly the moment the original changes* — which is the
+moment a test is supposed to speak. Both of these were green. One would have
+reported a phantom regression, the other quietly certified a fix it never
+touched.
+
+It is also this project's own doctrine turned on its tests. `CLAUDE.md` says
+**derive, never restate** — "anything restated in a second place will drift,
+silently, in the flattering direction". Both harnesses restated. The flattering
+direction was, in one case, a false alarm and in the other a false assurance.
+
+**The rule to apply going forward:** a harness may build fixtures, drive
+interfaces and read output. It may not contain a second copy of the logic under
+test. Where a harness needs the product's own table — roles, scopes, calendars —
+it must import it rather than transcribe it.
+
+### Q-76 · A bundle's declared range is not checked against what it contains
+
+Found in round 4 by the trust agent while going beyond the catalogue in the area
+[[Q-70]] had put under suspicion. **Not caused by batches A–D**, and not scored
+against any case — it is outside the catalogue's scope, which is why nothing had
+looked.
+
+`Bundle.check()` validates the record count, the content digest, the hash chain
+and the head. It does **not** cross-validate `manifest.to_sequence` against the
+sequence of the payload's actual last record. A manifest can therefore claim a
+range it does not contain, and the bundle verifies clean.
+
+Why that deserves a case of its own: a bundle is the artefact handed to an
+auditor, and the range fields are how the auditor knows *which period they are
+looking at*. Every integrity property the bundle checks is about the records
+being unaltered; none is about the records being **the ones the manifest says**.
+A payload that is internally perfect and mislabelled passes today — and
+mislabelling is the cheaper attack, because nothing has to be forged, only
+described wrongly.
+
+The repair is a comparison, not a mechanism: `to_sequence` must equal the last
+record's sequence and `from_sequence` the first. The counterfactual is equally
+cheap — export a genuine range, edit one integer in the manifest, require
+`check()` to refuse. Compare [[Q-50]], where `intact` compared a computed
+property against itself and could never be false: both are checks that look like
+checks.
+
+Found only because the agent was told to go beyond re-running saved cases in the
+area under suspicion. The suspicion was misplaced — see the correction in
+[[Q-70]] — and the looking paid anyway.
+
+### Q-77 · Retyping a library's refusal broke a caller — the first real regression of round 4
+
+`BCH-015` and `BCH-016` passed in round 3 and fail in round 4. Attributable to a
+specific commit: Batch B (`53b9043`) changed `bench/corpus.py`'s `rate` and
+`rows` refusals from `ValueError` to `prama.core.errors.ValidationError`, so
+that `prama bench run --rows 0` would produce a typed refusal instead of a stack
+trace ([[Q-68]]).
+
+`ValidationError` derives from `PramaError`, which derives from `Exception`. It
+is **not** a `ValueError`. The catalogue's `Expected` for both cases reads
+"`ValueError` naming the value", and the refusal messages are byte-identical and
+still name the bad value — only the type moved.
+
+The round-4 agent classed this with round 3's `OPS-003`: a correct change whose
+side effect is a stale catalogue precondition. That is probably right, and it is
+**not** the whole story, so it is recorded rather than waved through.
+
+**The evidence that it is a real contract change, not just a stale test:** the
+saved harness `bch_001_061.py` caught `ValueError` and crashed mid-run when the
+type changed, taking `BCH-017`–`BCH-061` with it until the agent repaired it. A
+test is a caller. It is the only caller that broke here — no product code catches
+`ValueError` around `corpus.build`, checked by grep — but "no *internal* caller
+broke" is a weaker claim than it sounds for a function in a package whose whole
+purpose is to be run by other people's benchmark scripts.
+
+**The design question, left open deliberately.** Two defensible shapes:
+
+- **What was done.** The library raises the taxonomy directly. Simple, and the
+  CLI needs no adapter. Cost: a Python-idiomatic `except ValueError` around a
+  bad-value refusal stops working, which is the one thing a caller would
+  reasonably have written.
+- **The alternative.** The library keeps `ValueError` — Python's documented
+  meaning for "right type, wrong value", which `rate=1.5` exactly is — and the
+  CLI command translates at its boundary. `CLAUDE.md` arguably points here: *"the
+  unit of work translates failures into the Prama error taxonomy"* describes
+  translation **at a boundary**, not taxonomy all the way down.
+
+Making `ValidationError` inherit from `ValueError` as well would satisfy both and
+was considered and rejected: Batch B also uses `ValidationError` for an
+unwritable path and an unreadable file, which are not value errors in any sense,
+so the inheritance would be a lie for those call sites.
+
+Not changed here because the tree is frozen for round 4. The decision belongs
+with the product: either update the two catalogue cases to name the taxonomy, or
+move the translation to the CLI boundary and restore `ValueError` to the library.
 
 ---
 

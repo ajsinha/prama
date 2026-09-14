@@ -22,14 +22,6 @@
 {"id": "CON-005", "result": "PASS", "observed": "second close() raised nothing"}
 {"id": "CON-006", "result": "FAIL", "observed": "sqlite.describe: code=CONNECT.OBJECT_MISSING; sqlite.snapshot: code=CONNECT.OBJECT_MISSING; sqlite.read: code=CONNECT.OBJECT_MISSING; filesystem.describe: code=CONNECT.OBJECT_MISSING; filesystem.snapshot: code=CONNECT.OBJECT_MISSING; filesystem.read: code=CONNECT.OBJECT_MISSING; rest.describe: code=CONNECT.NOT_OPEN; rest.snapshot: no error; rest.read: code=CONNECT.NOT_OPEN; mongodb.describe: code=CONNECT.NOT_OPEN; mongodb.snapshot: no error; mongodb.read: code=CONNECT.NOT_OPEN"}
 {"id": "CON-014", "result": "FAIL", "observed": "raised CONNECT.NO_PREDICATE instead of returning filtered rows: [CONNECT.NO_PREDICATE] MongoConnector cannot restrict a read to part of an object | Next: Profile this object whole, or reach it through a connector that can filter. Reading everything and calling it one segment would attribute the whole object's data to that segment. | Context: connector='MongoConnector', predicate=\"d = '2026-04-01'\""}
-{"id": "CON-035", "result": "PASS", "observed": "['int64', 'string', 'double', 'bool']"}
-{"id": "CON-036", "result": "PASS", "observed": "type=uint64 value=18446744073709551615"}
-{"id": "CON-037", "result": "PASS", "observed": "type=string values=['100', 'one hundred']"}
-{"id": "CON-038", "result": "PASS", "observed": "type=string values=['1953193.464900000000', 'x']"}
-{"id": "CON-039", "result": "PASS", "observed": "lens=[2, 2, 3] a1_nulls=2 a2[0]=None a3=[None, '1', 'x']"}
-{"id": "CON-040", "result": "PASS", "observed": "len=0 type=null"}
-{"id": "CON-041", "result": "PASS", "observed": "ValueError propagated: cannot stringify"}
-{"id": "CON-042", "result": "PASS", "observed": "type=string values=['-1', '18446744073709551615'] (uint64-wrapped=False)"}
 {"id": "CON-025", "result": "PASS", "observed": "code=CONNECT.CAPABILITY_MISSING ctx={'feature': 'pushdown.regex'} msg=[CONNECT.CAPABILITY_MISSING] this source cannot perform regex at the source | Next: Rewrite the control without it, or run it through the Arrow backend and accept the cost of moving the data. Prama will not substitute a construct that means almost the same thing. | Context: feature='pushdown.regex' remedy=Rewrite the control without it, or run it through the Arrow backend and accept the cost of moving the data. Prama will not substitute a construct that means almost the same thing."}
 {"id": "CON-026", "result": "PASS", "observed": "all four require() calls returned None"}
 {"id": "CON-027", "result": "PASS", "observed": "{'APPROX_DISTINCT': 'approx distinct', 'EXACT_SNAPSHOT': 'exact', 'SQL': 'sql'}"}
@@ -40,7 +32,33 @@
 {"id": "CON-032", "result": "PASS", "observed": "[None, True, False, False]"}
 {"id": "CON-033", "result": "PASS", "observed": "[None, 38, 38, None]"}
 {"id": "CON-034", "result": "PASS", "observed": "pg/ch/sf identical=True; jdbc: reg=['pushdown.aggregation', 'pushdown.filter', 'pushdown.predicate', 'pushdown.sql'] dialect=['pushdown.aggregation', 'pushdown.filter', 'pushdown.predicate', 'pushdown.sql'] (jdbc differs=False)"}
-{"id": "CON-113", "result": "PASS", "observed": "dialect.snapshot_sql()=None snapshot=Snapshot(kind=<SnapshotKind.WALL_CLOCK: 'wall_clock'>, identifier='2026-09-13T20:07:00.515172+00:00', captured_at=datetime.datetime(2026, 9, 13, 20, 7, 0, 515186, tzinfo=datetime.timezone.utc), detail={'object': 'default.anything', 'note': 'clickhouse offers no point-in-time marker; this snapshot cannot be replayed exactly'})"}
+{"id": "CON-065", "result": "PASS", "observed": "estimate() signature takes no connector/session object at all -- zero queries possible by construction; rows=100"}
+{"id": "CON-066", "result": "PASS", "observed": "rows=None bytes=None dur=None bases=(EstimateBasis.UNKNOWN,EstimateBasis.UNKNOWN,EstimateBasis.UNKNOWN) sentence='Reading t will scan ? \u2014 duration unknown, nothing has been read through this connection yet.'"}
+{"id": "CON-067", "result": "PASS", "observed": "byte_count=128000 basis=EstimateBasis.DERIVED warnings=('the source reports rows but not size; volume assumes 128 bytes per row', 'this is a full scan; sampling would cost a fraction of it')"}
+{"id": "CON-068", "result": "PASS", "observed": "duration=10.0 basis=EstimateBasis.MEASURED"}
+{"id": "CON-069", "result": "PASS", "observed": "duration=50.0 basis=EstimateBasis.DERIVED"}
+{"id": "CON-070", "result": "PASS", "observed": "duration=None basis=EstimateBasis.UNKNOWN"}
+{"id": "CON-071", "result": "PASS", "observed": "exceeds=(\"this connection's limit of 1,000 rows\", \"this connection's limit of 1.0 MB\") within_budget=False sentence=\"Reading t will scan 10.0 MB across about 5,000 rows \u2014 duration unknown, nothing has been read through this connection yet. This exceeds this connection's limit of 1,000 rows, this connection's limit of 1.0 MB.\""}
+{"id": "CON-072", "result": "PASS", "observed": "exceeds=() within_budget=True rows=1000"}
+{"id": "CON-073", "result": "PASS", "observed": "plan=SamplePlan(strategy=<SamplingStrategy.SYSTEMATIC: 'systematic'>, rows=1000, fraction=0.2, seed=0, stratify_by=(), partitions=None, predicate='')"}
+{"id": "CON-074", "result": "PASS", "observed": "p1=None p2=None p3=None"}
+{"id": "CON-075", "result": "PASS", "observed": "plan=SamplePlan(strategy=<SamplingStrategy.SYSTEMATIC: 'systematic'>, rows=1000, fraction=0.1, seed=0, stratify_by=(), partitions=None, predicate='')"}
+{"id": "CON-076", "result": "PASS", "observed": "first4=[None, None, None, None] fifth=Throughput(bytes_per_second=100000.0, rows_per_second=1000.0, samples=1, measured_at=datetime.datetime(2026, 9, 14, 1, 43, 34, 238341, tzinfo=datetime.timezone.utc))"}
+{"id": "CON-077", "result": "PASS", "observed": "registry.of('c')=None from_read=None"}
+{"id": "CON-078", "result": "PASS", "observed": "rows_per_second=990.1089108910891 samples=101 measured_at=2026-01-02 00:00:00+00:00"}
+{"id": "CON-079", "result": "PASS", "observed": "bytes=['0 B', '1,023 B', '1.0 KB', '1,024.0 TB'] durations=['under a second', '1 seconds', '89 seconds', '2 minutes', '90 minutes', '1.5 hours'] (expected_durations=['under a second', '1 seconds', '89 seconds', '2 minutes', '90 minutes', '1.5 hours'])"}
+{"id": "CON-080", "result": "PASS", "observed": "pause_after(0.1)=1.9000000000000001"}
+{"id": "CON-081", "result": "PASS", "observed": "{0.0: (False, 0.0), 1.0: (False, 0.0), 1.5: (False, 0.0), -0.1: (False, 0.0), 0.999: (True, 0.0010010010010010895)}"}
+{"id": "CON-082", "result": "PASS", "observed": "slept=[30.0] capped_pauses=1"}
+{"id": "CON-035", "result": "PASS", "observed": "['int64', 'string', 'double', 'bool']"}
+{"id": "CON-036", "result": "PASS", "observed": "type=uint64 value=18446744073709551615"}
+{"id": "CON-037", "result": "PASS", "observed": "type=string values=['100', 'one hundred']"}
+{"id": "CON-038", "result": "PASS", "observed": "type=string values=['1953193.464900000000', 'x']"}
+{"id": "CON-039", "result": "PASS", "observed": "lens=[2, 2, 3] a1_nulls=2 a2[0]=None a3=[None, '1', 'x']"}
+{"id": "CON-040", "result": "PASS", "observed": "len=0 type=null"}
+{"id": "CON-041", "result": "PASS", "observed": "ValueError propagated: cannot stringify"}
+{"id": "CON-042", "result": "PASS", "observed": "type=string values=['-1', '18446744073709551615'] (uint64-wrapped=False)"}
+{"id": "CON-113", "result": "PASS", "observed": "dialect.snapshot_sql()=None snapshot=Snapshot(kind=<SnapshotKind.WALL_CLOCK: 'wall_clock'>, identifier='2026-09-14T01:45:20.042082+00:00', captured_at=datetime.datetime(2026, 9, 14, 1, 45, 20, 42105, tzinfo=datetime.timezone.utc), detail={'object': 'default.anything', 'note': 'clickhouse offers no point-in-time marker; this snapshot cannot be replayed exactly'})"}
 {"id": "CON-111", "result": "PASS", "observed": "int bind: sql='SELECT * FROM t WHERE a = {p0:String}' params={'p0': 42}; literal-quote case: sql=\"SELECT '{p0:String}' AS literal_q, a = {p1:String}\" params={'p0': 'x', 'p1': 7}"}
 {"id": "CON-112", "result": "PASS", "observed": "n_rows=25000 no_dupes=True all_present=True predicate_read_rows=5000 (expected 5000)"}
 {"id": "CON-065", "result": "PASS", "observed": "estimate() signature takes no connector/session object at all -- zero queries possible by construction; rows=100"}
@@ -54,7 +72,7 @@
 {"id": "CON-073", "result": "PASS", "observed": "plan=SamplePlan(strategy=<SamplingStrategy.SYSTEMATIC: 'systematic'>, rows=1000, fraction=0.2, seed=0, stratify_by=(), partitions=None, predicate='')"}
 {"id": "CON-074", "result": "PASS", "observed": "p1=None p2=None p3=None"}
 {"id": "CON-075", "result": "PASS", "observed": "plan=SamplePlan(strategy=<SamplingStrategy.SYSTEMATIC: 'systematic'>, rows=1000, fraction=0.1, seed=0, stratify_by=(), partitions=None, predicate='')"}
-{"id": "CON-076", "result": "PASS", "observed": "first4=[None, None, None, None] fifth=Throughput(bytes_per_second=100000.0, rows_per_second=1000.0, samples=1, measured_at=datetime.datetime(2026, 9, 13, 20, 7, 1, 160059, tzinfo=datetime.timezone.utc))"}
+{"id": "CON-076", "result": "PASS", "observed": "first4=[None, None, None, None] fifth=Throughput(bytes_per_second=100000.0, rows_per_second=1000.0, samples=1, measured_at=datetime.datetime(2026, 9, 14, 1, 45, 21, 323506, tzinfo=datetime.timezone.utc))"}
 {"id": "CON-077", "result": "PASS", "observed": "registry.of('c')=None from_read=None"}
 {"id": "CON-078", "result": "PASS", "observed": "rows_per_second=990.1089108910891 samples=101 measured_at=2026-01-02 00:00:00+00:00"}
 {"id": "CON-079", "result": "PASS", "observed": "bytes=['0 B', '1,023 B', '1.0 KB', '1,024.0 TB'] durations=['under a second', '1 seconds', '89 seconds', '2 minutes', '90 minutes', '1.5 hours'] (expected_durations=['under a second', '1 seconds', '89 seconds', '2 minutes', '90 minutes', '1.5 hours'])"}
@@ -62,7 +80,7 @@
 {"id": "CON-081", "result": "PASS", "observed": "{0.0: (False, 0.0), 1.0: (False, 0.0), 1.5: (False, 0.0), -0.1: (False, 0.0), 0.999: (True, 0.0010010010010010895)}"}
 {"id": "CON-082", "result": "PASS", "observed": "slept=[30.0] capped_pauses=1"}
 {"id": "EXE-128", "result": "PASS", "observed": "{'pass': False, 'fail': True, 'indeterminate': False, 'error': False}"}
-{"id": "EXE-129", "result": "PASS", "observed": "quarantined_rows=900 ref=quarantine:p1:1789330021 rows_in_quarantine=900 to_dict_keys=['action', 'plan_id', 'dataset', 'verdict', 'blocking', 'quarantine_ref', 'quarantined_rows', 'tag', 'reason', 'raised_at', 'disposition', 'override']"}
+{"id": "EXE-129", "result": "PASS", "observed": "quarantined_rows=900 ref=quarantine:p1:1789350321 rows_in_quarantine=900 to_dict_keys=['action', 'plan_id', 'dataset', 'verdict', 'blocking', 'quarantine_ref', 'quarantined_rows', 'tag', 'reason', 'raised_at', 'disposition', 'override']"}
 {"id": "EXE-130", "result": "PASS", "observed": "rows=None: ref='' count=0; rows=[]: ref='' count=0"}
 {"id": "EXE-131", "result": "PASS", "observed": "after_block=['p1'] after_override=[] after_resolve=[] after_release=[]"}
 {"id": "EXE-132", "result": "PASS", "observed": "{'t-1s': [], 't': ['p1'], 't+1s': ['p1']}"}
@@ -95,7 +113,7 @@
 {"id": "EXE-077", "result": "PASS", "observed": "tag_field_overwritten={'violated': ['p1'], 'unknown': []}"}
 {"id": "EXE-078", "result": "PASS", "observed": "violated=('p17',)"}
 {"id": "EXE-079", "result": "PASS", "observed": "violated=('',)"}
-{"id": "EXE-080", "result": "PASS", "observed": "p99_ms=0.0025 within(5.0)=True"}
+{"id": "EXE-080", "result": "PASS", "observed": "p99_ms=0.0023 within(5.0)=True"}
 {"id": "EXE-081", "result": "PASS", "observed": "p99_ms=None within=None per_second=None describe='no messages passed through, so nothing was measured'"}
 {"id": "EXE-082", "result": "PASS", "observed": "{1: (0.0, 0.0, 0.0, True), 2: (0.0, 1.0, 1.0, True), 100: (0.0, 99.0, 99.0, True)}"}
 {"id": "EXE-083", "result": "PASS", "observed": "order=['about_to_poll', 'poll', 'pipeline', 'commit']"}
@@ -127,7 +145,7 @@
 {"id": "EXE-148", "result": "PASS", "observed": "compiled_query='SELECT COUNT(*) AS \"scanned_rows\", COUNT(*) FILTER (WHERE NOT COALESCE((\"notional\" IS NOT NULL), FALSE)) AS \"violating_rows\"\\nFROM \"t\"\\nWHERE (\"as_of_date\" = \\'x\\'\\'; DROP TABLE positions --\\')' trial_result=no_data/"}
 {"id": "EXE-149", "result": "PASS", "observed": "{'valid1': ('OK', 'as_of_date'), 'valid2': ('OK', '_x9'), 'bad1': ('ValidationError', None), 'bad2': ('ValidationError', None), 'bad3': ('ValidationError', None), 'bad4': ('ValidationError', None), 'bad5': ('ValidationError', None), 'bad6': ('ValidationError', None), 'trimmed': ('OK', 'a')}"}
 {"id": "EXE-150", "result": "PASS", "observed": "restricted.where.operator=AND original_control_unmutated=True"}
-{"id": "EXE-151", "result": "PASS", "observed": "time_to_first_trial=0.050s (30 periods at 50ms each would take 1.5s total if it were a list; first arrived quickly, confirming a generator)"}
+{"id": "EXE-151", "result": "PASS", "observed": "time_to_first_trial=0.051s (30 periods at 50ms each would take 1.5s total if it were a list; first arrived quickly, confirming a generator)"}
 {"id": "EXE-152", "result": "PASS", "observed": "n_trials=30 all_unran=True distinct_errors=1 evaluated=0 alert_rate=None"}
 {"id": "EXE-153", "result": "PASS", "observed": "sunday=2026-04-05(6) d1(weekdays_only)=[datetime.date(2026, 3, 30), datetime.date(2026, 3, 31), datetime.date(2026, 4, 1), datetime.date(2026, 4, 2), datetime.date(2026, 4, 3)] d3(all_days)=[datetime.date(2026, 4, 1), datetime.date(2026, 4, 2), datetime.date(2026, 4, 3), datetime.date(2026, 4, 4), datetime.date(2026, 4, 5)] d4(days=0)=[]"}
 {"id": "EXE-055", "result": "PASS", "observed": "{0: 'max_bytes must be positive; an unbounded queue is not permitted', -1: 'max_bytes must be positive; an unbounded queue is not permitted'}"}
@@ -136,7 +154,7 @@
 {"id": "EXE-058", "result": "PASS", "observed": "_would_fit(oversized) on a 1-item-full queue = False"}
 {"id": "EXE-059", "result": "PASS", "observed": "elapsed=0.050s msg=[CONCURRENCY.BACKPRESSURE] queue 'myq' is full: 195/100 bytes, 1 items | Next: Slow the producer, add consumers, or build this queue with a larger max_bytes \u2014 it is a constructor argument, not a setting. Sustained back-pressure means the sink is the bottleneck, and widening the queue postpones the same problem with more memory held. | Context: bytes=195, items=1, max_bytes=100, queue='myq' context={'queue': 'myq', 'bytes': 195, 'max_bytes': 100, 'items': 1} remedy=Slow the producer, add consumers, or build this queue with a larger max_bytes \u2014 it is a constructor argument, not a setting. Sustained back-pressure means the sink is the bottleneck, and widening the queue postpones the same problem with more memory held. rejected=1"}
 {"id": "EXE-060", "result": "PASS", "observed": "consumer received=['hello'] promptly"}
-{"id": "EXE-061", "result": "PASS", "observed": "producers completed: [('p1', 0.10031456599244848), ('p2', 0.10031014599371701)]"}
+{"id": "EXE-061", "result": "PASS", "observed": "producers completed: [('p1', 0.10032899398356676), ('p2', 0.10032394400332123)]"}
 {"id": "EXE-062", "result": "PASS", "observed": "len=1 byte_size=10041 (before_resize=10041) utilisation=1.0"}
 {"id": "EXE-063", "result": "PASS", "observed": "resize(max_bytes=0) refused=True; resize(max_items=0) accepted, means no ceiling=True"}
 {"id": "EXE-064", "result": "PASS", "observed": "{'producer': \"[CONCURRENCY.BACKPRESSURE] queue 'queue' is closed | Next: Stop producing to a closed queue; the consumer has shut down. | Context: queue='queue'\", 'consumer': \"[CONCURRENCY.BACKPRESSURE] queue 'queue' is closed and drained | Next: Stop consuming; the producer has finished. | Context: queue='queue'\"}"}
@@ -162,7 +180,7 @@
 {"id": "EXE-015", "result": "PASS", "observed": "verdict=indeterminate detail='the query applied a screen rather than the exact test, so the violation count is a lower bound; the residual (lei on lei) has not been run, and a pass cannot be reported from a screen alone'"}
 {"id": "EXE-016", "result": "PASS", "observed": "verdict=fail detail='the query applied a screen rather than the exact test, so 11 is a LOWER BOUND on the violations; the residual (lei on lei) has not been run and the true count may be higher'"}
 {"id": "EXE-017", "result": "PASS", "observed": "thresholds=['metric=violating_rows, op=<=, relative_to=, value=0.0', 'metric=violating_rows, op=<=, relative_to=, value=5.0']"}
-{"id": "EXE-018", "result": "FAIL", "observed": "record.snapshot.kind='wall_clock' identifier='2026-09-13T20:07:05.746874+00:00' -- literal 'wall_clock' written regardless of engine (here engine='sqlite', which has an exact FILE_DIGEST snapshot available via SqliteConnector.snapshot(), never consulted)"}
+{"id": "EXE-018", "result": "FAIL", "observed": "record.snapshot.kind='wall_clock' identifier='2026-09-14T01:45:26.667168+00:00' -- literal 'wall_clock' written regardless of engine (here engine='sqlite', which has an exact FILE_DIGEST snapshot available via SqliteConnector.snapshot(), never consulted)"}
 {"id": "EXE-019", "result": "FAIL", "observed": "record.coverage='full' -- literal 'full' written unconditionally, with no connection to the actual SamplePlan/watermark scope that was read"}
 {"id": "EXE-020", "result": "PASS", "observed": "sampler_called=0 times for an all-passing run; passing records: digest/count all empty=True"}
 {"id": "EXE-021", "result": "PASS", "observed": "sample=None: verdict=fail samples_digest=''"}
@@ -203,7 +221,7 @@
 {"id": "EXE-125", "result": "PASS", "observed": "{'date': datetime.date(2026, 4, 7), 'datetime': datetime.datetime(2026, 4, 7, 6, 30, tzinfo=datetime.timezone.utc), 'iso_str': '2026-04-07T06:30:00', 'non_iso_str': 'not-a-date', 'int': 12345, 'none': None}"}
 {"id": "EXE-126", "result": "PASS", "observed": "{'none': 'NULL', 'int': '7', 'float': '7.5', 'bool': \"'True'\", 'date': \"'2026-04-07'\", 'quote': \"'it''s'\"}"}
 {"id": "EXE-127", "result": "PASS", "observed": "{'1day': 'day', '3days': '3 days', '1hour': 'hour', '5hours': '5 hours', '30min': '30 minutes', '0': '0 minutes'}"}
-{"id": "EXE-040", "result": "PASS", "observed": "status=lost records_written=0 log='worker:01M2E62Y3T552AJHRH4K65YP7Q finished r1 but no longer holds it; the result is discarded: lease lost'"}
+{"id": "EXE-040", "result": "PASS", "observed": "status=lost records_written=0 log='worker:01M2ESEFRFFTWXJ4P5AHW80NXV finished r1 but no longer holds it; the result is discarded: lease lost'"}
 {"id": "EXE-041", "result": "PASS", "observed": "{'done': False, 'skipped': False, 'lost': True, 'failed': False, 'stranded': True}"}
 {"id": "EXE-042", "result": "PASS", "observed": "status=stranded unit_back_in_pending=True resource_unclaimed=True lease_released=True"}
 {"id": "EXE-043", "result": "FAIL", "observed": "take_one() called 200 times directly against a permanently-failing recorder: 200/200 returned 'stranded', 0/200 returned None; unit still in queue afterward=True. Since take_one() never returns None (confirmed: 0 times), drain()'s `while limit <= 0: outcome = await self.take_one()` -- which only stops on `outcome is None` -- would never terminate; confirmed as a hot loop rather than literally hanging the harness process"}
@@ -251,16 +269,16 @@
 {"id": "CON-224", "result": "PASS", "observed": "status=IntegrityStatus.MATCHED detail='no trailer declared for this feed'"}
 {"id": "CON-225", "result": "PASS", "observed": "no_trailer_line=IntegrityStatus.TRAILER_MISSING/\"no line beginning 'TRLR' was found\" data_row_with_marker_prefix_before_real_trailer=IntegrityStatus.MATCHED"}
 {"id": "CON-226", "result": "PASS", "observed": "four_of_five=IntegrityStatus.MANIFEST_INCOMPLETE/('f5.csv',)/5/4; all_five=IntegrityStatus.MATCHED; five_plus_extra=IntegrityStatus.MATCHED"}
-{"id": "CON-132", "result": "PASS", "observed": "describe: UnauthorisedError (read policy) [CONNECT.UNAUTHORISED] that path resolves outside this connection's root: ../secret.csv | Next: Reads are confined to /tmp/tmp21sfcxw_/root. Point the connection at the directory that holds the data, or move the file into it. | Context: path='../secret.csv'; read: UnauthorisedError (read policy) [CONNECT.UNAUTHORISED] that path resolves outside this connection's root: ../../etc/passwd | Next: Reads are confined to /tmp/tmp21sfcxw_/root. Point the connection at the directory that holds the data, or move the file into it. | Context: path='../../etc/passwd'"}
-{"id": "CON-133", "result": "PASS", "observed": "discovered=['data.csv', \"it's_data.csv\", 'header_only.csv', 'empty.csv'] n_columns=2 n_rows=2 reader_expr=\"read_csv_auto('/tmp/tmp21sfcxw_/root/it''s_data.csv')\""}
+{"id": "CON-132", "result": "PASS", "observed": "describe: UnauthorisedError (read policy) [CONNECT.UNAUTHORISED] that path resolves outside this connection's root: ../secret.csv | Next: Reads are confined to /tmp/tmpqfz9hqtl/root. Point the connection at the directory that holds the data, or move the file into it. | Context: path='../secret.csv'; read: UnauthorisedError (read policy) [CONNECT.UNAUTHORISED] that path resolves outside this connection's root: ../../etc/passwd | Next: Reads are confined to /tmp/tmpqfz9hqtl/root. Point the connection at the directory that holds the data, or move the file into it. | Context: path='../../etc/passwd'"}
+{"id": "CON-133", "result": "PASS", "observed": "discovered=['data.csv', \"it's_data.csv\", 'header_only.csv', 'empty.csv'] n_columns=2 n_rows=2 reader_expr=\"read_csv_auto('/tmp/tmpqfz9hqtl/root/it''s_data.csv')\""}
 {"id": "CON-134", "result": "PASS", "observed": "{'data.xyz': ('CONNECT.FORMAT_UNSUPPORTED', \"[CONNECT.FORMAT_UNSUPPORTED] cannot read .xyz | Next: Supported here: .csv, .json, .jsonl, .ndjson, .parquet, .pq, .tsv, .txt. | Context: file='data.xyz'\", 'Supported here: .csv, .json, .jsonl, .ndjson, .parquet, .pq, .tsv, .txt.'), 'README': ('CONNECT.FORMAT_UNSUPPORTED', \"[CONNECT.FORMAT_UNSUPPORTED] cannot read a file with no extension | Next: Supported here: .csv, .json, .jsonl, .ndjson, .parquet, .pq, .tsv, .txt. | Context: file='README'\", 'Supported here: .csv, .json, .jsonl, .ndjson, .parquet, .pq, .tsv, .txt.')}"}
 {"id": "CON-135", "result": "PASS", "observed": "discovered=['data.csv', 'empty.csv', 'header_only.csv', \"it's_data.csv\"]"}
 {"id": "CON-136", "result": "PASS", "observed": "default_hashed_bytes=67108864 (expected 67108864); 1MB_ceiling_hashed_bytes=1048576 (expected 1048576)"}
-{"id": "CON-137", "result": "PASS", "observed": "a=d39810af9b32ad21638d95b0d7e6f202824f978e33aeb6bae8d5d908123edc35 b=2de1ad5d2e6d7878ecce699441a9ef6b8b747a8b1028f1ff9bbe5dcb4adba588 a_bytes=1048593 b_bytes=1048615 (size differs so digest differs even though first 1MB identical and hash truncated at 1MB)"}
+{"id": "CON-137", "result": "PASS", "observed": "a=051d7b48b2635db0a8167d2530e65ffc575dcf894185f6dd605c75d939d9bb20 b=095b1c1c7b6610b7228c5dfc3fd9bc20e20b655b6a1483750792ecfad69a0b85 a_bytes=1048593 b_bytes=1048615 (size differs so digest differs even though first 1MB identical and hash truncated at 1MB)"}
 {"id": "CON-138", "result": "PASS", "observed": "hashed_bytes=10 file_bytes=10"}
 {"id": "CON-139", "result": "PASS", "observed": "header_only.csv=(0, ('a', 'b', 'c'), 0); empty.csv=(0, ('column0',), 0)"}
 {"id": "CON-140", "result": "PASS", "observed": "conc1_rows=200000 conc2_rows=200000 (expected 200000 each)"}
-{"id": "CON-141", "result": "PASS", "observed": "rows_read=500000 ticks_recorded=35 max_gap_seconds=0.0018"}
+{"id": "CON-141", "result": "PASS", "observed": "rows_read=500000 ticks_recorded=29 max_gap_seconds=0.0017"}
 {"id": "CON-142", "result": "FAIL", "observed": "rows_read=100000 against ReadPolicy(max_rows_read=100) on a 100,000-row file (policy honoured=False)"}
 {"id": "PRO-085", "result": "PASS", "observed": "states=['new', 'new', 'new', 'new', 'new'] saved_fraction=0.0 render='Reading all 5 segments \u2014 never profiled.'"}
 {"id": "PRO-086", "result": "PASS", "observed": "wall_clock_states=['unverifiable', 'unverifiable', 'unverifiable'] none_states=['unverifiable', 'unverifiable', 'unverifiable']"}
@@ -277,12 +295,12 @@
 {"id": "CON-109", "result": "PASS", "observed": "results=['org.postgresql.util.PSQLException', 'org.postgresql.util.PSQLException', 'org.postgresql.util.PSQLException'] lingering_jdbc_threads=[]"}
 {"id": "CON-110", "result": "PASS", "observed": "after close(), lingering jdbc worker threads=[] (process did not hang; note: full 'interpreter exits promptly' claim can only be fully confirmed by observing process exit, which this in-process check approximates via thread enumeration)"}
 {"id": "CON-172", "result": "FAIL", "observed": "raised CONNECT.NO_PREDICATE instead of returning rows: [CONNECT.NO_PREDICATE] MongoConnector cannot restrict a read to part of an object | Next: Profile this object whole, or reach it through a connector that can filter. Reading everything and calling it one segment would attribute the whole object's data to that segment. | Context: connector='MongoConnector', predicate=\"d = '2026-04-01'\" (see CON-014: MongoConnector never overrides pushdown_capabilities(), so require_predicate_support refuses before _sample's find({}) is ever reached)"}
-{"id": "CON-173", "result": "PASS", "observed": "rows_read=50000 (of 50,000, a stand-in for the catalogue's 5,000,000 given time budget); time to first batch=0.102s vs total read time=0.121s (first_batch==total confirms nothing is yielded until the whole cursor is drained into a list, exactly as the code shows: `[document async for document in cursor]` with limit=0); peak_rss_before_kb=75768 after_kb=103360"}
+{"id": "CON-173", "result": "PASS", "observed": "rows_read=50000 (of 50,000, a stand-in for the catalogue's 5,000,000 given time budget); time to first batch=0.160s vs total read time=0.186s (first_batch==total confirms nothing is yielded until the whole cursor is drained into a list, exactly as the code shows: `[document async for document in cursor]` with limit=0); peak_rss_before_kb=73136 after_kb=99908"}
 {"id": "CON-174", "result": "PASS", "observed": "type=Decimal value=Decimal('1953193.464900000000') is_Decimal=True"}
 {"id": "CON-175", "result": "PASS", "observed": "notional.comment='arrives as double and as string across 200 sampled document(s)' settled_at.comment='absent from 50 of 200 sampled' settled_at.nullable=True"}
 {"id": "CON-176", "result": "PASS", "observed": "last_schema_sample=200"}
 {"id": "CON-177", "result": "PASS", "observed": "sub.type_name=json arr.type_name=json sub_value='{\"a\": 1, \"created\": \"2026-04-01 00:00:00\"}'"}
-{"id": "CON-178", "result": "PASS", "observed": "_id.type_name=objectid value='6aa7026f7d0489c99bb9ba07' len=24"}
+{"id": "CON-178", "result": "PASS", "observed": "_id.type_name=objectid value='6aa751bdb96018db48b495a8' len=24"}
 {"id": "CON-179", "result": "PASS", "observed": "code=CONNECT.INCOMPLETE remedy=Name the database. A Mongo deployment holds several and Prama will not pick one \u2014 an estate declared against the wrong database is worse than one that failed to connect. msg=[CONNECT.INCOMPLETE] a MongoDB source needs a database | Next: Name the database. A Mongo deployment holds several and Prama will not pick one \u2014 an estate declared against the wrong database is worse than one that failed to connect."}
 {"id": "CON-180", "result": "PASS", "observed": "health=HealthState.HEALTHY discover()=UnreachableError: The connection worked and the catalogue did not. Usually the role can read documents and not `listCollections`."}
 {"id": "CON-181", "result": "FAIL", "observed": "built_uri='mongodb://alice:p@ss:w/ord@dbhost:27017/?authSource=admin'"}
@@ -300,7 +318,7 @@
 {"id": "CON-153", "result": "FAIL", "observed": "{'/mnt/lake/positions': 'UNCAUGHT ParserException: Parser Error: syntax error at or near \",\"\\n\\nLINE 1: CREATE OR REPLACE SECRET prama_store (TYPE , PROVIDER credential_chain, ENDPOINT \\'127.0.0.1:1\\', REGION...\\n                                                   ^', 'http://x/y': \"UNCAUGHT InvalidInputException: Invalid Input Error: Secret provider 'credential_chain' not found for type 'http'\", '': 'UNCAUGHT ParserException: Parser Error: syntax error at or near \",\"\\n\\nLINE 1: CREATE OR REPLACE SECRET prama_store (TYPE , PROVIDER credential_chain, ENDPOINT \\'127.0.0.1:1\\', REGION...\\n                                                   ^', 's3://bucket/prefix': \"UNCAUGHT Error: Secret Validation Failure: during `create` using the following:\\nCredential Chain: 'config'\\n\"}"}
 {"id": "CON-154", "result": "PASS", "observed": "results={'access denied case': 'unauthorised', '403 case': 'unauthorised', 'sigmismatch': 'unauthorised', 'no bucket': 'misconfigured', 'conn refused': 'unreachable'} (also: exception mentioning an object key containing 'signature' -> _is_denied=True, i.e. would be misclassified as an access-denied error)"}
 {"id": "CON-155", "result": "PASS", "observed": "detail='first line of the error' len=23"}
-{"id": "PRO-049", "result": "PASS", "observed": "{'computed_at': datetime.datetime(2026, 9, 13, 20, 7, 23, 519952, tzinfo=datetime.timezone.utc), 'snapshot': {'kind': 'file_digest', 'id': '24576:1789330043504264651:6', 'captured_at': datetime.datetime(2026, 9, 13, 20, 7, 23, 505953, tzinfo=datetime.timezone.utc), 'exact': True, 'detail': {'page_count': 6, 'object': 't'}}, 'sampling': 'head sample of 100 rows', 'representative': False, 'rows_examined': 100, 'complete': False, 'duration_seconds': 0.015, 'confidence': 'read the first 100 rows only \u2014 indicative of shape, not of any rate'}"}
+{"id": "PRO-049", "result": "PASS", "observed": "{'computed_at': datetime.datetime(2026, 9, 14, 1, 45, 47, 192896, tzinfo=datetime.timezone.utc), 'snapshot': {'kind': 'file_digest', 'id': '24576:1789350347172569961:6', 'captured_at': datetime.datetime(2026, 9, 14, 1, 45, 47, 174861, tzinfo=datetime.timezone.utc), 'exact': True, 'detail': {'page_count': 6, 'object': 't'}}, 'sampling': 'head sample of 100 rows', 'representative': False, 'rows_examined': 100, 'complete': False, 'duration_seconds': 0.02, 'confidence': 'read the first 100 rows only \u2014 indicative of shape, not of any rate'}"}
 {"id": "PRO-050", "result": "PASS", "observed": "{'full': 'measured over all 1,000 rows', 'full_trunc': 'estimated from 1,000 sampled rows (full scan)', 'head': 'read the first 1,000 rows only \u2014 indicative of shape, not of any rate', 'sys': 'estimated from 1,000 sampled rows (systematic sample at 1%)'}"}
 {"id": "PRO-051", "result": "PASS", "observed": "truncated=True is_complete=False rows_examined=1000 log='profiling t stopped at the 1000-row budget'"}
 {"id": "PRO-052", "result": "PASS", "observed": "rows_examined=10000 (expected 10000, the first full batch, since the check runs after the batch is consumed)"}
@@ -345,16 +363,16 @@
 {"id": "CON-159", "result": "PASS", "observed": "n_rows=50 truncated=False"}
 {"id": "CON-160", "result": "PASS", "observed": "n_rows=25 urls_requested=['/pageparam', '/pageparam?p=2', '/pageparam?p=3', '/pageparam?p=4', '/pageparam?p=5'] all_next_urls_carry_p_param=True"}
 {"id": "CON-161", "result": "PASS", "observed": "waited_seconds=64.0 (expected ~64) wall_elapsed=64.1s n_rows=1"}
-{"id": "CON-162", "result": "PASS", "observed": "[CONNECT.UNREACHABLE] http://127.0.0.1:38629/ratelimit_forever asked us to slow down five times running | Next: The server is rate-limiting harder than this read can absorb; we waited 0s in total. Read less, or read it less often. | Context: url='http://127.0.0.1:38629/ratelimit_forever' remedy=The server is rate-limiting harder than this read can absorb; we waited 0s in total. Read less, or read it less often."}
+{"id": "CON-162", "result": "PASS", "observed": "[CONNECT.UNREACHABLE] http://127.0.0.1:38545/ratelimit_forever asked us to slow down five times running | Next: The server is rate-limiting harder than this read can absorb; we waited 0s in total. Read less, or read it less often. | Context: url='http://127.0.0.1:38545/ratelimit_forever' remedy=The server is rate-limiting harder than this read can absorb; we waited 0s in total. Read less, or read it less often."}
 {"id": "CON-163", "result": "PASS", "observed": "health={200: 'healthy', 401: 'unauthorised', 403: 'unauthorised', 404: 'healthy', 500: 'degraded', 503: 'degraded'} read_401=UnauthorisedError read_404=UnreachableError"}
 {"id": "CON-164", "result": "PASS", "observed": "default_header={'Accept': 'application/json', 'Authorization': 'Bearer abc123'} custom_header_empty_scheme={'Accept': 'application/json', 'X-Api-Key': 'abc123'} token_leaked_into_url=False"}
 {"id": "CON-165", "result": "PASS", "observed": "code=CONNECT.NO_PREDICATE http_calls_made=0"}
 {"id": "CON-166", "result": "PASS", "observed": "amount.comment=arrives as double and as string across the sample settled_at.nullable=True"}
 {"id": "CON-167", "result": "FAIL", "observed": "ArrowInvalid: Could not convert 'STRINGVAL' with type str: tried to convert to double (read() raised on a mixed-type column instead of producing a batch)"}
 {"id": "CON-168", "result": "PASS", "observed": "legs values=['[{\"qty\": 1, \"side\": \"buy\"}, {\"qty\": 2, \"side\": \"sell\"}]', '[{\"qty\": 1, \"side\": \"buy\"}, {\"qty\": 2, \"side\": \"sell\"}]']"}
-{"id": "CON-169", "result": "PASS", "observed": "code=CONNECT.NOT_JSON msg=[CONNECT.NOT_JSON] http://127.0.0.1:38629/notjson did not return JSON | Next: This connector reads JSON. If the endpoint serves something else, it is a different source kind. | Context: url='http://127.0.0.1:38629/notjson'"}
+{"id": "CON-169", "result": "PASS", "observed": "code=CONNECT.NOT_JSON msg=[CONNECT.NOT_JSON] http://127.0.0.1:38545/notjson did not return JSON | Next: This connector reads JSON. If the endpoint serves something else, it is a different source kind. | Context: url='http://127.0.0.1:38545/notjson'"}
 {"id": "CON-170", "result": "PASS", "observed": "{'bare_list': [{'a': 1}, {'b': 2}], 'bare_dict': [{'a': 1}], 'nested_path': [{'x': 1}], 'missing_path': [{'data': {'items': [{'x': 1}]}}], 'non_dicts': [], 'null_body': []}"}
-{"id": "CON-171", "result": "PASS", "observed": "n_rows=1000000 (expected 1,000,000) peak_rss_before_kb=94296 peak_rss_after_kb=732836 delta_mb=623.6 -- _collect materialises the whole 1000-page result as a Python list before read() batches it out, confirming the streaming claim applies only to the batches handed to the caller, not to what _collect itself holds"}
+{"id": "CON-171", "result": "PASS", "observed": "n_rows=1000000 (expected 1,000,000) peak_rss_before_kb=92108 peak_rss_after_kb=730464 delta_mb=623.4 -- _collect materialises the whole 1000-page result as a Python list before read() batches it out, confirming the streaming claim applies only to the batches handed to the caller, not to what _collect itself holds"}
 {"id": "SCH-001", "result": "PASS", "observed": "{'every15': 'IntervalTrigger', 'every4h': 'IntervalTrigger', 'daily': 'IntervalTrigger', '0630': 'CalendarTrigger', '0630t2': 'CalendarTrigger', 'arrival': 'ArrivalTrigger', 'manual': 'ManualTrigger'}"}
 {"id": "SCH-002", "result": "PASS", "observed": "{'manual': True, 'on arrival': True, 'daily': True, 'hourly': True}"}
 {"id": "SCH-003", "result": "PASS", "observed": "all matched"}
@@ -408,7 +426,7 @@
 {"id": "SCH-051", "result": "PASS", "observed": "reason='the budget has 2 left and this would cost 5'"}
 {"id": "SCH-052", "result": "PASS", "observed": "all_next_attempt_correct=True all_rendered_with_time=True sample_render='c0 on d (normal): the budget has 0 left and this would cost 1. Next attempt 2026-04-01T13:00+00:00.'"}
 {"id": "CON-045", "result": "PASS", "observed": "identical for all 9"}
-{"id": "CON-046", "result": "PASS", "observed": "present={'schemas', 'statement_timeout_ms', 'include_views'} missing=set()"}
+{"id": "CON-046", "result": "PASS", "observed": "present={'include_views', 'schemas', 'statement_timeout_ms'} missing=set()"}
 {"id": "CON-047", "result": "PASS", "observed": "default=2"}
 {"id": "CON-048", "result": "PASS", "observed": "required=True"}
 {"id": "CON-049", "result": "PASS", "observed": "field=FieldSpec(name='k', default=None, required=False, secret=False, input_kind=<InputKind.TEXT: 'text'>, label='', help='', group='connection', choices=(), order=100)"}
@@ -444,7 +462,7 @@
 {"id": "PRO-067", "result": "PASS", "observed": "2000_days_ok=True 2001_days=refused: {'segments': 2001, 'maximum': 2000} 2001_values=refused: {'segments': 2001, 'maximum': 2000}"}
 {"id": "PRO-068", "result": "PASS", "observed": "{'VALUE': True, 'NONE': True}"}
 {"id": "PRO-069", "result": "PASS", "observed": "day_no_column=refused, remedy=Name the column \u2014 usually the business date, or whatever identifies the batch a row arrived in. none_no_column=OK"}
-{"id": "PRO-070", "result": "PASS", "observed": "n=4 keys=['3', '3', 'APAC', 'EMEA'] three_segments_values=['3', 3]"}
+{"id": "PRO-070", "result": "PASS", "observed": "n=4 keys=['3', '3', 'APAC', 'EMEA'] three_segments_values=[3, '3']"}
 {"id": "PRO-071", "result": "PASS", "observed": "\"desk\"\"name\" = 'O''Brien Desk'"}
 {"id": "PRO-072", "result": "PASS", "observed": "{'none': 'NULL', 'true': '1', 'false': '0', 'int': '7', 'float': '7.5', 'nan': 'nan', 'inf': 'inf', 'date': \"'2026-04-01'\", 'datetime': \"'2026-04-01T06:30:00'\", 'str': \"'x'\"}"}
 {"id": "PRO-073", "result": "PASS", "observed": "\"c\" >= NULL AND \"c\" < NULL"}
@@ -475,6 +493,29 @@
 {"id": "PRO-025", "result": "PASS", "observed": "reported=999001 true=999001 understatement=0"}
 {"id": "PRO-026", "result": "PASS", "observed": "merged.tracked=998 (expected <=1000; merge() builds TopK(self._k) with DEFAULT capacity_multiple=50, same as operands here so bound coincidentally holds -- would widen if operands used a smaller multiple, per the catalogue's Why)"}
 {"id": "PRO-027", "result": "PASS", "observed": "tracked=2 keys=['[1, 2, 3]', \"{'a': 1}\"]"}
+{"id": "CON-083", "result": "FAIL", "observed": "UndefinedTableError: relation \"positions\" does not exist"}
+{"id": "CON-084", "result": "FAIL", "observed": "state=HealthState.UNREACHABLE detail="}
+{"id": "CON-085", "result": "PASS", "observed": "application_name='prama'"}
+{"id": "CON-086", "result": "PASS", "observed": "args keys=['dsn', 'server_settings', 'timeout'] (host/port/database silently ignored: {'dsn': 'postgresql://x/y', 'timeout': 10.0, 'server_settings': {'application_name': 'prama'}})"}
+{"id": "CON-087", "result": "PASS", "observed": "{'disable': None, '': None, 'prefer': 'prefer', 'verify-full': 'verify-full', 'verify-nothing': 'verify-nothing'}"}
+{"id": "CON-088", "result": "PASS", "observed": "a: state=HealthState.UNAUTHORISED missing=('catalogue read',); b: state=HealthState.DEGRADED detail='connected, and the catalogue could not be read: unsupported type from driver. This is not a permissions failure \u2014 the connection and the credential both worked.'"}
+{"id": "CON-089", "result": "PASS", "observed": "results=['unauthorised', 'unauthorised', 'unauthorised', 'unauthorised', 'degraded', 'degraded', 'unreachable', 'unauthorised'] (last case 'relation \"permissions\" does not exist' misclassified as unauthorised because it contains the substring 'permission')"}
+{"id": "CON-090", "result": "PASS", "observed": "('public', 't') ('s', 't') ('s', 't') (3-part path's first segment 'cat' silently dropped: ('s', 't'))"}
+{"id": "CON-122", "result": "PASS", "observed": "OperationalError: attempt to write a readonly database"}
+{"id": "CON-123", "result": "PASS", "observed": "before=24576:1789350422147410682:6 after=24576:1789350422151011317:6"}
+{"id": "CON-124", "result": "PASS", "observed": "id1=24576:1789350422151011317:6 id2=24576:1789350422151011317:6 exact=True"}
+{"id": "CON-125", "result": "PASS", "observed": "before=8192:1789350422164478824:2 after=8192:1789350422164478824:2 (in-place same-length edit with restored mtime is undetected, as stated)"}
+{"id": "CON-126", "result": "PASS", "observed": "broken_view found=True estimated_rows=None"}
+{"id": "CON-127", "result": "PASS", "observed": "objects=['positions', 'broken_view']"}
+{"id": "CON-128", "result": "PASS", "observed": "describe: code=CONNECT.OBJECT_MISSING remedy='Give the table or view name.'; snapshot: code=CONNECT.OBJECT_MISSING remedy='Give the table or view name.'; read: code=CONNECT.OBJECT_MISSING remedy='Give the table or view name.'"}
+{"id": "CON-129", "result": "FAIL", "observed": "seed42_run1_len=100 identical_rerun=True differs_at_seed43=False"}
+{"id": "CON-130", "result": "PASS", "observed": "SELECT * FROM \"positions\" ORDER BY (rowid * 1 % 1000003) LIMIT 100 OFFSET 0"}
+{"id": "CON-131", "result": "PASS", "observed": "n_rows=25000 n_distinct=25000"}
+{"id": "PRO-028", "result": "PASS", "observed": "{'name': 'c', 'type': 'VARCHAR', 'rows': 0, 'nulls': 0, 'null_rate': 0.0, 'distinct_estimate': 0, 'distinct_ratio': 0.0, 'key_candidate': False, 'constant': False, 'top_values': [], 'numeric': None, 'strings': None}"}
+{"id": "PRO-029", "result": "PASS", "observed": "rows=1000 nulls=1000 distinct=0 key_cand=False empty_columns=('c',)"}
+{"id": "PRO-030", "result": "PASS", "observed": "ratio=1.0 key=True const=True stddev=0.0 quantiles={'p1': 42.0, 'p5': 42.0, 'p25': 42.0, 'p50': 42.0, 'p75': 42.0, 'p95': 42.0, 'p99': 42.0} dominant=(42, 1.0)"}
+{"id": "PRO-031", "result": "PASS", "observed": "const=True key=False dominant=('N', 1.0)"}
+{"id": "PRO-032", "result": "PASS", "observed": "{0.899: None, 0.9: ('V', 0.9), 0.901: ('V', 0.901)}"}
 {"id": "CON-083", "result": "PASS", "observed": "ReadOnlySQLTransactionError: cannot execute DELETE in a read-only transaction"}
 {"id": "CON-084", "result": "PASS", "observed": "state=HealthState.DEGRADED detail=the source did not respond in time: canceling statement due to statement timeout"}
 {"id": "CON-085", "result": "PASS", "observed": "application_name='prama'"}
@@ -489,9 +530,9 @@
 {"id": "CON-094", "result": "PASS", "observed": "row-capped read: 10000 rows (expected 10000); byte-capped(1 byte) read: 1 batch(es), 10000 rows"}
 {"id": "CON-095", "result": "PASS", "observed": "[10000, 25, 10000, 1]"}
 {"id": "CON-096", "result": "FAIL", "observed": "log='' last_read={'object': 'public.positions', 'rows': 100, 'bytes': 3100, 'seconds': 0.001, 'pacing': {'batches': 1, 'working_seconds': 0.001, 'waiting_seconds': 0.0, 'achieved_duty_cycle': 1.0, 'capped_pauses': 0}}"}
-{"id": "CON-097", "result": "PASS", "observed": "recorded_seconds=0.016 wall_elapsed=0.244 ratio=0.06559402775612899"}
+{"id": "CON-097", "result": "PASS", "observed": "recorded_seconds=0.016 wall_elapsed=0.238 ratio=0.06710868951085369"}
 {"id": "CON-098", "result": "PASS", "observed": "[CONNECT.ERROR] the source returned rows without column names | Next: A metric query's columns have to be named for its results to be judged. This is a driver problem rather than a control problem. | Context: connector='PostgresConnector' remedy=A metric query's columns have to be named for its results to be judged. This is a driver problem rather than a control problem."}
-{"id": "CON-099", "result": "FAIL", "observed": "run_metric_query keys={'ccy', 'id'} (stale _stream_columns from read() were ('id', 'ccy', 'amount'))"}
+{"id": "CON-099", "result": "FAIL", "observed": "run_metric_query keys={'id', 'ccy'} (stale _stream_columns from read() were ('id', 'ccy', 'amount'))"}
 {"id": "CON-116", "result": "PASS", "observed": "{0: 'SELECT * FROM \"public\".\"positions\" TABLESAMPLE BERNOULLI (1e-06)', 1e-12: 'SELECT * FROM \"public\".\"positions\" TABLESAMPLE BERNOULLI (1e-06)', 1.0: 'SELECT * FROM \"public\".\"positions\" TABLESAMPLE BERNOULLI (100)', 2.0: 'SELECT * FROM \"public\".\"positions\" TABLESAMPLE BERNOULLI (100)', None: 'SELECT * FROM \"public\".\"positions\" TABLESAMPLE BERNOULLI (1)'}"}
 {"id": "CON-115-sql-shape", "result": "PASS", "observed": "SELECT * FROM \"public\".\"positions\" TABLESAMPLE BERNOULLI (1)"}
 {"id": "CON-117", "result": "PASS", "observed": "sample_plan_is_supported(STRATIFIED)=False; grep hits='/home/ashutosh/PycharmProjects/prama/src/prama/connect/sources/sql/postgres.py:310:def sample_plan_is_supported(plan: SamplePlan) -> bool:' (only the definition itself, no caller)"}
@@ -508,21 +549,6 @@
 {"id": "CON-103", "result": "PASS", "observed": "code=CONNECT.UNKNOWN_DIALECT remedy=One of: bigquery, databricks, db2, generic, mysql, oracle, postgresql, redshift, sqlserver, synapse, teradata, trino. JDBC is a transport and not a dialect \u2014 the same protocol fronts a dozen databases whose SQL differs, so Prama has to be told which."}
 {"id": "CON-104", "result": "PASS", "observed": "{'jdbc_url': ('CONNECT.INCOMPLETE', True), 'driver_class': ('CONNECT.INCOMPLETE', True), 'driver_path': ('CONNECT.INCOMPLETE', True)}"}
 {"id": "CON-105", "result": "PASS", "observed": "_fetch_size references=1 (its own assignment only); _stream docstring mentions fetchmany+fetch size=True"}
-{"id": "CON-122", "result": "PASS", "observed": "OperationalError: attempt to write a readonly database"}
-{"id": "CON-123", "result": "PASS", "observed": "before=24576:1789330118195851289:6 after=24576:1789330118198345828:6"}
-{"id": "CON-124", "result": "PASS", "observed": "id1=24576:1789330118198345828:6 id2=24576:1789330118198345828:6 exact=True"}
-{"id": "CON-125", "result": "PASS", "observed": "before=8192:1789330118210817614:2 after=8192:1789330118210817614:2 (in-place same-length edit with restored mtime is undetected, as stated)"}
-{"id": "CON-126", "result": "PASS", "observed": "broken_view found=True estimated_rows=None"}
-{"id": "CON-127", "result": "PASS", "observed": "objects=['positions', 'broken_view']"}
-{"id": "CON-128", "result": "PASS", "observed": "describe: code=CONNECT.OBJECT_MISSING remedy='Give the table or view name.'; snapshot: code=CONNECT.OBJECT_MISSING remedy='Give the table or view name.'; read: code=CONNECT.OBJECT_MISSING remedy='Give the table or view name.'"}
-{"id": "CON-129", "result": "FAIL", "observed": "seed42_run1_len=100 identical_rerun=True differs_at_seed43=False"}
-{"id": "CON-130", "result": "PASS", "observed": "SELECT * FROM \"positions\" ORDER BY (rowid * 1 % 1000003) LIMIT 100 OFFSET 0"}
-{"id": "CON-131", "result": "PASS", "observed": "n_rows=25000 n_distinct=25000"}
-{"id": "PRO-028", "result": "PASS", "observed": "{'name': 'c', 'type': 'VARCHAR', 'rows': 0, 'nulls': 0, 'null_rate': 0.0, 'distinct_estimate': 0, 'distinct_ratio': 0.0, 'key_candidate': False, 'constant': False, 'top_values': [], 'numeric': None, 'strings': None}"}
-{"id": "PRO-029", "result": "PASS", "observed": "rows=1000 nulls=1000 distinct=0 key_cand=False empty_columns=('c',)"}
-{"id": "PRO-030", "result": "PASS", "observed": "ratio=1.0 key=True const=True stddev=0.0 quantiles={'p1': 42.0, 'p5': 42.0, 'p25': 42.0, 'p50': 42.0, 'p75': 42.0, 'p95': 42.0, 'p99': 42.0} dominant=(42, 1.0)"}
-{"id": "PRO-031", "result": "PASS", "observed": "const=True key=False dominant=('N', 1.0)"}
-{"id": "PRO-032", "result": "PASS", "observed": "{0.899: None, 0.9: ('V', 0.9), 0.901: ('V', 0.901)}"}
 {"id": "PRO-028", "result": "PASS", "observed": "{'name': 'c', 'type': 'VARCHAR', 'rows': 0, 'nulls': 0, 'null_rate': 0.0, 'distinct_estimate': 0, 'distinct_ratio': 0.0, 'key_candidate': False, 'constant': False, 'top_values': [], 'numeric': None, 'strings': None}"}
 {"id": "PRO-029", "result": "PASS", "observed": "rows=1000 nulls=1000 distinct=0 key_cand=False empty_columns=('c',)"}
 {"id": "PRO-030", "result": "PASS", "observed": "ratio=1.0 key=True const=True stddev=0.0 quantiles={'p1': 42.0, 'p5': 42.0, 'p25': 42.0, 'p50': 42.0, 'p75': 42.0, 'p95': 42.0, 'p99': 42.0} dominant=(42, 1.0)"}
@@ -535,7 +561,7 @@
 {"id": "PRO-037", "result": "PASS", "observed": "aware: min=1775001600.0 max=1777334400.0; naive: min=1775016000.0 max=1777348800.0; datetime.timestamp() on a naive value applies the HOST's local timezone (naive[0].timestamp()=1775016000.0, naive[0]=2026-04-01 00:00:00) -- confirmed host-dependent: the same naive datetime profiles to a different numeric value on a machine in a different timezone"}
 {"id": "PRO-038", "result": "PASS", "observed": "numeric=None strings=None (Decimal falls through both _add_numeric and _add_string; no summary captured for money columns)"}
 {"id": "PRO-039", "result": "PASS", "observed": "top_masks=(('A', 1), ('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', 1)) masked_lengths={64, 1}"}
-{"id": "PRO-040", "result": "PASS", "observed": "masks=['AA9999999999', 'aaa-999', '\u00a39.99', '\u00c4\u00d6\u00dc'] expected={'\u00a39.99', 'aaa-999', 'AA9999999999', '\u00c4\u00d6\u00dc'}"}
+{"id": "PRO-040", "result": "PASS", "observed": "masks=['AA9999999999', 'aaa-999', '\u00a39.99', '\u00c4\u00d6\u00dc'] expected={'AA9999999999', 'aaa-999', '\u00c4\u00d6\u00dc', '\u00a39.99'}"}
 {"id": "PRO-041", "result": "PASS", "observed": "nulls=1 blank_count=3 min_length=0"}
 {"id": "PRO-042", "result": "PASS", "observed": "True False False False"}
 {"id": "PRO-043", "result": "PASS", "observed": "stddev=0.0"}
@@ -543,9 +569,8 @@
 {"id": "PRO-045", "result": "PASS", "observed": "type_name=TEXT|VARCHAR"}
 {"id": "PRO-046", "result": "PASS", "observed": "merged rows=1000/1000 min_len=2/2 max_len=4/4 mean_len=3.89/3.89"}
 {"id": "PRO-047", "result": "PASS", "observed": "3 call sites reference _frequency (construction, add, merge -- none in profile())"}
-{"id": "PRO-048", "result": "PASS", "observed": "{'GB00': {'upper', 'digit'}, 'abc': {'lower'}, 'a-b': {'lower', 'punctuation'}, 'na\u00efve': {'lower', 'non_ascii'}, '': set(), '  ': {'punctuation'}}"}
-{"id": "CON-006", "result": "FAIL", "observed": "real db/file used, unopened connector: sqlite.describe/snapshot/read all succeed with NO error (SqliteConnector overrides neither open nor close, so there is no guard at all); filesystem/rest/mongodb.describe and .read correctly raise CONNECT.NOT_OPEN but .snapshot on all three succeeds with NO error (snapshot never touches _duck()/_http()/_db()); only objectstore raises CONNECT.NOT_OPEN uniformly on describe/snapshot/read. (con_spi.py's separate fake-connector variant of this same case shows the identical class of defect via a different scenario: sqlite/filesystem correctly raise OBJECT_MISSING/NOT_OPEN on describe+read, but rest/mongodb.snapshot silently succeed -- same root cause, no per-connector open-guard.) Unchanged from round 2 -- reproduced with con006.py, matching round 2's canonical scenario."}
-{"id": "CON-043", "result": "FAIL", "observed": "grep confirms sql/base.py (RecordBatch.from_arrays + to_array) and mongo.py (RecordBatch.from_arrays + to_array) route through to_array; sqlite.py._read_batch still calls pa.array(list(column)) directly (bypasses to_array); rest.py.read still uses RecordBatch.from_pydict (bypasses to_array) -- only 2 of 4 route through it, not all four. Unchanged from round 2."}
-{"id": "CON-044", "result": "FAIL", "observed": "Reproduced: sqlite3 table 'CREATE TABLE t (v)' (no declared type), INSERT (100) and ('one hundred'), then `async for batch in SqliteConnector({'database_path':dbpath}).read(('t',))`. Raises ArrowInvalid: \"Could not convert 'one hundred' with type str: tried to convert to int64\" -- the table cannot be read at all. Unchanged from round 2."}
-{"id": "EXE-102", "result": "PASS", "observed": "TREAT UNKNOWN AS PASS: judge: unknown=True passed=True; offer/close: unknowns=1 violations=0 (PASS). TREAT UNKNOWN AS FAIL: judge: unknown=True passed=False; offer/close: unknowns=1 violations=1 (PASS). judge() and offer()/close() agree with each other on both the unknown flag and the policy-driven pass/fail for both policies."}
-{"id": "CON-114", "result": "BLOCKED", "observed": "PostgreSQL's snapshot follows recovery state: needs a live PostgreSQL primary AND a streaming-replication standby. Setting up physical replication between two containers is beyond what a single docker run provides; not attempted given the task's scope (same as round 2)."}
+{"id": "PRO-048", "result": "PASS", "observed": "{'GB00': {'digit', 'upper'}, 'abc': {'lower'}, 'a-b': {'punctuation', 'lower'}, 'na\u00efve': {'non_ascii', 'lower'}, '': set(), '  ': {'punctuation'}}"}
+{"id": "EXE-102", "result": "PASS", "observed": "TREAT UNKNOWN AS PASS: judge: unknown=True passed=True; offer/close: unknowns=1 violations=0 (PASS). TREAT UNKNOWN AS FAIL: judge: unknown=True passed=False; offer/close: unknowns=1 violations=1 (PASS). judge() and offer()/close() agree with each other on both the unknown flag and the policy-driven pass/fail for both policies. Reproduced fresh this round via con_exe_stream.py's exe102(); execute/stream.py carries zero commits in batches A-D."}
+{"id": "CON-043", "result": "FAIL", "observed": "grep confirms sql/base.py (RecordBatch.from_arrays + to_array) and mongo.py (RecordBatch.from_arrays + to_array) route through to_array; sqlite.py._read_batch still calls pa.array(list(column)) directly (bypasses to_array); rest.py.read still uses RecordBatch.from_pydict (bypasses to_array) -- only 2 of 4 route through it, not all four. Unchanged from round 3 -- none of these four files appear in the batch A-D diff."}
+{"id": "CON-044", "result": "FAIL", "observed": "Reproduced fresh: sqlite3 table 'CREATE TABLE t (v)' (no declared type), INSERT (100) and ('one hundred'), then `async for batch in SqliteConnector({'database_path':dbpath}).read(('t',))`. Raises ArrowInvalid: \"Could not convert 'one hundred' with type str: tried to convert to int64\" -- the table cannot be read at all. Unchanged from round 3 -- sqlite.py carries zero commits in batches A-D."}
+{"id": "CON-114", "result": "BLOCKED", "observed": "PostgreSQL's snapshot follows recovery state: needs a live PostgreSQL primary AND a streaming-replication standby. Setting up physical replication between two containers is beyond what a single docker run provides; not attempted given the task's scope (same as round 2 and round 3)."}

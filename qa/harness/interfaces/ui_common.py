@@ -38,8 +38,15 @@ class UiEnv:
         "admin": ("Everything, including creating other people.", ["*"]),
         "owner": (
             "Declares datasets and approves controls.",
+            # Kept in sync with prama.cli.principal.BUILTIN_ROLES by hand (this
+            # dict is a harness fixture, not an import of the product's own
+            # table). Round 4: the product's owner gained "attestation:read"
+            # (Batch A, Q-67) so it can read what it signs; this copy had gone
+            # stale and was still missing it, which would have silently masked
+            # a re-check of that exact fix for every UI script that builds an
+            # "owner" principal through UiEnv.create_principal.
             ["declaration:*", "relationship:*", "control:approve", "control:read",
-             "attestation:sign", "evidence:read", "report:read"],
+             "attestation:sign", "attestation:read", "evidence:read", "report:read"],
         ),
         "steward": (
             "Works incidents and breaks; proposes controls but does not approve them.",
