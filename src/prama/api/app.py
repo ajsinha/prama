@@ -13,9 +13,16 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from prama.api.deps import new_correlation_id
-from prama.api.errors import prama_error_handler, unexpected_error_handler
+from prama.api.errors import (
+    prama_error_handler,
+    router_error_handler,
+    unexpected_error_handler,
+    validation_error_handler,
+)
 from prama.api.routes import estate, graph, meta, semantic
 from prama.core.config import Configuration, load_configuration
 from prama.core.errors import PramaError
@@ -83,6 +90,12 @@ def create_app(config: Configuration | None = None, *, database: Database | None
     )
 
     app.add_exception_handler(PramaError, prama_error_handler)
+    # Starlette and FastAPI answer these two with their own handlers unless we
+    # claim them, producing bare `{"detail": ...}` JSON. They are the errors a
+    # caller hits most — a mistyped path and a malformed parameter — and they
+    # were the only ones this API did not emit as problem+json. QA round 4, B1.
+    app.add_exception_handler(StarletteHTTPException, router_error_handler)
+    app.add_exception_handler(RequestValidationError, validation_error_handler)
     app.add_exception_handler(Exception, unexpected_error_handler)
 
     @app.middleware("http")

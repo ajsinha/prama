@@ -44,10 +44,24 @@ class OperationsRoutes(UiRoutes):
     """The run-backed screens."""
 
     def register(self) -> None:
-        self.page("/incidents", self.incident_list, name="incident_list")
-        self.page("/reconciliation", self.reconciliation_list, name="reconciliation_list")
-        self.page("/scorecards", self.scorecard_list, name="scorecard_list")
-        self.page("/evidence", self.evidence_chain, name="evidence_chain")
+        # Each screen names its own scope. There is no class-level `SUBJECT`
+        # because these four serve four different subjects, and without one they
+        # all fell back to `UiRoutes.DEFAULT_READ` — `declaration:read`. So a
+        # caller granted the scope for browsing the dataset catalogue could also
+        # read every incident, break, scorecard and evidence record.
+        #
+        # `TriageRoutes` sets `SUBJECT = "incident"` and got this right, which is
+        # how the omission surfaced: the incident *detail* route required
+        # `incident:read` while the incident *list* did not. QA round 4, UI-009.
+        self.page("/incidents", self.incident_list, name="incident_list", scope="incident:read")
+        self.page(
+            "/reconciliation",
+            self.reconciliation_list,
+            name="reconciliation_list",
+            scope="break:read",
+        )
+        self.page("/scorecards", self.scorecard_list, name="scorecard_list", scope="report:read")
+        self.page("/evidence", self.evidence_chain, name="evidence_chain", scope="evidence:read")
 
     async def _observation(self, caller: Caller, uow: Uow) -> dict[str, Any]:
         """What, if anything, has been observed for this tenant.
