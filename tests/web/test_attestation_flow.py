@@ -254,7 +254,17 @@ class TestImmutability:
             first_id = str(first.id)
         await ui.post(
             "/attestations/new",
-            data={**data, "statement": "Second.", "supersedes": first_id},
+            data={
+                **data,
+                "statement": "Second.",
+                "supersedes": first_id,
+                # Required since `UI-123`: superseding without saying why is an
+                # audit trail with a hole in exactly the interesting place. This
+                # test superseded with no reason and so was exercising a path
+                # the catalogue had always said should be refused — the sibling
+                # test twenty lines up already supplied one.
+                "supersedes_because": "the September figures were restated",
+            },
         )
         body = (await ui.get(f"/attestations/{first_id}")).text
         assert "was superseded" in body

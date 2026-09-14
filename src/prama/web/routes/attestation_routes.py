@@ -167,6 +167,21 @@ class AttestationRoutes(UiRoutes):
                 # answer twice over — it refuses, and it does not confirm that
                 # the id exists somewhere else.
                 await uow.attestations.in_tenant(supersedes, caller.tenant_id)
+                if not supersedes_because.strip():
+                    # Every other record here carries its justification -- a
+                    # control has BECAUSE, an incident its signals, a break its
+                    # explanation. The one record that says "what I previously
+                    # attested no longer stands" could be written with nothing
+                    # at all: an audit trail with a hole in exactly the
+                    # interesting place. QA round 4, UI-123.
+                    raise PramaError(
+                        "superseding an attestation needs a reason",
+                        remedy=(
+                            "Say why the earlier attestation no longer stands. "
+                            "A withdrawal nobody explained is the one an examiner "
+                            "will ask about first."
+                        ),
+                    )
                 attestation = dataclasses.replace(
                     attestation, supersedes=supersedes, supersedes_because=supersedes_because
                 )

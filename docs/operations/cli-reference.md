@@ -230,6 +230,7 @@ read, check, explain, compile and import controls
 |---|---|
 | `file` **required** | a .pql file |
 | `--strict` | treat lint warnings as errors, for a CI gate |
+| `--catalogue` | a JSON file of dataset schemas, from `prama lsp catalogue`; without it no column name or type is checked and each finding says so |
 **`prama control compile`**
 
 | Argument | Meaning |

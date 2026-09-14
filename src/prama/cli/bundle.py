@@ -61,6 +61,22 @@ def _public_key(path: str) -> object:
     return load_pem_public_key(Path(path).read_bytes())
 
 
+def _entry_field(entry: object, field: str, path: Path) -> object:
+    """One field of one manifest entry, or a refusal naming what is missing.
+
+    Indexed directly until round 4, so a hand-edited manifest produced a
+    `KeyError` with a bare field name and no indication of which file it came
+    from. QA `SEC-161`, `CLI-208`, `CLI-209`.
+    """
+    if not isinstance(entry, dict) or field not in entry:
+        raise ValidationError(
+            f"an entry in {path} has no {field!r}",
+            remedy="Every entry names its path, its sha256 and its size. Reseal the bundle.",
+            context={"path": str(path), "field": field},
+        )
+    return entry[field]
+
+
 def _load(root: Path) -> tuple[Manifest, str]:
     from prama.security.bundle import Entry
 
@@ -75,7 +91,37 @@ def _load(root: Path) -> tuple[Manifest, str]:
             ),
             context={"root": str(root)},
         )
-    payload = json.loads(path.read_text())
+    # A manifest that is not JSON, or is JSON missing a field this indexes
+    # directly below, used to reach the terminal as a json.decoder or KeyError
+    # traceback. The person holding the bundle is deciding whether to install
+    # it; a stack trace is not an answer to that question. QA round 4, B13.
+    try:
+        payload = json.loads(path.read_text())
+    except (OSError, ValueError) as exc:
+        raise ValidationError(
+            f"{path} is not readable as a manifest: {exc}",
+            remedy=(
+                "A bundle's manifest is JSON written by `prama bundle seal`. "
+                "If this was edited by hand, reseal it."
+            ),
+            context={"path": str(path)},
+        ) from None
+    if not isinstance(payload, dict):
+        raise ValidationError(
+            f"{path} does not hold a manifest object",
+            remedy="A manifest is a JSON object. Reseal the bundle.",
+            context={"path": str(path)},
+        )
+    missing = [key for key in ("product", "version", "created_at", "entries") if key not in payload]
+    if missing:
+        raise ValidationError(
+            f"{path} is missing {', '.join(missing)}",
+            remedy=(
+                "Every manifest names the product, its version, when it was "
+                "sealed and what it contains. Reseal the bundle."
+            ),
+            context={"path": str(path), "missing": ", ".join(missing)},
+        )
     # The declared hash is returned beside the manifest rather than folded into
     # it. It is what the *file* claims, and verification exists to compare that
     # claim against a recomputation — a Manifest rebuilt from this same JSON
@@ -88,10 +134,10 @@ def _load(root: Path) -> tuple[Manifest, str]:
         created_at=payload["created_at"],
         entries=tuple(
             Entry(
-                path=entry["path"],
-                sha256=entry["sha256"],
-                bytes=entry["bytes"],
-                kind=entry.get("kind", "other"),
+                path=_entry_field(entry, "path", path),
+                sha256=_entry_field(entry, "sha256", path),
+                bytes=_entry_field(entry, "bytes", path),
+                kind=entry.get("kind", "other") if isinstance(entry, dict) else "other",
             )
             for entry in payload["entries"]
         ),
