@@ -44,9 +44,27 @@ has_remove = "2" in out or "removed" in out.lower()
 ok = code == 3 and "added" in out.lower() and "removed" in out.lower()
 record("CLI-175", "PASS" if ok else "FAIL", f"code={code} out={out!r}")
 
-# CLI-176: --key naming a nonexistent column
+# CLI-176: --key naming a nonexistent column.
+#
+# The catalogue's Expected is "a refusal -- not a comparison in which every row
+# is both added and removed". The check was a match against four literal
+# phrases ("no such", "not present", "unknown", "does not"), none of which the
+# actual message uses: it says "the key column(s) pk are in neither side's
+# rows" and its remedy lists the columns that ARE present, which is strictly
+# more useful. A wording match makes a better message into a failure.
+#
+# What the case is actually about: a refusal rather than a diff, typed rather
+# than a traceback, and naming the column that was wrong so the typo is
+# obvious. QA round 4, harness repair.
 code, out, err = c.run(["contract", "diff", str(before), str(after), "--key", "pk"])
-ok = code != 0 and ("Traceback" not in err) and ("no such" in err.lower() or "not present" in err.lower() or "unknown" in err.lower() or "does not" in err.lower())
+combined = (out + err)
+ok = (
+    code != 0
+    and "Traceback" not in err
+    and "code:" in combined            # typed, not a bare message
+    and "pk" in combined               # names the column that does not exist
+    and "added" not in out.lower()     # and did NOT produce the alarming diff
+)
 record("CLI-176", "PASS" if ok else "FAIL", f"code={code} out={out[:150]!r} err={err[:250]!r}")
 
 # CLI-177: --ignore excludes a column from comparison only

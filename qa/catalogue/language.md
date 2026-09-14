@@ -53,9 +53,15 @@ it does. A case that turns out green is not wasted: it retires a doubt.
 - **Type:** functional
 - **Priority:** P1
 - **Precondition:** none
-- **Steps:** tokenise `CHECK t."odd name" MATCHES /^A/ AND n > $d, 1.5e3 -- tail`
+- **Steps:** tokenise `CHECK t."odd name" MATCHES /^A/ AND n > $d AND s = 'x', 1.5e3 -- tail`
 - **Expected:** one token of each of KEYWORD, IDENTIFIER, NUMBER, STRING, REGEX, PARAMETER, OPERATOR, PUNCTUATION, and a terminating END
-- **Why:** nine kinds are declared; a kind nothing produces is a branch the parser carries for no reason, and a kind nothing consumes is a hole
+- **Why:** nine kinds are declared; a kind nothing produces is a branch the parser carries for no reason, and a kind nothing consumes is a hole.
+
+  The probe carried no single-quoted literal until round 4, so `STRING` could
+  not appear however correct the lexer was, and the case failed against working
+  code from the day it was written. A case whose Steps cannot produce what its
+  Expected demands is not a strict test — it is a test of nothing, reported as a
+  defect in the thing it never exercised. `AND s = 'x'` supplies the ninth kind.
 
 ### PQL-002 · An empty source tokenises to exactly one END token
 - **Area:** `pql/tokens.py::tokenise`

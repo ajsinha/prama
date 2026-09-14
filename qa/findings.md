@@ -1274,6 +1274,57 @@ pattern is consistent enough to name: **writing a test against an interface from
 memory produces a red that means nothing**, and red is exactly the colour that
 stops people looking closer.
 
+### Q-82 · `control check` type-checks against an empty catalogue — the CI gate cannot type-check
+
+`CLI-109` and `CLI-110` were reported by the round-4 triage as "structurally
+unreachable — a harness fixture conflict, not a product bug", on the reasoning
+that they share a fixture with `CLI-111`/`CLI-112` which deliberately leaves a
+dataset undeclared. Checked before repairing the fixture, and the diagnosis is
+wrong in the more interesting direction.
+
+`cli/control.py:55` reads:
+
+```python
+checker = TypeChecker(Catalogue())
+```
+
+An empty catalogue, unconditionally, with no option to supply one — `prama
+control check --help` offers only `--strict`. So:
+
+- every dataset reference resolves to `[unchecked] nothing is known about …`,
+  so a clean file never prints "Nothing to report." (`CLI-109`);
+- a column's type is unknowable, so a type error cannot be detected at all
+  (`CLI-110`).
+
+Neither case can pass, and no fixture makes them pass.
+
+**The command's own help says "parse, type-check and lint", and `CLAUDE.md`
+lists it as the CI gate**: `prama control check suite.pql — parse, type-check
+and lint; non-zero on error`. Two of those three work. The type-check is
+advertised, wired, and given nothing to check against.
+
+The mechanism exists everywhere else. `web/routes/control_routes.py::_catalogue`
+builds one from the estate's declarations, and its docstring explains why that
+must be derived rather than restated. `prama lsp catalogue --tenant acme --out
+cat.json` exports exactly that for an editor, and `prama lsp serve --catalogue`
+consumes it. The console can type-check a control; the CI gate cannot.
+
+Same shape as [[Q-63]] — a capability present in the server and absent from the
+CLI — and the same consequence: a person runs the gate, sees it pass, and
+believes something was checked.
+
+**Not fixed here.** The repair is a `--catalogue` argument taking what `lsp
+catalogue` already writes, and/or reading declarations when a database is
+configured, which is a decision about how the CLI reaches the estate rather than
+a bug to patch. Recorded with the two cases attached so the next batch has them.
+
+**What this cost to find, and why it is the third of its kind today.** The
+triage looked at two failing cases that shared a fixture with two passing ones
+and concluded the fixture was at fault. That is a plausible reading and it
+stopped one step early. So did I, in [[Q-81]], three times over on API
+signatures. A diagnosis that explains the symptom is not the same as one that
+has been checked — and the check here was one `--help` away.
+
 ---
 
 ## What held
