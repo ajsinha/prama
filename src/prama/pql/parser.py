@@ -46,12 +46,21 @@ NON_DETERMINISTIC: frozenset[str] = frozenset(
 AGGREGATES: frozenset[str] = frozenset({"COUNT", "SUM", "AVG", "MIN", "MAX", "MEDIAN", "STDDEV"})
 
 #: Binary operator precedence, loosest first.
-PRECEDENCE: tuple[tuple[str, ...], ...] = (
-    ("OR",),
-    ("AND",),
-    ("=", "<>", "!=", ">", ">=", "<", "<="),
-    ("+", "-", "||"),
-    ("*", "/", "%"),
+#: Derived from `ast.PRECEDENCE_LEVELS`, never written out again. The two used
+#: to be separate lists with a comment asking them to agree, and they did not —
+#: `!=` was here and missing from `BINDING`, so the renderer scored it tighter
+#: than multiplication. QA `PQL-198`, `PQL-199`.
+#:
+#: Two differences from the shared ordering, both deliberate. `NOT` is dropped:
+#: it is parsed in the unary chain via `NOT_LEVEL` rather than by the binary
+#: loop. And the surface aliases are added back at the level of the operator
+#: they spell, because this table describes what the parser *reads* — `BINDING`
+#: describes what the renderer *writes*, and no node ever carries an alias.
+PRECEDENCE: tuple[tuple[str, ...], ...] = tuple(
+    tuple(level)
+    + tuple(alias for alias, canonical in ast.OPERATOR_ALIASES.items() if canonical in level)
+    for level in ast.PRECEDENCE_LEVELS
+    if level != ("NOT",)
 )
 
 #: Where the keyword predicates — IS NULL, IN, BETWEEN, MATCHES, LIKE — bind.

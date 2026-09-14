@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import dataclasses
 import enum
-from typing import Any
+from typing import Any, Final
 
 from prama.pql.errors import Position
 
@@ -96,37 +96,63 @@ class Node:
 # -- expressions -----------------------------------------------------------
 
 
-#: How tightly each operator binds when rendering. Higher binds tighter. Must
-#: agree with the parser's PRECEDENCE, or the formatter emits text that means
-#: something else — the failure this table exists to prevent.
+#: **The one ordering.** Loosest first, tightest last. `parser.PRECEDENCE`
+#: derives from this and so does `BINDING` below, because the two used to be
+#: written out separately and a comment asked them to agree.
+#:
+#: They did not. `PRECEDENCE` listed `!=` and `BINDING` did not, so
+#: `BINDING.get(op, ATOM_BINDING)` scored it 100 — tighter than multiplication —
+#: and a `!=` comparison would never have been bracketed. Unreachable today
+#: because the parser normalises the alias away before a node exists, which is
+#: exactly the kind of "harmless" drift that stops being harmless when somebody
+#: adds an operator. QA `PQL-198`, `PQL-199`.
+PRECEDENCE_LEVELS: tuple[tuple[str, ...], ...] = (
+    ("OR",),
+    ("AND",),
+    ("NOT",),
+    ("=", "<>", ">", ">=", "<", "<="),
+    ("+", "-", "||"),
+    ("*", "/", "%"),
+)
+
+#: Surface spellings the parser accepts and normalises before building a node.
+#: They belong to what is **read** and not to what is **rendered**, which is the
+#: asymmetry that made a missing `BINDING` entry look like an oversight. Declared
+#: here so the answer is in the table rather than in the parser's control flow.
+OPERATOR_ALIASES: dict[str, str] = {"!=": "<>"}
+
+#: Keyword predicates bind at the comparison level, so `a = 1 AND b IN (…)`
+#: groups the way a reader expects. They never appear in `PRECEDENCE` — the
+#: parser reaches them by keyword, not by the binary-operator loop — which is why
+#: `BINDING` is larger than the ordering above and not a copy of it.
+_KEYWORD_PREDICATES: tuple[str, ...] = (
+    "IN",
+    "NOT IN",
+    "BETWEEN",
+    "NOT BETWEEN",
+    "MATCHES",
+    "NOT MATCHES",
+    "LIKE",
+    "NOT LIKE",
+    "ILIKE",
+    "NOT ILIKE",
+    "IS NULL",
+    "IS NOT NULL",
+)
+
+_COMPARISON_LEVEL: Final = next(
+    index for index, level in enumerate(PRECEDENCE_LEVELS, start=1) if "=" in level
+)
+
+#: How tightly each operator binds when rendering. Higher binds tighter.
+#: Derived from `PRECEDENCE_LEVELS`, so it cannot disagree with the parser.
 BINDING: dict[str, int] = {
-    "OR": 1,
-    "AND": 2,
-    "NOT": 3,
-    "=": 4,
-    "<>": 4,
-    ">": 4,
-    ">=": 4,
-    "<": 4,
-    "<=": 4,
-    "IN": 4,
-    "NOT IN": 4,
-    "BETWEEN": 4,
-    "NOT BETWEEN": 4,
-    "MATCHES": 4,
-    "NOT MATCHES": 4,
-    "LIKE": 4,
-    "NOT LIKE": 4,
-    "ILIKE": 4,
-    "NOT ILIKE": 4,
-    "IS NULL": 4,
-    "IS NOT NULL": 4,
-    "+": 5,
-    "-": 5,
-    "||": 5,
-    "*": 6,
-    "/": 6,
-    "%": 6,
+    **{
+        operator: level
+        for level, operators in enumerate(PRECEDENCE_LEVELS, start=1)
+        for operator in operators
+    },
+    **dict.fromkeys(_KEYWORD_PREDICATES, _COMPARISON_LEVEL),
 }
 
 #: A value binds tighter than any operator, so it never needs bracketing.

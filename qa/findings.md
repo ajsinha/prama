@@ -1325,6 +1325,62 @@ stopped one step early. So did I, in [[Q-81]], three times over on API
 signatures. A diagnosis that explains the symptom is not the same as one that
 has been checked — and the check here was one `--help` away.
 
+### Q-83 · Batch K — two lists derived, and a third that was right to differ
+
+`CLAUDE.md`'s **derive, never restate** applied where the language itself is
+defined: *"anything restated in a second place will drift, silently, in the
+flattering direction"*.
+
+**`PQL-198`/`PQL-199` — one ordering, two derived tables.** `parser.PRECEDENCE`
+decided how a control's text is grouped when read; `ast.BINDING` decided where
+brackets go when it is written back; and `BINDING`'s own comment said the two
+*"must agree with the parser's PRECEDENCE, or the formatter emits text that
+means something else"*. Nothing derived one from the other, so "must agree" was
+a hope, and they did not: `PRECEDENCE` listed `!=` and `BINDING` did not, so
+`BINDING.get(op, ATOM_BINDING)` scored it **100** — tighter than multiplication
+— and a `!=` comparison would never be bracketed.
+
+`ast.PRECEDENCE_LEVELS` is now the single source. `BINDING` is that plus the
+keyword predicates; `parser.PRECEDENCE` is that minus `NOT` (parsed in the unary
+chain) plus the surface aliases. Every binding value is identical to before and
+`COMPARISON_LEVEL` still indexes the comparison tuple — the refactor changes
+where the operators are written down, not what they mean.
+
+The alias is **declared** rather than implied: `OPERATOR_ALIASES = {"!=": "<>"}`.
+That was the crux. `!=` belongs to what the parser *reads*, never to what the
+renderer *writes*, and burying that in parser control flow is what made a
+missing `BINDING` entry look like an oversight. The test asserts both
+directions, including that `!=` must **not** be in `BINDING` — an unreachable
+entry is a claim that it is reachable.
+
+**Why these two cases were not simply weakened in [[Q-80]].** It is tempting to
+call them over-strict, since no AST node can carry `!=` today. But that argument
+rests on a normalisation living in a third place while the comment claims the
+invariant outright. Batch H deliberately left them for this.
+
+**The aggregates were not what the triage described.** It reported "three
+aggregate lists" disagreeing. `backend/sql.py::_AGGREGATES` is what Prama's
+compiler *emits*; `lineage/sql.py::_AGGREGATES` is what to recognise in **other
+people's SQL** — warehouse views this module did not write, which is why it
+carries `percentile_cont` and `listagg` that Prama never renders. Those should
+differ, and deriving one from the other wholesale would have been wrong.
+
+A first comparison made them look disjoint, and that was an artefact of my own
+check: one set is upper-case and the other lower-case. Compared properly, one
+real gap — **`approx_count_distinct` is emitted by the compiler and was not
+recognised by lineage**, so an edge through it was not marked attenuating.
+Lineage now unions its foreign-SQL names with whatever the backend emits,
+because anything the compiler renders as an aggregate certainly is one. The
+difference that should exist is kept; the overlap that should hold is derived.
+
+`NON_DETERMINISTIC` no longer exists — only `VOLATILE` — so the third
+disagreement the triage listed had already been resolved.
+
+Two of the three items in this batch were not the thing the triage said they
+were. That is now four batches running where verifying the diagnosis changed
+what got done ([[Q-79]], [[Q-80]], [[Q-82]], and this), and the ratio is
+consistent enough to treat as the normal case rather than the exception.
+
 ---
 
 ## What held

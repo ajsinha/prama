@@ -33,11 +33,20 @@ import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from prama.backend.sql import _AGGREGATES as _COMPILED_AGGREGATES
 from prama.lineage.graph import Column, Edge, LineageGraph, Transform
 
 #: Aggregate functions, which mark an edge as attenuating. Recognised by name
 #: because that is the only signal available without a type system.
-_AGGREGATES = frozenset(
+#:
+#: Two sources, deliberately. The names below are what *other people's* SQL uses
+#: — this module reads warehouse views it did not write, so it must know
+#: `percentile_cont` and `listagg` even though Prama never emits them. Union'd
+#: with what Prama's own compiler emits, because anything the backend renders as
+#: an aggregate certainly is one, and the two lists were maintained separately
+#: until `approx_count_distinct` turned out to be in the compiler and not here —
+#: so an edge through it was not marked attenuating. QA round 4.
+_FOREIGN_AGGREGATES = frozenset(
     {
         "sum",
         "avg",
@@ -54,6 +63,8 @@ _AGGREGATES = frozenset(
         "listagg",
     }
 )
+
+_AGGREGATES = _FOREIGN_AGGREGATES | {name.lower() for name in _COMPILED_AGGREGATES}
 
 #: An aggregate call, bounded so a longer name that merely ends in one is not
 #: mistaken for it. Built from `_AGGREGATES` rather than restated, so a name
