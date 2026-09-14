@@ -47,12 +47,39 @@ class ControlCheckCommand(Command):
             action="store_true",
             help="treat lint warnings as errors, for a CI gate",
         )
+        parser.add_argument(
+            "--catalogue",
+            default="",
+            help=(
+                "a JSON file of dataset schemas, from `prama lsp catalogue`; "
+                "without it no column name or type is checked and each finding "
+                "says so"
+            ),
+        )
 
     def run(self, ctx: CommandContext) -> int:
         controls, source, failure = _read(ctx)
         if failure is not None:
             return failure
-        checker = TypeChecker(Catalogue())
+        # The same flag, the same loader and the same refusal as `prama lsp
+        # serve`. This command type-checked against an empty `Catalogue()` with
+        # no way to supply one, so every dataset reference was `[unchecked]`, a
+        # clean file never said "Nothing to report.", and a column of the wrong
+        # type could not be found — while the help promised "parse, type-check
+        # and lint" and CLAUDE.md listed this as the CI gate.
+        #
+        # The `[unchecked]` remedy said "Declare positions_eod, or bind it to a
+        # source so its columns can be discovered", and declaring it changed
+        # nothing because the CLI never looked. An unfollowable remedy sends
+        # somebody to do work that cannot help. QA round 4, `Q-82`.
+        #
+        # `load_catalogue` refuses a missing file rather than falling back to an
+        # empty one: a caller who passed `--catalogue` and got a green run has
+        # been told their schemas were checked. Inherited, not reimplemented.
+        from prama.cli.lsp import load_catalogue
+
+        catalogue = load_catalogue(Path(ctx.args.catalogue)) if ctx.args.catalogue else Catalogue()
+        checker = TypeChecker(catalogue)
         problems: list[dict[str, Any]] = []
         # An undeclared dataset is one fact about the estate, not one per
         # control. Reporting it fifty times for a fifty-control suite buries

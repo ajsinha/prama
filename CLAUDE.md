@@ -146,7 +146,9 @@ pytest -q qa/regression-suite            # only the QA-derived regressions
 pytest -q -m "not slow"                  # skip the tens-of-seconds performance guards
 pytest -q tests/architecture             # layering, file length, no-model-verdict guards
 prama config show                        # effective merged configuration, secrets redacted
-prama control check suite.pql            # parse, type-check and lint; non-zero on error
+prama control check suite.pql            # parse and lint; non-zero on error
+prama lsp catalogue --tenant acme --out cat.json   # the estate's schemas
+prama control check suite.pql --catalogue cat.json # ...and now type-check too
 prama control explain suite.pql          # each control as a sentence a data owner reads
 prama control compile suite.pql --fuse   # the SQL that will run, grouped into shared scans
 prama control functions                  # pushdown coverage: what runs on which engine

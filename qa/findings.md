@@ -1274,7 +1274,7 @@ pattern is consistent enough to name: **writing a test against an interface from
 memory produces a red that means nothing**, and red is exactly the colour that
 stops people looking closer.
 
-### Q-82 · `control check` type-checks against an empty catalogue — the CI gate cannot type-check
+### Q-82 · `control check` type-checks against an empty catalogue — FIXED
 
 `CLI-109` and `CLI-110` were reported by the round-4 triage as "structurally
 unreachable — a harness fixture conflict, not a product bug", on the reasoning
@@ -1313,10 +1313,27 @@ Same shape as [[Q-63]] — a capability present in the server and absent from th
 CLI — and the same consequence: a person runs the gate, sees it pass, and
 believes something was checked.
 
-**Not fixed here.** The repair is a `--catalogue` argument taking what `lsp
-catalogue` already writes, and/or reading declarations when a database is
-configured, which is a decision about how the CLI reaches the estate rather than
-a bug to patch. Recorded with the two cases attached so the next batch has them.
+**Fixed: the same flag, the same loader, the same refusal as `lsp serve`.**
+`prama control check --catalogue cat.json` reads what `prama lsp catalogue`
+already writes, through `load_catalogue` — no new mechanism, because one already
+existed and only the gate was denied it.
+
+Reading declarations from a database directly was considered and not done. The
+LSP's own comment says why a file: *"so an editor keeps working on a train and a
+laptop with no warehouse credentials still underlines a typo."* The same holds
+for CI, where there may be no database at all. One mechanism, two consumers.
+
+`load_catalogue` refuses a missing file rather than falling back to an empty
+one, and the gate inherits that. A caller who passed `--catalogue` and got a
+green run has been told their schemas were checked; falling back would make that
+a lie, which is strictly worse than not offering the flag.
+
+The `[unchecked]` diagnostic without a catalogue is unchanged and is asserted by
+its own test, because the obvious wrong repair is to silence it — a file nobody
+verified would then read as verified, which is the confusion that diagnostic
+level exists to prevent.
+
+`CLI-109` and `CLI-110` pass with a catalogue supplied.
 
 **What this cost to find, and why it is the third of its kind today.** The
 triage looked at two failing cases that shared a fixture with two passing ones
