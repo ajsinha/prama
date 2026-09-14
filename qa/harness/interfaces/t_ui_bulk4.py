@@ -96,12 +96,36 @@ async def main():
     conn.close()
     att_b_id = row[0] if row else None
 
-    # UI-122: supersedes naming another estate's attestation
+    # UI-122: supersedes naming another estate's attestation.
+    #
+    # NOT `status_code != 303`. Both outcomes redirect with 303 -- the success
+    # path to the attestation's detail page, and the caught refusal to
+    # `attestation_form` after flashing -- so that check could never tell a
+    # refusal from an acceptance, and reported FAIL against a product that was
+    # refusing correctly. `UI-120` a few lines up had already learned this and
+    # worked around it; the lesson was not carried across.
+    #
+    # The catalogue's Expected is "refused", so the question is whether a row
+    # was written. Counting is the only answer that cannot be faked by a
+    # redirect. QA round 4, harness repair.
     if att_b_id:
         try:
+            conn = sqlite3.connect(str(DB))
+            before122 = conn.execute(
+                "SELECT COUNT(*) FROM att_attestation WHERE tenant_id=?", (env.tenant_id,)
+            ).fetchone()[0]
+            conn.close()
             r122 = await http.post("/attestations/new", data={"attester_name": "alice", "statement": "s", "scope": "estate", "period_start": "2026-01-01", "period_end": "2026-01-31", "supersedes": att_b_id, "supersedes_because": "test"})
-            ok122 = r122.status_code != 303
-            detail122 = f"status={r122.status_code}"
+            conn = sqlite3.connect(str(DB))
+            after122 = conn.execute(
+                "SELECT COUNT(*) FROM att_attestation WHERE tenant_id=?", (env.tenant_id,)
+            ).fetchone()[0]
+            conn.close()
+            ok122 = after122 == before122
+            detail122 = (
+                f"status={r122.status_code} location={r122.headers.get('location','')!r} "
+                f"rows_before={before122} rows_after={after122}"
+            )
         except Exception as e:
             ok122 = False
             detail122 = f"exception: {type(e).__name__} {str(e)[:200]}"
@@ -116,9 +140,27 @@ async def main():
     conn.close()
     att_a_id = row_a[0] if row_a else None
     if att_a_id:
+        # Same measurement bug as UI-122 above: both the refusal and the
+        # acceptance redirect with 303, so the status alone says nothing. Count
+        # the rows. QA round 4, harness repair.
+        conn = sqlite3.connect(str(DB))
+        before123 = conn.execute(
+            "SELECT COUNT(*) FROM att_attestation WHERE tenant_id=?", (env.tenant_id,)
+        ).fetchone()[0]
+        conn.close()
         r123 = await http.post("/attestations/new", data={"attester_name": "alice", "statement": "s2", "scope": "estate", "period_start": "2026-02-01", "period_end": "2026-02-28", "supersedes": att_a_id, "supersedes_because": ""})
-        ok123 = r123.status_code != 303
-        record("UI-123", "PASS" if ok123 else "FAIL", f"status={r123.status_code}")
+        conn = sqlite3.connect(str(DB))
+        after123 = conn.execute(
+            "SELECT COUNT(*) FROM att_attestation WHERE tenant_id=?", (env.tenant_id,)
+        ).fetchone()[0]
+        conn.close()
+        ok123 = after123 == before123
+        record(
+            "UI-123",
+            "PASS" if ok123 else "FAIL",
+            f"status={r123.status_code} location={r123.headers.get('location','')!r} "
+            f"rows_before={before123} rows_after={after123}",
+        )
     else:
         record("UI-123", "BLOCKED", "no attestation id available to supersede")
 

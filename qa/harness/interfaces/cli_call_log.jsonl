@@ -239,3 +239,32 @@
 {"argv": ["bench", "taxonomy", "--family", "wizard"], "code": 1, "traceback": false}
 {"argv": ["bench", "run", "--seed", "1"], "code": 0, "traceback": false}
 {"argv": ["bench", "taxonomy"], "code": 0, "traceback": false}
+{"argv": ["contract", "diff", "/tmp/prama-qa-cli-46p0f900/contract4/before.csv", "/tmp/prama-qa-cli-46p0f900/contract4/after.csv"], "code": 3, "traceback": false}
+{"argv": ["contract", "diff", "/tmp/prama-qa-cli-46p0f900/contract4/before.csv", "/tmp/prama-qa-cli-46p0f900/contract4/after.csv", "--key", "id"], "code": 3, "traceback": false}
+{"argv": ["contract", "diff", "/tmp/prama-qa-cli-46p0f900/contract4/before.csv", "/tmp/prama-qa-cli-46p0f900/contract4/after.csv", "--key", "pk"], "code": 1, "traceback": false}
+{"argv": ["contract", "diff", "/tmp/prama-qa-cli-46p0f900/contract4/b2.csv", "/tmp/prama-qa-cli-46p0f900/contract4/a2.csv", "--key", "id", "--ignore", "loaded_at"], "code": 0, "traceback": false}
+{"argv": ["contract", "diff", "/tmp/prama-qa-cli-46p0f900/contract4/b3.csv", "/tmp/prama-qa-cli-46p0f900/contract4/a3.csv", "--key", "id"], "code": 3, "traceback": false}
+{"argv": ["contract", "diff", "/tmp/prama-qa-cli-46p0f900/contract4/same_a.csv", "/tmp/prama-qa-cli-46p0f900/contract4/same_b.csv", "--key", "id"], "code": 0, "traceback": false}
+{"argv": ["contract", "diff", "/tmp/prama-qa-cli-46p0f900/contract4/e1.jsonl", "/tmp/prama-qa-cli-46p0f900/contract4/e2.jsonl", "--key", "id"], "code": 0, "traceback": false}
+{"argv": ["control", "check", "/tmp/prama-qa-cli-rnj8utxn/control/suite.pql"], "code": 0, "traceback": false}
+{"argv": ["control", "check", "/tmp/prama-qa-cli-rnj8utxn/control/typeerr.pql"], "code": 0, "traceback": false}
+{"argv": ["control", "check", "/tmp/prama-qa-cli-rnj8utxn/control/redundant.pql"], "code": 0, "traceback": false}
+{"argv": ["control", "check", "/tmp/prama-qa-cli-rnj8utxn/control/redundant.pql", "--strict"], "code": 1, "traceback": false}
+{"argv": ["control", "check", "/tmp/prama-qa-cli-rnj8utxn/control/fifty.pql"], "code": 0, "traceback": false}
+{"argv": ["--json", "control", "check", "/tmp/prama-qa-cli-rnj8utxn/control/badsyntax.pql"], "code": 1, "traceback": false}
+{"argv": ["control", "check", "/tmp/prama-qa-cli-rnj8utxn/control/nosuch.pql"], "code": 2, "traceback": false}
+{"argv": ["control", "explain", "/tmp/prama-qa-cli-rnj8utxn/control/nosuch.pql"], "code": 2, "traceback": false}
+{"argv": ["control", "format", "/tmp/prama-qa-cli-rnj8utxn/control/nosuch.pql"], "code": 2, "traceback": false}
+{"argv": ["control", "compile", "/tmp/prama-qa-cli-rnj8utxn/control/nosuch.pql"], "code": 2, "traceback": false}
+{"argv": ["control", "check", "/tmp/prama-qa-cli-rnj8utxn/control/suite.pql.dir"], "code": 2, "traceback": false}
+{"argv": ["control", "check", "/tmp/prama-qa-cli-rnj8utxn/control/latin1.pql"], "code": 1, "traceback": false}
+{"argv": ["control", "check", "/tmp/prama-qa-cli-rnj8utxn/control/empty.pql"], "code": 0, "traceback": false}
+{"argv": ["control", "explain", "/tmp/prama-qa-cli-rnj8utxn/control/suite.pql"], "code": 0, "traceback": false}
+{"argv": ["control", "explain", "/tmp/prama-qa-cli-rnj8utxn/control/divg.pql"], "code": 0, "traceback": false}
+{"argv": ["--json", "control", "explain", "/tmp/prama-qa-cli-rnj8utxn/control/nested.pql"], "code": 0, "traceback": false}
+{"argv": ["control", "format", "/tmp/prama-qa-cli-rnj8utxn/control/suite.pql"], "code": 0, "traceback": false}
+{"argv": ["control", "format", "/tmp/prama-qa-cli-rnj8utxn/control/messy.pql", "--write"], "code": 0, "traceback": false}
+{"argv": ["control", "format", "/tmp/prama-qa-cli-rnj8utxn/control/messy.pql", "--write"], "code": 0, "traceback": false}
+{"argv": ["control", "format", "/tmp/prama-qa-cli-rnj8utxn/control/messy.pql", "--write"], "code": 0, "traceback": false}
+{"argv": ["control", "format", "/tmp/prama-qa-cli-rnj8utxn/control/ro.pql", "--write"], "code": 1, "traceback": false}
+{"argv": ["control", "format", "/tmp/prama-qa-cli-rnj8utxn/control/commented.pql", "--write"], "code": 1, "traceback": false}
