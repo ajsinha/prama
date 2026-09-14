@@ -1439,7 +1439,7 @@ lines above **already supplied a reason**. The codebase knew the rule and one
 path did not follow it, which is evidence the guard matches the intended design
 rather than imposing a new one.
 
-### Q-85 · Batch J, partly — three of eight CLI sites, and why the first probe of all eight was worthless
+### Q-85 · Batch J — six of eight CLI sites, and why the first probe of all eight was worthless
 
 [[Q-68]]'s class, continued. The round-4 triage enumerated eight call sites in
 `cli/` where a plain Python exception escapes `Application.run`'s
@@ -1478,11 +1478,37 @@ earlier batches or my invocation may still miss them; both readings are
 consistent with what was observed, and claiming the favourable one is the habit
 this file exists to resist.
 
-**Remaining in J**: roughly five interface sites, plus the data-stack twelve and
-the language-stack eleven. `CLI-017`, the whole-session census over
-`qa/harness/interfaces/cli_call_log.jsonl`, is the measure that will say when it
-is finished — it read 14 in round 3 and 2 in round 4, and a by-hand enumeration
-under-counted both times.
+**Three more sites closed after the first pass**, all reproduced first:
+
+| site | what escaped |
+|---|---|
+| `cli/contract.py::_rows` | `.exists()` where `.is_file()` was meant → `IsADirectoryError` |
+| `cli/contract.py::_load` | `read_text` sat *above* its own try, and a bare JSON scalar was then used as a mapping → `AttributeError: 'str' object has no attribute 'get'` |
+| `cli/bundle.py::_private_key` | a malformed PEM → `ValueError` with a link to somebody else's FAQ; an RSA key → `TypeError: sign() missing 2 required positional arguments` |
+
+The RSA one is the most worth reading. `Manifest.sign` calls
+`private_key.sign(data)` with no padding and no algorithm, which *is* the
+Ed25519 interface — the format is fixed by design so a customer checking a
+bundle offline needs no algorithm negotiation. A well-formed RSA key sailed
+through loading and died at the signature, naming a method the operator never
+invoked. It now refuses at the key, says which algorithm it found, and gives the
+`openssl genpkey -algorithm ed25519` line.
+
+`cli/contract.py::_load` is the site [[Q-81]] records me walking past in Batch B:
+I read the function, saw the JSON parse already wrapped, fixed `_rows` beside it
+and never noticed the `read_text` one line above the `try`. It took the triage
+to find it and a reproduction to confirm it.
+
+**That makes `exists()`-where-`is_file()`-was-meant four sites**, not three:
+`connect/sources/query.py`, `cli/contract.py::_rows`, `_load`, and the earlier
+`_rows` repair. Four is not a coincidence; it is an idiom this codebase reaches
+for and gets wrong, and worth a lint rule rather than a fifth fix.
+
+**Remaining in J**: two interface sites that could not be reproduced, the
+data-stack twelve, and the language-stack eleven. `CLI-017`, the whole-session
+census over `qa/harness/interfaces/cli_call_log.jsonl`, is the measure that will
+say when it is finished — it read 14 in round 3 and 2 in round 4, and a by-hand
+enumeration under-counted both times.
 
 ---
 

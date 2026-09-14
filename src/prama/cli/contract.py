@@ -42,13 +42,25 @@ def _load(path: str, what: str) -> Any:
             remedy="Check the path.",
             context={"path": str(target)},
         )
-    text = target.read_text()
+    # `read_text` was above this try, so a directory or an unreadable file gave
+    # an IsADirectoryError or PermissionError traceback rather than a refusal —
+    # `.exists()` is true for a directory. The same confusion appears in `_rows`
+    # below and in `connect/sources/query.py`. QA round 4, `CTR-060`, `CLI-164`.
+    try:
+        text = target.read_text()
+    except OSError as exc:
+        raise ValidationError(
+            f"{target} could not be read: {exc.strerror or exc}",
+            remedy=f"Give the path of a {what} file, not a directory.",
+            context={"path": str(target)},
+        ) from None
     try:
         if target.suffix in (".yaml", ".yml"):
             import yaml
 
-            return yaml.safe_load(text)
-        return json.loads(text)
+            parsed = yaml.safe_load(text)
+        else:
+            parsed = json.loads(text)
     except Exception as exc:
         syntax = "YAML" if target.suffix in (".yaml", ".yml") else "JSON"
         raise ValidationError(
@@ -57,6 +69,19 @@ def _load(path: str, what: str) -> Any:
             context={"path": str(target)},
             cause=exc,
         ) from exc
+    if not isinstance(parsed, dict):
+        # A bare scalar parses cleanly and is then used as a mapping downstream:
+        # `'str' object has no attribute 'get'`, several frames from here, with
+        # nothing naming the file. QA round 4, `CTR-060`.
+        raise ValidationError(
+            f"{target} does not hold a {what}",
+            remedy=(
+                f"A {what} is an object with named fields. This file parses, but "
+                f"it holds a {type(parsed).__name__} — check it is the right file."
+            ),
+            context={"path": str(target)},
+        )
+    return parsed
 
 
 def _rows(path: str) -> list[dict[str, Any]]:
@@ -66,6 +91,12 @@ def _rows(path: str) -> list[dict[str, Any]]:
         raise ValidationError(
             f"there is no data file at {target}",
             remedy="Check the path.",
+            context={"path": str(target)},
+        )
+    if not target.is_file():
+        raise ValidationError(
+            f"{target} is not a file",
+            remedy="--data names one file of rows — a .json, .jsonl or .csv — not a directory.",
             context={"path": str(target)},
         )
     if target.suffix == ".csv":

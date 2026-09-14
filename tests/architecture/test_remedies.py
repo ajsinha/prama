@@ -34,7 +34,15 @@ KEY = re.compile(r"\b([a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+)\b(?!\s*\()")
 
 #: Words that look like keys and are not — module paths, file names, and the
 #: handful of dotted identifiers that turn up in a sentence.
-NOT_A_KEY = re.compile(r"^(prama|tests|scripts|docs|schema)\.|\.(py|sql|json|yaml|yml|md|toml)$")
+NOT_A_KEY = re.compile(
+    r"^(prama|tests|scripts|docs|schema)\."
+    # File extensions a remedy plausibly names. `pem`, `crt` and `pql` were
+    # added when a remedy first told somebody to run `openssl genpkey ... -out
+    # key.pem` and this rule read the filename as a setting nothing reads.
+    # Deliberately NOT `key`: a real setting could end in `.key`, and excluding
+    # that would hide the thing this test exists to find.
+    r"|\.(py|sql|json|jsonl|yaml|yml|md|toml|pem|crt|cer|csv|parquet|pql|lock|txt)$"
+)
 
 
 def remedies() -> list[tuple[str, int, str]]:
