@@ -1,6 +1,6 @@
 import sys, subprocess, traceback, logging, io, json
 sys.path.insert(0, "/home/ashutosh/PycharmProjects/prama/src")
-sys.path.insert(0, "/tmp/claude-1000/-home-ashutosh-PycharmProjects-prama/627f9f20-9efa-4027-844d-fc42d0ff016b/scratchpad/r3/trust")
+sys.path.insert(0, "/home/ashutosh/PycharmProjects/prama/qa/harness/trust")
 from reclib import line
 from prama.secrets.value import SecretValue
 

@@ -1,153 +1,153 @@
 {"argv": [], "code": 2, "traceback": false}
 {"argv": ["frobnicate"], "code": 2, "traceback": false}
 {"argv": ["--help"], "code": 0, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-g6ch1lhi/framework/application.yaml", "config"], "code": 2, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-g6ch1lhi/framework/application.yaml", "db"], "code": 2, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-g6ch1lhi/framework/application.yaml", "tenant"], "code": 2, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-g6ch1lhi/framework/application.yaml", "principal"], "code": 2, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-g6ch1lhi/framework/application.yaml", "apikey"], "code": 2, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-g6ch1lhi/framework/application.yaml", "connect"], "code": 2, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-g6ch1lhi/framework/application.yaml", "control"], "code": 2, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-g6ch1lhi/framework/application.yaml", "contract"], "code": 2, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-g6ch1lhi/framework/application.yaml", "estate"], "code": 2, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-g6ch1lhi/framework/application.yaml", "bundle"], "code": 2, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-g6ch1lhi/framework/application.yaml", "bench"], "code": 2, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-g6ch1lhi/framework/application.yaml", "pack"], "code": 2, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-g6ch1lhi/framework/application.yaml", "lsp"], "code": 2, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-g6ch1lhi/framework/application.yaml", "mcp"], "code": 2, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-g6ch1lhi/cli005/application.yaml", "db", "frobnicate"], "code": 2, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-g6ch1lhi/framework/application.yaml", "tenant", "create", "Not A Slug"], "code": 1, "traceback": false}
-{"argv": ["--json", "--config", "/tmp/prama-qa-cli-g6ch1lhi/framework/application.yaml", "tenant", "create", "Not A Slug"], "code": 1, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-g8s561lb/framework/application.yaml", "config"], "code": 2, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-g8s561lb/framework/application.yaml", "db"], "code": 2, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-g8s561lb/framework/application.yaml", "tenant"], "code": 2, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-g8s561lb/framework/application.yaml", "principal"], "code": 2, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-g8s561lb/framework/application.yaml", "apikey"], "code": 2, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-g8s561lb/framework/application.yaml", "connect"], "code": 2, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-g8s561lb/framework/application.yaml", "control"], "code": 2, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-g8s561lb/framework/application.yaml", "contract"], "code": 2, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-g8s561lb/framework/application.yaml", "estate"], "code": 2, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-g8s561lb/framework/application.yaml", "bundle"], "code": 2, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-g8s561lb/framework/application.yaml", "bench"], "code": 2, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-g8s561lb/framework/application.yaml", "pack"], "code": 2, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-g8s561lb/framework/application.yaml", "lsp"], "code": 2, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-g8s561lb/framework/application.yaml", "mcp"], "code": 2, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-g8s561lb/cli005/application.yaml", "db", "frobnicate"], "code": 2, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-g8s561lb/framework/application.yaml", "tenant", "create", "Not A Slug"], "code": 1, "traceback": false}
+{"argv": ["--json", "--config", "/tmp/prama-qa-cli-g8s561lb/framework/application.yaml", "tenant", "create", "Not A Slug"], "code": 1, "traceback": false}
 {"argv": ["version", "--json"], "code": 2, "traceback": false}
 {"argv": ["--json", "version"], "code": 0, "traceback": false}
 {"argv": ["--config", "/nope/nope.yaml", "config", "show"], "code": 1, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-g6ch1lhi/adir", "config", "show"], "code": 1, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-g6ch1lhi/unreadable.yaml", "config", "show"], "code": 1, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-g6ch1lhi/framework/application.yaml", "--set", "logging.level=DEBUG", "config", "show", "--provenance"], "code": 0, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-g6ch1lhi/framework/application.yaml", "--set", "logginglevelDEBUG", "config", "show"], "code": 1, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-g6ch1lhi/framework/application.yaml", "--set", "logging.level=DEBUG", "--set", "logging.level=ERROR", "config", "show"], "code": 0, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-g6ch1lhi/framework/application.yaml", "--log-level", "LOUD", "version"], "code": "UNCAUGHT_EXCEPTION", "traceback": true}
-{"argv": ["--config", "/tmp/prama-qa-cli-g6ch1lhi/cli016/application.yaml", "--json", "--log-level", "DEBUG", "version"], "code": 0, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-g6ch1lhi/cli016/application.yaml", "--json", "--log-level", "DEBUG", "db", "init"], "code": 0, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-g8s561lb/adir", "config", "show"], "code": 1, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-g8s561lb/unreadable.yaml", "config", "show"], "code": 1, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-g8s561lb/framework/application.yaml", "--set", "logging.level=DEBUG", "config", "show", "--provenance"], "code": 0, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-g8s561lb/framework/application.yaml", "--set", "logginglevelDEBUG", "config", "show"], "code": 1, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-g8s561lb/framework/application.yaml", "--set", "logging.level=DEBUG", "--set", "logging.level=ERROR", "config", "show"], "code": 0, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-g8s561lb/framework/application.yaml", "--log-level", "LOUD", "version"], "code": 1, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-g8s561lb/cli016/application.yaml", "--json", "--log-level", "DEBUG", "version"], "code": 0, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-g8s561lb/cli016/application.yaml", "--json", "--log-level", "DEBUG", "db", "init"], "code": 0, "traceback": false}
 {"argv": ["version"], "code": 0, "traceback": false}
 {"argv": ["--json", "version"], "code": 0, "traceback": false}
 {"argv": ["version"], "code": 0, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-86klc9np/cli024/application.yaml", "config", "show"], "code": 0, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-86klc9np/cli024/application.yaml", "config", "show", "--raw"], "code": 0, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-86klc9np/cli024/application.yaml", "config", "show", "--raw"], "code": 0, "traceback": false}
-{"argv": ["--json", "--config", "/tmp/prama-qa-cli-86klc9np/cli024/application.yaml", "config", "show", "--raw"], "code": 0, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-86klc9np/cli028/application.yaml", "--set", "logging.level=DEBUG", "config", "show", "--provenance"], "code": 0, "traceback": false}
-{"argv": ["--json", "--config", "/tmp/prama-qa-cli-86klc9np/cli028/application.yaml", "config", "show", "--provenance"], "code": 0, "traceback": false}
-{"argv": ["--json", "--config", "/tmp/prama-qa-cli-vw52ek9j/cli030/application.yaml", "db", "init"], "code": 0, "traceback": false}
-{"argv": ["--json", "--config", "/tmp/prama-qa-cli-vw52ek9j/cli030/application.yaml", "db", "init"], "code": 0, "traceback": false}
-{"argv": ["--json", "--config", "/tmp/prama-qa-cli-vw52ek9j/cli030/application.yaml", "db", "init"], "code": 0, "traceback": false}
-{"argv": ["--json", "--config", "/tmp/prama-qa-cli-vw52ek9j/cli030/application.yaml", "db", "init"], "code": 0, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-vw52ek9j/cli032/application.yaml", "db", "init"], "code": 0, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-vw52ek9j/cli032/application.yaml", "db", "verify"], "code": 0, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-vw52ek9j/cli032/application.yaml", "db", "verify"], "code": 0, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-vw52ek9j/cli033/application.yaml", "db", "init"], "code": 0, "traceback": false}
-{"argv": ["--json", "--config", "/tmp/prama-qa-cli-vw52ek9j/cli033/application.yaml", "db", "verify"], "code": 0, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-vw52ek9j/cli034/application.yaml", "db", "init"], "code": 0, "traceback": false}
-{"argv": ["--json", "--config", "/tmp/prama-qa-cli-vw52ek9j/cli034/application.yaml", "db", "verify"], "code": 3, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-vw52ek9j/cli035/application.yaml", "db", "init"], "code": 0, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-vw52ek9j/cli035/application.yaml", "db", "verify"], "code": 0, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-vw52ek9j/cli036/application.yaml", "db", "info"], "code": 0, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-vw52ek9j/cli036/application.yaml", "db", "info"], "code": 0, "traceback": false}
-{"argv": ["--json", "--config", "/tmp/prama-qa-cli-vw52ek9j/cli036/application.yaml", "db", "info"], "code": 0, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-vw52ek9j/cli038/application.yaml", "db", "info"], "code": 0, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-vw52ek9j/cli040/application.yaml", "db", "init"], "code": 0, "traceback": false}
-{"argv": ["--json", "--config", "/tmp/prama-qa-cli-vw52ek9j/cli040/application.yaml", "db", "init"], "code": 1, "traceback": false}
-{"argv": ["control", "check", "/tmp/prama-qa-cli-zl9vrb30/control/suite.pql"], "code": 0, "traceback": false}
-{"argv": ["control", "check", "/tmp/prama-qa-cli-zl9vrb30/control/typeerr.pql"], "code": 0, "traceback": false}
-{"argv": ["control", "check", "/tmp/prama-qa-cli-zl9vrb30/control/redundant.pql"], "code": 0, "traceback": false}
-{"argv": ["control", "check", "/tmp/prama-qa-cli-zl9vrb30/control/redundant.pql", "--strict"], "code": 1, "traceback": false}
-{"argv": ["control", "check", "/tmp/prama-qa-cli-zl9vrb30/control/fifty.pql"], "code": 0, "traceback": false}
-{"argv": ["--json", "control", "check", "/tmp/prama-qa-cli-zl9vrb30/control/badsyntax.pql"], "code": 1, "traceback": false}
-{"argv": ["control", "check", "/tmp/prama-qa-cli-zl9vrb30/control/nosuch.pql"], "code": 2, "traceback": false}
-{"argv": ["control", "explain", "/tmp/prama-qa-cli-zl9vrb30/control/nosuch.pql"], "code": 2, "traceback": false}
-{"argv": ["control", "format", "/tmp/prama-qa-cli-zl9vrb30/control/nosuch.pql"], "code": 2, "traceback": false}
-{"argv": ["control", "compile", "/tmp/prama-qa-cli-zl9vrb30/control/nosuch.pql"], "code": 2, "traceback": false}
-{"argv": ["control", "check", "/tmp/prama-qa-cli-zl9vrb30/control/suite.pql.dir"], "code": 2, "traceback": false}
-{"argv": ["control", "check", "/tmp/prama-qa-cli-zl9vrb30/control/latin1.pql"], "code": "UNCAUGHT_EXCEPTION", "traceback": true}
-{"argv": ["control", "check", "/tmp/prama-qa-cli-zl9vrb30/control/empty.pql"], "code": 0, "traceback": false}
-{"argv": ["control", "explain", "/tmp/prama-qa-cli-zl9vrb30/control/suite.pql"], "code": 0, "traceback": false}
-{"argv": ["control", "explain", "/tmp/prama-qa-cli-zl9vrb30/control/divg.pql"], "code": 0, "traceback": false}
-{"argv": ["--json", "control", "explain", "/tmp/prama-qa-cli-zl9vrb30/control/nested.pql"], "code": 0, "traceback": false}
-{"argv": ["control", "format", "/tmp/prama-qa-cli-zl9vrb30/control/suite.pql"], "code": 0, "traceback": false}
-{"argv": ["control", "format", "/tmp/prama-qa-cli-zl9vrb30/control/messy.pql", "--write"], "code": 0, "traceback": false}
-{"argv": ["control", "format", "/tmp/prama-qa-cli-zl9vrb30/control/messy.pql", "--write"], "code": 0, "traceback": false}
-{"argv": ["control", "format", "/tmp/prama-qa-cli-zl9vrb30/control/messy.pql", "--write"], "code": 0, "traceback": false}
-{"argv": ["control", "format", "/tmp/prama-qa-cli-zl9vrb30/control/ro.pql", "--write"], "code": "UNCAUGHT_EXCEPTION", "traceback": true}
-{"argv": ["control", "format", "/tmp/prama-qa-cli-zl9vrb30/control/commented.pql", "--write"], "code": 1, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-4sqfd106/cli024/application.yaml", "config", "show"], "code": 0, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-4sqfd106/cli024/application.yaml", "config", "show", "--raw"], "code": 0, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-4sqfd106/cli024/application.yaml", "config", "show", "--raw"], "code": 0, "traceback": false}
+{"argv": ["--json", "--config", "/tmp/prama-qa-cli-4sqfd106/cli024/application.yaml", "config", "show", "--raw"], "code": 0, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-4sqfd106/cli028/application.yaml", "--set", "logging.level=DEBUG", "config", "show", "--provenance"], "code": 0, "traceback": false}
+{"argv": ["--json", "--config", "/tmp/prama-qa-cli-4sqfd106/cli028/application.yaml", "config", "show", "--provenance"], "code": 0, "traceback": false}
+{"argv": ["--json", "--config", "/tmp/prama-qa-cli-9tlzk73u/cli030/application.yaml", "db", "init"], "code": 0, "traceback": false}
+{"argv": ["--json", "--config", "/tmp/prama-qa-cli-9tlzk73u/cli030/application.yaml", "db", "init"], "code": 0, "traceback": false}
+{"argv": ["--json", "--config", "/tmp/prama-qa-cli-9tlzk73u/cli030/application.yaml", "db", "init"], "code": 0, "traceback": false}
+{"argv": ["--json", "--config", "/tmp/prama-qa-cli-9tlzk73u/cli030/application.yaml", "db", "init"], "code": 0, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-9tlzk73u/cli032/application.yaml", "db", "init"], "code": 0, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-9tlzk73u/cli032/application.yaml", "db", "verify"], "code": 0, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-9tlzk73u/cli032/application.yaml", "db", "verify"], "code": 0, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-9tlzk73u/cli033/application.yaml", "db", "init"], "code": 0, "traceback": false}
+{"argv": ["--json", "--config", "/tmp/prama-qa-cli-9tlzk73u/cli033/application.yaml", "db", "verify"], "code": 0, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-9tlzk73u/cli034/application.yaml", "db", "init"], "code": 0, "traceback": false}
+{"argv": ["--json", "--config", "/tmp/prama-qa-cli-9tlzk73u/cli034/application.yaml", "db", "verify"], "code": 3, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-9tlzk73u/cli035/application.yaml", "db", "init"], "code": 0, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-9tlzk73u/cli035/application.yaml", "db", "verify"], "code": 0, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-9tlzk73u/cli036/application.yaml", "db", "info"], "code": 0, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-9tlzk73u/cli036/application.yaml", "db", "info"], "code": 0, "traceback": false}
+{"argv": ["--json", "--config", "/tmp/prama-qa-cli-9tlzk73u/cli036/application.yaml", "db", "info"], "code": 0, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-9tlzk73u/cli038/application.yaml", "db", "info"], "code": 0, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-9tlzk73u/cli040/application.yaml", "db", "init"], "code": 0, "traceback": false}
+{"argv": ["--json", "--config", "/tmp/prama-qa-cli-9tlzk73u/cli040/application.yaml", "db", "init"], "code": 1, "traceback": false}
+{"argv": ["control", "check", "/tmp/prama-qa-cli-qedst2zn/control/suite.pql"], "code": 0, "traceback": false}
+{"argv": ["control", "check", "/tmp/prama-qa-cli-qedst2zn/control/typeerr.pql"], "code": 0, "traceback": false}
+{"argv": ["control", "check", "/tmp/prama-qa-cli-qedst2zn/control/redundant.pql"], "code": 0, "traceback": false}
+{"argv": ["control", "check", "/tmp/prama-qa-cli-qedst2zn/control/redundant.pql", "--strict"], "code": 1, "traceback": false}
+{"argv": ["control", "check", "/tmp/prama-qa-cli-qedst2zn/control/fifty.pql"], "code": 0, "traceback": false}
+{"argv": ["--json", "control", "check", "/tmp/prama-qa-cli-qedst2zn/control/badsyntax.pql"], "code": 1, "traceback": false}
+{"argv": ["control", "check", "/tmp/prama-qa-cli-qedst2zn/control/nosuch.pql"], "code": 2, "traceback": false}
+{"argv": ["control", "explain", "/tmp/prama-qa-cli-qedst2zn/control/nosuch.pql"], "code": 2, "traceback": false}
+{"argv": ["control", "format", "/tmp/prama-qa-cli-qedst2zn/control/nosuch.pql"], "code": 2, "traceback": false}
+{"argv": ["control", "compile", "/tmp/prama-qa-cli-qedst2zn/control/nosuch.pql"], "code": 2, "traceback": false}
+{"argv": ["control", "check", "/tmp/prama-qa-cli-qedst2zn/control/suite.pql.dir"], "code": 2, "traceback": false}
+{"argv": ["control", "check", "/tmp/prama-qa-cli-qedst2zn/control/latin1.pql"], "code": 1, "traceback": false}
+{"argv": ["control", "check", "/tmp/prama-qa-cli-qedst2zn/control/empty.pql"], "code": 0, "traceback": false}
+{"argv": ["control", "explain", "/tmp/prama-qa-cli-qedst2zn/control/suite.pql"], "code": 0, "traceback": false}
+{"argv": ["control", "explain", "/tmp/prama-qa-cli-qedst2zn/control/divg.pql"], "code": 0, "traceback": false}
+{"argv": ["--json", "control", "explain", "/tmp/prama-qa-cli-qedst2zn/control/nested.pql"], "code": 0, "traceback": false}
+{"argv": ["control", "format", "/tmp/prama-qa-cli-qedst2zn/control/suite.pql"], "code": 0, "traceback": false}
+{"argv": ["control", "format", "/tmp/prama-qa-cli-qedst2zn/control/messy.pql", "--write"], "code": 0, "traceback": false}
+{"argv": ["control", "format", "/tmp/prama-qa-cli-qedst2zn/control/messy.pql", "--write"], "code": 0, "traceback": false}
+{"argv": ["control", "format", "/tmp/prama-qa-cli-qedst2zn/control/messy.pql", "--write"], "code": 0, "traceback": false}
+{"argv": ["control", "format", "/tmp/prama-qa-cli-qedst2zn/control/ro.pql", "--write"], "code": 1, "traceback": false}
+{"argv": ["control", "format", "/tmp/prama-qa-cli-qedst2zn/control/commented.pql", "--write"], "code": 1, "traceback": false}
 {"argv": ["control", "functions"], "code": 0, "traceback": false}
 {"argv": ["--json", "control", "functions"], "code": 0, "traceback": false}
 {"argv": ["control", "functions", "--engine", "oracle"], "code": 1, "traceback": false}
 {"argv": ["--json", "control", "functions"], "code": 0, "traceback": false}
-{"argv": ["control", "compile", "/tmp/prama-qa-cli-6419epp6/control2/suite.pql"], "code": 0, "traceback": false}
-{"argv": ["control", "compile", "/tmp/prama-qa-cli-6419epp6/control2/suite.pql", "--dialect", "postgresql"], "code": 0, "traceback": false}
-{"argv": ["control", "compile", "/tmp/prama-qa-cli-6419epp6/control2/suite.pql", "--dialect", "duckdb"], "code": 0, "traceback": false}
-{"argv": ["control", "compile", "/tmp/prama-qa-cli-6419epp6/control2/suite.pql", "--dialect", "sqlite"], "code": 0, "traceback": false}
-{"argv": ["control", "compile", "/tmp/prama-qa-cli-6419epp6/control2/suite.pql", "--dialect", "oracle"], "code": 1, "traceback": false}
-{"argv": ["control", "compile", "/tmp/prama-qa-cli-6419epp6/control2/round.pql", "--dialect", "sqlite"], "code": 0, "traceback": false}
-{"argv": ["control", "compile", "/tmp/prama-qa-cli-6419epp6/control2/codelist.pql"], "code": 0, "traceback": false}
-{"argv": ["control", "compile", "/tmp/prama-qa-cli-6419epp6/control2/fuse.pql", "--fuse"], "code": 0, "traceback": false}
-{"argv": ["control", "compile", "/tmp/prama-qa-cli-6419epp6/control2/unfuse.pql", "--fuse", "--dialect", "sqlite"], "code": 1, "traceback": false}
-{"argv": ["control", "compile", "/tmp/prama-qa-cli-6419epp6/control2/unfuse.pql", "--fuse", "--dialect", "sqlite"], "code": 1, "traceback": false}
-{"argv": ["control", "import", "/tmp/prama-qa-cli-4v1rd4hy/control4/x.yml"], "code": 2, "traceback": false}
-{"argv": ["control", "import", "/tmp/prama-qa-cli-4v1rd4hy/control4/x.yml", "--from", "monte_carlo"], "code": 2, "traceback": false}
-{"argv": ["control", "import", "/tmp/prama-qa-cli-4v1rd4hy/control4/schema.yml", "--from", "dbt"], "code": 1, "traceback": false}
-{"argv": ["control", "import", "/tmp/prama-qa-cli-4v1rd4hy/control4/schema.yml", "--from", "dbt", "--out", "/tmp/prama-qa-cli-4v1rd4hy/control4/imported.pql"], "code": 1, "traceback": false}
-{"argv": ["control", "check", "/tmp/prama-qa-cli-4v1rd4hy/control4/imported.pql"], "code": 0, "traceback": false}
-{"argv": ["control", "import", "/tmp/prama-qa-cli-4v1rd4hy/control4/schema.yml", "--from", "dbt", "--out", "/proc/out.pql"], "code": "UNCAUGHT_EXCEPTION", "traceback": true}
-{"argv": ["control", "import", "/tmp/prama-qa-cli-4v1rd4hy/control4/ge.json", "--from", "dbt"], "code": 0, "traceback": false}
-{"argv": ["control", "import", "/tmp/prama-qa-cli-4v1rd4hy/control4/nope.yml", "--from", "dbt"], "code": 2, "traceback": false}
-{"argv": ["contract", "check", "/tmp/prama-qa-cli-85gcc35z/contract/contract.json", "--data", "/tmp/prama-qa-cli-85gcc35z/contract/good.json"], "code": 0, "traceback": false}
-{"argv": ["contract", "check", "/tmp/prama-qa-cli-85gcc35z/contract/contract.json", "--data", "/tmp/prama-qa-cli-85gcc35z/contract/missing.json"], "code": 3, "traceback": false}
-{"argv": ["contract", "check", "/tmp/prama-qa-cli-85gcc35z/contract/contract.json", "--data", "/tmp/prama-qa-cli-85gcc35z/contract/extra.json"], "code": 3, "traceback": false}
-{"argv": ["contract", "check", "/tmp/prama-qa-cli-85gcc35z/contract/contract.json", "--data", "/tmp/prama-qa-cli-85gcc35z/contract/extra.json", "--allow-additions"], "code": 0, "traceback": false}
-{"argv": ["contract", "check", "/tmp/prama-qa-cli-85gcc35z/contract/contract.json", "--data", "/tmp/prama-qa-cli-85gcc35z/contract/nulls.json"], "code": 3, "traceback": false}
-{"argv": ["contract", "check", "/tmp/prama-qa-cli-85gcc35z/contract/contract.json", "--data", "/tmp/prama-qa-cli-85gcc35z/contract/ws.json"], "code": 0, "traceback": false}
-{"argv": ["contract", "check", "/tmp/prama-qa-cli-85gcc35z/contract/contract.json", "--data", "/tmp/prama-qa-cli-85gcc35z/contract/empty.json"], "code": 3, "traceback": false}
-{"argv": ["--json", "contract", "check", "/tmp/prama-qa-cli-85gcc35z/contract/contract.json", "--data", "/tmp/prama-qa-cli-85gcc35z/contract/empty.json"], "code": 3, "traceback": false}
-{"argv": ["--json", "contract", "check", "/tmp/prama-qa-cli-85gcc35z/contract/contract.json", "--data", "/tmp/prama-qa-cli-85gcc35z/contract/rows.json"], "code": 0, "traceback": false}
-{"argv": ["--json", "contract", "check", "/tmp/prama-qa-cli-85gcc35z/contract/contract.json", "--data", "/tmp/prama-qa-cli-85gcc35z/contract/rows.jsonl"], "code": 0, "traceback": false}
-{"argv": ["--json", "contract", "check", "/tmp/prama-qa-cli-85gcc35z/contract/contract.json", "--data", "/tmp/prama-qa-cli-85gcc35z/contract/rows.csv"], "code": 0, "traceback": false}
-{"argv": ["contract", "check", "/tmp/prama-qa-cli-85gcc35z/contract/contract.json", "--data", "/tmp/prama-qa-cli-85gcc35z/contract/noobj.json"], "code": 3, "traceback": false}
-{"argv": ["--json", "contract", "check", "/tmp/prama-qa-cli-85gcc35z/contract/contract.json", "--data", "/tmp/prama-qa-cli-85gcc35z/contract/noobj.json"], "code": 3, "traceback": false}
-{"argv": ["--json", "contract", "check", "/tmp/prama-qa-cli-85gcc35z/contract/contract.json", "--data", "/tmp/prama-qa-cli-85gcc35z/contract/dup_fitting.csv"], "code": 0, "traceback": false}
-{"argv": ["contract", "check", "/tmp/prama-qa-cli-85gcc35z/contract/contract.json", "--data", "/tmp/prama-qa-cli-85gcc35z/contract/adir"], "code": "UNCAUGHT_EXCEPTION", "traceback": true}
-{"argv": ["contract", "check", "/tmp/prama-qa-cli-85gcc35z/contract/contract.json", "--data", "/tmp/prama-qa-cli-85gcc35z/contract/unreadable.json"], "code": "UNCAUGHT_EXCEPTION", "traceback": true}
-{"argv": ["contract", "check", "/tmp/prama-qa-cli-85gcc35z/contract/bad.yaml", "--data", "/tmp/prama-qa-cli-85gcc35z/contract/good.json"], "code": 1, "traceback": false}
-{"argv": ["contract", "check", "/tmp/prama-qa-cli-85gcc35z/contract/bad.json", "--data", "/tmp/prama-qa-cli-85gcc35z/contract/good.json"], "code": 1, "traceback": false}
-{"argv": ["contract", "check", "/tmp/prama-qa-cli-85gcc35z/contract/noschema.json", "--data", "/tmp/prama-qa-cli-85gcc35z/contract/good.json"], "code": 1, "traceback": false}
-{"argv": ["contract", "import", "/tmp/prama-qa-cli-wkv6u0qj/contract2/unmodeled.json"], "code": 0, "traceback": false}
-{"argv": ["contract", "import", "/tmp/prama-qa-cli-wkv6u0qj/contract2/quality.json"], "code": 0, "traceback": false}
-{"argv": ["contract", "import", "/tmp/prama-qa-cli-wkv6u0qj/contract2/quality.json", "--controls"], "code": 0, "traceback": false}
-{"argv": ["contract", "import", "/tmp/prama-qa-cli-wkv6u0qj/contract2/nodecl.json"], "code": 3, "traceback": false}
-{"argv": ["--json", "contract", "import", "/tmp/prama-qa-cli-wkv6u0qj/contract2/nodecl.json"], "code": 3, "traceback": false}
-{"argv": ["contract", "diff", "/tmp/prama-qa-cli-xcf3_w_7/contract4/before.csv", "/tmp/prama-qa-cli-xcf3_w_7/contract4/after.csv"], "code": 3, "traceback": false}
-{"argv": ["contract", "diff", "/tmp/prama-qa-cli-xcf3_w_7/contract4/before.csv", "/tmp/prama-qa-cli-xcf3_w_7/contract4/after.csv", "--key", "id"], "code": 3, "traceback": false}
-{"argv": ["contract", "diff", "/tmp/prama-qa-cli-xcf3_w_7/contract4/before.csv", "/tmp/prama-qa-cli-xcf3_w_7/contract4/after.csv", "--key", "pk"], "code": 1, "traceback": false}
-{"argv": ["contract", "diff", "/tmp/prama-qa-cli-xcf3_w_7/contract4/b2.csv", "/tmp/prama-qa-cli-xcf3_w_7/contract4/a2.csv", "--key", "id", "--ignore", "loaded_at"], "code": 0, "traceback": false}
-{"argv": ["contract", "diff", "/tmp/prama-qa-cli-xcf3_w_7/contract4/b3.csv", "/tmp/prama-qa-cli-xcf3_w_7/contract4/a3.csv", "--key", "id"], "code": 3, "traceback": false}
-{"argv": ["contract", "diff", "/tmp/prama-qa-cli-xcf3_w_7/contract4/same_a.csv", "/tmp/prama-qa-cli-xcf3_w_7/contract4/same_b.csv", "--key", "id"], "code": 0, "traceback": false}
-{"argv": ["contract", "diff", "/tmp/prama-qa-cli-xcf3_w_7/contract4/e1.jsonl", "/tmp/prama-qa-cli-xcf3_w_7/contract4/e2.jsonl", "--key", "id"], "code": 0, "traceback": false}
+{"argv": ["control", "compile", "/tmp/prama-qa-cli-hdebxo39/control2/suite.pql"], "code": 0, "traceback": false}
+{"argv": ["control", "compile", "/tmp/prama-qa-cli-hdebxo39/control2/suite.pql", "--dialect", "postgresql"], "code": 0, "traceback": false}
+{"argv": ["control", "compile", "/tmp/prama-qa-cli-hdebxo39/control2/suite.pql", "--dialect", "duckdb"], "code": 0, "traceback": false}
+{"argv": ["control", "compile", "/tmp/prama-qa-cli-hdebxo39/control2/suite.pql", "--dialect", "sqlite"], "code": 0, "traceback": false}
+{"argv": ["control", "compile", "/tmp/prama-qa-cli-hdebxo39/control2/suite.pql", "--dialect", "oracle"], "code": 1, "traceback": false}
+{"argv": ["control", "compile", "/tmp/prama-qa-cli-hdebxo39/control2/round.pql", "--dialect", "sqlite"], "code": 0, "traceback": false}
+{"argv": ["control", "compile", "/tmp/prama-qa-cli-hdebxo39/control2/codelist.pql"], "code": 0, "traceback": false}
+{"argv": ["control", "compile", "/tmp/prama-qa-cli-hdebxo39/control2/fuse.pql", "--fuse"], "code": 0, "traceback": false}
+{"argv": ["control", "compile", "/tmp/prama-qa-cli-hdebxo39/control2/unfuse.pql", "--fuse", "--dialect", "sqlite"], "code": 1, "traceback": false}
+{"argv": ["control", "compile", "/tmp/prama-qa-cli-hdebxo39/control2/unfuse.pql", "--fuse", "--dialect", "sqlite"], "code": 1, "traceback": false}
+{"argv": ["control", "import", "/tmp/prama-qa-cli-wbcrjl0z/control4/x.yml"], "code": 2, "traceback": false}
+{"argv": ["control", "import", "/tmp/prama-qa-cli-wbcrjl0z/control4/x.yml", "--from", "monte_carlo"], "code": 2, "traceback": false}
+{"argv": ["control", "import", "/tmp/prama-qa-cli-wbcrjl0z/control4/schema.yml", "--from", "dbt"], "code": 1, "traceback": false}
+{"argv": ["control", "import", "/tmp/prama-qa-cli-wbcrjl0z/control4/schema.yml", "--from", "dbt", "--out", "/tmp/prama-qa-cli-wbcrjl0z/control4/imported.pql"], "code": 1, "traceback": false}
+{"argv": ["control", "check", "/tmp/prama-qa-cli-wbcrjl0z/control4/imported.pql"], "code": 0, "traceback": false}
+{"argv": ["control", "import", "/tmp/prama-qa-cli-wbcrjl0z/control4/schema.yml", "--from", "dbt", "--out", "/proc/out.pql"], "code": 1, "traceback": false}
+{"argv": ["control", "import", "/tmp/prama-qa-cli-wbcrjl0z/control4/ge.json", "--from", "dbt"], "code": 0, "traceback": false}
+{"argv": ["control", "import", "/tmp/prama-qa-cli-wbcrjl0z/control4/nope.yml", "--from", "dbt"], "code": 2, "traceback": false}
+{"argv": ["contract", "check", "/tmp/prama-qa-cli-fmgnajym/contract/contract.json", "--data", "/tmp/prama-qa-cli-fmgnajym/contract/good.json"], "code": 0, "traceback": false}
+{"argv": ["contract", "check", "/tmp/prama-qa-cli-fmgnajym/contract/contract.json", "--data", "/tmp/prama-qa-cli-fmgnajym/contract/missing.json"], "code": 3, "traceback": false}
+{"argv": ["contract", "check", "/tmp/prama-qa-cli-fmgnajym/contract/contract.json", "--data", "/tmp/prama-qa-cli-fmgnajym/contract/extra.json"], "code": 3, "traceback": false}
+{"argv": ["contract", "check", "/tmp/prama-qa-cli-fmgnajym/contract/contract.json", "--data", "/tmp/prama-qa-cli-fmgnajym/contract/extra.json", "--allow-additions"], "code": 0, "traceback": false}
+{"argv": ["contract", "check", "/tmp/prama-qa-cli-fmgnajym/contract/contract.json", "--data", "/tmp/prama-qa-cli-fmgnajym/contract/nulls.json"], "code": 3, "traceback": false}
+{"argv": ["contract", "check", "/tmp/prama-qa-cli-fmgnajym/contract/contract.json", "--data", "/tmp/prama-qa-cli-fmgnajym/contract/ws.json"], "code": 0, "traceback": false}
+{"argv": ["contract", "check", "/tmp/prama-qa-cli-fmgnajym/contract/contract.json", "--data", "/tmp/prama-qa-cli-fmgnajym/contract/empty.json"], "code": 3, "traceback": false}
+{"argv": ["--json", "contract", "check", "/tmp/prama-qa-cli-fmgnajym/contract/contract.json", "--data", "/tmp/prama-qa-cli-fmgnajym/contract/empty.json"], "code": 3, "traceback": false}
+{"argv": ["--json", "contract", "check", "/tmp/prama-qa-cli-fmgnajym/contract/contract.json", "--data", "/tmp/prama-qa-cli-fmgnajym/contract/rows.json"], "code": 0, "traceback": false}
+{"argv": ["--json", "contract", "check", "/tmp/prama-qa-cli-fmgnajym/contract/contract.json", "--data", "/tmp/prama-qa-cli-fmgnajym/contract/rows.jsonl"], "code": 0, "traceback": false}
+{"argv": ["--json", "contract", "check", "/tmp/prama-qa-cli-fmgnajym/contract/contract.json", "--data", "/tmp/prama-qa-cli-fmgnajym/contract/rows.csv"], "code": 0, "traceback": false}
+{"argv": ["contract", "check", "/tmp/prama-qa-cli-fmgnajym/contract/contract.json", "--data", "/tmp/prama-qa-cli-fmgnajym/contract/noobj.json"], "code": 3, "traceback": false}
+{"argv": ["--json", "contract", "check", "/tmp/prama-qa-cli-fmgnajym/contract/contract.json", "--data", "/tmp/prama-qa-cli-fmgnajym/contract/noobj.json"], "code": 3, "traceback": false}
+{"argv": ["--json", "contract", "check", "/tmp/prama-qa-cli-fmgnajym/contract/contract.json", "--data", "/tmp/prama-qa-cli-fmgnajym/contract/dup_fitting.csv"], "code": 0, "traceback": false}
+{"argv": ["contract", "check", "/tmp/prama-qa-cli-fmgnajym/contract/contract.json", "--data", "/tmp/prama-qa-cli-fmgnajym/contract/adir"], "code": "UNCAUGHT_EXCEPTION", "traceback": true}
+{"argv": ["contract", "check", "/tmp/prama-qa-cli-fmgnajym/contract/contract.json", "--data", "/tmp/prama-qa-cli-fmgnajym/contract/unreadable.json"], "code": "UNCAUGHT_EXCEPTION", "traceback": true}
+{"argv": ["contract", "check", "/tmp/prama-qa-cli-fmgnajym/contract/bad.yaml", "--data", "/tmp/prama-qa-cli-fmgnajym/contract/good.json"], "code": 1, "traceback": false}
+{"argv": ["contract", "check", "/tmp/prama-qa-cli-fmgnajym/contract/bad.json", "--data", "/tmp/prama-qa-cli-fmgnajym/contract/good.json"], "code": 1, "traceback": false}
+{"argv": ["contract", "check", "/tmp/prama-qa-cli-fmgnajym/contract/noschema.json", "--data", "/tmp/prama-qa-cli-fmgnajym/contract/good.json"], "code": 1, "traceback": false}
+{"argv": ["contract", "import", "/tmp/prama-qa-cli-nn081vfu/contract2/unmodeled.json"], "code": 0, "traceback": false}
+{"argv": ["contract", "import", "/tmp/prama-qa-cli-nn081vfu/contract2/quality.json"], "code": 0, "traceback": false}
+{"argv": ["contract", "import", "/tmp/prama-qa-cli-nn081vfu/contract2/quality.json", "--controls"], "code": 0, "traceback": false}
+{"argv": ["contract", "import", "/tmp/prama-qa-cli-nn081vfu/contract2/nodecl.json"], "code": 3, "traceback": false}
+{"argv": ["--json", "contract", "import", "/tmp/prama-qa-cli-nn081vfu/contract2/nodecl.json"], "code": 3, "traceback": false}
+{"argv": ["contract", "diff", "/tmp/prama-qa-cli-951cuzca/contract4/before.csv", "/tmp/prama-qa-cli-951cuzca/contract4/after.csv"], "code": 3, "traceback": false}
+{"argv": ["contract", "diff", "/tmp/prama-qa-cli-951cuzca/contract4/before.csv", "/tmp/prama-qa-cli-951cuzca/contract4/after.csv", "--key", "id"], "code": 3, "traceback": false}
+{"argv": ["contract", "diff", "/tmp/prama-qa-cli-951cuzca/contract4/before.csv", "/tmp/prama-qa-cli-951cuzca/contract4/after.csv", "--key", "pk"], "code": 1, "traceback": false}
+{"argv": ["contract", "diff", "/tmp/prama-qa-cli-951cuzca/contract4/b2.csv", "/tmp/prama-qa-cli-951cuzca/contract4/a2.csv", "--key", "id", "--ignore", "loaded_at"], "code": 0, "traceback": false}
+{"argv": ["contract", "diff", "/tmp/prama-qa-cli-951cuzca/contract4/b3.csv", "/tmp/prama-qa-cli-951cuzca/contract4/a3.csv", "--key", "id"], "code": 3, "traceback": false}
+{"argv": ["contract", "diff", "/tmp/prama-qa-cli-951cuzca/contract4/same_a.csv", "/tmp/prama-qa-cli-951cuzca/contract4/same_b.csv", "--key", "id"], "code": 0, "traceback": false}
+{"argv": ["contract", "diff", "/tmp/prama-qa-cli-951cuzca/contract4/e1.jsonl", "/tmp/prama-qa-cli-951cuzca/contract4/e2.jsonl", "--key", "id"], "code": 0, "traceback": false}
 {"argv": ["bundle", "sbom"], "code": 0, "traceback": false}
 {"argv": ["bundle", "sbom"], "code": 0, "traceback": false}
 {"argv": ["bench", "run"], "code": 2, "traceback": false}
 {"argv": ["--json", "bench", "run", "--seed", "42"], "code": 0, "traceback": false}
 {"argv": ["--json", "bench", "run", "--seed", "42"], "code": 0, "traceback": false}
 {"argv": ["--json", "bench", "run", "--seed", "43"], "code": 0, "traceback": false}
-{"argv": ["--json", "bench", "run", "--seed", "1", "--rows", "0"], "code": "UNCAUGHT_EXCEPTION", "traceback": true}
+{"argv": ["--json", "bench", "run", "--seed", "1", "--rows", "0"], "code": 1, "traceback": false}
 {"argv": ["--json", "bench", "run", "--seed", "1", "--rows", "1"], "code": 0, "traceback": false}
-{"argv": ["--json", "bench", "run", "--seed", "1", "--rate", "0"], "code": "UNCAUGHT_EXCEPTION", "traceback": true}
+{"argv": ["--json", "bench", "run", "--seed", "1", "--rate", "0"], "code": 1, "traceback": false}
 {"argv": ["--json", "bench", "run", "--seed", "1", "--rate", "1"], "code": 0, "traceback": false}
-{"argv": ["--json", "bench", "run", "--seed", "1", "--rate", "1.5"], "code": "UNCAUGHT_EXCEPTION", "traceback": true}
-{"argv": ["--json", "bench", "run", "--seed", "1", "--rate", "-0.1"], "code": "UNCAUGHT_EXCEPTION", "traceback": true}
+{"argv": ["--json", "bench", "run", "--seed", "1", "--rate", "1.5"], "code": 1, "traceback": false}
+{"argv": ["--json", "bench", "run", "--seed", "1", "--rate", "-0.1"], "code": 1, "traceback": false}
 {"argv": ["bench", "run", "--seed", "1", "--rate", "0.001"], "code": 0, "traceback": false}
-{"argv": ["bench", "run", "--seed", "1", "--rate", "0.0"], "code": "UNCAUGHT_EXCEPTION", "traceback": true}
+{"argv": ["bench", "run", "--seed", "1", "--rate", "0.0"], "code": 1, "traceback": false}
 {"argv": ["bench", "run", "--seed", "1"], "code": 0, "traceback": false}
-{"argv": ["bench", "taxonomy", "--family", "wizard"], "code": "UNCAUGHT_EXCEPTION", "traceback": true}
+{"argv": ["bench", "taxonomy", "--family", "wizard"], "code": 1, "traceback": false}
 {"argv": ["bench", "run", "--seed", "1"], "code": 0, "traceback": false}
 {"argv": ["bench", "taxonomy"], "code": 0, "traceback": false}
 {"argv": ["pack", "list"], "code": 0, "traceback": false}
@@ -159,8 +159,8 @@
 {"argv": ["pack", "calendar", "Frankfurt"], "code": 1, "traceback": false}
 {"argv": ["pack", "calendar", "TARGET2", "--year", "1500"], "code": 0, "traceback": false}
 {"argv": ["pack", "calendar", "TARGET2", "--year", "2100"], "code": 0, "traceback": false}
-{"argv": ["pack", "calendar", "TARGET2", "--year", "0"], "code": "UNCAUGHT_EXCEPTION", "traceback": true}
-{"argv": ["pack", "calendar", "TARGET2", "--year", "-1"], "code": "UNCAUGHT_EXCEPTION", "traceback": true}
+{"argv": ["pack", "calendar", "TARGET2", "--year", "0"], "code": 1, "traceback": false}
+{"argv": ["pack", "calendar", "TARGET2", "--year", "-1"], "code": 1, "traceback": false}
 {"argv": ["pack", "calendar", "TARGET2", "--year", "abc"], "code": 2, "traceback": false}
 {"argv": ["pack", "calendar", "target2", "--year", "2030"], "code": 0, "traceback": false}
 {"argv": ["pack", "calendar", "TARGET2", "--year", "2030"], "code": 0, "traceback": false}
@@ -178,18 +178,18 @@
 {"argv": ["pack", "reconciliation", "return-to-feeder"], "code": 0, "traceback": false}
 {"argv": ["pack", "reconciliation", "nosuch"], "code": 1, "traceback": false}
 {"argv": ["pack", "soc2"], "code": 0, "traceback": false}
-{"argv": ["pack", "parse", "/tmp/prama-qa-cli-xyjdii1i/pack/order.fix"], "code": 0, "traceback": false}
-{"argv": ["pack", "parse", "/tmp/prama-qa-cli-xyjdii1i/pack/auth.8583"], "code": 0, "traceback": false}
-{"argv": ["pack", "parse", "/tmp/prama-qa-cli-xyjdii1i/pack/swap.fpml"], "code": 0, "traceback": false}
-{"argv": ["pack", "parse", "/tmp/prama-qa-cli-xyjdii1i/pack/rows.csv"], "code": 1, "traceback": false}
-{"argv": ["pack", "parse", "/tmp/prama-qa-cli-xyjdii1i/pack/order.fix", "--format", "iso8583"], "code": 0, "traceback": false}
-{"argv": ["pack", "parse", "/tmp/prama-qa-cli-xyjdii1i/pack/order.fix"], "code": 0, "traceback": false}
-{"argv": ["pack", "parse", "/tmp/prama-qa-cli-q0yl1_td/pack2/adir"], "code": 1, "traceback": false}
-{"argv": ["pack", "parse", "/tmp/prama-qa-cli-q0yl1_td/pack2/nope.fix"], "code": 1, "traceback": false}
-{"argv": ["pack", "parse", "/tmp/prama-qa-cli-q0yl1_td/pack2/empty.fix"], "code": 1, "traceback": false}
-{"argv": ["pack", "parse", "/tmp/prama-qa-cli-q0yl1_td/pack2/img.png"], "code": 1, "traceback": false}
-{"argv": ["pack", "parse", "/tmp/prama-qa-cli-q0yl1_td/pack2/auth.8583"], "code": 0, "traceback": false}
-{"argv": ["--json", "pack", "parse", "/tmp/prama-qa-cli-q0yl1_td/pack2/auth.8583"], "code": 0, "traceback": false}
+{"argv": ["pack", "parse", "/tmp/prama-qa-cli-ldqdwui_/pack/order.fix"], "code": 0, "traceback": false}
+{"argv": ["pack", "parse", "/tmp/prama-qa-cli-ldqdwui_/pack/auth.8583"], "code": 0, "traceback": false}
+{"argv": ["pack", "parse", "/tmp/prama-qa-cli-ldqdwui_/pack/swap.fpml"], "code": 0, "traceback": false}
+{"argv": ["pack", "parse", "/tmp/prama-qa-cli-ldqdwui_/pack/rows.csv"], "code": 1, "traceback": false}
+{"argv": ["pack", "parse", "/tmp/prama-qa-cli-ldqdwui_/pack/order.fix", "--format", "iso8583"], "code": 0, "traceback": false}
+{"argv": ["pack", "parse", "/tmp/prama-qa-cli-ldqdwui_/pack/order.fix"], "code": 0, "traceback": false}
+{"argv": ["pack", "parse", "/tmp/prama-qa-cli-mlpw29nj/pack2/adir"], "code": 1, "traceback": false}
+{"argv": ["pack", "parse", "/tmp/prama-qa-cli-mlpw29nj/pack2/nope.fix"], "code": 1, "traceback": false}
+{"argv": ["pack", "parse", "/tmp/prama-qa-cli-mlpw29nj/pack2/empty.fix"], "code": 1, "traceback": false}
+{"argv": ["pack", "parse", "/tmp/prama-qa-cli-mlpw29nj/pack2/img.png"], "code": 1, "traceback": false}
+{"argv": ["pack", "parse", "/tmp/prama-qa-cli-mlpw29nj/pack2/auth.8583"], "code": 0, "traceback": false}
+{"argv": ["--json", "pack", "parse", "/tmp/prama-qa-cli-mlpw29nj/pack2/auth.8583"], "code": 0, "traceback": false}
 {"argv": ["pack", "concepts"], "code": 0, "traceback": false}
 {"argv": ["pack", "concepts", "Exposure"], "code": 0, "traceback": false}
 {"argv": ["pack", "concepts", "Wizard"], "code": 1, "traceback": false}
@@ -205,7 +205,7 @@
 {"argv": ["pack", "soc2"], "code": 0, "traceback": false}
 {"argv": ["pack", "concepts"], "code": 0, "traceback": false}
 {"argv": ["pack", "recognise", "account_id", "ccy"], "code": 0, "traceback": false}
-{"argv": ["pack", "parse", "/tmp/prama-qa-cli-q0yl1_td/pack2/auth.8583"], "code": 0, "traceback": false}
+{"argv": ["pack", "parse", "/tmp/prama-qa-cli-mlpw29nj/pack2/auth.8583"], "code": 0, "traceback": false}
 {"argv": ["--json", "pack", "list"], "code": 0, "traceback": false}
 {"argv": ["--json", "pack", "claims"], "code": 0, "traceback": false}
 {"argv": ["--json", "pack", "calendar", "TARGET2", "--year", "2030"], "code": 0, "traceback": false}
@@ -213,12 +213,29 @@
 {"argv": ["--json", "pack", "soc2"], "code": 0, "traceback": false}
 {"argv": ["--json", "pack", "concepts"], "code": 0, "traceback": false}
 {"argv": ["--json", "pack", "recognise", "account_id", "ccy"], "code": 0, "traceback": false}
-{"argv": ["--json", "pack", "parse", "/tmp/prama-qa-cli-q0yl1_td/pack2/auth.8583"], "code": 0, "traceback": false}
+{"argv": ["--json", "pack", "parse", "/tmp/prama-qa-cli-mlpw29nj/pack2/auth.8583"], "code": 0, "traceback": false}
 {"argv": ["--json", "mcp", "tools"], "code": 0, "traceback": false}
 {"argv": ["mcp", "tools"], "code": 0, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-nf5158yh/cli083/application.yaml", "db", "init"], "code": 0, "traceback": false}
-{"argv": ["--json", "--config", "/tmp/prama-qa-cli-nf5158yh/cli083/application.yaml", "tenant", "create", "acme-bank"], "code": 0, "traceback": false}
-{"argv": ["--config", "/tmp/prama-qa-cli-nf5158yh/cli083/application.yaml", "principal", "create", "alice", "--admin", "--tenant", "acme-bank"], "code": 0, "traceback": false}
-{"argv": ["--json", "--config", "/tmp/prama-qa-cli-nf5158yh/cli083/application.yaml", "apikey", "create", "envsep", "--principal", "alice", "--scope", "*", "--environment", "live_pk"], "code": 0, "traceback": false}
-{"argv": ["--json", "--config", "/tmp/prama-qa-cli-nf5158yh/cli083/application.yaml", "apikey", "create", "envsep", "--principal", "alice", "--scope", "*", "--environment", ""], "code": 0, "traceback": false}
-{"argv": ["--json", "--config", "/tmp/prama-qa-cli-nf5158yh/cli083/application.yaml", "apikey", "create", "envsep", "--principal", "alice", "--scope", "*", "--environment", "../x"], "code": 0, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-8sbm_a2n/cli083/application.yaml", "db", "init"], "code": 0, "traceback": false}
+{"argv": ["--json", "--config", "/tmp/prama-qa-cli-8sbm_a2n/cli083/application.yaml", "tenant", "create", "acme-bank"], "code": 0, "traceback": false}
+{"argv": ["--config", "/tmp/prama-qa-cli-8sbm_a2n/cli083/application.yaml", "principal", "create", "alice", "--admin", "--tenant", "acme-bank"], "code": 0, "traceback": false}
+{"argv": ["--json", "--config", "/tmp/prama-qa-cli-8sbm_a2n/cli083/application.yaml", "apikey", "create", "envsep", "--principal", "alice", "--scope", "*", "--environment", "live_pk"], "code": 0, "traceback": false}
+{"argv": ["--json", "--config", "/tmp/prama-qa-cli-8sbm_a2n/cli083/application.yaml", "apikey", "create", "envsep", "--principal", "alice", "--scope", "*", "--environment", ""], "code": 0, "traceback": false}
+{"argv": ["--json", "--config", "/tmp/prama-qa-cli-8sbm_a2n/cli083/application.yaml", "apikey", "create", "envsep", "--principal", "alice", "--scope", "*", "--environment", "../x"], "code": 0, "traceback": false}
+{"argv": ["bench", "run", "--seed", "1"], "code": 0, "traceback": false}
+{"argv": ["bench", "run"], "code": 2, "traceback": false}
+{"argv": ["--json", "bench", "run", "--seed", "42"], "code": 0, "traceback": false}
+{"argv": ["--json", "bench", "run", "--seed", "42"], "code": 0, "traceback": false}
+{"argv": ["--json", "bench", "run", "--seed", "43"], "code": 0, "traceback": false}
+{"argv": ["--json", "bench", "run", "--seed", "1", "--rows", "0"], "code": 1, "traceback": false}
+{"argv": ["--json", "bench", "run", "--seed", "1", "--rows", "1"], "code": 0, "traceback": false}
+{"argv": ["--json", "bench", "run", "--seed", "1", "--rate", "0"], "code": 1, "traceback": false}
+{"argv": ["--json", "bench", "run", "--seed", "1", "--rate", "1"], "code": 0, "traceback": false}
+{"argv": ["--json", "bench", "run", "--seed", "1", "--rate", "1.5"], "code": 1, "traceback": false}
+{"argv": ["--json", "bench", "run", "--seed", "1", "--rate", "-0.1"], "code": 1, "traceback": false}
+{"argv": ["bench", "run", "--seed", "1", "--rate", "0.001"], "code": 0, "traceback": false}
+{"argv": ["bench", "run", "--seed", "1"], "code": 0, "traceback": false}
+{"argv": ["bench", "run", "--seed", "1"], "code": 0, "traceback": false}
+{"argv": ["bench", "taxonomy", "--family", "wizard"], "code": 1, "traceback": false}
+{"argv": ["bench", "run", "--seed", "1"], "code": 0, "traceback": false}
+{"argv": ["bench", "taxonomy"], "code": 0, "traceback": false}

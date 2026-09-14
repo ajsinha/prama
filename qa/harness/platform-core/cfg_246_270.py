@@ -183,15 +183,48 @@ finally:
 
 both_admitted_when_none_disabled = "qa-plugin-a" in reg256 and "qa-plugin-b" in reg256
 only_b_admitted_when_a_disabled = "qa-plugin-a" not in reg256b and "qa-plugin-b" in reg256b
-R("CFG-256", both_admitted_when_none_disabled and only_b_admitted_when_a_disabled,
-  f"load_entry_points() now filters by plugins.disabled BEFORE admission (not Registry.disable() after -- a "
+
+# Round 4: also drive the real CLI entry point, end to end, in a fresh
+# subprocess per condition -- `install_shipped` and `PLUGINS` are process
+# globals, so this is the only way to observe what a real `prama` invocation
+# sees rather than trusting the round-3 note below at its word. Batches A-D
+# moved pack installation into `Application.run` (after `--config` is
+# parsed), specifically to fix this gap (QA round 3, Q-63).
+import subprocess, json as _json256, tempfile as _tf256, os as _os256
+
+_probe256 = "/home/ashutosh/PycharmProjects/prama/qa/harness/platform-core/_cfg256_cli_probe.py"
+_tmpdir256 = _tf256.mkdtemp(prefix="cfg256-cli-")
+_cfg_none256 = _os256.path.join(_tmpdir256, "none.yaml")
+_cfg_a256 = _os256.path.join(_tmpdir256, "a.yaml")
+open(_cfg_none256, "w").write("plugins:\n  disabled: []\n")
+open(_cfg_a256, "w").write('plugins:\n  disabled: ["qa-plugin-a"]\n')
+
+try:
+    out_none = _json256.loads(subprocess.run(
+        [sys.executable, _probe256, "[]", _cfg_none256],
+        capture_output=True, text=True, check=True, timeout=30).stdout)
+    out_a = _json256.loads(subprocess.run(
+        [sys.executable, _probe256, '["qa-plugin-a"]', _cfg_a256],
+        capture_output=True, text=True, check=True, timeout=30).stdout)
+    cli_both_admitted = set(out_none["admitted"]) == {"qa-plugin-a", "qa-plugin-b"}
+    cli_only_b_admitted = set(out_a["admitted"]) == {"qa-plugin-b"}
+    cli_ok = cli_both_admitted and cli_only_b_admitted
+    cli_detail = (f"CLI path (real `Application.run`, one fresh subprocess per condition): "
+                  f"disabled=[] -> admitted={out_none['admitted']} ({cli_both_admitted}); "
+                  f"disabled=['qa-plugin-a'] -> admitted={out_a['admitted']} ({cli_only_b_admitted})")
+except Exception as e:
+    cli_ok = False
+    cli_detail = f"CLI path probe failed to run: {type(e).__name__}: {e}"
+
+R("CFG-256", both_admitted_when_none_disabled and only_b_admitted_when_a_disabled and cli_ok,
+  f"load_entry_points() filters by plugins.disabled BEFORE admission (not Registry.disable() after -- a "
   f"different, and better, mechanism than the grep this case's round-2 harness looked for): with disabled=[] both "
   f"fake plugins are admitted ({both_admitted_when_none_disabled}); with disabled=['qa-plugin-a'] only 'b' is "
   f"admitted ({only_b_admitted_when_a_disabled}). Reached from create_app() via install_shipped(disabled_plugins="
-  f"config.get_list('plugins.disabled', [])) -- the SERVER path honours the key. `prama.cli.main` still does not "
-  f"(Q-63, tracked as open, not re-reported here): it calls install_shipped() with no disabled_plugins argument "
-  f"because argparse has not run yet and --config is not known, so a CLI invocation admits a plugin the server "
-  f"would have excluded.")
+  f"config.get_list('plugins.disabled', [])) -- the SERVER path honours the key. {cli_detail} -- Q-63 (the CLI "
+  f"admitting a plugin the server would have excluded, because install_shipped() ran at the entry point before "
+  f"--config was parsed) is fixed: `cli/base.py`'s `Application.run` now calls `install_shipped` after building "
+  f"`ctx.config`, so the CLI path is reached with the real disabled list, same as the server.")
 
 # CFG-257
 R("CFG-257", reg.keys() == sorted(["good2","good3"]) or set(reg.keys())=={"good2","good3"},

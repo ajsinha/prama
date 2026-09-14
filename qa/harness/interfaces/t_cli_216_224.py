@@ -33,11 +33,24 @@ code, out, err = c.run(["bench", "run", "--seed", "1", "--rate", "0.001"])
 mentions = "planted nothing" in out.lower() or "nothing this run" in out.lower()
 record("CLI-220", "PASS" if mentions else "FAIL", f"code={code} mentions={mentions} out_tail={out[-400:]!r}")
 
-# CLI-221: undefined metric prints a dash
-code, out, err = c.run(["bench", "run", "--seed", "1", "--rate", "0.0"])
-has_dash_col = " - " in out or "|  -" in out or out.count("-") > 5
-has_bad_zero = "0.00" in out
-record("CLI-221", "PASS" if "Traceback" not in err else "FAIL", f"code={code} has_dash={has_dash_col} out_tail={out[-500:]!r}")
+# CLI-221: undefined metric prints a dash, not zero. Round 3/round 4's original
+# fixture passed --rate 0.0, which is out of bounds ((0, 1]) and never reaches
+# the precision column at all -- it just exercises the (unrelated) --rate
+# refusal path this batch also fixed, so a clean exit with no Traceback was
+# passing regardless of whether any dash was ever printed. Corrected: --rate
+# 0.0 removed (a plain `bench run` already has a real undefined-precision row
+# for free -- 'detect-nothing 0/28 - 0.00 -', where precision and F1 are
+# genuinely undefined at 0 true positives and recall is a well-defined 0.00),
+# and the assertion now actually reads the detect-nothing row's precision cell.
+code, out, err = c.run(["bench", "run", "--seed", "1"])
+detect_nothing_lines = [ln for ln in out.splitlines() if ln.strip().startswith("detect-nothing")]
+precision_is_dash = bool(detect_nothing_lines) and detect_nothing_lines[0].split()[1:5] == ["bound", "0/28", "-", "0.00"]
+record(
+    "CLI-221",
+    "PASS" if precision_is_dash else "FAIL",
+    f"code={code} detect_nothing_row={detect_nothing_lines[0].strip() if detect_nothing_lines else None!r} "
+    f"-- precision (0 true positives out of 0 predicted) prints '-', recall (0/28, well-defined) prints '0.00'",
+)
 
 # CLI-222: NOT-run baselines printed every run
 code, out, err = c.run(["bench", "run", "--seed", "1"])

@@ -15,6 +15,18 @@ from prama.bench.shadow import Blinding, Judgement, ShadowAlert, SystemResult, S
 def line(id_, result, observed):
     print(f"{id_}: {result} :: {observed}")
 
+# round 4 correction: Batch B ("the fourteen commands that answered a person
+# with a stack trace", commit 53b9043) retyped bench/corpus.py's rate/rows
+# refusals from a bare ValueError to prama.core.errors.ValidationError, which
+# is a PramaError, NOT a ValueError subclass. The bare `except ValueError`
+# below would let the new exception type propagate uncaught and crash every
+# case after BCH-015/BCH-016 in this script. Broadened to catch the taxonomy
+# error too so the script completes; the PASS/FAIL verdict for BCH-015/
+# BCH-016 still checks isinstance(..., ValueError) because the catalogue's
+# literal Expected names that type specifically -- see the round-4 log for
+# the resulting regression judgement (same shape as OPS-003 in round 3).
+from prama.core.errors import ValidationError as _ValidationError
+
 # BCH-001
 try:
     build()
@@ -119,21 +131,22 @@ line("BCH-014", "PASS" if ok14 else "FAIL", f"after={row14}")
 
 # BCH-015
 errs15 = []
+types15 = []
 for bad_rate in [0, 1.5, -0.1]:
     try:
         build(seed=1, rate=bad_rate)
-        errs15.append(None)
-    except ValueError as e:
-        errs15.append(str(e))
-ok15 = all(e is not None and "rate" in e for e in errs15)
-line("BCH-015", "PASS" if ok15 else "FAIL", f"errors={errs15}")
+        errs15.append(None); types15.append(None)
+    except (ValueError, _ValidationError) as e:
+        errs15.append(str(e)); types15.append(type(e).__name__)
+ok15 = all(e is not None and "rate" in e for e in errs15) and all(isinstance(t, str) and t == "ValueError" for t in types15)
+line("BCH-015", "PASS" if ok15 else "FAIL", f"errors={errs15} types={types15} (catalogue Expected: ValueError naming the value)")
 
 # BCH-016
 try:
     build(seed=1, rows=0)
     ok16 = False; obs16 = "no exception"
-except ValueError as e:
-    ok16 = True; obs16 = str(e)
+except (ValueError, _ValidationError) as e:
+    ok16 = isinstance(e, ValueError); obs16 = f"{type(e).__name__}: {e} (catalogue Expected: ValueError)"
 line("BCH-016", "PASS" if ok16 else "FAIL", obs16)
 
 # BCH-017
