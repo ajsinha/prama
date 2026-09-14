@@ -49,10 +49,52 @@ def _private_key(path: str) -> object:
     key on an argv is a private key in the shell history and in every process
     listing on the machine while the command runs.
     """
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
     from cryptography.hazmat.primitives.serialization import load_pem_private_key
 
-    data = Path(path).read_bytes()
-    return load_pem_private_key(data, password=None)
+    target = Path(path)
+    try:
+        data = target.read_bytes()
+    except OSError as exc:
+        raise ValidationError(
+            f"{target} could not be read: {exc.strerror or exc}",
+            remedy="--sign-with names a PEM file holding an Ed25519 private key.",
+            context={"path": str(target)},
+        ) from None
+
+    try:
+        key = load_pem_private_key(data, password=None)
+    except (ValueError, TypeError) as exc:
+        # A malformed PEM, or one that is encrypted, came back as
+        # `ValueError: Unable to load PEM file ... MalformedFraming` with a link
+        # to somebody else's FAQ. QA round 4, `CLI-198`.
+        raise ValidationError(
+            f"{target} is not an unencrypted PEM private key: {exc}",
+            remedy=(
+                "Give an unencrypted Ed25519 private key in PEM form. An "
+                "encrypted key cannot be used here, because a bundle is sealed "
+                "without anybody present to type a passphrase."
+            ),
+            context={"path": str(target)},
+        ) from None
+
+    if not isinstance(key, Ed25519PrivateKey):
+        # The signature this produces is Ed25519 by design — `Manifest.sign`
+        # calls `private_key.sign(data)` with no padding or algorithm, which is
+        # the Ed25519 interface. An RSA key reached that call and returned
+        # `TypeError: sign() missing 2 required positional arguments`, naming a
+        # method nobody invoked. QA round 4, `SEC-166`.
+        raise ValidationError(
+            f"{target} holds a {type(key).__name__.removesuffix('PrivateKey')} key, "
+            "and a bundle is signed with Ed25519",
+            remedy=(
+                "Generate one with `openssl genpkey -algorithm ed25519 -out key.pem`. "
+                "The signature format is fixed so that a customer checking a bundle "
+                "offline needs no algorithm negotiation."
+            ),
+            context={"path": str(target), "key_type": type(key).__name__},
+        )
+    return key
 
 
 def _public_key(path: str) -> object:

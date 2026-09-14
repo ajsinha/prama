@@ -209,7 +209,16 @@ def test_a_file_refusal_is_typed_and_not_a_traceback(fixtures, case: str) -> Non
 
 @pytest.mark.parametrize(
     "case",
-    ["run-against-a-directory", "catalogue-out-unwritable", "bundle-manifest-not-json"],
+    [
+        "run-against-a-directory",
+        "catalogue-out-unwritable",
+        "bundle-manifest-not-json",
+        "contract-data-is-a-directory",
+        "contract-is-a-bare-scalar",
+        "contract-is-a-directory",
+        "sign-with-a-malformed-pem",
+        "sign-with-an-rsa-key",
+    ],
 )
 def test_a_path_refusal_is_typed_and_not_a_traceback(tmp_path, case: str) -> None:
     """Round-4 additions: three sites the round-3 enumeration did not reach.
@@ -246,10 +255,63 @@ def test_a_path_refusal_is_typed_and_not_a_traceback(tmp_path, case: str) -> Non
     bundle.mkdir()
     (bundle / "manifest.json").write_text("junk")
 
+    import json as _json
+
+    contract = tmp_path / "contract.json"
+    contract.write_text(
+        _json.dumps(
+            {
+                "version": "1.0.0",
+                "status": "active",
+                "schema": [
+                    {
+                        "name": "positions_eod",
+                        "logicalType": "object",
+                        "physicalType": "table",
+                        "properties": [{"name": "isin", "logicalType": "string", "required": True}],
+                    }
+                ],
+            }
+        )
+    )
+    bare = tmp_path / "bare.json"
+    bare.write_text('"just a string"')
+
+    # A malformed PEM, and a well-formed key of the wrong algorithm. The second
+    # matters more: `Manifest.sign` calls `private_key.sign(data)` with no
+    # padding or algorithm, which is the Ed25519 interface, so an RSA key
+    # reached it and raised `TypeError: sign() missing 2 required positional
+    # arguments` — a method nobody invoked, named in a traceback.
+    bad_pem = tmp_path / "bad.pem"
+    bad_pem.write_text("not a pem\n")
+    rsa_pem = tmp_path / "rsa.pem"
+    from cryptography.hazmat.primitives import serialization as _ser
+    from cryptography.hazmat.primitives.asymmetric import rsa as _rsa
+
+    rsa_pem.write_bytes(
+        _rsa.generate_private_key(public_exponent=65537, key_size=2048).private_bytes(
+            _ser.Encoding.PEM, _ser.PrivateFormat.PKCS8, _ser.NoEncryption()
+        )
+    )
+    to_seal = tmp_path / "seal"
+    to_seal.mkdir()
+    (to_seal / "a.txt").write_text("x")
+
     argv = {
         "run-against-a-directory": ["control", "run", "--against", str(a_directory)],
         "catalogue-out-unwritable": ["lsp", "catalogue", "--out", str(a_file / "nested.json")],
         "bundle-manifest-not-json": ["bundle", "verify", str(bundle)],
+        "contract-data-is-a-directory": [
+            "contract",
+            "check",
+            str(contract),
+            "--data",
+            str(a_directory),
+        ],
+        "contract-is-a-bare-scalar": ["contract", "check", str(bare), "--data", str(a_file)],
+        "contract-is-a-directory": ["contract", "check", str(a_directory), "--data", str(a_file)],
+        "sign-with-a-malformed-pem": ["bundle", "seal", str(to_seal), "--sign-with", str(bad_pem)],
+        "sign-with-an-rsa-key": ["bundle", "seal", str(to_seal), "--sign-with", str(rsa_pem)],
     }[case]
 
     if PRAMA is None:  # pragma: no cover
