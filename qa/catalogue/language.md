@@ -3213,8 +3213,14 @@ it does. A case that turns out green is not wasted: it retires a doubt.
 - **Priority:** P3
 - **Precondition:** a column called `and`
 - **Steps:** parse `'=[and] > 0'` and `'=and > 0'`
-- **Expected:** the bracketed form works; the bare form is read as an operator
-- **Why:** `expression()` tests `token.text.upper()` against `PRECEDENCE` regardless of token kind, so a bare identifier that happens to spell a connective is an operator
+- **Expected:** both forms parse to the same `ColumnRef(name='and')`
+- **Why:** the risk is that `expression()` tests `token.text.upper()` against
+  `PRECEDENCE` regardless of token kind, which would make a bare identifier that
+  happens to spell a connective into an operator. It does not: round 4 parsed both
+  forms and both yield `BinaryOp('>', ColumnRef('and'), Literal(0))`. This case
+  predicted a defect that is not there, and asserted the prediction rather than
+  the property — so it failed against correct code. What it should hold the parser
+  to is that bracketing is optional for a name that collides with a connective.
 
 ### PQL-351 · An unknown function lists the catalogue
 - **Area:** `pql/excel.py::ExcelParser.call`

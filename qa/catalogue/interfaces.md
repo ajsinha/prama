@@ -3799,10 +3799,18 @@ does not, it is new ground.
 - **Type:** security
 - **Priority:** P1
 - **Precondition:** an auditor session (read scopes only)
-- **Steps:** POST to every console route registered with `methods=["POST"]`
-- **Expected:** 403 for all of them
+- **Steps:** POST to every console route registered with `methods=["POST"]`,
+  **excluding the four language routes** (`/controls/check`,
+  `/controls/completions`, `/controls/hover`, `/controls/compile`), which declare
+  `scope="control:read"` explicitly rather than deriving one
+- **Expected:** 403 for all of them; 200 for the four excluded
 - **Why:** the derivation is `{"POST","PUT","PATCH","DELETE"} & verbs`; a route
-  registered with both GET and POST under one call gets the write scope for both
+  registered with both GET and POST under one call gets the write scope for both.
+  The exclusion is not a weakening: those four parse, lint, complete and compile a
+  string and store nothing, so deriving a write scope from the verb made linting a
+  control require permission to author one — an `owner` could approve a control and
+  not check its text first (`Q-66`). A blanket assertion over *every* POST cannot
+  express "mutating", which is the property this case is actually about.
 
 ### UI-007 · A route registered for GET and POST together does not over-restrict reads
 - **Area:** `web/routes/base.py::UiRoutes.page`

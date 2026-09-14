@@ -1123,6 +1123,49 @@ The ones that contradict something previously decided deserve more scepticism
 than the ones that do not, not less — the temptation is to treat them as
 discoveries.
 
+### Q-80 · Batch H — six catalogue cases corrected, and two that were not
+
+Six cases asserted behaviour the product deliberately does not have. Each was
+verified against the code before editing, and each corrected expectation was
+then run against the product to confirm it holds — because "change the test
+because the code is right" is the move most likely to be wrong, and [[Q-79]] is
+this week's evidence that a confident reading can be.
+
+| case | was | is |
+|---|---|---|
+| `UI-006` | 403 for every console POST | 403, except the four language routes that declare `control:read` |
+| `OPS-003` | sqlite renders without a volume | renders with `persistence.enabled`, including a PVC |
+| `IMP-030` | strict `< 2 %` imports as `BELOW 2%` | precondition uses `<= 2 %`; the strict form is refused on purpose |
+| `CLS-059` | ZWL absent at 2024-04-05, and at 2025-01-01 | valid until 2025-03-30, absent 2025-03-31 |
+| `CLS-061` | ANG absent at 2025-03-31 | still valid; XCG's half unchanged |
+| `PQL-350` | a bare `and` is read as an operator | both forms parse to `ColumnRef('and')` |
+
+**Two cases were dropped from this batch after checking.** `BCH-015`/`BCH-016`
+needed no edit at all — [[Q-77]]'s repair restored `ValueError` to the library,
+so the catalogue's existing `Expected` is satisfied as written. Editing them
+would have written the defect into the case.
+
+**`PQL-198`/`PQL-199` were moved out, to the "derive, never restate" work.**
+They assert that `PRECEDENCE` and `BINDING` induce the same ordering, and it is
+tempting to call them over-strict because the parser normalises `!=` to `<>`
+before any AST node exists. But `BINDING`'s own comment says it *"must agree
+with the parser's PRECEDENCE, or the formatter emits text that means something
+else"* — the code claims the invariant these cases test. Weakening the case to
+match two hand-maintained tables that disagree is the wrong direction; deriving
+one from the other is the right one.
+
+**What this batch cost to get right.** `CLS-059` was corrected twice. The first
+correction fixed the third step — ZWL is valid at 2024-04-05, because retirement
+lags by one version — and left the fourth step asserting `False` at 2025-01-01.
+That is also wrong, and for a *different* reason: the 2025 version takes effect
+on 2025-03-31, so 2025-01-01 is still inside the 2024 version. The second error
+was invisible while the first one stood, and only surfaced because the corrected
+expectation was executed rather than reasoned about.
+
+A case edited to match the code, and then not run, is worth less than the broken
+case it replaced: it now agrees with the implementation by assumption rather
+than by test, which is the failure this catalogue exists to prevent.
+
 ---
 
 ## What held
