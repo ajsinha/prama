@@ -23,11 +23,10 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import dataclasses
-
-from prama.core.errors import ValidationError
 import hashlib
 from typing import Any
 
+from prama.core.errors import ValidationError
 from prama.core.pjson import canonical
 
 #: Bumped only when the *meaning* of a field changes. A record names the version
