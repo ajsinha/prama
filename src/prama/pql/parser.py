@@ -17,6 +17,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import dataclasses
+import re
 
 from prama.pql import ast
 from prama.pql.errors import Position, PqlSyntaxError
@@ -977,6 +978,24 @@ class Parser:
                 remedy="Patterns are written between slashes: /^[A-Z]{2}[0-9]{10}$/",
             )
         self._advance()
+        try:
+            re.compile(token.value)
+        except re.error as exc:
+            # Nothing validated a pattern anywhere, so `/[/` was accepted here
+            # and first noticed by `re.compile` inside the reference
+            # interpreter, or by the engine itself, at execution — which is a
+            # run that starts, costs a scan and then fails, instead of a control
+            # that never compiles. Checked at the one place every MATCHES
+            # pattern passes through, where the caret can point at it.
+            # QA round 4, `BE-016`.
+            raise self._error(
+                f"the pattern is not a valid regular expression: {exc.msg}",
+                remedy=(
+                    "Check the brackets and escapes. A pattern is written between "
+                    "slashes, as in /^[A-Z]{2}[0-9]{10}$/."
+                ),
+                token=token,
+            ) from exc
         return ast.Literal(value=token.value, literal_type="pattern", position=token.position)
 
     def _reference_literal(self) -> ast.Literal:

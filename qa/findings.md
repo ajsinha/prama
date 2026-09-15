@@ -1982,3 +1982,83 @@ the catalogue count — from the code, and states three more in prose. Prose is
 where drift lives. The two that drifted here (4,985 vs 5,083; 4,662 vs 4,660)
 were both caught by a script; the three that remain were caught by reading, and
 only because somebody said the file looked old.
+
+## Q-102 — `prama.pql.__all__` named five things the module never imported
+
+**Where** `src/prama/pql/__init__.py`. **From** `PQL-402`, `PQL-403`.
+
+`Attribute`, `AttributeCatalogue`, `Drift`, `Expander`, `Expansion` were listed
+in `__all__` and imported nowhere, so `from prama.pql import *` raised
+`AttributeError`.
+
+The state was neither "exported" nor "not listed" but **both at once**, which is
+why nothing caught it: every ordinary import of the package worked, and only the
+two forms nobody uses in this codebase — a star import, and `getattr` over
+`__all__` — could see it.
+
+All five live in `pql/expand.py`, a sibling. So it was never a question of what
+should be public: the names were chosen, written into the contract, and the
+import line was never added.
+
+**Repair** one import block, and a check over **every** `prama.*` module rather
+than this one, since a list that can drift in one can drift in any. No other
+module was found wrong. Written as a single test that names every offender
+rather than 350 parametrised cases — the isolation is prettier and the
+information is identical, and the suite count is published in the README.
+
+## Q-103 — a regular expression was validated nowhere
+
+**Where** `src/prama/pql/parser.py::_pattern`, `src/prama/backend/dialect.py`.
+**From** `BE-016` (P1), `BE-015` (P1), `BE-075` (P2).
+
+`/[/` parsed without complaint and was first noticed by `re.compile` inside the
+reference interpreter, or by the engine, at execution — a run that starts, costs
+a scan, and then fails, instead of a control that never compiles.
+
+**The triage's account of the portability half was wrong, and the correction is
+the useful part.** It said non-portable features make engines *"silently match
+different rows"*. Measured against a real DuckDB, lookaround and backreferences
+are not silent at all: RE2 rejects them outright. What was silent was the
+**timing** — the control compiled, the run began, and one engine refused
+mid-flight while the interpreter and SQLite were happy.
+
+**Two genuinely silent divergences do exist, and I did not fix either.**
+Measured, not assumed:
+
+* `\d` is Unicode-aware in Python and ASCII-only in RE2, so `/^\d+$/` matches
+  `١٢٣` on SQLite and on the interpreter and not on DuckDB — no error anywhere,
+  different rows, same control.
+* `[[:alpha:]]` is a POSIX class RE2 honours and Python reads as a nested set,
+  so it matches on DuckDB and not on SQLite.
+
+Neither is findable by scanning a pattern for forbidden constructs, because
+**nothing about the pattern is forbidden** — the flavours disagree about what it
+means. Refusing `\d` is not defensible; it is the most common construct in the
+language. They are recorded in `dialect.py` and asserted by the regression, so a
+later edit cannot delete the note and leave the repair reading as a complete
+portability guarantee.
+
+The corpus's only `MATCHES` case uses explicit `[0-9A-Z]` rather than `\d`,
+which suggests somebody had already thought about this and wrote around it
+rather than writing it down.
+
+**`BE-075` (catastrophic backtracking) is not fixed.** `(a+)+b` against a long
+non-matching subject does not complete in Python's engine — a denial of service
+against the interpreter, reachable from an authored control. Static ReDoS
+detection is not reliable; the triage said budget it separately and it was
+right. The regression asserts what is true today — such a pattern parses — so
+that the day a runtime bound is added, the test fails and somebody has to come
+back and say so.
+
+**Repair** syntax validated at `_pattern`, the one place every `MATCHES` pattern
+passes through, where the caret can point at it; RE2's real gaps returned as the
+existing `Unsupported` from `DuckDbDialect.regex_match`, so the refusal travels
+the path the dialect already has rather than a new one. SQLite keeps accepting
+lookbehind, because it runs Python's `re` and genuinely supports it — refusing
+it everywhere would be the easy over-correction, removing a capability from the
+engine that has it.
+
+**Found while writing the test:** `/*x/` is not a pattern at all — `/*` opens a
+block comment and the lexer refuses it earlier, for a different and correct
+reason. It was in the first draft's parametrised list and passed, which would
+have read as proof the new gate worked.

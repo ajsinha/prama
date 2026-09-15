@@ -16,6 +16,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import dataclasses
+import re
 from typing import Any
 
 #: Capability names, matching those the connectors publish, so a control's
@@ -26,6 +27,38 @@ AGGREGATION = "pushdown.aggregation"
 APPROX_DISTINCT = "pushdown.approx_distinct"
 SAMPLING = "pushdown.sampling"
 CROSS_OBJECT_JOIN = "pushdown.cross_object_join"
+
+
+#: Constructs RE2 does not implement and Python's `re` does. Verified against
+#: DuckDB rather than taken from documentation: each raises
+#: `InvalidInputException` there and compiles fine in Python, so a control
+#: written and tested against the interpreter fails on DuckDB at execution —
+#: after the scan, in a run somebody is waiting on.
+#:
+#: Deliberately conservative and deliberately incomplete. A `\1` inside a
+#: character class is an octal escape rather than a backreference and is refused
+#: here anyway: a false refusal costs a rewrite, a false acceptance costs a run
+#: that fails on one engine only. And it does not attempt the *silent*
+#: divergences, which no scan of the pattern can find — `\d` is Unicode-aware in
+#: Python and ASCII-only in RE2, so `/^\d+$/` matches Arabic-Indic digits on
+#: SQLite and on the interpreter and not on DuckDB, with no error on either
+#: side. That one is recorded as a known divergence, not fixed.
+#: QA round 4, `BE-015`.
+RE2_ABSENT: tuple[tuple[str, str], ...] = (
+    (r"\(\?=", "lookahead"),
+    (r"\(\?!", "negative lookahead"),
+    (r"\(\?<=", "lookbehind"),
+    (r"\(\?<!", "negative lookbehind"),
+    (r"(?<!\\)\\[1-9]", "a backreference"),
+)
+
+
+def re2_gap(pattern: str) -> str:
+    """The first RE2-absent construct in *pattern*, or "" if there is none."""
+    for expression, name in RE2_ABSENT:
+        if re.search(expression, pattern):
+            return name
+    return ""
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -255,7 +288,20 @@ class DuckDbDialect(SqlDialect):
     has_aggregate_filter = True
     has_ilike = True
 
-    def regex_match(self, expression: str, pattern: str) -> str:
+    def regex_match(self, expression: str, pattern: str) -> str | Unsupported:
+        if gap := re2_gap(pattern):
+            return Unsupported(
+                capability=REGEX,
+                detail=(
+                    f"DuckDB matches with RE2, which has no {gap}, so /{pattern}/ "
+                    "cannot be run here"
+                ),
+                remedy=(
+                    f"Rewrite the pattern without {gap} — RE2 has none — or run this "
+                    "control on PostgreSQL or SQLite. Left as it is, the control "
+                    "passes on the interpreter and fails on DuckDB at execution."
+                ),
+            )
         return f"regexp_matches({expression}, {self.literal(pattern)})"
 
     def count_distinct(self, expressions: list[str], *, where: str = "") -> str:
