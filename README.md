@@ -227,7 +227,7 @@ Five contributions, targeting **ACM JDIQ** with a **VLDB Industrial** companion 
 ## Status
 
 **Implemented.** Eleven waves are complete; two tasks stay open on infrastructure
-rather than code. The suite is at <!--tests-->4,985 passing, 96 skipped<!--/tests-->,
+rather than code. The suite is at <!--tests-->5,066 passing, 96 skipped<!--/tests-->,
 derived from a green run by `scripts/sync_test_counts.py` rather than typed — a
 count in prose rots the first time somebody adds a test.
 
@@ -251,7 +251,7 @@ with a test that failed before the fix stays fixed. Each file there names the
 case that produced it and, where the fix was subtle, what the test would have
 passed on had it been written carelessly.
 
-`qa/` also holds the corpus behind them: a catalogue of 4,662 cases, the
+`qa/` also holds the corpus behind them: a catalogue of <!--cases-->4,660<!--/cases--> cases, the
 per-round execution logs, the harness scripts that produced them, and
 `findings.md` — which records what was *not* a defect as carefully as what was,
 because a findings list that only keeps the hits is one nobody can calibrate

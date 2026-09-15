@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import Any
 
 from prama.cli.base import EXIT_DRIFT, EXIT_OK, Command, CommandContext, CommandGroup
 from prama.core.errors import ValidationError
@@ -103,7 +104,7 @@ def _public_key(path: str) -> object:
     return load_pem_public_key(Path(path).read_bytes())
 
 
-def _entry_field(entry: object, field: str, path: Path) -> object:
+def _entry_field(entry: object, field: str, path: Path) -> Any:
     """One field of one manifest entry, or a refusal naming what is missing.
 
     Indexed directly until round 4, so a hand-edited manifest produced a

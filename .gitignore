@@ -19,7 +19,12 @@ htmlcov/
 *.db
 *.sqlite
 *.sqlite3
-data/
+# Anchored, for the same reason `logs/` below is: unanchored, `data/` matches a
+# directory of that name at *any* depth, and it silently swallowed
+# `qa/regression-suite/data/` — a whole cluster of the QA regression suite,
+# which git would never have offered to add and no `git status` would mention.
+# The root `data/` this is actually for is a running instance's scratch.
+/data/
 # Anchored to the repository root: this is for runtime log output a running
 # instance drops beside the code. Unanchored, it also swallowed
 # `docs/qa/logs/`, which is the QA evidence — checked-in documentation that

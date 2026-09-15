@@ -18,10 +18,9 @@ from __future__ import annotations
 from types import TracebackType
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from prama.core.errors import ConflictError, DatabaseError
+from prama.core.errors import DatabaseError
 from prama.core.log import get_logger
 from prama.db.engine import EngineFactory
 
@@ -90,7 +89,32 @@ class UnitOfWork:
 
     # -- data access objects ----------------------------------------------
 
+    def _refuse_if_closed(self, what: str) -> None:
+        """A closed unit of work says so, rather than SQLAlchemy saying it.
+
+        `close()` set `_closed` and nothing read it, so using a unit of work
+        after its `async with` block surfaced SQLAlchemy's own "Instance is not
+        bound to a Session" or "This session is closed" — above `prama.db`,
+        which the layering rule forbids. QA round 4, `DB-086`.
+
+        The message matters more than the type here. The cause is almost always
+        the same mistake — a value read outside the block that created it — and
+        the stdlib-flavoured wording sends people looking at the database.
+        """
+        if self._closed:
+            raise DatabaseError(
+                f"this unit of work is closed; {what} cannot be used",
+                code="DB.UNIT_OF_WORK_CLOSED",
+                remedy=(
+                    "A unit of work lives for the duration of its `async with` block. "
+                    "Do the reads and writes inside it, and take plain values out — "
+                    "not DAOs, and not ORM instances, which detach when it closes."
+                ),
+                context={"used": what},
+            )
+
     def _dao(self, name: str, cls: type[Any]) -> Any:
+        self._refuse_if_closed(name)
         if name not in self._daos:
             self._daos[name] = cls(self._session, self._factory.dialect)
         return self._daos[name]
@@ -247,12 +271,15 @@ class UnitOfWork:
 
     async def flush(self) -> None:
         """Push pending changes without ending the transaction."""
+        self._refuse_if_closed("flush()")
         await self._guarded(self._session.flush)
 
     async def commit(self) -> None:
+        self._refuse_if_closed("commit()")
         await self._guarded(self._session.commit)
 
     async def rollback(self) -> None:
+        self._refuse_if_closed("rollback()")
         await self._session.rollback()
 
     async def close(self) -> None:
@@ -261,28 +288,15 @@ class UnitOfWork:
             self._closed = True
 
     async def _guarded(self, operation: Any) -> None:
-        try:
-            await operation()
-        except IntegrityError as exc:
-            await self._session.rollback()
-            raise ConflictError(
-                "the change conflicts with data already present",
-                remedy=(
-                    "A unique key or foreign key was violated. Re-read the current state "
-                    "and retry, or correct the input."
-                ),
-                context={"detail": _first_line(exc)},
-                cause=exc,
-            ) from exc
-        except SQLAlchemyError as exc:
-            await self._session.rollback()
-            raise DatabaseError(
-                "the database rejected the transaction",
-                code="DB.TRANSACTION_FAILED",
-                remedy="Inspect the detail below; the transaction has been rolled back.",
-                context={"detail": _first_line(exc)},
-                cause=exc,
-            ) from exc
+        """Delegates to `prama.db.guard.guarded`.
+
+        The translation used to live here in full, and the versioned DAOs
+        flushed around it — so the one path that most needs a `ConflictError`,
+        a concurrent amendment, did not get one. Shared rather than copied.
+        """
+        from prama.db.guard import guarded
+
+        await guarded(self._session, operation)
 
     async def __aenter__(self) -> UnitOfWork:
         return self
@@ -300,7 +314,3 @@ class UnitOfWork:
                 await self.rollback()
         finally:
             await self.close()
-
-
-def _first_line(exc: Exception) -> str:
-    return str(exc).splitlines()[0][:400]

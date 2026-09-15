@@ -30,7 +30,7 @@ from __future__ import annotations
 import dataclasses
 import enum
 import hashlib
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from prama.core.clock import Clock, SystemClock
@@ -265,6 +265,15 @@ class Archivist:
             # being aged out on a guess. Deleting evidence because its date did
             # not parse is not a trade anybody would make deliberately.
             return Tier.HOT
+        if written.tzinfo is None:
+            # A stored timestamp with no offset is UTC — the same reading
+            # `db/types.py` gives one, and what `CLAUDE.md` says the column
+            # holds. Without this the subtraction below raised `TypeError:
+            # can't subtract offset-naive and offset-aware datetimes`, which is
+            # not caught anywhere — so one record written by something other
+            # than Prama stopped the entire retention sweep, leaving every later
+            # record un-tiered. QA round 4, `EVD-110`.
+            written = written.replace(tzinfo=UTC)
         age = (self._clock.now() - written).total_seconds() / 86400
         return self._policy.tier_at(age)
 

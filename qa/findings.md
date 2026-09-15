@@ -1595,3 +1595,149 @@ form. The empty states are good.
 
 **Configuration** is the strongest area measured: 35 of 36, with typed refusals,
 provenance, placeholder cycles and secret redaction all correct.
+
+## Q-87 — a versioned DAO's flush escaped the error taxonomy
+
+**Where** `src/prama/db/dao/versioned.py`, thirteen call sites. **From** `DB-179`.
+
+`create`, `amend` and `correct` called `self._session.flush()` directly.
+`UnitOfWork._guarded` — which translates SQLAlchemy's failures into the Prama
+taxonomy — was not in that path, so a violated constraint reached the caller as
+`sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) UNIQUE constraint
+failed: ctl_control.tenant_id, ctl_control.identity`.
+
+`CLAUDE.md`: *"Only `src/prama/db/**` may import `sqlalchemy`."*
+`tests/architecture/test_layering.py` enforces it by import scanning, and **an
+import scan cannot see what a function raises**. The rule held for every line of
+code and failed on the exception. It matters because a duplicate identity is
+recoverable — read the existing control and amend it, which is what
+`ConflictError`'s remedy says — while the raw error names an index the caller
+has never heard of and reads like corruption.
+
+**The triage's account of how to reach it was wrong.** It described the losing
+side of a concurrent amendment. That race does not occur on SQLite: writers
+serialise, so the second session reads the winner's committed row and amends
+forward from it. The staged test reproduced nothing. The reachable path needs no
+concurrency — two `create` calls in one session, deterministic on every engine.
+A real defect and a wrong story about it are separable.
+
+**Repair.** The translation moved to `src/prama/db/guard.py` and both the unit of
+work and `Dao._guarded_flush` call it. Extracted rather than copied, because a
+second copy is the restatement `CLAUDE.md` warns about — and the extraction
+itself dropped the `DatabaseError` remedy on the first attempt, which mypy
+caught. That is luck, not design: a copied translation that loses a remedy is
+invisible to every test that only checks the exception type.
+
+**Regression** `qa/regression-suite/data/test_versioned_dao_refuses_in_the_taxonomy.py`.
+
+## Q-88 — a whole cluster of the regression suite was invisible to git
+
+**Where** `.gitignore:22`, an unanchored `data/`. **Found while** committing Q-87.
+
+The Q-87 regression lived in `qa/regression-suite/data/`. `pytest` collected it,
+it passed, and `git status` did not mention it — an unanchored pattern matches a
+directory of that name at **any** depth, so the directory was not untracked and
+offered, it was absent. It would have run on this machine forever and existed
+nowhere else.
+
+**The rule had already been learnt once and not generalised.** `.gitignore`'s own
+comment two lines below records that `logs/` was anchored after it swallowed
+`docs/qa/logs/` — *"a test log nobody can review"*. The identical mistake sat
+directly above it, unfixed, because that repair fixed the instance rather than
+the class. Worth stating plainly: the fix that teaches nothing is the one written
+as a patch to a line instead of a question about a category.
+
+This is the round's recurring shape for the fifth time: **a check that cannot
+reach the thing it describes returns the answer you were hoping for.** A green
+suite says nothing about whether the suite is in the repository.
+
+**Repair.** `/data/`, anchored to the root, where the runtime scratch directory
+it was written for actually lives. Guarded by
+`tests/architecture/test_nothing_is_silently_untracked.py`, which asks
+`git check-ignore` about every module the runner would import rather than
+reimplementing pattern matching — which is how a test of `.gitignore` acquires
+`.gitignore`'s bug.
+
+## Q-89 — the same stored timestamp read back as two different instants
+
+**Where** `src/prama/db/types.py::UtcDateTime.process_result_value`.
+**Found while** fixing `EVD-110`, in the code `EVD-110`'s fix was derived from.
+
+The function has two paths. A datetime the driver had already parsed got
+`replace(tzinfo=UTC)` — naive means UTC. A *string* got
+`fromisoformat(text).astimezone(UTC)`, and `astimezone` on a naive value reads it
+as **local time**. Same column, same bytes, two instants.
+
+Invisible on a UTC host, which is most CI. On `Asia/Kolkata` the two paths were
+5½ hours apart. And it fell exactly along the engine boundary: SQLite hands back
+text, PostgreSQL's driver hands back a datetime — so **the same row read
+differently on the two engines** whose schema files this project keeps
+byte-identical precisely so they cannot mean different things. The rule that
+makes the two engines agree is enforced on the schema, and the disagreement was
+in the code that reads the column.
+
+Worth stating because it is not a typo: both lines are correct-looking, and
+`astimezone(UTC)` is the more idiomatic-looking of the two. It is wrong here
+only because of what a naive value *means* in this column — which
+`process_bind_param` already settles by refusing to store one.
+
+**Repair.** The text path now branches the way the driver path always did.
+**Regression** `qa/regression-suite/data/test_a_timestamp_without_an_offset_means_utc.py`,
+which pins `TZ` in a subprocess: every assertion in it would have passed on a UTC
+host before the fix, which is why the defect survived.
+
+## Q-90 — one un-tierable record stopped the whole retention sweep
+
+**Where** `src/prama/evidence/retention.py::Archivist.tier_of`. **From** `EVD-110`.
+
+A naive `finished_at` subtracted from an aware clock reading raised `TypeError:
+can't subtract offset-naive and offset-aware datetimes`. Nothing catches it, and
+`plan()` iterates the entire ledger — so one record written by something other
+than Prama stopped the sweep and every record after it went un-tiered.
+
+The function already had an `except ValueError` for an unparseable timestamp,
+chosen with visible care: *"A record whose timestamp cannot be read stays hot
+rather than being aged out on a guess."* The author thought about the value being
+**wrong** and not about it being **incomplete**. That is the more common shape of
+this mistake than not having thought about it at all.
+
+**Repair.** A naive value is read as UTC, matching `db/types.py` and what
+`CLAUDE.md` says the column holds — not by widening the `except` to `TypeError`,
+which would have been correct by accident and would have swept naive timestamps
+into the same "stay hot" bucket as unreadable ones.
+
+## Q-91 — a missing driver escaped the one error written to explain it
+
+**Where** `src/prama/db/engine.py`, both constructors. **From** `DB-065`.
+
+`except SQLAlchemyError` around `create_engine`. A driver that is not installed
+raises `ModuleNotFoundError` — an `ImportError`, not a `SQLAlchemyError` — so it
+escaped untranslated. The sting: `_creation_error`'s remedy already carries
+`dialect.driver_hint`, *the exact sentence naming the package to install*, and
+the one failure that hint exists for was the only one that could not reach it.
+
+Third instance this round of the same shape — `CFG-062` was `except OSError`
+around a `UnicodeDecodeError` with a remedy already saying "UTF-8 is expected".
+**The help was written and the branch that could show it did not run.** That is a
+different defect from not having anticipated the case, and a more annoying one,
+because the author clearly had.
+
+## Q-92 — a closed unit of work reported in SQLAlchemy's voice
+
+**Where** `src/prama/db/session.py::UnitOfWork`. **From** `DB-086`.
+
+`close()` set `self._closed`; nothing ever read it. Using a unit of work after
+its `async with` block surfaced SQLAlchemy's own wording about instances not
+bound to a session — above `prama.db`, which the layering rule forbids, and
+which `tests/architecture/test_layering.py` cannot see because it scans imports
+and this is an exception.
+
+The message matters more than the type. The cause is nearly always the same
+mistake — a value read outside the block that created it — and stdlib-flavoured
+wording sends people to look at the database.
+
+**Repair.** One guard at `_dao`, the chokepoint all twenty-odd DAO properties
+already pass through, plus `flush`/`commit`/`rollback`, which are reachable
+without touching a DAO and are what a caller reaches for when trying to "just
+save it" after the fact.
+**Regression** `qa/regression-suite/data/test_the_database_layer_keeps_its_exceptions.py`.
