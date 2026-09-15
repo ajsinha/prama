@@ -227,7 +227,7 @@ Five contributions, targeting **ACM JDIQ** with a **VLDB Industrial** companion 
 ## Status
 
 **Implemented.** Eleven waves are complete; two tasks stay open on infrastructure
-rather than code. The suite is at <!--tests-->5,079 passing, 96 skipped<!--/tests-->,
+rather than code. The suite is at <!--tests-->5,095 passing, 96 skipped<!--/tests-->,
 derived from a green run by `scripts/sync_test_counts.py` rather than typed — a
 count in prose rots the first time somebody adds a test.
 
@@ -263,8 +263,10 @@ SQLite and PostgreSQL and requires them to agree; a hash-chained evidence ledger
 with deterministic replay and a verifier that imports nothing of ours;
 declaration-derived controls, mining and induction; monitoring and calibration;
 the console; a banking pack with six financial message formats, a
-seventeen-concept ontology and twenty regulatory obligations; six of eight GA
-connectors; and the enterprise surface — SSO, SCIM, residency, customer-managed
+seventeen-concept ontology and twenty regulatory obligations; seven of the eight
+GA connectors verified against a live service, with Snowflake written and never
+run against an account and ODBC not built ([19 §W3.11](docs/19-implementation-roadmap.md));
+and the enterprise surface — SSO, SCIM, residency, customer-managed
 keys, an operator, an offline bundle with publisher signing.
 
 **Figures marked as targets or gates are objectives, not measured results**
