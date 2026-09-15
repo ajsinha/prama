@@ -359,6 +359,27 @@ class Lowerer:
                 ),
                 context={"codelist": name},
             )
+        if not values:
+            # The parser already refuses a hand-written `IN ()` — "an empty set
+            # fails every row, so it is a mistake rather than a style". A
+            # codelist that resolves to nothing is the same control with the
+            # values arriving from somewhere else, and had no equivalent guard.
+            #
+            # What it compiled to is worse than a crash. DuckDB rejects `IN ()`
+            # outright, but **SQLite accepts it** and evaluates it as false — so
+            # the same control crashes on one engine and, on the other, reports
+            # every row in the dataset as a violation. A control that fails
+            # everything looks like a data emergency, and the cause is a list
+            # somebody emptied. QA round 4, `IR-021`/`BE-055`.
+            raise ValidationError(
+                f"the codelist {name!r} is registered but empty",
+                remedy=(
+                    "Add the permitted values, or remove the control. An empty set "
+                    "fails every row, which is a mistake rather than a strict rule — "
+                    "to require a column to be empty, write IS NULL."
+                ),
+                context={"codelist": name},
+            )
         return Expr.operation("IN", subject, Expr.values(*(Expr.literal(v) for v in values)))
 
     # -- expressions -------------------------------------------------------

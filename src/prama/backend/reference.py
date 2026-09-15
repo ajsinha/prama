@@ -31,14 +31,25 @@ from __future__ import annotations
 import dataclasses
 import math
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
 from prama.backend.execute import ControlResult, judge, judge_segments
 from prama.classify.validators import REGISTRY as VALIDATORS
 from prama.ir.model import ControlPlan, Expr, Metric, MetricAggregate
+from prama.pql.errors import PqlUnsupportedError
 from prama.pql.functions import UNSET
 from prama.pql.library import FUNCTIONS
+
+#: The aggregates this interpreter computes exactly. `APPROX_COUNT_DISTINCT`
+#: is deliberately absent: an approximation is an engine's own algorithm and
+#: its own error bound, and the interpreter has no way to reproduce either.
+_EXACT: dict[MetricAggregate, Callable[[list[float]], float]] = {
+    MetricAggregate.SUM: sum,
+    MetricAggregate.MIN: min,
+    MetricAggregate.MAX: max,
+    MetricAggregate.AVG: lambda numbers: sum(numbers) / len(numbers),
+}
 
 #: A row, as the interpreter sees it.
 Row = Mapping[str, Any]
@@ -134,7 +145,14 @@ class ReferenceEvaluator:
             elif metric.aggregate is MetricAggregate.COUNT_DISTINCT:
                 computed[metric.name] = float(self._distinct(metric.expression, rows))
             else:
-                computed[metric.name] = self._aggregate(metric.aggregate, metric.expression, rows)
+                value = self._aggregate(metric.aggregate, metric.expression, rows)
+                if value is not None:
+                    # Omitted rather than defaulted, which is what the SQL side
+                    # already does with a NULL metric: `_judge` builds its dict
+                    # with `if row.get(n) is not None`. The two paths now say
+                    # the same thing about "no answer", which is the only way a
+                    # comparison between them means anything.
+                    computed[metric.name] = value
         return computed
 
     def _count_if(self, plan: ControlPlan, metric: Metric, rows: list[dict[str, Any]]) -> int:
@@ -203,17 +221,38 @@ class ReferenceEvaluator:
 
     def _aggregate(
         self, aggregate: MetricAggregate, expression: Expr | None, rows: list[dict[str, Any]]
-    ) -> float:
+    ) -> float | None:
+        """The aggregate, or `None` where SQL would answer NULL.
+
+        Two `0.0` defaults used to live here, and both were answers to
+        questions this function cannot answer.
+
+        An aggregate with no entry in the table fell through `.get(aggregate,
+        0.0)` — so `APPROX_COUNT_DISTINCT` returned **zero, presented as a real
+        approximation**. This is the interpreter the conformance suite compares
+        every SQL engine against; a confident wrong number here produces a
+        disagreement that looks like a backend defect. QA round 4, `BE-096`.
+
+        And `SUM`/`MIN`/`MAX`/`AVG` over no numeric values returned `0.0`, where
+        SQL answers NULL. A sum of zero and a sum of nothing are different
+        facts: the first says the values cancelled, the second says there were
+        none, and a threshold of `>= 0` passes on one and should not be reached
+        by the other. QA round 4, `BE-097`.
+        """
+        if aggregate not in _EXACT:
+            raise PqlUnsupportedError(
+                f"the reference interpreter does not compute {aggregate.value}",
+                remedy=(
+                    "An approximation is the engine's own algorithm and its own error "
+                    "bound. Compare engines against each other for this metric, not "
+                    "against the interpreter."
+                ),
+            )
         values = [self.evaluate(expression, row) for row in rows] if expression is not None else []
         numbers = [float(v) for v in values if isinstance(v, int | float)]
         if not numbers:
-            return 0.0
-        return {
-            MetricAggregate.SUM: sum(numbers),
-            MetricAggregate.MIN: min(numbers),
-            MetricAggregate.MAX: max(numbers),
-            MetricAggregate.AVG: sum(numbers) / len(numbers),
-        }.get(aggregate, 0.0)
+            return None
+        return _EXACT[aggregate](numbers)
 
     # -- expressions, in three-valued logic --------------------------------
 

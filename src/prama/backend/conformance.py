@@ -129,6 +129,14 @@ class ConformanceRun:
             )
         try:
             result = ReferenceEvaluator().run(plan, self._rows)
+        except PqlUnsupportedError as exc:
+            # The same rule the compiled path already follows fifteen lines
+            # above: a refusal is a conforming outcome, it is the promise being
+            # kept. The interpreter refuses an approximation because it cannot
+            # reproduce an engine's algorithm or its error bound.
+            return EngineOutcome(
+                engine=REFERENCE, case=case.name, status="refused", detail=str(exc.args[0])
+            )
         except Exception as exc:
             return EngineOutcome(
                 engine=REFERENCE,
@@ -180,6 +188,29 @@ class ConformanceRun:
             if plan.is_two_stage:
                 disagreements.extend(self._compare_two_stage(case, ran))
                 continue
+            if len(ran) < 2:
+                # A set of one answer is trivially unanimous, and `len(distinct)
+                # > 1` can never fire — so a case only one engine could run was
+                # counted as agreement. `summarise` printed `cases_compared: 0`
+                # directly beside `conforming: True` and the verdict did not
+                # consult it. QA round 4, `BE-135`.
+                #
+                # This is the harness the whole release gate rests on. Absence of
+                # evidence has to be reportable here or nowhere.
+                disagreements.append(
+                    Disagreement(
+                        case=case.name,
+                        outcomes={
+                            **{e: f"{o.status}: {o.detail}" for e, o in outcomes.items()},
+                            "comparison": (
+                                f"{len(ran)} engine(s) answered. Agreement needs two. "
+                                "A refusal is a conforming outcome for one engine and "
+                                "is not an answer to compare against."
+                            ),
+                        },
+                    )
+                )
+                continue
             distinct = {_freeze(a) for a in answers.values()}
             if len(distinct) > 1:
                 disagreements.append(Disagreement(case=case.name, outcomes=answers))
@@ -216,7 +247,23 @@ class ConformanceRun:
         """
         reference = ran.get("reference")
         if reference is None or reference.result is None:
-            return []
+            # Returning [] here excused the two-stage comparison — which is the
+            # product's actual thesis, a screen plus an exact check — from ever
+            # running, silently, whenever the interpreter did not answer. The
+            # one comparison most worth making was the one that could be skipped
+            # without a word. QA round 4, `BE-139`.
+            return [
+                Disagreement(
+                    case=case.name,
+                    outcomes={
+                        "reference": (
+                            "did not answer, so the screen could not be checked against "
+                            "the exact result. A two-stage case with no reference answer "
+                            "is uncompared, not conforming."
+                        )
+                    },
+                )
+            ]
         exact = reference.result.violating_rows
         found: list[Disagreement] = []
 

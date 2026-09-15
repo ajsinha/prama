@@ -1822,3 +1822,163 @@ instance; only looking for the instance does.
 
 **Repair.** One definition in `core.errors`, which every layer already imports,
 and five callers.
+
+## Q-98 — the release gate could not tell silence from agreement
+
+**Where** `src/prama/backend/conformance.py`, two functions. **From** `BE-135`,
+`BE-139` (both P1).
+
+`CLAUDE.md` names this file as the mechanism behind the project's central habit:
+*"Assert the rendered artefact, not the intent… The IR conformance suite is this
+habit as a release gate."* Two of its functions confused "we did not get an
+answer" with "we got the right answer".
+
+`compare()` built a set of distinct answers and reported a disagreement when it
+held more than one. **A set of one answer is trivially unanimous**, so a case
+only the reference interpreter could run was scored as agreement. Run against
+the interpreter alone, the harness said:
+
+```
+conforming: True | cases_compared: 0 / 25
+```
+
+The number that contradicts the verdict was printed directly beside it. An
+earlier finding (T7) had added `cases_compared` for precisely this reason, and
+the verdict never consulted it. **Measuring the right thing and not deciding on
+it is a distinct failure from not measuring it, and it looks healthier**, because
+the report contains the evidence that it is wrong. Anybody reading that line
+would have caught it; nobody had to read it.
+
+`_compare_two_stage` returned `[]` — no disagreements — whenever the reference
+interpreter had not answered. The two-stage comparison is the product's actual
+thesis: a SQL screen plus an exact check, each catching what the other cannot.
+The single most valuable comparison in the suite was the one that could be
+skipped without a word.
+
+This is the fifth and sixth instance this round of one shape: **a check that
+cannot reach the thing it describes returns the answer you were hoping for.**
+Here it is pointed at the release gate itself.
+
+**Repair.** A case fewer than two engines answered is reported, naming how many
+did; a two-stage case with no reference answer is reported as uncompared. The
+control matters more than the repair — making a gate stricter is easy and
+worthless if it fails honest runs — so the regression runs the real corpus
+against a real DuckDB alongside the interpreter, and `tests/backend`'s 135 cases
+over DuckDB and SQLite stay green.
+
+**Regression** `qa/regression-suite/language/test_conformance_needs_two_answers.py`.
+
+## Not a defect — `BE-132`, SQLite reporting `failed` rather than `refused`
+
+Triaged as a defect: SQLite lacking a `REGEXP` hook raises `OperationalError`,
+which `run_case` reports as `failed`, where the catalogue says an engine that
+legitimately cannot run a case should report `refused`.
+
+**It is a decision, and the decision is written down.** `SqliteDialect` claims
+`pushdown.regex` and says why, in the comment above `regex_flavour`: SQLite
+reserves `REGEXP` and calls a host-registered function of that name, *"which is
+exactly what `prama.connect.sources.query` does for every SQLite connection it
+opens. The capability is therefore real for Prama's own executor and absent for a
+bare connection — where it fails loudly as 'no such function: REGEXP' rather than
+quietly matching nothing."*
+
+So a bare connection reaching the harness is a misconfigured runner, and `failed`
+is the correct report for it. Recorded here rather than dropped, because a
+findings list that keeps only the hits is one nobody can calibrate against — and
+because this is the second time this round I have nearly repaired a documented
+decision (see `Q-79`, the ISO 4217 lag). The tell is the same both times: a
+comment that explains the trade-off rather than describing the code.
+
+## Q-99 — an empty codelist fails every row on SQLite and crashes DuckDB
+
+**Where** `src/prama/ir/lower.py::Lowerer._codelist`. **From** `IR-021`, `BE-055`.
+
+The parser already refuses a hand-written `IN ()`: *"an empty set fails every
+row, so it is a mistake rather than a style, and the caret can point at the
+brackets."* A codelist that resolves to nothing is the same control with the
+values arriving from somewhere else, and had no equivalent guard.
+
+**The triage said this produced SQL no engine parses. Half of that is true, and
+the untrue half is the dangerous one.** DuckDB rejects `IN ()` outright. SQLite
+*accepts* it and evaluates it as false. So one control crashes on one engine
+and, on the other, reports **every row in the dataset as a violation** —
+silently, with a verdict, in a run that looks entirely normal.
+
+A control that fails everything reads as a data emergency. The cause is a list
+somebody emptied. That is a worse hour than a parse error, and the engines
+disagreeing about it is exactly the class of divergence this project keeps two
+byte-identical schema files to avoid.
+
+**Repair.** Refused where the codelist resolves, in the parser's own words so
+that a user meeting the two forms of the same mistake gets one answer.
+
+## Q-100 — the reference interpreter answered questions it could not answer
+
+**Where** `src/prama/backend/reference.py::ReferenceEvaluator._aggregate`.
+**From** `BE-096`, `BE-097`.
+
+Two `0.0` defaults in one function, in the interpreter that every SQL engine is
+compared against — so a confident wrong number here does not surface as an
+interpreter defect, it surfaces as a *backend* defect somewhere else.
+
+`.get(aggregate, 0.0)` had no entry for `APPROX_COUNT_DISTINCT`, so it returned
+**zero, presented as a real approximation**.
+
+`SUM`/`MIN`/`MAX`/`AVG` over no numeric values returned `0.0`, where SQL answers
+NULL. A sum of zero and a sum of nothing are different facts: the first says the
+values cancelled, the second says there were none. A threshold of `>= 0` passes
+on one and should never be reached by the other.
+
+**The repair is derived, not invented.** The SQL side of the harness already
+drops a NULL metric — `_judge` builds its dict with `if row.get(n) is not None`
+— so the interpreter now omits the metric too. Both sides say the same thing
+about "no answer", which is the only condition under which comparing them means
+anything. And the unsupported aggregate raises `PqlUnsupportedError`, which
+`_run_reference` now reports as `refused` rather than `failed` — the rule the
+compiled path fifteen lines above already followed: *"A refusal is a conforming
+outcome. It is the promise being kept."*
+
+Together with `Q-98` this is the third finding this round inside the release
+gate. All three have the same shape, and it is worth naming once more: **the
+harness kept substituting a confident value for one it did not have.** Zero for
+an unknown aggregate, zero for an empty set, agreement for a single answer, no
+disagreement for an absent reference. Each is individually defensible as a
+default and collectively they mean the gate could not distinguish working from
+untested.
+
+## Q-101 — README and docs/19 disagree about what is built
+
+**Where** `README.md` §Status, against `docs/19-implementation-roadmap.md`.
+**From** the user's note that the README is obsolete.
+
+Three claims, checked against the roadmap rather than against memory:
+
+**"six of eight GA connectors" — stale, and understating.** `19 §W3.11` says
+*"8 of 8 written; 7 verified, 1 not"*, names each verified connector and the
+live service it was verified against, and says plainly that Snowflake *"is
+written and has never met an account"* and ODBC *"is not built"*. Corrected in
+the README to match, with the section cited so the next reader can check rather
+than trust.
+
+Worth noting which direction it rotted. A stale number that **understates** is
+the comfortable kind — nobody is misled about capability — but it is the same
+defect, and it means the sentence was not derived from anything. The next edit
+could as easily move it the other way.
+
+**"Eleven waves are complete" — unverifiable from the roadmap, which disagrees
+with itself.** Its wave map table lists ten waves; the document then contains a
+"Wave 11 — The expression layer" section that the map does not mention. And of
+the eleven wave sections, only Waves 1 and 2 carry `**COMPLETE**` in their
+headings — the marker was maintained twice and then abandoned.
+
+**Not changed, deliberately.** Whether a wave is complete is the author's
+judgement about scope, not something I can derive from the repository: the
+per-task tables carry ✅/◑ marks that say more than a heading does. Editing the
+README to match a marker that has itself rotted would be restating a stale fact
+in a second place. Recorded for the author to settle.
+
+**The general point.** `README.md` now derives two numbers — the test count and
+the catalogue count — from the code, and states three more in prose. Prose is
+where drift lives. The two that drifted here (4,985 vs 5,083; 4,662 vs 4,660)
+were both caught by a script; the three that remain were caught by reading, and
+only because somebody said the file looked old.
