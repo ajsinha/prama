@@ -53,7 +53,7 @@ import dataclasses
 import os
 from typing import Any, Final
 
-from prama.core.errors import PramaError
+from prama.core.errors import PramaError, required_field
 
 __all__ = [
     "DATA_KEY_BYTES",
@@ -207,6 +207,10 @@ def _aad(context: dict[str, str]) -> bytes:
     return "\x01".join(parts).encode("utf-8")
 
 
+#: What this module is reading, for refusals that name it.
+OF = "a key envelope"
+
+
 @dataclasses.dataclass(frozen=True, slots=True)
 class Envelope:
     """A ciphertext and everything needed to decrypt it except the key."""
@@ -235,9 +239,9 @@ class Envelope:
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> Envelope:
         return cls(
-            wrapped_key=base64.b64decode(payload["wrapped_key"]),
-            nonce=base64.b64decode(payload["nonce"]),
-            ciphertext=base64.b64decode(payload["ciphertext"]),
+            wrapped_key=base64.b64decode(required_field(payload, "wrapped_key", of=OF)),
+            nonce=base64.b64decode(required_field(payload, "nonce", of=OF)),
+            ciphertext=base64.b64decode(required_field(payload, "ciphertext", of=OF)),
             key_id=str(payload.get("key_id", "")),
             context=dict(payload.get("context", {})),
         )

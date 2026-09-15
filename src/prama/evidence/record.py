@@ -157,6 +157,32 @@ class Tombstone:
         )
 
 
+def _sequence(payload: dict[str, Any]) -> int:
+    """The record's place in the chain, or a refusal naming it.
+
+    `int(payload.get("sequence", 0))` let stdlib's *"invalid literal for int()
+    with base 10"* through, which names neither the field nor the record — on a
+    path that runs while replaying evidence, where the one moment the message is
+    read is the moment somebody is asking whether a chain can be trusted.
+
+    The sibling `_metrics` was repaired for exactly this in `Q-...`/`EVD-020`
+    and this line was not, because nothing was looking for it. The boundary
+    guard was.
+    """
+    raw = payload.get("sequence", 0)
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        raise ValidationError(
+            f"a record's sequence is not a whole number: {raw!r}",
+            remedy=(
+                "A sequence is the record's place in the chain, counted from one. "
+                "A value in another form was written by something other than Prama."
+            ),
+            context={"sequence": repr(raw)},
+        ) from None
+
+
 def _metrics(payload: dict[str, Any]) -> dict[str, float]:
     """A record's metrics as numbers, or a refusal naming the one that is not.
 
@@ -383,7 +409,7 @@ class EvidenceRecord:
     def from_dict(cls, payload: dict[str, Any]) -> EvidenceRecord:
         snapshot = payload.get("snapshot") or {}
         return cls(
-            sequence=int(payload.get("sequence", 0)),
+            sequence=_sequence(payload),
             plan_id=str(payload.get("plan_id", "")),
             control_id=str(payload.get("control_id", "")),
             control_version=int(payload.get("control_version", 1)),

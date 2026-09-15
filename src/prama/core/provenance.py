@@ -39,6 +39,7 @@ import hashlib
 from typing import Any
 
 from prama.core import pjson
+from prama.core.errors import required_field
 
 
 class Origin(enum.Enum):
@@ -104,6 +105,10 @@ _LABELS: dict[Origin, str] = {
     Origin.EXAMPLE: "it generalises examples you labelled",
     Origin.INDUCTION: "a model proposed it",
 }
+
+
+#: What this module is reading, for refusals that name it.
+OF = "a provenance record"
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -246,7 +251,7 @@ class Provenance:
     def from_dict(cls, data: dict[str, Any]) -> Provenance:
         citation = data.get("citation")
         return cls(
-            origin=Origin(data["origin"]),
+            origin=Origin(required_field(data, "origin", of=OF)),
             rule=data.get("rule", ""),
             source_ref=data.get("source_ref", ""),
             statement=data.get("statement", ""),
@@ -255,7 +260,10 @@ class Provenance:
             citation=Citation(**citation) if citation else None,
             observations=tuple(data.get("observations", ())),
             corroborations=tuple(
-                Corroboration(origin=Origin(c["origin"]), detail=c["detail"])
+                Corroboration(
+                    origin=Origin(required_field(c, "origin", of="a corroboration")),
+                    detail=required_field(c, "detail", of="a corroboration"),
+                )
                 for c in data.get("corroborations", ())
             ),
         )
