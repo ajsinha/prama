@@ -21,6 +21,7 @@ from sqlalchemy import Dialect as SaDialect
 from sqlalchemy import Integer, String, Text, TypeDecorator
 
 from prama.core import pjson
+from prama.core.errors import DatabaseError
 
 #: A ULID is exactly 26 characters. Declaring the width means PostgreSQL
 #: enforces it and SQLite documents it — the same reasoning the schema files
@@ -64,7 +65,24 @@ class UtcDateTime(TypeDecorator[datetime]):
         text = str(value)
         if text.endswith("Z"):
             text = f"{text[:-1]}+00:00"
-        return datetime.fromisoformat(text).astimezone(UTC)
+        try:
+            return datetime.fromisoformat(text).astimezone(UTC)
+        except ValueError:
+            # Stdlib's `Invalid isoformat string` names neither the column nor
+            # the table, and this runs while reading rows back — so the one
+            # person who sees it is holding a row they cannot explain. Prama
+            # stores timestamps as ISO-8601 text in VARCHAR(32) precisely so
+            # they sort; a value that will not parse is a row written by
+            # something other than this code. QA round 4, `DB-098`.
+            raise DatabaseError(
+                f"a stored timestamp is not ISO-8601: {text!r}",
+                remedy=(
+                    "Prama writes timestamps as ISO-8601 UTC text. A value in "
+                    "another format was written by something else — find the "
+                    "writer rather than correcting the row."
+                ),
+                context={"value": text},
+            ) from None
 
 
 class JsonText(TypeDecorator[Any]):
