@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from prama.core.concurrency.supervisor import run_sync
-from prama.core.errors import ValidationError
+from prama.core.errors import PramaError, ValidationError, first_line
 
 #: Read-only, always. A control is a *check*: it has no business being able to
 #: write, and opening read-only means a defect in a generated query cannot
@@ -79,7 +79,25 @@ def executor_for(
             ),
             context={"engine": engine},
         )
-    return builder(target)
+    try:
+        return builder(target)
+    except PramaError:
+        raise
+    except Exception as exc:
+        # A file that exists, is a file, and is still not a database — a CSV
+        # named `.duckdb`, a truncated download, a file written by a newer
+        # version of the engine. The driver's own words are the useful part and
+        # are kept; what it cannot know is which path the user typed or which
+        # flag put it there. QA round 4, `CLI-140`.
+        raise ValidationError(
+            f"{target} could not be opened as a {engine} database",
+            remedy=(
+                "--against names a data file the engine can read. Check that the "
+                "file is what its extension claims and is not truncated."
+            ),
+            context={"path": str(target), "engine": engine, "detail": first_line(exc)},
+            cause=exc,
+        ) from exc
 
 
 def _duckdb(path: Path) -> tuple[Callable[[str], list[dict[str, Any]]], Callable[[], None]]:

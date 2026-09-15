@@ -381,8 +381,29 @@ def compare(
     )
 
 
+def _hashable(value: Any) -> Any:
+    """A value that can go in a set, with structural equality preserved.
+
+    JSON rows carry lists and objects, and a `.jsonl` file is one of the two
+    formats `prama contract diff` accepts — so a nested value is ordinary input,
+    not an edge case. Converting rather than rejecting, because two rows with
+    the same nested value *are* the same row and the comparison should say so.
+
+    Recursive, so `{"a": [{"b": 1}]}` freezes as deeply as it nests. A list
+    keeps its order (it is meaningful in JSON) and an object does not (it is
+    not). QA round 4, `CTR-047`.
+    """
+    if isinstance(value, Mapping):
+        return tuple(sorted((k, _hashable(v)) for k, v in value.items()))
+    if isinstance(value, list | tuple):
+        return tuple(_hashable(item) for item in value)
+    if isinstance(value, set | frozenset):
+        return frozenset(_hashable(item) for item in value)
+    return value
+
+
 def _freeze(row: Mapping[str, Any], ignored: set[str]) -> tuple[tuple[str, Any], ...]:
-    return tuple(sorted((k, v) for k, v in row.items() if k not in ignored))
+    return tuple(sorted((k, _hashable(v)) for k, v in row.items() if k not in ignored))
 
 
 def _sortable(identity: tuple[Any, ...]) -> tuple[str, ...]:

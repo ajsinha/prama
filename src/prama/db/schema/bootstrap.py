@@ -23,7 +23,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from prama.core.clock import utc_now
-from prama.core.errors import DatabaseError
+from prama.core.errors import DatabaseError, first_line
 from prama.core.log import get_logger
 from prama.db.dialects import Dialect
 from prama.db.schema.loader import SchemaFile, SchemaLoader
@@ -138,7 +138,7 @@ class SchemaBootstrapper:
                         ),
                         context={
                             "statement": statement[:300],
-                            "detail": str(exc).splitlines()[0][:300],
+                            "detail": first_line(exc),
                         },
                         cause=exc,
                     ) from exc

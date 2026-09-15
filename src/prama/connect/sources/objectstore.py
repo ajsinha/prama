@@ -46,6 +46,7 @@ from prama.connect.spi import (
     Verification,
 )
 from prama.core.clock import utc_now
+from prama.core.errors import ValidationError, first_line
 from prama.core.log import get_logger
 from prama.core.registry import PluginManifest
 
@@ -140,6 +141,18 @@ class ObjectStoreConnector(Connector):
     # -- lifecycle ---------------------------------------------------------
 
     async def open(self) -> None:
+        # Before connecting, not after. `_connect` builds `TYPE <scheme>` into
+        # DuckDB SQL, so an unrecognised scheme produced a raw DuckDB exception
+        # about secret providers — while `health()` had always answered the same
+        # question correctly and said MISCONFIGURED. The two entry points
+        # disagreed, and `async with connector:` is the one everything else
+        # uses. QA round 4, `CON-153`.
+        if detail := self._scheme_problem():
+            raise ValidationError(
+                detail,
+                remedy=f"Set `uri` to one of: {', '.join(sorted(SCHEMES))}.",
+                context={"uri": self._uri, "scheme": self.scheme},
+            )
         self._connection = await asyncio.to_thread(self._connect)
 
     async def close(self) -> None:
@@ -187,17 +200,28 @@ class ObjectStoreConnector(Connector):
     def scheme(self) -> str:
         return self._uri.split("://", 1)[0].lower() if "://" in self._uri else ""
 
+    def _scheme_problem(self) -> str:
+        """Why this URI is not an object store, or "" if it is.
+
+        One sentence, derived once. `open()` refuses on it and `health()`
+        reports it; when the wording lived only in `health()`, `open()` had no
+        way to say the same thing and said DuckDB's thing instead.
+        """
+        if self.scheme in SCHEMES:
+            return ""
+        return (
+            f"{self._uri!r} does not name an object store. "
+            f"Expected one of: {', '.join(sorted(SCHEMES))}."
+        )
+
     # -- contract ----------------------------------------------------------
 
     async def health(self) -> HealthReport:
         checked = utc_now()
-        if self.scheme not in SCHEMES:
+        if problem := self._scheme_problem():
             return HealthReport(
                 state=HealthState.MISCONFIGURED,
-                detail=(
-                    f"{self._uri!r} does not name an object store. "
-                    f"Expected one of: {', '.join(sorted(SCHEMES))}."
-                ),
+                detail=problem,
                 checked_at=checked,
             )
         started = utc_now()
@@ -206,7 +230,7 @@ class ObjectStoreConnector(Connector):
         except Exception as exc:  # classified below, then reported
             return HealthReport(
                 state=self._classify(exc),
-                detail=str(exc).strip().splitlines()[0][:300],
+                detail=first_line(exc),
                 checked_at=checked,
                 missing_permissions=("s3:ListBucket",) if _is_denied(exc) else (),
             )
