@@ -11,6 +11,8 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from prama.core.errors import PramaError
@@ -205,9 +207,49 @@ class TestTheCostIsMeasured:
         assert report.throughput.per_second is not None
 
     def test_it_fits_the_published_budget(self) -> None:
-        """docs/15 §7: five milliseconds added at p99."""
+        """docs/15 §7: five milliseconds added at p99.
+
+        This asserts an absolute latency, which is a claim about the code *and*
+        about the machine. On a host under load average 50 it failed with a p99
+        several times the budget — the pipeline had not changed, it simply was
+        not being given a CPU. QA round 4, `Q-111`.
+
+        The obvious repairs are both wrong. Making it opt-in, as
+        `test_estate_map_scale.py` is, would quietly retire a published gate:
+        `docs/15 §7` states this as a threshold Prama must meet, and a gate
+        nobody runs is not a gate. Loosening the budget would move the published
+        number to whatever this laptop happens to manage.
+
+        So it measures whether the measurement was possible. `process_time`
+        against `perf_counter` says what share of the run this process actually
+        held a CPU; when most of the wall clock was spent descheduled, the p99
+        is a fact about the host and the honest report is that nothing was
+        measured. A skip says that. A pass would not.
+
+        It cannot go falsely green: on a quiet machine the ratio is near one and
+        the assertion is exactly as strict as it was.
+        """
+        wall_started = time.perf_counter()
+        cpu_started = time.process_time()
         report = Pipeline([assertion(), assertion(POSITIVE)], action=Action.TAG).run([GOOD] * 500)
-        assert report.throughput.within(5.0) is True
+        wall = time.perf_counter() - wall_started
+        cpu = time.process_time() - cpu_started
+
+        if report.throughput.within(5.0):
+            return
+
+        share = cpu / wall if wall > 0 else 1.0
+        if share < 0.5:
+            pytest.skip(
+                f"the host gave this process {share:.0%} of a CPU during the run, so "
+                f"a p99 of {report.throughput.p99_ms:.2f} ms measures contention "
+                "rather than the pipeline"
+            )
+        raise AssertionError(
+            f"p99 was {report.throughput.p99_ms:.2f} ms against a published budget of "
+            f"5.00 ms, on a host that gave this process {share:.0%} of a CPU — so this "
+            f"is the pipeline, not the machine. {report.throughput.describe()}"
+        )
 
     def test_an_empty_pass_measures_nothing_rather_than_zero(self) -> None:
         """A pass over no messages has not demonstrated a fast pipeline, and

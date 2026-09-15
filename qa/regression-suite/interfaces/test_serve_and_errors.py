@@ -70,6 +70,23 @@ class TestServeDoesNotAnnounceASuccessItHasNotHad:
 
 
 @pytest.mark.slow
+def _wait_until_listening(port: int, *, deadline: float) -> None:
+    """Block until something accepts a connection on *port*.
+
+    The banner is written during startup, so a server that accepts a connection
+    has already printed it. Polling the thing the test depends on beats
+    guessing how long it takes.
+    """
+    started = time.monotonic()
+    while time.monotonic() - started < deadline:
+        with socket.socket() as probe:
+            probe.settimeout(0.5)
+            if probe.connect_ex(("127.0.0.1", port)) == 0:
+                return
+        time.sleep(0.05)
+    raise AssertionError(f"nothing was listening on port {port} after {deadline:g}s")
+
+
 class TestTheBannerSurvivesARedirect:
     """`CLI-276`. Under any non-tty the banner never appeared at all.
 
@@ -90,9 +107,17 @@ class TestTheBannerSurvivesARedirect:
             env=environment,
         )
         try:
-            time.sleep(4)
+            # Waited for by connecting, not by sleeping. A fixed `time.sleep(4)`
+            # is an assumption about how fast this machine is today: it held for
+            # months and failed on a host under load average 50, where the
+            # server had not finished starting — reporting an empty banner,
+            # which is indistinguishable from the defect this test exists to
+            # catch. A test that fails when the machine is busy teaches people
+            # to re-run it, and a flaky test is a test nobody reads.
+            # QA round 4, `Q-110`.
+            _wait_until_listening(port, deadline=60.0)
             process.send_signal(signal.SIGINT)
-            output, _ = process.communicate(timeout=20)
+            output, _ = process.communicate(timeout=60)
         except subprocess.TimeoutExpired:  # pragma: no cover - a hung server
             process.kill()
             output, _ = process.communicate()
