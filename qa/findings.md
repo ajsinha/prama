@@ -2321,3 +2321,83 @@ apart again.
 More than one dot is now refused, because the PQL parser refuses it too:
 accepting it would make the Excel surface strictly more permissive than the
 language it writes.
+
+## Q-113 — the rule with no guard, and the seven sites it was hiding
+
+**Where** `tests/architecture/test_the_taxonomy_holds_at_the_boundary.py`, new.
+**Prompted by** the user asking what could be done about the number of findings.
+
+Twenty-six findings this round cluster into five shapes, and the largest — eight
+of them — is one rule: a bare exception escaping the Prama taxonomy. `CLAUDE.md`
+states it. `tests/architecture/test_layering.py` has twenty-five tests enforcing
+it, **every one an import scan or a text scan**, and none asserts what a function
+raises. I wrote the sentence *"an import scan cannot see what a function raises"*
+into five separate findings before acting on it.
+
+`qa/regression-suite/interfaces/test_no_command_shows_a_traceback.py` guards the
+**CLI** boundary, pinned to nine invocations from a 224-call census. Six of the
+eight were below it — a DAO flush, an engine factory, a unit of work, a
+collector, a connector's `open`, a diff — reachable from the API and the console
+too.
+
+**The guard.** Every public reader in `prama.*` — anything named `load`,
+`parse`, `read`, `from_dict` — is *discovered*, then called with input of the
+right type and wrong content. Only a `PramaError` may escape. The surface is
+derived, so a reader written next month is covered the day it is written.
+
+It found **seven more sites on its first run**, in seconds: five `from_dict`
+readers indexing a required key without checking (`FeedDefinition`,
+`Provenance`, `Envelope`, `MatchKey`, `RelationshipDeclaration`),
+`EvidenceRecord.from_dict` letting stdlib's *"invalid literal for int()"*
+through for a non-numeric `sequence`, and `cli/lsp.load_catalogue` answering
+`IsADirectoryError` for a directory — **the fifth `exists()`-where-`is_file()`
+was meant** this round.
+
+The directory case is refused *separately* from the missing-file case rather
+than folded into one `is_file()` check. Two existing tests pinned the old
+message and caught the blur: a path that is missing and a path that is a
+directory are different mistakes with different fixes, and one message covering
+both names neither. The same argument the empty-codelist refusal makes against
+reusing "not registered" for "registered but empty" — and the existing tests
+made it before I did.
+
+**Repaired with one helper, not seven guards.** `core.errors.required_field`
+names the document, the missing key, and — the part worth having — the keys that
+*are* present, because the usual cause is a document from another tool that
+spells the field differently.
+
+## Q-114 — the guard nearly reversed a decision the user had already made
+
+Building `Q-113`'s guard took three wrong versions, and the third is the one
+worth recording.
+
+**First**, it reported 167 escapes, none real: it fed a `str` to
+`from_dict(document: dict)` and counted the `AttributeError`. Passing the wrong
+*type* is the caller's mistake; this file is about the right type with wrong
+*content*. That is `Q-109` again — the tool built to prevent a class of defect
+committing that class.
+
+**Second**, still 237, because the type matcher tested `"any" in annotation`
+before the container cases, and `dict[str, Any]` contains `any`. The substring
+was in the annotation; it was not what the annotation meant.
+
+**Third, and the one that matters.** With the noise gone it flagged
+`EntityId.parse("")`, `Column.parse("")` and `Request.parse({})` — all raising
+`ValueError` with careful, informative messages. Those are not defects: **`Q-77`
+resolved, deliberately, that the library raises `ValueError` for "right type,
+wrong value" and the boundary translates.** Had I "fixed" them I would have
+silently reversed a decision the user made, across the codebase, in the name of
+a rule.
+
+So the guard encodes that line instead of ignoring it: for a `ValueError`, the
+question is not the type but **who raised it**. And that needed care too —
+asking only whether the deepest frame is inside `prama` is not enough, because
+`int("x")` raises from C and the deepest *Python* frame is our own file. The
+line is read: a refusal we chose is a `raise` statement; a refusal we inherited
+is an `int(...)` on a line that raises nothing. That distinction is what made
+`EvidenceRecord.from_dict` visible.
+
+**The general lesson.** A guard is a claim about what is allowed, so writing one
+means discovering every deliberate exception to it. Three of the ten sites the
+guard first reported were decisions, not defects — and a guard that cannot tell
+them apart does not get fixed, it gets disabled.

@@ -17,7 +17,7 @@ from typing import Any
 
 from prama.connect.feed.pattern import FilenamePattern
 from prama.core.calendars import ALWAYS_OPEN, BusinessCalendar
-from prama.core.errors import ValidationError
+from prama.core.errors import ValidationError, required_field
 
 
 class DuplicatePolicy(enum.Enum):
@@ -36,6 +36,10 @@ class DuplicatePolicy(enum.Enum):
     @property
     def permits_second_delivery(self) -> bool:
         return self is not DuplicatePolicy.REJECT
+
+
+#: What this module is reading, for refusals that name it.
+OF = "a feed definition"
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -198,9 +202,9 @@ class FeedDefinition:
     ) -> FeedDefinition:
         trailer = data.get("trailer") or {}
         return cls(
-            name=data["name"],
+            name=required_field(data, "name", of=OF),
             landing_path=data.get("landing_path", ""),
-            filename_pattern=FilenamePattern(data["pattern"]),
+            filename_pattern=FilenamePattern(required_field(data, "pattern", of=OF)),
             calendar=calendar or ALWAYS_OPEN,
             due_by=time.fromisoformat(data["due_by"]) if data.get("due_by") else None,
             earliest=time.fromisoformat(data["earliest"]) if data.get("earliest") else None,

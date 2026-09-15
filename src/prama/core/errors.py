@@ -14,6 +14,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 
@@ -184,3 +185,38 @@ def first_line(exc: BaseException) -> str:
     """
     text = str(exc).strip()
     return text.splitlines()[0][:400] if text else exc.__class__.__name__
+
+
+def required_field(document: Any, key: str, *, of: str) -> Any:
+    """One field of somebody else's document, or a refusal that names it.
+
+    `data["name"]` on a document Prama did not write raises `KeyError: 'name'` —
+    a bare key, no remedy, and nothing saying which document or what else was in
+    it. Five `from_dict` readers did exactly that, found in one pass by
+    `tests/architecture/test_the_taxonomy_holds_at_the_boundary.py`.
+
+    One helper rather than five guards, for the reason `CLAUDE.md` gives and
+    this round proved twice (`Q-87`, `Q-97`): a check written out five times is
+    five chances to word it differently and one to forget it.
+
+    Listing the keys that *are* present is the part worth having. The usual
+    cause is a document from a version or a tool that spells the field
+    differently, and the answer is nearly always visible in what it does carry.
+    """
+    if not isinstance(document, Mapping):
+        raise ValidationError(
+            f"{of} must be an object, and this is a {type(document).__name__}",
+            remedy=f"Check that the file or payload really contains {of}.",
+            context={"found": type(document).__name__},
+        )
+    try:
+        return document[key]
+    except KeyError:
+        raise ValidationError(
+            f"{of} is missing {key!r}",
+            remedy=(
+                f"Add {key!r}. If this document came from another tool or an older "
+                "version, the field may be spelled differently there."
+            ),
+            context={"missing": key, "present": sorted(str(k) for k in document)},
+        ) from None

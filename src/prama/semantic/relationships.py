@@ -23,7 +23,7 @@ import enum
 from decimal import Decimal
 from typing import Any
 
-from prama.core.errors import ValidationError
+from prama.core.errors import ValidationError, required_field
 
 
 class RelationshipKind(enum.Enum):
@@ -161,6 +161,10 @@ class RelationshipStatus(enum.Enum):
     RETIRED = "retired"
 
 
+#: What this module is reading, for refusals that name it.
+OF = "a relationship declaration"
+
+
 @dataclasses.dataclass(frozen=True, slots=True)
 class MatchKey:
     """One join condition, in business attribute terms.
@@ -191,7 +195,7 @@ class MatchKey:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> MatchKey:
-        return cls(left=data["left"], right=data.get("right"))
+        return cls(left=required_field(data, "left", of="a match key"), right=data.get("right"))
 
 
 def _plain(value: Decimal) -> str:
@@ -489,9 +493,9 @@ class RelationshipDeclaration:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> RelationshipDeclaration:
         return cls(
-            kind=RelationshipKind(data["kind"]),
-            from_dataset_id=data["from_dataset_id"],
-            to_dataset_id=data["to_dataset_id"],
+            kind=RelationshipKind(required_field(data, "kind", of=OF)),
+            from_dataset_id=required_field(data, "from_dataset_id", of=OF),
+            to_dataset_id=required_field(data, "to_dataset_id", of=OF),
             match_keys=tuple(MatchKey.from_dict(k) for k in data.get("match_keys", ())),
             compare=tuple(data.get("compare", ())),
             cardinality=Cardinality(data.get("cardinality", "many_to_many")),

@@ -156,6 +156,26 @@ def load_catalogue(path: Path) -> Catalogue:
             ),
             context={"path": str(path)},
         )
+    if not path.is_file():
+        # Separate from the clause above, not folded into it. A path that is
+        # missing and a path that is a directory are different mistakes with
+        # different fixes, and a single message covering both would name neither
+        # — the same argument the empty-codelist refusal makes against reusing
+        # "not registered" for "registered but empty".
+        #
+        # `exists()` was true for a directory, so `read_text` answered
+        # `IsADirectoryError`: a stdlib error for a mistake made on a command
+        # line. The fifth site of this confusion in QA round 4, after `CLI-139`
+        # in `connect/sources/query.py` and three in `cli/contract.py` — and the
+        # first one found by a guard rather than by hand.
+        raise ValidationError(
+            f"{path} is a directory, not a catalogue file",
+            remedy=(
+                "--catalogue names one file exported by `prama lsp catalogue`, "
+                "not a directory of them."
+            ),
+            context={"path": str(path)},
+        )
     try:
         payload = json.loads(path.read_text())
     except ValueError as exc:
