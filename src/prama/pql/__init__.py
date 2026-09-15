@@ -27,6 +27,13 @@ from prama.pql.errors import (
     PqlTypeError,
     PqlUnsupportedError,
 )
+from prama.pql.expand import (
+    Attribute,
+    AttributeCatalogue,
+    Drift,
+    Expander,
+    Expansion,
+)
 from prama.pql.lint import Linter, LintFinding, lint
 from prama.pql.parser import parse, parse_control
 from prama.pql.tokens import Token, TokenKind, tokenise
