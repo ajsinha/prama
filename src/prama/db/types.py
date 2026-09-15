@@ -66,7 +66,7 @@ class UtcDateTime(TypeDecorator[datetime]):
         if text.endswith("Z"):
             text = f"{text[:-1]}+00:00"
         try:
-            return datetime.fromisoformat(text).astimezone(UTC)
+            parsed = datetime.fromisoformat(text)
         except ValueError:
             # Stdlib's `Invalid isoformat string` names neither the column nor
             # the table, and this runs while reading rows back — so the one
@@ -83,6 +83,16 @@ class UtcDateTime(TypeDecorator[datetime]):
                 ),
                 context={"value": text},
             ) from None
+        # A naive value means UTC, which is what the branch four lines above
+        # already decides for a datetime the driver parsed. It said so with
+        # `replace(tzinfo=UTC)`; this one said `astimezone(UTC)`, which reads a
+        # naive value as *local* time — so on a host outside UTC the same stored
+        # row came back at two different instants depending on whether the
+        # driver handed us text or a datetime. SQLite returns text and
+        # PostgreSQL's driver returns a datetime, which made it a disagreement
+        # between the two engines the schema exists to keep identical.
+        # QA round 4, `Q-89`.
+        return parsed.astimezone(UTC) if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
 
 class JsonText(TypeDecorator[Any]):

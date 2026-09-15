@@ -54,6 +54,19 @@ DOCUMENTS = (
 
 MARKER = re.compile(r"(<!--tests-->)(.*?)(<!--/tests-->)", re.DOTALL)
 
+#: The same idea for the QA corpus. `README.md` claimed "a catalogue of 4,662
+#: cases" against an actual 4,660 — two cases of drift in a number nobody could
+#: have checked without counting headings by hand, which is exactly the reading
+#: nobody does. A second marker costs one regex; a second hand-typed number
+#: costs a wrong claim about the evidence base.
+CASE_MARKER = re.compile(r"(<!--cases-->)(.*?)(<!--/cases-->)", re.DOTALL)
+
+#: A case is a heading, because that is what the catalogue's own README defines
+#: one to be. Counting *identifiers* instead would be wrong in two directions at
+#: once: a case cross-referenced from another file would be counted twice, and
+#: two files that reuse a prefix would collide and be counted once.
+CASE_HEADING = re.compile(r"^### [A-Z]{2,4}-\d{3}", re.MULTILINE)
+
 #: pytest's own summary line, which is the only place the real number lives.
 SUMMARY = re.compile(r"(\d+) passed(?:, (\d+) skipped)?")
 
@@ -98,6 +111,16 @@ def measure() -> tuple[int, int]:
     return int(match.group(1)), int(match.group(2) or 0)
 
 
+def count_cases() -> int:
+    """Every case in the QA catalogue, counted from the catalogue itself."""
+    catalogue = ROOT / "qa" / "catalogue"
+    return sum(
+        len(CASE_HEADING.findall(path.read_text(encoding="utf-8")))
+        for path in sorted(catalogue.glob("*.md"))
+        if path.name != "README.md"
+    )
+
+
 def rendered(passed: int, skipped: int) -> str:
     if skipped:
         return f"{passed:,} passing, {skipped:,} skipped"
@@ -111,32 +134,42 @@ def main(argv: list[str]) -> int:
     group.add_argument("--write", action="store_true", help="update claims from a real run")
     args = parser.parse_args(argv)
 
-    marked = [
-        (path, text)
-        for path in DOCUMENTS
-        if (text := (ROOT / path).read_text(encoding="utf-8")) and MARKER.search(text)
-    ]
-    if not marked:
+    documents = {path: (ROOT / path).read_text(encoding="utf-8") for path in DOCUMENTS}
+    stale: list[str] = []
+    touched = False
+
+    # The suite is only run if something actually claims a test count. The
+    # catalogue count is read from files and costs nothing, so a repository that
+    # advertises only that one is checked in milliseconds rather than minutes.
+    claims: list[tuple[re.Pattern[str], str]] = []
+    if any(MARKER.search(text) for text in documents.values()):
+        passed, skipped = measure()
+        claims.append((MARKER, rendered(passed, skipped)))
+    if any(CASE_MARKER.search(text) for text in documents.values()):
+        claims.append((CASE_MARKER, f"{count_cases():,}"))
+
+    if not claims:
         # Not an error, and worth saying: a repository with no marked claims is
         # one where this script has nothing to keep honest, not one that passed.
-        print("no document carries a <!--tests--> marker; nothing to keep in step")
+        print("no document carries a <!--tests--> or <!--cases--> marker")
         return 0
 
-    passed, skipped = measure()
-    current = rendered(passed, skipped)
-    stale: list[str] = []
-
-    for path, text in marked:
-        updated = MARKER.sub(lambda m: f"{m.group(1)}{current}{m.group(3)}", text)
-        if updated == text:
-            continue
-        if args.write:
+    for path, text in documents.items():
+        updated = text
+        for marker, current in claims:
+            updated = marker.sub(lambda m: f"{m.group(1)}{current}{m.group(3)}", updated)
+            for found in marker.finditer(text):
+                if found.group(2) != current:
+                    stale.append(f"{path}: says {found.group(2)!r}, the truth is {current!r}")
+        if updated != text and args.write:
             (ROOT / path).write_text(updated, encoding="utf-8")
             print(f"updated {path}")
-        else:
-            for found in MARKER.finditer(text):
-                if found.group(2) != current:
-                    stale.append(f"{path}: says {found.group(2)!r}, the suite says {current!r}")
+            touched = True
+
+    if args.write:
+        if not touched:
+            print("every advertised count already matches")
+        return 0
 
     if stale:
         print("\n".join(stale), file=sys.stderr)
@@ -145,7 +178,7 @@ def main(argv: list[str]) -> int:
             file=sys.stderr,
         )
         return 1
-    print(f"every advertised count matches the suite: {current}")
+    print("every advertised count matches: " + "; ".join(value for _, value in claims))
     return 0
 
 

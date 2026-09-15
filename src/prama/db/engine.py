@@ -59,7 +59,11 @@ class EngineFactory:
             url = self._dialect.sync_url()
             try:
                 engine = create_engine(url, **self._dialect.engine_kwargs(is_async=False))
-            except SQLAlchemyError as exc:
+            # ImportError too: a driver that is not installed raises
+            # ModuleNotFoundError, which is not a SQLAlchemyError, so the one
+            # failure `driver_hint` exists to explain was the one that escaped
+            # untranslated. QA round 4, `DB-065`.
+            except (SQLAlchemyError, ImportError) as exc:
                 raise self._creation_error(url.render_as_string(hide_password=True), exc) from exc
             self._install_connect_hook(
                 engine.sync_engine if hasattr(engine, "sync_engine") else engine
@@ -74,7 +78,11 @@ class EngineFactory:
             url = self._dialect.async_url()
             try:
                 engine = create_async_engine(url, **self._dialect.engine_kwargs(is_async=True))
-            except SQLAlchemyError as exc:
+            # ImportError too: a driver that is not installed raises
+            # ModuleNotFoundError, which is not a SQLAlchemyError, so the one
+            # failure `driver_hint` exists to explain was the one that escaped
+            # untranslated. QA round 4, `DB-065`.
+            except (SQLAlchemyError, ImportError) as exc:
                 raise self._creation_error(url.render_as_string(hide_password=True), exc) from exc
             self._install_connect_hook(engine.sync_engine)
             self._async = engine

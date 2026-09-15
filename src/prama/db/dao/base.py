@@ -52,6 +52,18 @@ class Dao(Generic[M]):
         self._session = session
         self._dialect = dialect
 
+    async def _guarded_flush(self) -> None:
+        """Flush, translating a constraint violation into the taxonomy.
+
+        `self._session.flush()` directly is how a concurrent amendment's losing
+        side surfaced a raw `sqlite3.IntegrityError` above `prama.db`. The
+        translation is `prama.db.guard.guarded`, shared with `UnitOfWork` rather
+        than copied. QA round 4, `DB-179`.
+        """
+        from prama.db.guard import guarded
+
+        await guarded(self._session, self._session.flush)
+
     # -- primitives --------------------------------------------------------
 
     def add(self, entity: M) -> M:

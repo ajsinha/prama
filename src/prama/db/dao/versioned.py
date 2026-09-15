@@ -72,7 +72,7 @@ class VersionedDao(Dao[E], Generic[E, V]):
         now = utc_now()
         entity = self.model(tenant_id=tenant_id, created_at=now, **(identity_fields or {}))
         self._session.add(entity)
-        await self._session.flush()
+        await self._guarded_flush()
 
         # Reached dynamically: this class is generic over model pairs it never
         # imports, so the constructors and the identity column are not statically
@@ -89,7 +89,7 @@ class VersionedDao(Dao[E], Generic[E, V]):
         )
         (provenance or Provenance()).apply_to(version)
         self._session.add(version)
-        await self._session.flush()
+        await self._guarded_flush()
         return entity, version
 
     # -- change ------------------------------------------------------------
@@ -134,7 +134,7 @@ class VersionedDao(Dao[E], Generic[E, V]):
         # Close the old version *before* the successor is inserted. The schema's
         # partial unique index permits exactly one current row per entity, and
         # the flush order is otherwise the ORM's business rather than ours.
-        await self._session.flush()
+        await self._guarded_flush()
         successor = self._clone(current, version=current.version + 1, changes=changes)
         successor.valid_from = effective
         successor.valid_to = None
@@ -142,7 +142,7 @@ class VersionedDao(Dao[E], Generic[E, V]):
         successor.superseded_at = None
         (provenance or Provenance()).apply_to(successor)
         self._session.add(successor)
-        await self._session.flush()
+        await self._guarded_flush()
         return successor
 
     async def correct(
@@ -170,7 +170,7 @@ class VersionedDao(Dao[E], Generic[E, V]):
             )
         now = utc_now()
         current.superseded_at = now
-        await self._session.flush()  # see amend(): one current row at a time
+        await self._guarded_flush()  # see amend(): one current row at a time
         corrected = self._clone(current, version=current.version + 1, changes=changes)
         corrected.valid_from = current.valid_from
         corrected.valid_to = current.valid_to
@@ -178,7 +178,7 @@ class VersionedDao(Dao[E], Generic[E, V]):
         corrected.superseded_at = None
         (provenance or Provenance()).apply_to(corrected)
         self._session.add(corrected)
-        await self._session.flush()
+        await self._guarded_flush()
         return corrected
 
     async def retire(
@@ -195,7 +195,7 @@ class VersionedDao(Dao[E], Generic[E, V]):
         current.valid_to = utc_now()
         if provenance is not None:
             current.change_reason = provenance.reason
-        await self._session.flush()
+        await self._guarded_flush()
         return current
 
     # -- reads -------------------------------------------------------------
@@ -236,7 +236,7 @@ class VersionedDao(Dao[E], Generic[E, V]):
 
     async def current(self, entity_id: str, *, tenant_id: str) -> V | None:
         """The present declaration: still true, still believed."""
-        await self._session.flush()
+        await self._guarded_flush()
         stmt = TemporalQuery.current(self._scoped(entity_id, tenant_id), self.version_model)
         return (await self._session.execute(stmt)).scalars().one_or_none()
 
@@ -252,7 +252,7 @@ class VersionedDao(Dao[E], Generic[E, V]):
 
     async def valid_at(self, entity_id: str, moment: datetime, *, tenant_id: str) -> V | None:
         """What we believe *today* was true at *moment*."""
-        await self._session.flush()
+        await self._guarded_flush()
         stmt = TemporalQuery.believed_now_valid_at(
             self._scoped(entity_id, tenant_id), self.version_model, moment
         )
@@ -266,7 +266,7 @@ class VersionedDao(Dao[E], Generic[E, V]):
         The question an evidence replay asks, and the only one that gives an
         honest answer about a control that ran before a correction.
         """
-        await self._session.flush()
+        await self._guarded_flush()
         stmt = TemporalQuery.as_of(
             self._scoped(entity_id, tenant_id), self.version_model, valid_at, known_at
         )
@@ -274,13 +274,13 @@ class VersionedDao(Dao[E], Generic[E, V]):
 
     async def history(self, entity_id: str, *, tenant_id: str) -> list[V]:
         """Every version, oldest first — the audit view."""
-        await self._session.flush()
+        await self._guarded_flush()
         stmt = TemporalQuery.all_versions(self._scoped(entity_id, tenant_id), self.version_model)
         return list((await self._session.execute(stmt)).scalars().all())
 
     async def list_current(self, tenant_id: str, *, limit: int = 100, offset: int = 0) -> list[V]:
         """Current versions of every entity in a tenant."""
-        await self._session.flush()
+        await self._guarded_flush()
         stmt = (
             TemporalQuery.current(
                 select(self.version_model)
@@ -297,7 +297,7 @@ class VersionedDao(Dao[E], Generic[E, V]):
         return list((await self._session.execute(stmt)).scalars().all())
 
     async def count_current(self, tenant_id: str) -> int:
-        await self._session.flush()
+        await self._guarded_flush()
         stmt = TemporalQuery.current(
             select(self.version_model)
             .join(
