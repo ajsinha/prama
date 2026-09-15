@@ -1546,9 +1546,27 @@ to state as a rule: **read the signature first, not after the red.** A probe
 written from memory fails for its own reasons and those reasons look exactly
 like the defect not being there.
 
-**Two of the data stack's twelve.** `CTR-047` did not reproduce from a direct
-call to `_freeze` and needs the `.jsonl` path the triage describes; the rest are
-untouched.
+**Four of the data stack's twelve.** `CTR-015` and `DB-098` followed, and both
+take input **this codebase did not write** — an ODCS contract exported by another
+tool, and a row whose timestamp was stored by something that is not Prama. That
+is where assuming a shape becomes a traceback about a file somebody is trying to
+import.
+
+`CTR-015` produced **three different bare exceptions for three shapes of one
+mistake**: a mapping made `schemas[0]` a `KeyError: 0`, while a list of strings
+and a list of nulls each made `.get` an `AttributeError` naming only the type.
+
+`DB-098` is the one to keep. `datetime.fromisoformat` raises `Invalid isoformat
+string` naming neither the table nor the column, while reading rows back — so
+the only person who sees it is holding a row they cannot explain. The remedy now
+points where it should: Prama writes ISO-8601 UTC text into `VARCHAR(32)` so
+timestamps sort chronologically, and a value that will not parse was written by
+something else. *Find the writer rather than correcting the row.*
+
+Reading signatures before probing worked: four reproductions, four hits, no
+invented interfaces in that round. `CTR-047` did not reproduce from a direct
+call to `_freeze` and needs the `.jsonl` path the triage describes; the
+remaining eight are untouched.
 
 ---
 

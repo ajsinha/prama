@@ -34,8 +34,10 @@ from pathlib import Path
 
 import pytest
 
+from prama.contract.odcs import load as load_odcs
 from prama.core.config.sources import YamlFileSource
-from prama.core.errors import ConfigError, PramaError, ValidationError
+from prama.core.errors import ConfigError, DatabaseError, PramaError, ValidationError
+from prama.db.types import UtcDateTime
 from prama.evidence.record import EvidenceRecord
 
 GOOD_RECORD = {
@@ -104,3 +106,63 @@ def test_a_missing_file_still_refuses_for_its_own_reason(tmp_path: Path) -> None
     with pytest.raises(PramaError) as caught:
         YamlFileSource(tmp_path / "absent.yaml").load()
     assert "not found" in str(caught.value).lower()
+
+
+# -- somebody else's JSON, and somebody else's row -------------------------
+#
+# Two more reading-back paths from the same triage cluster. Both take input this
+# codebase did not write — an ODCS contract exported by another tool, and a row
+# whose timestamp was stored by something that is not Prama — which is exactly
+# where assuming a shape produces a traceback about a file the reader is trying
+# to import.
+
+
+@pytest.mark.parametrize(
+    "contract,expected",
+    [
+        ({"schema": ["just a name"]}, "str"),
+        ({"schema": [None]}, "NoneType"),
+        ({"schema": {"name": "x"}}, "dict"),
+    ],
+    ids=["list-of-strings", "list-of-nulls", "mapping-not-list"],
+)
+def test_an_odcs_contract_of_the_wrong_shape_says_what_it_found(
+    contract: dict, expected: str
+) -> None:
+    """`CTR-015`. `schemas[0]` and `.get` on it, with no type check.
+
+    A mapping made `schemas[0]` a `KeyError: 0`; a list of strings or nulls made
+    `.get` an `AttributeError` naming only the type. Three different bare
+    exceptions for three shapes of the same mistake.
+    """
+    with pytest.raises(ValidationError) as caught:
+        load_odcs(contract)
+    assert expected in str(caught.value), (
+        f"the refusal does not say what it found instead: {caught.value}"
+    )
+
+
+def test_a_well_formed_odcs_contract_still_imports() -> None:
+    """The control. Refusing every contract would satisfy the three above."""
+    result = load_odcs({"schema": [{"name": "positions_eod", "properties": [{"name": "isin"}]}]})
+    assert result.declaration is not None
+
+
+def test_a_stored_timestamp_that_will_not_parse_names_the_value() -> None:
+    """`DB-098`. Stdlib's message names neither the table nor the column.
+
+    This runs while reading rows back, so the person who sees it is holding a
+    row they cannot explain. Prama stores timestamps as ISO-8601 text in
+    `VARCHAR(32)` so they sort chronologically; a value that will not parse was
+    written by something other than this code, which is what the remedy says.
+    """
+    with pytest.raises(DatabaseError) as caught:
+        UtcDateTime().process_result_value("not-a-date", None)
+    assert "not-a-date" in str(caught.value)
+    assert caught.value.remedy
+
+
+def test_a_stored_timestamp_that_does_parse_still_reads() -> None:
+    """The control, and the reason `except ValueError` was scoped to one call."""
+    parsed = UtcDateTime().process_result_value("2026-09-14T00:00:00Z", None)
+    assert parsed is not None and parsed.tzinfo is not None

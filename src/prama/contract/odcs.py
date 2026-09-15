@@ -29,6 +29,7 @@ from __future__ import annotations
 import dataclasses
 from typing import Any
 
+from prama.core.errors import ValidationError
 from prama.derive.declaration import AttributeDeclaration, DatasetDeclaration
 from prama.semantic.values import Criticality, Optionality
 
@@ -125,7 +126,29 @@ def load(contract: dict[str, Any]) -> Imported:
             "one dataset, so import the others separately"
         )
 
+    # `schemas` arrives from somebody else's JSON. A mapping makes `schemas[0]`
+    # a `KeyError: 0`; a list of strings or of nulls makes `.get` an
+    # `AttributeError` naming only the type. Each reaches the caller as a
+    # traceback about a contract file they are trying to import. QA `CTR-015`.
+    if not isinstance(schemas, list):
+        raise ValidationError(
+            f"the contract's 'schema' is a {type(schemas).__name__}, not a list",
+            remedy=(
+                "ODCS declares 'schema' as a list of schema objects, one per "
+                "table. A single object should be wrapped in a list."
+            ),
+            context={"found": type(schemas).__name__},
+        )
     schema = schemas[0]
+    if not isinstance(schema, dict):
+        raise ValidationError(
+            f"the contract's first schema entry is a {type(schema).__name__}, not an object",
+            remedy=(
+                "Each entry under 'schema' is an object with a name and its "
+                "properties. A bare name cannot say what columns the dataset has."
+            ),
+            context={"found": type(schema).__name__},
+        )
     attributes: list[AttributeDeclaration] = []
     for column in schema.get("properties") or []:
         attributes.append(_attribute(column, ignored))
