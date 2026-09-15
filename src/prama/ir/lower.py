@@ -26,6 +26,7 @@ from prama.classify.validators import REGISTRY as VALIDATORS
 from prama.classify.validators import ValidatorRegistry
 from prama.core.errors import ValidationError
 from prama.ir.model import (
+    KINDS_WITHOUT_VIOLATIONS,
     Comparator,
     ControlPlan,
     EvidencePolicy,
@@ -106,7 +107,7 @@ class Lowerer:
             scope=scope,
             predicate=predicate,
             metrics=metrics,
-            threshold=self._threshold(control.threshold),
+            threshold=self._threshold(control.threshold, kind),
             evidence=EvidencePolicy(
                 level=control.evidence.level.value,
                 max_samples=control.evidence.max_samples,
@@ -494,7 +495,47 @@ class Lowerer:
         )
 
     @staticmethod
-    def _threshold(threshold: ast.Threshold) -> Threshold:
+    def _threshold(threshold: ast.Threshold, kind: str) -> Threshold:
+        """The IR threshold, or a refusal when the assertion cannot carry it.
+
+        `_threshold` used to special-case `rate`/`percent` and send everything
+        else — a currency amount included — to a `violating_rows` count. So
+        `WITHIN 100 USD` became *"at most 100 violating rows"*: the number
+        survived and the meaning did not, which is the kind of wrong that reads
+        correct in a diff. QA round 4, `PQL-150`.
+
+        And a rate threshold needs a `violating_rows` metric to be a rate *of*
+        anything. A row-count assertion emits only `scanned_rows`, so `HAS ROW
+        COUNT AT LEAST 100 BELOW 2%` produced a threshold naming a metric the
+        plan never computes. Measured, the clause was **silently ignored** —
+        the verdict came from the row-count path and was the same with the
+        clause as without it. The triage expected `INDETERMINATE`; being
+        ignored is worse, because the author believes they constrained
+        something. `PQL-151`, and the parser's own module docstring already
+        listed *"a threshold on an assertion that has no rate"* among the things
+        it refuses.
+        """
+        if threshold.currency:
+            raise ValidationError(
+                f"a threshold of {threshold.value:g} {threshold.currency} cannot be "
+                "checked by this assertion",
+                remedy=(
+                    "A monetary tolerance needs a control that sums money — a "
+                    "reconciliation, or a check on an amount column. Written here it "
+                    "would silently become a count of rows."
+                ),
+                context={"unit": threshold.unit, "currency": threshold.currency},
+            )
+        if threshold.unit in ("rate", "percent") and kind in KINDS_WITHOUT_VIOLATIONS:
+            raise ValidationError(
+                f"a threshold of {threshold.value:g} cannot be a rate for this assertion",
+                remedy=(
+                    "A rate is violations over rows scanned, and this assertion counts "
+                    "rows rather than testing them. Give the bound in the assertion "
+                    "itself, as in HAS ROW COUNT AT LEAST 100."
+                ),
+                context={"assertion_kind": kind},
+            )
         if threshold.unit in ("rate", "percent"):
             # Relative to the scanned count rather than a second query: one
             # pass, and the denominator is on the record beside the numerator.
