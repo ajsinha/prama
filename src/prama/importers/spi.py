@@ -157,12 +157,38 @@ class Collector:
         self._caveats: list[Caveat] = []
 
     def control(self, pql: str, *, caveat: str = "") -> None:
+        from prama.pql.errors import PqlSyntaxError
         from prama.pql.parser import parse_control
 
-        parsed = parse_control(pql)
+        first_line = pql.splitlines()[0] if pql.splitlines() else pql
+        try:
+            parsed = parse_control(pql)
+        except PqlSyntaxError as exc:
+            # The whole point of this class, stated in its own docstring: a
+            # construct that does not come across is *reported*, not fatal. A
+            # `PqlSyntaxError` escaping here aborted an entire multi-hundred
+            # control migration because one carried-over expression did not
+            # parse — which is the outcome `unmapped` exists to prevent, thrown
+            # away at the one place it was easiest to throw away.
+            #
+            # Recorded rather than swallowed: it lands in the report `prama
+            # control import` prints, under the same heading as everything else
+            # that did not come across. QA round 4, `IMP-007`.
+            self._unmapped.append(
+                Unmapped(
+                    source=first_line,
+                    reason=f"the imported expression does not parse as PQL: {exc.message}",
+                    remedy=(
+                        "Write this control by hand, or adjust the source so the "
+                        "expression is one PQL can express. The rest of the import "
+                        "is unaffected."
+                    ),
+                )
+            )
+            return
         self._controls.append(parsed)
         if caveat:
-            self._caveats.append(Caveat(control=pql.splitlines()[0], note=caveat))
+            self._caveats.append(Caveat(control=first_line, note=caveat))
 
     def unmapped(self, source: str, reason: str, *, remedy: str = "", dataset: str = "") -> None:
         self._unmapped.append(

@@ -1741,3 +1741,84 @@ already pass through, plus `flush`/`commit`/`rollback`, which are reachable
 without touching a DAO and are what a caller reaches for when trying to "just
 save it" after the fact.
 **Regression** `qa/regression-suite/data/test_the_database_layer_keeps_its_exceptions.py`.
+
+## Q-93 — one unparseable control aborted a whole migration
+
+**Where** `src/prama/importers/spi.py::Collector.control`. **From** `IMP-007` (P1).
+
+`parse_control` raised `PqlSyntaxError` and nothing caught it, so one
+carried-over expression that did not parse stopped an entire multi-hundred
+control import.
+
+The reason this is the best finding in the batch is the class it happened in.
+`Collector`'s docstring states the contract outright: *"an importer built around
+a collector cannot forget to report a construct it skipped, because skipping
+means calling `unmapped` and there is nowhere else to put it."* The design was
+right, the argument for it was written down — and the single method that does the
+parsing had a second exit. **A structure that makes the right thing the only
+available move still has to be checked for doors nobody meant to leave open.**
+
+**Repair.** A parse failure becomes an `Unmapped` entry quoting the source
+construct, and the import continues. Deliberately *not* a silent skip: a
+migration that quietly loses controls reads as a complete one, which is worse
+than the crash it replaces. The regression asserts both halves.
+
+## Q-94 — two entry points, the same question, two answers
+
+**Where** `src/prama/connect/sources/objectstore.py`. **From** `CON-153` (P1).
+
+`health()` checked the URI scheme and returned `MISCONFIGURED` with a clear
+sentence naming the accepted schemes. `open()` did not look, and `_connect`
+builds the scheme straight into DuckDB SQL — so `async with connector:`, the
+idiomatic form used everywhere else in the codebase, produced
+`_duckdb.InvalidInputException: Secret provider 'credential_chain' not found for
+type 'ftp'`.
+
+The knowledge was present and the path people actually take did not consult it.
+**Repair.** `_scheme_problem()` — one sentence, derived once; `open()` refuses on
+it and `health()` reports it.
+
+## Q-95 — a nested JSON value broke the keyless diff
+
+**Where** `src/prama/contract/diff.py::_freeze`. **From** `CTR-047`.
+
+`_freeze` put raw values into a set, so a list or object raised `TypeError:
+unhashable type: 'list'`. `.jsonl` is one of the two formats `prama contract
+diff` accepts, which makes a nested value ordinary input rather than an edge
+case — and `prama contract diff` runs in a build.
+
+**Repair.** `_hashable` converts recursively: a list keeps its order (meaningful
+in JSON), an object does not (not meaningful). Converting rather than refusing,
+because two rows with the same nested value *are* the same row.
+
+## Q-96 — the driver's words for a mistake made three layers up
+
+**Where** `src/prama/connect/sources/query.py::executor_for`. **From** `CLI-140`.
+
+A file that exists, is a file, and is still not a database — a CSV named
+`.duckdb`, a truncated download — handed the caller `_duckdb.IOException`. The
+engine's complaint is the useful part and is kept in `context["detail"]`; what it
+cannot know is which path was typed and which flag put it there.
+
+## Q-97 — the same helper written five times, twice by the fix for a restatement
+
+**Where** `first_line`, now `src/prama/core/errors.py`.
+
+Reducing somebody else's exception to its first line had been open-coded five
+times: `db/session.py`, `db/guard.py`, `connect/sources/query.py`,
+`connect/sources/objectstore.py` and `db/schema/bootstrap.py`. **Two of those
+copies were written by me during this round** — one while extracting `guarded`
+specifically so the translation would not be restated, and one an hour later in
+`query.py`, having just recorded the lesson in `Q-87`.
+
+And it had already drifted: three copies truncate at 400 characters, two at 300.
+Nobody chose that; it is what a restatement looks like after a while.
+
+Worth recording plainly because the doctrine is not the hard part. *"Anything
+restated in a second place will drift, silently, in the flattering direction"* is
+written in `CLAUDE.md`, I quoted it in `Q-87`'s own text, and then wrote the
+fourth and fifth copies anyway. Knowing the rule does not make one notice the
+instance; only looking for the instance does.
+
+**Repair.** One definition in `core.errors`, which every layer already imports,
+and five callers.

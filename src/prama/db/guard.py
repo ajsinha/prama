@@ -22,18 +22,7 @@ from typing import Any
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from prama.core.errors import ConflictError, DatabaseError
-
-
-def first_line(exc: BaseException) -> str:
-    """The driver's own first line, which is the part that names the constraint.
-
-    Truncated, because a driver that decides to include the whole statement and
-    all its bound parameters turns a refusal into a wall — and `context` is read
-    in a log line and an error page, both of which have a width.
-    """
-    text = str(exc).strip()
-    return text.splitlines()[0][:400] if text else exc.__class__.__name__
+from prama.core.errors import ConflictError, DatabaseError, first_line
 
 
 async def guarded(session: AsyncSession, operation: Any) -> None:

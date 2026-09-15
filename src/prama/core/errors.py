@@ -164,3 +164,23 @@ class ForbiddenError(PramaError):
     """The caller is known and may not do this."""
 
     code = "AUTH.FORBIDDEN"
+
+
+def first_line(exc: BaseException) -> str:
+    """Somebody else's exception, reduced to the part worth repeating.
+
+    A driver's first line is where it names the constraint, the file or the
+    column; everything after it is the statement, the bound parameters and the
+    stack. This goes into `context["detail"]`, which is read in a log line and
+    on an error page — both of which have a width.
+
+    Here rather than beside any one caller because it had already been written
+    three times: `db/session.py`, `db/guard.py` and
+    `connect/sources/query.py`, in two of which it was written by the same
+    change that removed a different restatement. Two more open-coded copies
+    remain in `connect/sources/objectstore.py` and `db/schema/bootstrap.py`,
+    both truncating at 300 rather than 400 — which is what a restatement looks
+    like after it has drifted.
+    """
+    text = str(exc).strip()
+    return text.splitlines()[0][:400] if text else exc.__class__.__name__
