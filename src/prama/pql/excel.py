@@ -168,11 +168,18 @@ class ExcelParser:
             raise self._error(f"expected {text!r} and found {found!r}")
         return self.take()
 
-    def _error(self, message: str) -> PqlSyntaxError:
+    def _error(self, message: str, *, remedy: str = "") -> PqlSyntaxError:
+        """A refusal, with the generic remedy unless the caller knows better.
+
+        The default is about brackets and argument counts, which is right for
+        most failures here and useless for a malformed column reference — so a
+        caller that knows what was wrong can say so instead.
+        """
         position = self.current.position if self.current else len(self.source)
         return PqlSyntaxError(
             message,
-            remedy=(
+            remedy=remedy
+            or (
                 "Check the brackets and the argument count. Functions available: "
                 + ", ".join(FUNCTIONS.names())
                 + "."
@@ -234,7 +241,17 @@ class ExcelParser:
             # Excel escapes a quote by doubling it, and so does SQL.
             return ast.Literal(value=token.text[1:-1].replace('""', '"'), literal_type="text")
         if token.kind == "bracket":
-            return ast.ColumnRef(name=token.text[1:-1].strip())
+            inside = token.text[1:-1].strip()
+            if not inside:
+                # `[]` stripped to "" and produced a ColumnRef with an empty
+                # name — a reference that cannot resolve to anything, built
+                # without complaint. QA round 4, `PQL-339`.
+                raise self._error("[] does not name a column")
+            # Brackets are the quoting mechanism, so what is inside them is a
+            # name verbatim — a dot included. That is the point of quoting, and
+            # it is how `[total.gbp]` reaches a column actually called that.
+            # A bare identifier splits on the dot instead; see `name`.
+            return ast.ColumnRef(name=inside)
         if token.kind == "name":
             return self.name(token)
         raise self._error(f"unexpected {token.text!r}")
@@ -248,7 +265,22 @@ class ExcelParser:
         # A bare identifier is a column. Excel would call this a defined name;
         # over a dataset it is the column of that name, and there is nothing
         # else it could sensibly be.
-        return ast.ColumnRef(name=token.text)
+        #
+        # Qualified the way the PQL parser qualifies one — `dataset.column`,
+        # exactly one dot — rather than as a single name containing a dot. The
+        # tokenizer's `name` pattern swallows dots, so `positions.notional`
+        # became one column literally called "positions.notional", which cannot
+        # resolve against any schema and said nothing at parse time.
+        # QA round 4, `PQL-338`.
+        dataset, _, column = token.text.partition(".")
+        if not column:
+            return ast.ColumnRef(name=token.text)
+        if "." in column:
+            raise self._error(
+                f"{token.text!r} has more than one dot",
+                remedy="A column is written as `dataset.column`, or in [brackets] verbatim.",
+            )
+        return ast.ColumnRef(name=column, dataset=dataset)
 
     def call(self, token: Token) -> ast.Expression:
         name = token.text.upper()

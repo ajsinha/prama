@@ -2289,3 +2289,35 @@ argument for the shape: a timing assertion has two inputs, the code and the
 host, and a test that cannot separate them reports the wrong one. Neither was
 found by review — both needed a machine busy enough to break them, which is the
 sort of thing that happens once and then does not happen again for months.
+
+## Q-112 — the Excel surface and the PQL parser disagreed about `a.b`
+
+**Where** `src/prama/pql/excel.py`. **From** `PQL-338` (P1), `PQL-339`.
+
+The tokenizer's bare-name pattern is `[A-Za-z_][A-Za-z0-9_.]*` — the dot is
+*inside* the character class — so `positions.notional` became **one column
+literally called `"positions.notional"`**, rather than `dataset="positions",
+name="notional"`. Nothing resolves to that, and the formula parsed cleanly.
+
+The PQL parser has always split a qualified name on the dot. **Two surfaces onto
+the same language disagreed about what `a.b` means**, and only one was right —
+which is the same class of defect as `Q-89` (two code paths disagreeing about a
+naive timestamp) and `Q-104` (`_truth` and `_is_true` disagreeing about `"true"`).
+Three instances this round of *the same question answered twice, differently*.
+
+`PQL-339`: `[]` stripped to `""` and produced a `ColumnRef` with an empty name.
+
+**The distinction the repair had to get right**, and why this is not a one-line
+regex change: **brackets are the quoting mechanism.** `[total.gbp]` must keep
+its dot, because quoting is how a column genuinely called `total.gbp` is reached
+at all. Splitting on the dot everywhere would fix the bare case and make the
+quoted one unreachable — one silently wrong reference traded for another.
+
+So a bare identifier splits, exactly as the PQL parser splits it, and a
+bracketed one does not. The regression asserts the Excel result **against the
+PQL parser's** rather than against a remembered shape, so the two cannot drift
+apart again.
+
+More than one dot is now refused, because the PQL parser refuses it too:
+accepting it would make the Excel surface strictly more permissive than the
+language it writes.
