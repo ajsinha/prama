@@ -24,6 +24,8 @@ from __future__ import annotations
 import dataclasses
 import random
 
+from prama.ir.model import KINDS_WITHOUT_VIOLATIONS
+
 #: Columns of the conformance corpus, with what can sensibly be said about each.
 NUMERIC = ("notional", "row_id")
 TEXTUAL = ("isin", "ccy", "status", "entity", "account_id", "instrument_id")
@@ -61,12 +63,19 @@ class ControlGenerator:
     def one(self, seed: int) -> Generated:
         rng = random.Random(seed)
         body = self._assertion(rng)
+        # Which kind it is, so the threshold can be one this assertion can
+        # carry. The generator used to choose the two independently and emitted
+        # `HAS ROW COUNT … BELOW n%` — a rate over an assertion that counts
+        # rows rather than testing them. The parser's module docstring lists
+        # that combination among the things it refuses; the lowerer now does,
+        # and these controls stopped lowering. QA round 4, `PQL-151`.
+        kind = "row_count" if "HAS ROW COUNT" in body else "predicate"
         clauses = [body]
         if rng.random() < 0.4:
             clauses.append(f"WHERE {self._condition(rng)}")
         if rng.random() < 0.25:
             clauses.append(f"FOR EACH {rng.choice(SEGMENTABLE)}")
-        clauses.append(self._threshold(rng))
+        clauses.append(self._threshold(rng, kind))
         return Generated(seed=seed, pql=" ".join(c for c in clauses if c))
 
     def many(self, count: int, *, start: int = 0) -> list[Generated]:
@@ -125,11 +134,16 @@ class ControlGenerator:
         operator = rng.choice(("=", "<>"))
         return f"{column} {operator} '{rng.choice(TEXT_VALUES)}'"
 
-    def _threshold(self, rng: random.Random) -> str:
+    def _threshold(self, rng: random.Random, kind: str = "predicate") -> str:
         choice = rng.randrange(4)
         if choice == 0:
             return f"AT MOST {rng.randint(0, 4)} ROWS"
         if choice == 1:
+            # `KINDS_WITHOUT_VIOLATIONS` rather than a second list of kinds
+            # here, so the generator cannot drift away from what the lowerer
+            # accepts. The draw is still consumed, so seeds keep their meaning.
+            if kind in KINDS_WITHOUT_VIOLATIONS:
+                return f"AT MOST {rng.randint(0, 4)} ROWS"
             return f"BELOW {rng.choice((5, 10, 20, 30, 50))}%"
         if choice == 2 and rng.random() < 0.4:
             # The policy that inverts SQL's default, exercised as often as the

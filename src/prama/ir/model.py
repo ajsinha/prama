@@ -40,6 +40,22 @@ from prama.core.pjson import canonical, dumps
 IR_VERSION = "1.0"
 
 
+#: Assertion kinds for which `violating_rows` does not exist — neither emitted
+#: by the lowerer nor derived by the executor. Only `row_count`: the row count
+#: *is* the measurement, so there is no per-row violation to take a rate of.
+#:
+#: `unique_key` and `functional_dependency` look like they belong here, because
+#: `Lowerer._metrics` emits no `violating_rows` for them either — but
+#: `backend/execute.py` derives one from the distinct counts. A first attempt at
+#: this check looked only at the emitted metrics and refused both, which broke
+#: three generated-equivalence tests and would have removed a legitimate
+#: threshold from two assertion kinds. QA round 4, `PQL-151`.
+#:
+#: `tests`/`qa` assert this set against what the pipeline actually produces, so
+#: it is a checked claim rather than a list somebody has to remember to update.
+KINDS_WITHOUT_VIOLATIONS: frozenset[str] = frozenset({"row_count"})
+
+
 class MetricAggregate(enum.Enum):
     """How a metric is computed over the scope."""
 

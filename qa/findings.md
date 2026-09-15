@@ -2106,3 +2106,66 @@ that cannot be true is refused and names the spelling that works.
 **The distinction the repair had to preserve**: a domain with no CDEs yet is a
 legitimate empty expansion. Refusing that too would have replaced a silent wrong
 answer with a loud wrong answer, and the regression asserts it still works.
+
+## Q-105 — a threshold the assertion could not carry, reinterpreted instead of refused
+
+**Where** `src/prama/ir/lower.py::Lowerer._threshold`. **From** `PQL-150` (P1),
+`PQL-151`.
+
+`_threshold` special-cased `rate`/`percent` and sent everything else to a
+`violating_rows` count.
+
+**`PQL-150`.** `CHECK t.a IS NOT NULL WITHIN 100 USD` became
+`Threshold(metric="violating_rows", value=100.0)`: the currency dropped, the
+number kept. *"Within 100 US dollars of error"* and *"at most 100 bad rows"* are
+different controls. This is the kind of wrong that **reads correct in a diff** —
+the figure the author typed is right there in the plan, and only its unit
+changed.
+
+**`PQL-151`, where the triage was wrong in a useful direction.** A rate
+threshold needs a `violating_rows` metric to be a rate *of* anything, and a
+row-count assertion emits only `scanned_rows`. Triage expected `INDETERMINATE`.
+Measured, the verdict comes from the row-count path and is **identical with the
+clause and without it** — the clause is silently discarded. That is worse than
+indeterminate: the author believes they constrained something and the run agrees
+with them.
+
+The parser's own module docstring already listed *"a threshold on an assertion
+that has no rate"* among the things it refuses at authoring time. It did not.
+
+## Q-106 — the first repair for Q-105 was wrong, and the wrongness is the finding
+
+The first version asked whether the emitted metrics contained `violating_rows`.
+They do not for `unique_key` or `functional_dependency` either — but
+`backend/execute.py` **derives** one for both, from the distinct counts. So the
+check refused two legitimate assertion kinds.
+
+Three existing generated-equivalence tests caught it within a minute. That is
+the counterfactual discipline paying for itself in the opposite direction from
+usual: not a new test catching an old defect, but old tests catching a new one.
+
+**The lesson is about where the answer lived.** "Does this assertion have
+violations?" is answered in two files — one that emits metrics and one that
+derives them — and asking only the first gives a confident wrong answer. The
+repair names it once, in `ir/model.py::KINDS_WITHOUT_VIOLATIONS`, and the
+regression asserts that set against **what the pipeline actually produces**
+rather than trusting it. A frozen set of strings is a list somebody must
+remember to update; the same set checked against the thing it describes cannot
+quietly become false.
+
+## Q-107 — the control generator emitted controls that should not exist
+
+**Where** `src/prama/backend/generate.py`. **Found by** `Q-105`'s repair.
+
+The generator chose an assertion and a threshold independently, so it emitted
+`HAS ROW COUNT … BELOW n%` — precisely the combination `PQL-151` is about. The
+generated-equivalence suite has been exercising it for as long as it has
+existed, and three engines dutifully agreed about a control that should never
+have lowered.
+
+**A generator that can produce invalid inputs makes agreement about them
+meaningless**, and it is a plausible reason the combination went unnoticed:
+something was testing it, and passing. It now consults the same
+`KINDS_WITHOUT_VIOLATIONS` the lowerer does, and the regression lowers 300
+generated controls to assert the two cannot drift apart. The random draw is
+still consumed either way, so existing seeds keep their meaning.
