@@ -24,6 +24,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import dataclasses
+import difflib
 import hashlib
 from datetime import datetime
 from typing import Any
@@ -89,6 +90,12 @@ class AttributeCatalogue:
             ]
         if selector.where is None:
             return list(self.attributes)
+        # Checked once against the fact names, before any attribute is tested.
+        # `facts.get(name)` returns None for a typo, every comparison against
+        # None is False, and the selector expands to nothing — so `WHERE
+        # is_cdee` produced an estate that looked covered and covered nothing,
+        # with no diagnostic anywhere. QA round 4, `PQL-366`.
+        _check_fact_names(selector.where)
         return [a for a in self.attributes if _truth(selector.where, a.facts())]
 
 
@@ -235,6 +242,50 @@ def _rebind(assertion: ast.Assertion, column: ast.ColumnRef) -> ast.Assertion:
     return assertion
 
 
+#: Every name a selector may mention, derived from the mapping the predicate is
+#: actually evaluated against rather than restated here — a second list would
+#: drift the first time a fact is added.
+def _known_facts() -> frozenset[str]:
+    return frozenset(Attribute(dataset="", name="").facts())
+
+
+def _check_fact_names(expression: ast.Expression) -> None:
+    """Refuse a selector that mentions metadata no attribute carries."""
+    unknown = sorted(_mentioned(expression) - _known_facts())
+    if not unknown:
+        return
+    known = sorted(_known_facts())
+    suggestions = {
+        name: close[0]
+        for name in unknown
+        if (close := difflib.get_close_matches(name, known, n=1, cutoff=0.7))
+    }
+    hint = (
+        " Did you mean " + ", ".join(f"{bad} -> {good}" for bad, good in suggestions.items()) + "?"
+        if suggestions
+        else ""
+    )
+    raise ValidationError(
+        f"the selector mentions {', '.join(repr(n) for n in unknown)}, which is not "
+        "attribute metadata",
+        remedy=f"Available: {', '.join(known)}.{hint}",
+        context={"unknown": unknown},
+    )
+
+
+def _mentioned(expression: ast.Expression) -> set[str]:
+    """Every metadata name a selector predicate reads."""
+    if isinstance(expression, ast.ColumnRef):
+        return {expression.name}
+    if isinstance(expression, ast.ListExpression):
+        return set().union(*(_mentioned(item) for item in expression.items), set())
+    if isinstance(expression, ast.UnaryOp):
+        return _mentioned(expression.operand)
+    if isinstance(expression, ast.BinaryOp):
+        return _mentioned(expression.left) | _mentioned(expression.right)
+    return set()
+
+
 def _truth(expression: ast.Expression, facts: dict[str, Any]) -> bool:
     """Evaluate a selector predicate against one attribute's metadata.
 
@@ -244,7 +295,12 @@ def _truth(expression: ast.Expression, facts: dict[str, Any]) -> bool:
     been declared that way — and quietly including it would put a control on
     something nobody classified.
     """
-    return _value(expression, facts) is True
+    # `_is_true`, not `is True`. The two disagreed: this required the literal
+    # `True` and `_is_true` — used by the NOT branch — also accepted the string
+    # "true". So for a value that arrived from a warehouse as text, `WHERE
+    # is_cde` and `WHERE NOT is_cde` **both** excluded the attribute, putting it
+    # in neither half of a partition. QA round 4, `PQL-372`, `PQL-373`.
+    return _is_true(_value(expression, facts))
 
 
 def _value(expression: ast.Expression, facts: dict[str, Any]) -> Any:
@@ -286,6 +342,20 @@ def _binary(expression: ast.BinaryOp, facts: dict[str, Any]) -> Any:
         return found if operator == "IN" else not found
     if left is None or right is None:
         return False
+    if isinstance(left, list) and operator in ("=", "<>"):
+        # `tags = 'pii'` compares a list with a string: never equal, so the
+        # selector silently matched nothing while `tags IN ('pii')` — the same
+        # intent, spelled differently — matched. Refused rather than quietly
+        # answered, with the spelling that works. QA round 4, `PQL-369`.
+        raise ValidationError(
+            f"{expression.left.render()} holds a list, so it cannot be compared with {operator!r}",
+            remedy=(
+                f"Write {expression.left.render()} IN (…) to ask whether a value is "
+                "among them. An equality against a list is never true, so the "
+                "selector would match nothing and say nothing."
+            ),
+            context={"operator": operator},
+        )
     try:
         return {
             "=": left == right,
@@ -295,8 +365,19 @@ def _binary(expression: ast.BinaryOp, facts: dict[str, Any]) -> Any:
             "<": left < right,
             "<=": left <= right,
         }.get(operator, False)
-    except TypeError:
-        return False
+    except TypeError as exc:
+        # Swallowed into `False` before, so `criticality > 3` — a string against
+        # an integer — expanded to nothing and looked like "no attribute is that
+        # critical". QA round 4, `PQL-369`.
+        raise ValidationError(
+            f"{expression.render()} compares {type(left).__name__} with "
+            f"{type(right).__name__}, which cannot be ordered",
+            remedy=(
+                "Compare like with like. Selector metadata is text unless it was "
+                "declared otherwise, so quote the value or fix the declaration."
+            ),
+            context={"left": type(left).__name__, "right": type(right).__name__},
+        ) from exc
 
 
 def _is_true(value: Any) -> bool:

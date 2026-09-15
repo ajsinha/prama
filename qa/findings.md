@@ -2062,3 +2062,47 @@ engine that has it.
 block comment and the lexer refuses it earlier, for a different and correct
 reason. It was in the first draft's parametrised list and passed, which would
 have read as proof the new gate worked.
+
+## Q-104 — a mistyped selector produced an estate that looked covered
+
+**Where** `src/prama/pql/expand.py`. **From** `PQL-366` (P1), `PQL-369`,
+`PQL-372`, `PQL-373`.
+
+Selector expansion resolved every kind of internal trouble to "no match" —
+**the exact inverse of the failure this round found everywhere else in the
+language stack**, where trouble escaped as a bare Python exception. There it
+crashed; here it vanished. Both are the same underlying habit: not deciding what
+to do about a case, and letting the language's default decide instead.
+
+`PQL-366` is the one that matters. `facts.get(name)` returns `None` for a typo,
+every comparison against `None` is `False`, so `WHERE is_cdee` expanded to zero
+controls with no diagnostic. That does not produce an error — **it produces an
+estate that looks covered and covers nothing.** The declaration is on the
+record, a coverage report counts it, and no control was ever generated. Of every
+defect found this round this is the one whose consequence is furthest from its
+cause.
+
+`PQL-369`: `tags = 'pii'` compares a list with a string and is never equal, so
+it matched nothing — while `tags IN ('pii')`, the same intent spelled
+differently, matched. And `criticality > 3` raised `TypeError`, caught and
+turned into `False`, so a string-versus-integer comparison read as *"no
+attribute is that critical"*.
+
+`PQL-372`/`PQL-373` are one defect seen twice. `_truth` required the literal
+`True`; `_is_true`, used by the `NOT` branch, also accepted the string `"true"`.
+For a flag that arrived from a warehouse as text, `WHERE is_cde` **and** `WHERE
+NOT is_cde` both excluded the attribute — neither half of a partition, which is
+the one thing a partition may not do. Two functions answering the same question
+differently, eleven lines apart.
+
+**Repair**, as one policy rather than three patches: ambiguity in a selector
+must be visible. The fact names are checked against the mapping the predicate is
+actually evaluated against — derived, not restated, so adding a fact cannot
+leave a second list behind — with a spelling suggestion, because the available
+names are known exactly and there is no reason to make somebody diff two lists.
+`_truth` now uses `_is_true`, so the two agree by construction. A comparison
+that cannot be true is refused and names the spelling that works.
+
+**The distinction the repair had to preserve**: a domain with no CDEs yet is a
+legitimate empty expansion. Refusing that too would have replaced a silent wrong
+answer with a loud wrong answer, and the regression asserts it still works.
