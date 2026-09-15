@@ -353,9 +353,37 @@ class TypeChecker:
                 continue
             if assertion.operator in ("in_codelist", "is_valid", "has_format", "matches"):
                 continue  # the argument names a thing, not a value
+            if assertion.operator == "has_length_between":
+                # The bounds describe a *length*, not a value of the subject's
+                # type, so comparing them with the subject is the wrong
+                # question. Asking it flagged `CHECK t.isin HAS LENGTH BETWEEN
+                # 12 AND 12` — one of the most ordinary controls in the language
+                # — as comparing text with a number, twice, on every text
+                # column, always. Checked positively below instead.
+                # QA round 4, `PQL-092`.
+                continue
             findings.extend(
                 self._compare(subject, other, schema, assertion.subject, assertion.operator)
             )
+        if assertion.operator == "has_length_between":
+            # The check that was missing, and the half that made the defect
+            # worth more than a false positive: exempting the comparison alone
+            # would leave `CHECK t.notional HAS LENGTH BETWEEN 1 AND 3` — the
+            # length of a *number* — passing clean, which it already did. The
+            # old behaviour was not merely noisy, it was **inverted**: it
+            # rejected the correct control and accepted the incorrect one.
+            if subject not in (TEXT, UNKNOWN):
+                findings.append(
+                    Finding(
+                        message=f"a length cannot be measured on a {subject}",
+                        remedy=(
+                            "HAS LENGTH BETWEEN counts characters, so it applies to text. "
+                            "For a numeric range, write BETWEEN."
+                        ),
+                        position=assertion.position,
+                    )
+                )
+            findings.extend(self._bounds_are_numbers(assertion, schema))
         if assertion.operator == "matches" and subject not in (TEXT, UNKNOWN):
             findings.append(
                 Finding(
@@ -364,6 +392,26 @@ class TypeChecker:
                         "Patterns apply to text. Compare a number with BETWEEN or an "
                         "operator instead."
                     ),
+                    position=assertion.position,
+                )
+            )
+        return findings
+
+    def _bounds_are_numbers(
+        self, assertion: ast.PredicateAssertion, schema: DatasetSchema
+    ) -> list[Finding]:
+        """A character count is a number, whatever the column holds."""
+        findings: list[Finding] = []
+        for bound in (assertion.argument, assertion.upper):
+            if bound is None:
+                continue
+            found = self.type_of(bound, schema)
+            if found in (NUMBER, UNKNOWN):
+                continue
+            findings.append(
+                Finding(
+                    message=f"a length bound must be a number, and {bound.render()} is {found}",
+                    remedy="Write the number of characters, as in HAS LENGTH BETWEEN 12 AND 12.",
                     position=assertion.position,
                 )
             )

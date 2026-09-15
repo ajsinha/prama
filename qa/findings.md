@@ -2169,3 +2169,123 @@ something was testing it, and passing. It now consults the same
 `KINDS_WITHOUT_VIOLATIONS` the lowerer does, and the regression lowers 300
 generated controls to assert the two cannot drift apart. The random draw is
 still consumed either way, so existing seeds keep their meaning.
+
+## Q-108 — the length check was inverted, not merely noisy
+
+**Where** `src/prama/pql/types.py::TypeChecker._check_predicate`.
+**From** `PQL-092` (P1), `BE-160`.
+
+The checker exempts `in_codelist`, `is_valid`, `has_format` and `matches` from
+the subject-versus-argument type comparison — *"the argument names a thing, not
+a value"* — and did not exempt `has_length_between`. So `CHECK t.isin HAS LENGTH
+BETWEEN 12 AND 12`, about as ordinary a control as this language has, was
+reported as comparing text with a number. Twice, once per bound, on every text
+column, always.
+
+**The defect is not that it was noisy.** Exempting the comparison and stopping
+there is the obvious fix and would have left the other half untouched: `CHECK
+t.notional HAS LENGTH BETWEEN 1 AND 3` — the character length of a *number* —
+reported nothing at all. The check **rejected the correct control and accepted
+the incorrect one**, so the obvious repair would have made the checker quieter
+and no more correct. The repair adds the positive check the exemption implies:
+a length applies to text, and a length bound is a number.
+
+`BE-160` is the same defect from the other side — type-checking the corpus
+generator's own output produced the identical message about a different column.
+Two catalogue cases, one cause, and they read as unrelated until the messages
+are put side by side.
+
+## Q-109 — my fixture typed every column `unknown`, and the test looked passed
+
+**Found while writing** `Q-108`'s regression.
+
+The first fixture declared columns as `text` and `number`. `text` happens to be
+a real SQL type name and resolved; **`number` is not, and resolved to
+`unknown`** — which the checker exempts from every comparison. So the
+number-column case reported zero findings and looked as though that half of the
+defect did not exist.
+
+`TYPE_FAMILIES` holds actual SQL type names — `varchar`, `numeric`, `int`,
+`real`. A fixture that silently types every column `unknown` turns a
+type-checking test into one that checks nothing, and it fails *open*: every
+assertion about "no findings" passes.
+
+This is the session's recurring shape arriving in my own test — the sixth
+instance, and the second time it has been in something I wrote rather than
+something I was reviewing. **A check that cannot reach the thing it describes
+returns the answer you were hoping for**, and a fixture is a check.
+
+Also caught in the same file: one parametrised case (`'12' AND 12`) passed the
+counterfactual against the unrepaired code, because the old subject-comparison
+message happened to contain the word "number" too. Asserting on a substring that
+both the right and the wrong message contain is not an assertion. It now
+requires the phrase only the new finding uses.
+
+## Q-110 — a test that measured the machine rather than the code
+
+**Where** `qa/regression-suite/interfaces/test_serve_and_errors.py`.
+**Found by** a gate run on a host under load average 50.
+
+`test_it_reaches_a_pipe` starts `prama serve`, sleeps **four seconds**, sends
+SIGINT and asserts the banner reached the pipe. The four seconds were an
+assumption about how fast this machine is. It held for months, and on a host
+where something else was using every core the server had not finished starting —
+so the test read an empty banner and failed.
+
+**The failure mode is the part worth recording.** An empty banner is exactly
+what the defect this test exists to catch produces: `prama serve > log` with the
+banner stuck in an unflushed buffer. So under load the test reports the very
+defect it is guarding against, and the only way to tell a real regression from a
+busy machine is to run it again on a quiet one. A test that asks to be re-run is
+a test people stop reading.
+
+It passed in a foreground run twenty minutes earlier on the same tree, and
+passed in isolation immediately after failing — which is the signature.
+
+**Repair.** It waits by connecting to the port rather than by sleeping. The
+banner is written during startup, so a server that accepts a connection has
+already printed it; polling the thing the assertion depends on replaces a guess
+about duration with an observation of the state. The deadline is sixty seconds,
+which is not a timing assumption but a bound on hanging.
+
+**Checked for the category rather than the instance** (the lesson from `Q-88`):
+this was the only fixed sleep used as a readiness signal in either suite. The
+other timing values are subprocess `timeout=` bounds, and
+`tests/web/test_estate_map_scale.py` is already opt-in and documented as
+timing-sensitive for exactly this reason.
+
+## Q-111 — a published performance gate that measured the machine
+
+**Where** `tests/execute/test_inflight.py::test_it_fits_the_published_budget`.
+**Found by** the same loaded host as `Q-110`, on the next run.
+
+The test asserts `docs/15 §7`'s claim — five milliseconds added at p99 — over
+500 messages. Under contention it failed with a p99 several times the budget.
+The pipeline had not changed; the process simply was not being given a CPU.
+
+**Both obvious repairs are wrong.** Making it opt-in, the way
+`tests/web/test_estate_map_scale.py` already is, would quietly retire a
+*published gate* — `docs/15` states this as a threshold Prama must meet, and a
+gate nobody runs by default is not a gate. Loosening the budget would move a
+published number to whatever this laptop happens to manage. Both are the
+flattering direction, and both would leave the documentation claiming something
+the suite no longer checks.
+
+**Repair: measure whether the measurement was possible.** `process_time` against
+`perf_counter` gives the share of the run during which this process actually
+held a CPU. When most of the wall clock was spent descheduled, the p99 is a fact
+about the host, and the honest report is that nothing was measured — which is a
+**skip**, naming the share observed. A pass would be a lie and a failure would
+be a false alarm.
+
+It cannot go falsely green: with the budget forced to an impossible value on a
+quiet host, the test raises with *"p99 was 0.05 ms against a published budget of
+0.00 ms, on a host that gave this process 100% of a CPU — so this is the
+pipeline, not the machine"*. The strictness is unchanged; only the ability to
+tell the two apart is new.
+
+**`Q-110` and this are the same defect in two tests**, and the pair is the
+argument for the shape: a timing assertion has two inputs, the code and the
+host, and a test that cannot separate them reports the wrong one. Neither was
+found by review — both needed a machine busy enough to break them, which is the
+sort of thing that happens once and then does not happen again for months.
