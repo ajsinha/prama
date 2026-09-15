@@ -89,6 +89,23 @@ class FileSource(ConfigSource):
             return {}
         try:
             text = self.path.read_text(encoding="utf-8")
+        except UnicodeDecodeError as exc:
+            # A `UnicodeDecodeError` is a `ValueError`, not an `OSError`, so the
+            # clause below never caught it and a latin-1 config file reached the
+            # terminal as a traceback — while the remedy beside it already said
+            # "UTF-8 is expected". The message existed; the branch that could
+            # show it did not. QA round 4, `CFG-062`.
+            raise ConfigError(
+                f"{self.path} is not valid UTF-8: byte 0x{exc.object[exc.start]:02x} "
+                f"at position {exc.start}",
+                code="CONFIG.FILE_UNREADABLE",
+                remedy=(
+                    "Save the file as UTF-8. An editor defaulting to latin-1 or "
+                    "cp1252 produces this as soon as a value contains an accent."
+                ),
+                context={"path": str(self.path), "position": exc.start},
+                cause=exc,
+            ) from exc
         except OSError as exc:
             raise ConfigError(
                 f"could not read configuration file: {self.path}",

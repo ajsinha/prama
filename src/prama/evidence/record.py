@@ -23,6 +23,8 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import dataclasses
+
+from prama.core.errors import ValidationError
 import hashlib
 from typing import Any
 
@@ -154,6 +156,32 @@ class Tombstone:
             authority=str(payload.get("authority", "")),
             reason=str(payload.get("reason", "right to erasure")),
         )
+
+
+def _metrics(payload: dict[str, Any]) -> dict[str, float]:
+    """A record's metrics as numbers, or a refusal naming the one that is not.
+
+    `float(v)` directly, until round 4: a stored metric of `"eight"` raised
+    stdlib's `could not convert string to float: 'eight'` with nothing saying
+    which record or which metric — and this runs while reading a ledger back,
+    so the answer matters most when a chain is already suspect. QA `EVD-020`.
+    """
+    out: dict[str, float] = {}
+    for key, value in (payload.get("metrics") or {}).items():
+        try:
+            out[str(key)] = float(value)
+        except (TypeError, ValueError):
+            raise ValidationError(
+                f"metric {str(key)!r} of record {payload.get('sequence', '?')} "
+                f"is {value!r}, which is not a number",
+                remedy=(
+                    "Every metric in an evidence record is numeric. A record that "
+                    "cannot be read back is one whose verdict cannot be replayed; "
+                    "check the ledger this was loaded from."
+                ),
+                context={"metric": str(key), "sequence": str(payload.get("sequence", ""))},
+            ) from None
+    return out
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -371,7 +399,7 @@ class EvidenceRecord:
             engine=str(payload.get("engine", "")),
             coverage=str(payload.get("coverage", "full")),
             verdict=str(payload.get("verdict", "error")),
-            metrics={str(k): float(v) for k, v in (payload.get("metrics") or {}).items()},
+            metrics=_metrics(payload),
             samples_digest=str(payload.get("samples_digest", "")),
             sample_count=int(payload.get("sample_count", 0)),
             started_at=str(payload.get("started_at", "")),

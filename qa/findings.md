@@ -1510,6 +1510,46 @@ census over `qa/harness/interfaces/cli_call_log.jsonl`, is the measure that will
 say when it is finished — it read 14 in round 3 and 2 in round 4, and a by-hand
 enumeration under-counted both times.
 
+### Q-86 · Two reading-back paths, and a remedy whose branch could never fire
+
+Batch J continued into the data stack. `EVD-020` and `CFG-062`, both on a
+**reading-back** path, which is where an untyped exception costs most: the
+caller already suspects the thing they are holding.
+
+**`CFG-062` is the one worth keeping.** `FileSource.load` wrapped `read_text` in
+`except OSError`, and the remedy inside that clause already read *"Check the
+file's permissions and **encoding (UTF-8 is expected)**"*. But
+`UnicodeDecodeError` is a `ValueError`, not an `OSError`. The clause never
+fired, and a latin-1 config file produced a traceback.
+
+**The message existed; the branch that could show it did not.** That is a
+different defect from never having considered encoding, and a more irritating
+one, because the author obviously had — the remedy is *right there*, unreachable
+by one line of class hierarchy. A reviewer reading that function sees encoding
+handled.
+
+Caught by name rather than by widening to `except Exception`, which would have
+swallowed every other `read_text` failure with it. A test asserts a missing file
+still refuses for *its own* reason, because adding an `except` above an existing
+one is exactly how the earlier branch becomes unreachable — the same mistake
+one level along.
+
+**`EVD-020`** built metrics with `float(v)`, so a stored `"eight"` raised
+stdlib's `could not convert string to float` naming no record, no metric and no
+ledger. It runs during replay, so its message is read at the moment somebody is
+asking whether a chain can be trusted. It now names all three.
+
+**Eight invented interfaces this session.** `FileSource` is abstract, `_freeze`
+takes two arguments, `EngineFactory` takes another — three more in this batch
+alone, each costing a probe that proved nothing. The pattern is settled enough
+to state as a rule: **read the signature first, not after the red.** A probe
+written from memory fails for its own reasons and those reasons look exactly
+like the defect not being there.
+
+**Two of the data stack's twelve.** `CTR-047` did not reproduce from a direct
+call to `_freeze` and needs the `.jsonl` path the triage describes; the rest are
+untouched.
+
 ---
 
 ## What held
