@@ -16,8 +16,12 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import dataclasses
+import math
 import re
+from decimal import Decimal
 from typing import Any
+
+from prama.core.errors import ValidationError
 
 #: Capability names, matching those the connectors publish, so a control's
 #: requirements and a source's abilities are stated in one vocabulary.
@@ -158,12 +162,45 @@ class SqlDialect:
         return f"({left} % {right})"
 
     def literal(self, value: Any) -> str:
+        """A Python value as SQL, or a refusal when it has no SQL spelling.
+
+        `Decimal` used to fall past `isinstance(value, int | float)` into the
+        string branch and be emitted as `'1.5'` — **quoted**. That is not a
+        cosmetic type change: it makes the comparison lexical. `9.0 > 10.0` is
+        true as text on both DuckDB and SQLite, so a control reading
+        `amount > 10.00` passes rows of nine pounds and says so with a verdict.
+        `Decimal` is exactly how money is represented everywhere else in this
+        codebase. QA round 4, `BE-006`.
+
+        A non-finite float has no literal spelling the three engines share, and
+        `repr(float("inf"))` is the Python string `inf`, which parses on none of
+        them. `BE-007`.
+        """
         if value is None:
             return "NULL"
         if isinstance(value, bool):
             return self.boolean(value)
+        if isinstance(value, float) and not math.isfinite(value):
+            raise ValidationError(
+                f"{value!r} has no SQL spelling",
+                remedy=(
+                    "A threshold must be a finite number. An infinity or a NaN here "
+                    "is usually a division that produced one earlier."
+                ),
+                context={"value": repr(value)},
+            )
         if isinstance(value, int | float):
             return repr(value)
+        if isinstance(value, Decimal):
+            # `str`, not `repr`: `repr(Decimal("1.5"))` is `Decimal('1.5')`.
+            # Emitted unquoted so the engine reads it as the number it is.
+            if not value.is_finite():
+                raise ValidationError(
+                    f"{value!s} has no SQL spelling",
+                    remedy="A threshold must be a finite number.",
+                    context={"value": str(value)},
+                )
+            return str(value)
         return "'" + str(value).replace("'", "''") + "'"
 
     def boolean(self, value: bool) -> str:
