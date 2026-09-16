@@ -2401,3 +2401,39 @@ is an `int(...)` on a line that raises nothing. That distinction is what made
 means discovering every deliberate exception to it. Three of the ten sites the
 guard first reported were decisions, not defects — and a guard that cannot tell
 them apart does not get fixed, it gets disabled.
+
+## Q-115 — a money threshold compared as text, and 9 was greater than 10
+
+**Where** `src/prama/backend/dialect.py::SqlDialect.literal`.
+**From** `BE-006` (P1), `BE-007`.
+
+`literal` tested `isinstance(value, int | float)` and sent everything else to
+the string branch. `Decimal` is neither, so it was emitted **quoted**.
+
+**The triage called this "a silent type change". It is worse than that.** A
+quoted number makes the comparison lexical, and measured against real engines:
+
+```
+SELECT '9.0' > '10.0'   -->  true     on DuckDB and on SQLite
+SELECT  9.0  >  10.0    -->  false
+```
+
+So a control reading `amount > 10.00` — written with the `Decimal` this codebase
+uses for money everywhere else — **passes rows of nine pounds**, and reports a
+verdict, on financial data, with nothing wrong anywhere in the run.
+
+Of the twenty-nine findings this round, **this is the only one that produces a
+wrong answer on real data.** Everything else was a crash, a false alarm, an
+unhelpful message, or a gate that could not see. This one is quiet and says
+PASS. It is worth stating plainly because the severity is inverted from the
+noise: the loudest defects this round were the least dangerous.
+
+`BE-007`: `repr(float("inf"))` is the Python string `inf`, which parses as SQL
+on none of the three engines. Refused rather than given an engine-specific
+spelling — a threshold of infinity is an authoring mistake, usually a division
+that produced one earlier, and the three engines spell it three ways.
+
+**The repair that would have been wrong**: rendering the `Decimal` through
+`float`. It passes the "not quoted" assertion and throws the scale away —
+`Decimal("10.00")` becomes `10.0` — so the regression asserts the scale
+survives as well as the quoting.
