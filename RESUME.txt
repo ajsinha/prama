@@ -1,0 +1,82 @@
+PRAMA — HOW TO RESUME
+=====================
+
+Paused 2026-09-16 at commit 7131c13, mid QA round 4.
+main = develop = origin/*, working tree clean, gate green.
+
+This file is only the way back in. qa/HANDOVER.md is the real state and
+says what to work on next; do not keep a second copy of it here.
+
+
+1. CHECK THE MACHINE IS QUIET
+-----------------------------
+
+    uptime
+
+Load should be low single digits. If something else is hammering the box the
+suite takes 30 minutes instead of 9. It no longer produces false failures,
+but it is worth knowing before you wait.
+
+
+2. REBUILD THE VENV IF IT DID NOT SURVIVE
+-----------------------------------------
+
+    cd ~/PycharmProjects/prama
+    uv sync --extra dev
+
+Only if `prama --version` fails. The interpreter is pinned to 3.13 in
+.python-version and lives under ~/.local/share/uv/python, not /usr/bin, so a
+reboot should not have touched it.
+
+
+3. CONFIRM THE GATE
+-------------------
+
+    python3 scripts/sync_test_counts.py --write
+
+This IS the gate. It runs the whole suite itself and refuses to write a
+number from a red run, so a clean exit means green. Do not run `pytest -q`
+first as well — that runs everything twice and costs ~18 minutes a batch.
+
+Expect: 5,182 passed, 96 skipped, 2 xfailed.
+If the count differs but the run is green, that is fine — it means tests were
+added; the script rewrites README.md to match.
+
+
+4. READ THE HANDOVER
+--------------------
+
+    qa/HANDOVER.md
+
+Where round 4 stopped, the working method, the remaining batches in the order
+to take them, and the open questions that are yours rather than mine.
+
+    qa/findings.md      detail for any Q-nnn the handover mentions
+
+
+5. START WHERE THE HANDOVER SAYS
+--------------------------------
+
+Its "Next, in the order I would take it" section. In short: two guards are
+worth building before any more one-at-a-time fixes, then language-stack
+batches C9, C22, C23, C20, C1, then data-stack C4.
+
+
+IF YOU READ ONLY ONE FINDING
+----------------------------
+
+Q-115. A Decimal money threshold was emitted quoted, so `amount > 10.00`
+compared lexically and passed rows of nine pounds — with a verdict, on
+financial data, and nothing wrong anywhere in the run. It is the only finding
+of the round that produced a wrong answer on real data. Fixed; the point is
+that it was silent while noisier defects were harmless.
+
+
+TWO RULES THAT ARE EASY TO BREAK BY ACCIDENT
+--------------------------------------------
+
+* Never add an assistant attribution trailer to a commit. .githooks/commit-msg
+  refuses them. Authorship of this repository is Ashutosh Sinha's alone.
+
+* Drill after every batch, not at the end, and use a detached worktree —
+  never `git checkout main` in the live tree. The form is in qa/HANDOVER.md.
