@@ -233,6 +233,20 @@ class LineageDao(Dao[LinEdge]):
         )
         return list(result.scalars().all())
 
+    async def unit_edges(self, tenant_id: str, unit_ids: Sequence[str]) -> list[LinEdge]:
+        """Edges still open that the given code units produced, to carry forward."""
+        if not unit_ids:
+            return []
+        await self._session.flush()
+        result = await self._session.execute(
+            select(LinEdge).where(
+                LinEdge.tenant_id == tenant_id,
+                LinEdge.valid_to.is_(None),
+                LinEdge.unit_id.in_(list(unit_ids)),
+            )
+        )
+        return list(result.scalars().all())
+
     async def graph(self, tenant_id: str) -> LineageGraph:
         graph = LineageGraph()
         graph.add_all(edge_of(row) for row in await self.edges(tenant_id))

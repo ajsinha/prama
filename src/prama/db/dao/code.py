@@ -112,6 +112,24 @@ class CodeDao(Dao[CodeSource]):
         )
         return list(result.scalars().all())
 
+    async def last_completed_run(
+        self, tenant_id: str, source_id: str, *, before: str
+    ) -> CodeAnalysisRun | None:
+        """The source's most recent finished run other than *before*: the base to reuse."""
+        await self._session.flush()
+        result = await self._session.execute(
+            select(CodeAnalysisRun)
+            .where(
+                CodeAnalysisRun.tenant_id == tenant_id,
+                CodeAnalysisRun.source_id == source_id,
+                CodeAnalysisRun.id != before,
+                CodeAnalysisRun.status.in_(("succeeded", "partial")),
+            )
+            .order_by(CodeAnalysisRun.started_at.desc())
+            .limit(1)
+        )
+        return result.scalars().first()
+
     async def units(self, tenant_id: str, run_id: str) -> list[CodeUnit]:
         result = await self._session.execute(
             select(CodeUnit)

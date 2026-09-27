@@ -67,13 +67,17 @@ def _extract(kind: str, text: str, relative: str, dialect: str) -> list[tuple[An
     return out
 
 
-def read(root: Path, dialect: str) -> dict[str, Any]:
+def read(root: Path, dialect: str, skip: frozenset[str] = frozenset()) -> dict[str, Any]:
+    """Read every file under *root* except *skip*: files unchanged since the base
+    run, whose results the service carries forward instead of re-reading."""
     from prama.codeintake.inventory import READ, kind_of
 
     units: list[dict[str, Any]] = []
     edges: list[dict[str, Any]] = []
     for path in sorted(p for p in root.rglob("*") if p.is_file()):
         relative = path.relative_to(root).as_posix()
+        if relative in skip:
+            continue
         kind = kind_of(path)
         if kind not in READ:
             units.append(
@@ -114,4 +118,9 @@ def limit_resources(cpu_seconds: int = 120, memory_bytes: int = 2 << 30) -> None
 
 
 if __name__ == "__main__":
-    json.dump(read(Path(sys.argv[1]), sys.argv[2] if len(sys.argv) > 2 else "ansi"), sys.stdout)
+    skipped = (
+        frozenset(json.loads(Path(sys.argv[3]).read_text())) if len(sys.argv) > 3 else frozenset()
+    )
+    json.dump(
+        read(Path(sys.argv[1]), sys.argv[2] if len(sys.argv) > 2 else "ansi", skipped), sys.stdout
+    )

@@ -161,8 +161,12 @@ modern bank's data platform needs. It does not try to match Manta's breadth.
   - Airflow DAGs;
   - SSIS and Informatica PowerCenter exports, stored as *inferred* until verified against real
     exports.
+- **In scope, built since:** re-analysing only what a new commit changed (P5).
+  - A file whose SHA-256, reader version and dialect all match the base run is not re-read.
+  - Its unit, gaps and open edges are carried forward, with their method, status and
+    confidence (`code_analysis_run.base_run_id`, `coverage_json.reused`).
+  - A changed file is re-read, and the edges it no longer produces close.
 - **In scope, to build:**
-  - re-analysing only what a new commit changed;
   - warehouse query history (Snowflake access history, BigQuery jobs, Databricks Unity Catalog
     lineage), once live connectors exist;
   - one BI layer, Power BI;
