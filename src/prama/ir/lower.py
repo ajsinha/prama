@@ -412,6 +412,16 @@ class Lowerer:
                     self._expression(upper),
                 )
                 return Expr.operation("NOT", built) if node.operator.startswith("NOT") else built
+            if node.operator in ("AND", "OR"):
+                chain = _chain(node)
+                if len(chain) > FLAT_CHAIN:
+                    # One n-ary node rather than a thousand-deep binary tree,
+                    # which every later walk (lowering, compiling, hashing)
+                    # recursed through to a `RecursionError` (QA C20, PQL-176).
+                    # Only long chains: flattening short ones would change the
+                    # plan id of every existing control with three ANDs, and
+                    # plan ids are sealed into evidence.
+                    return Expr.operation(node.operator, *(self._expression(n) for n in chain))
             return Expr.operation(
                 node.operator, self._expression(node.left), self._expression(node.right)
             )
@@ -565,6 +575,25 @@ def _hash(text: str) -> str:
     return f"sha256:{hashlib.sha256(text.encode('utf-8')).hexdigest()}"
 
 
+#: An AND/OR chain longer than this lowers to one n-ary node. Far beyond what
+#: a person writes; a generated filter is what reaches it.
+FLAT_CHAIN = 64
+
+
+def _chain(node: ast.BinaryOp) -> list[ast.Expression]:
+    """The operands of a run of one associative operator, left to right,
+    found iteratively."""
+    operands: list[ast.Expression] = []
+    stack: list[ast.Expression] = [node]
+    while stack:
+        current = stack.pop()
+        if isinstance(current, ast.BinaryOp) and current.operator == node.operator:
+            stack.extend([current.right, current.left])
+        else:
+            operands.append(current)
+    return operands
+
+
 def lower(control: ast.Control, **kwargs: Any) -> ControlPlan:
     return Lowerer(**kwargs).control(control)
 
@@ -584,6 +613,10 @@ def _any_null(columns: list[str]) -> Expr:
     tests = [Expr.operation("IS NULL", Expr.column(c)) for c in columns]
     if len(tests) == 1:
         return tests[0]
+    if len(tests) > FLAT_CHAIN:
+        # Flat past the bound, nested below it, for the reason `FLAT_CHAIN`
+        # gives: a 500-column key recursed 500 deep (QA C20, PQL-177).
+        return Expr.operation("OR", *tests)
     combined = tests[0]
     for test in tests[1:]:
         combined = Expr.operation("OR", combined, test)

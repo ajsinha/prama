@@ -30,6 +30,7 @@ from __future__ import annotations
 import dataclasses
 import enum
 import hashlib
+from collections.abc import Iterator
 from typing import Any
 
 from prama.core.pjson import canonical, dumps
@@ -146,34 +147,40 @@ class Expr(IrNode):
             out["type"] = self.type_name
         return out
 
+    def walk(self) -> Iterator[Expr]:
+        """This node and every node beneath it, iteratively.
+
+        `requires`, `columns` and `parameters` used to recurse once per level,
+        so a generated filter of a thousand ORs, which the parser builds
+        iteratively, raised `RecursionError` here (QA C20, PQL-176).
+        """
+        stack: list[Expr] = [self]
+        while stack:
+            node = stack.pop()
+            yield node
+            stack.extend(node.args)
+
     @property
     def requires(self) -> frozenset[str]:
         needed: set[str] = set()
-        if self.kind == "op" and self.name in ("MATCHES", "NOT MATCHES"):
-            needed.add("pushdown.regex")
-        if self.kind == "op" and self.name == "EXISTS":
-            # Reaching a second dataset in one query. An engine that cannot
-            # join across the two has to be told before the control is
-            # approved, not when it runs.
-            needed.add("pushdown.cross_object_join")
-        if self.kind == "call" and self.name.upper() in ("APPROX_COUNT_DISTINCT",):
-            needed.add("pushdown.approx_distinct")
-        for arg in self.args:
-            needed |= arg.requires
+        for node in self.walk():
+            if node.kind == "op" and node.name in ("MATCHES", "NOT MATCHES"):
+                needed.add("pushdown.regex")
+            if node.kind == "op" and node.name == "EXISTS":
+                # Reaching a second dataset in one query. An engine that cannot
+                # join across the two has to be told before the control is
+                # approved, not when it runs.
+                needed.add("pushdown.cross_object_join")
+            if node.kind == "call" and node.name.upper() in ("APPROX_COUNT_DISTINCT",):
+                needed.add("pushdown.approx_distinct")
         return frozenset(needed)
 
     def columns(self) -> frozenset[str]:
         """Every column this expression reads. Used for pruning and for lineage."""
-        found = {self.name} if self.kind == "col" else set()
-        for arg in self.args:
-            found |= arg.columns()
-        return frozenset(found)
+        return frozenset(node.name for node in self.walk() if node.kind == "col")
 
     def parameters(self) -> frozenset[str]:
-        found = {self.name} if self.kind == "param" else set()
-        for arg in self.args:
-            found |= arg.parameters()
-        return frozenset(found)
+        return frozenset(node.name for node in self.walk() if node.kind == "param")
 
     # -- constructors, so callers do not build raw kinds -------------------
 

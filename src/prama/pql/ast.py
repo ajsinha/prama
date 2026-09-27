@@ -301,6 +301,23 @@ class BinaryOp(Expression):
         return BINDING.get(self.operator, ATOM_BINDING)
 
     def render(self) -> str:
+        if (
+            isinstance(self.left, BinaryOp)
+            and self.left.operator == self.operator
+            and not self.operator.endswith("BETWEEN")
+        ):
+            # A left-leaning run of one operator, walked iteratively: rendering
+            # a generated thousand-term OR recursed to a `RecursionError`
+            # (QA C20). Same text as the recursive form: every operator here
+            # is left-associative, so only right operands may need brackets.
+            rights: list[Expression] = []
+            node: Expression = self
+            while isinstance(node, BinaryOp) and node.operator == self.operator:
+                rights.append(node.right)
+                node = node.left
+            parts = [node.render_within(self.binding)]
+            parts += [r.render_within(self.binding, right=True) for r in reversed(rights)]
+            return f" {self.operator} ".join(parts)
         left = self.left.render_within(self.binding)
         if self.operator.endswith("BETWEEN") and isinstance(self.right, ListExpression):
             lower, upper = self.right.items

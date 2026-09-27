@@ -22,6 +22,7 @@ from decimal import Decimal
 from typing import Any
 
 from prama.core.errors import ValidationError
+from prama.pql.errors import PqlUnsupportedError
 
 #: Capability names, matching those the connectors publish, so a control's
 #: requirements and a source's abilities are stated in one vocabulary.
@@ -389,6 +390,19 @@ class SqliteDialect(SqlDialect):
     def count_distinct(self, expressions: list[str], *, where: str = "") -> str:
         if len(expressions) == 1:
             return self._distinct_over(expressions[0], where)
+        if len(expressions) > SQLITE_MAX_KEY:
+            # SQLite caps an expression tree at depth 1000, and each key column
+            # adds three levels here. Refused while compiling, with the reason,
+            # rather than by SQLite at run time (QA C20, PQL-177).
+            raise PqlUnsupportedError(
+                f"SQLite cannot check a key of {len(expressions)} columns",
+                remedy=(
+                    f"SQLite limits expression depth, which caps a key at "
+                    f"{SQLITE_MAX_KEY} columns. Run this control on DuckDB or "
+                    f"PostgreSQL, or check a narrower key."
+                ),
+                context={"columns": len(expressions), "limit": SQLITE_MAX_KEY},
+            )
         # No row constructor. Concatenation with a separator that cannot occur
         # in the data would be a guess; a null-safe join with a sentinel is
         # explicit about what it assumes.
@@ -396,6 +410,11 @@ class SqliteDialect(SqlDialect):
             f"COALESCE(CAST({e} AS TEXT), CHAR(30))" for e in expressions
         )
         return self._distinct_over(f"({joined})", where)
+
+
+#: The widest key SQLite can check: its expression-depth limit is 1000 and a
+#: key column costs three levels (two concatenations and a null test).
+SQLITE_MAX_KEY = 240
 
 
 DIALECTS: dict[str, SqlDialect] = {

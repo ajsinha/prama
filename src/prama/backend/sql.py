@@ -22,7 +22,9 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
+from collections.abc import Iterator
 from typing import Any
 
 from prama.backend.dialect import SqlDialect, Unsupported, dialect
@@ -78,6 +80,10 @@ class CompiledControl:
         }
 
 
+#: The alias a scan-limited source is given, so the outer row can be named.
+SCAN_ALIAS = "prama_scan"
+
+
 class SqlCompiler:
     """One plan to one engine's SQL, or a refusal that says why."""
 
@@ -102,8 +108,19 @@ class SqlCompiler:
             # aggregates, so a trailing LIMIT would bound the single row of
             # *results* and leave the scan exactly as expensive — a cap that
             # reads as applied and is not, which is worse than none.
-            source = f"({self.dialect.limit(f'SELECT * FROM {source}', scan_limit)})"
-        self._source = source
+            #
+            # Aliased, so a correlated subquery can name the outer row. It used
+            # to be qualified by the whole `(SELECT … LIMIT n)` text, which is
+            # invalid SQL on every engine (QA C9, BE-034).
+            alias = self.dialect.quote(SCAN_ALIAS)
+            source = f"({self.dialect.limit(f'SELECT * FROM {source}', scan_limit)}) AS {alias}"
+            qualifier = alias
+        else:
+            qualifier = source
+        with self._scope(qualifier):
+            return self._compile(plan, source)
+
+    def _compile(self, plan: ControlPlan, source: str) -> CompiledControl:
         where = self._where(plan)
         selects, names = self._metric_selects(plan)
         query = f"SELECT {', '.join(selects)}\nFROM {source}"
@@ -172,9 +189,29 @@ class SqlCompiler:
         ``source`` is the table the metrics are computed over, which a
         correlated subquery needs in order to qualify its outer column.
         """
-        if source:
-            self._source = source
-        return self._metric(plan, metric)
+        with self._scope(source):
+            return self._metric(plan, metric)
+
+    def expression_over(self, node: Expr | None, *, source: str) -> str:
+        """An expression compiled for rows of *source*, the table a correlated
+        subquery must qualify its outer column with. The fuser's entry point."""
+        with self._scope(source):
+            return self.expression(node)
+
+    @contextlib.contextmanager
+    def _scope(self, source: str) -> Iterator[None]:
+        """The source table for one call, and restored after it.
+
+        It used to be set by one call and read by the next, so a filter
+        compiled after another control inherited that control's table (QA C9,
+        BE-037). Scoped, a call sees its own table or none.
+        """
+        previous = self._source
+        self._source = source
+        try:
+            yield
+        finally:
+            self._source = previous
 
     def _metric(self, plan: ControlPlan, metric: Metric) -> str:
         if metric.aggregate is MetricAggregate.COUNT:

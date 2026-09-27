@@ -159,3 +159,26 @@ class TestTheStrictPath:
         caret = next(line for line in rendered.splitlines() if line.strip().startswith("^"))
         text = next(line for line in rendered.splitlines() if "CHECK positions" in line)
         assert text.index("nope") == caret.index("^")
+
+
+class TestEveryExpressionLocationIsChecked:
+    """QA C23 (`PQL-241`, `PQL-242`): type checking covered `WHERE` only, and
+    function checking missed `HAVING`. Both now derive from one list of the
+    places a condition can appear."""
+
+    def test_a_satisfies_condition_is_type_checked(self) -> None:
+        # The surface an Excel formula lands on.
+        assert errors("CHECK positions SATISFIES notional_amount > 'ACTIVE'")
+
+    def test_the_same_mistake_in_where_is_still_caught(self) -> None:
+        # The control: the path that always worked still works.
+        assert errors("CHECK positions.isin IS NOT NULL WHERE notional_amount > 'ACTIVE'")
+
+    def test_a_correct_satisfies_says_nothing(self) -> None:
+        assert errors("CHECK positions SATISFIES notional_amount > 0") == []
+
+    def test_an_unknown_function_in_having_is_named(self) -> None:
+        found = check(
+            "CHECK positions.isin IS NOT NULL FOR EACH account_id HAVING NONSENSE(isin) > 1"
+        )
+        assert any("NONSENSE" in f.message for f in found)

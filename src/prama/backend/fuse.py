@@ -191,7 +191,10 @@ class Fuser:
             # The compiled filter, not the IR node: two filters that compile to
             # the same SQL read the same rows however they were written, and
             # grouping on the tree would miss that.
-            filter_sql=self._compiler.expression(plan.scope.filter)
+            filter_sql=self._compiler.expression_over(
+                plan.scope.filter,
+                source=self._compiler.dialect.qualify(plan.scope.binding or plan.scope.dataset),
+            )
             if plan.scope.filter is not None
             else "",
             segment_by=plan.scope.segment_by,
