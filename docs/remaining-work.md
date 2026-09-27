@@ -2,7 +2,7 @@
 
 # What is left to build
 
-Written 2026-09-27. Collected from `docs/19-implementation-roadmap.md` (the ◑ and ⏳ rows and the
+Written 2026-09-27. The forward plan for AI, lineage and agents is [23](23-intelligence-and-lineage-roadmap.md). Collected from `docs/19-implementation-roadmap.md` (the ◑ and ⏳ rows and the
 "Not done" column), from `qa/HANDOVER.md`, and from defects found while adopting Maya's console
 pages. **The roadmap and the handover remain the authorities.** Where this list and one of them
 disagree, the list is the stale one; correct it or delete it, never both.
