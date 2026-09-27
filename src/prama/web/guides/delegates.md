@@ -83,6 +83,23 @@ a delegate control only to an agent that has that delegate, at the pinned versio
 agent is reported as unable to run it, with the reason. The rows stay in the agent's zone, and
 only the counts and the verdict travel.
 
+## Uploading one through the console
+
+User menu → **Delegates** → choose the `.py` file → **Upload and vet**.
+
+1. **Vetting.** Prama runs the conformance kit on it in a sandbox. If anything fails, you are
+   told why and nothing is stored.
+2. **Approval.** Someone **other than you** who holds control-approval rights reads the source
+   and the vetting findings on the same page, then approves or rejects it.
+3. **Running it.** Once approved, controls can name it. It always runs in the sandbox, from the
+   exact bytes that were approved.
+4. **Retiring it.** Retire it to stop it running. To change a delegate, raise its `version` and
+   upload it again; a version is never edited in place.
+
+A remote agent gets approved uploads with
+`prama delegate pull --server https://prama.example --out /opt/prama/delegates`, where the output
+directory is in that agent's `delegates.paths`.
+
 ## Large inputs
 
 Rows are read from the database in batches (`delegates.batch_rows`) and handed to `measure` as a

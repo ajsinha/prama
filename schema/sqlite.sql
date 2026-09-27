@@ -1499,3 +1499,32 @@ CREATE TABLE IF NOT EXISTS cur_suggestion (
     CONSTRAINT ck_cur_suggestion_state CHECK (state IN ('open', 'accepted', 'rejected', 'stale'))
 );
 CREATE INDEX IF NOT EXISTS ix_cur_suggestion_open ON cur_suggestion (tenant_id, state);
+
+-- ===========================================================================
+-- DQ DELEGATE UPLOADS  (Wave 18)
+-- ===========================================================================
+-- Python checks uploaded through the console. Vetted in a sandbox on upload
+-- (the same gate as a configured delegate, plus the conformance kit), then
+-- approved by a second person before any control may run them. The source is
+-- kept here, content-addressed: what was approved is what runs.
+CREATE TABLE IF NOT EXISTS dq_delegate_upload (
+    id            VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id     VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    name          VARCHAR(128)  NOT NULL,
+    version       VARCHAR(32)   NOT NULL,
+    filename      VARCHAR(255)  NOT NULL,
+    source        TEXT          NOT NULL,
+    source_hash   VARCHAR(64)   NOT NULL,
+    state         VARCHAR(16)   NOT NULL DEFAULT 'proposed',
+    described     TEXT          NOT NULL DEFAULT '{}',
+    findings      TEXT          NOT NULL DEFAULT '[]',
+    note          TEXT          NOT NULL DEFAULT '',
+    submitted_by  VARCHAR(26)   NOT NULL,
+    submitted_at  VARCHAR(32)   NOT NULL,
+    decided_by    VARCHAR(26),
+    decided_at    VARCHAR(32),
+    CONSTRAINT uq_dq_delegate_upload UNIQUE (tenant_id, name, version),
+    CONSTRAINT ck_dq_delegate_upload_state
+        CHECK (state IN ('proposed', 'approved', 'rejected', 'retired'))
+);
+CREATE INDEX IF NOT EXISTS ix_dq_delegate_upload_state ON dq_delegate_upload (tenant_id, state);

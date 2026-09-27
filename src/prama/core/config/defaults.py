@@ -79,6 +79,8 @@ DEFAULTS: dict[str, Any] = {
         # Rows read from the engine's cursor at a time and streamed to the
         # delegate, so a large table is never held whole.
         "batch_rows": 10000,
+        # Approved console uploads are written here, by content hash, to run.
+        "upload_dir": "data/delegates",
     },
     "codeintake": {
         # Where received code is extracted while it is read; deleted after.
