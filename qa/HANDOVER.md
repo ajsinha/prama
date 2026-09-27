@@ -97,7 +97,7 @@ inverted from the noise.
 
 ## Next, in the order I would take it
 
-### 1 · Two more guards, before more instances
+### 1 · Two more guards, before more instances — **built 2026-09-27** (differential guard → Q-122; vacuous lint as a ratchet, 33 tests baselined for review)
 
 The boundary guard paid for itself immediately. Two more are worth building, and
 neither exists:

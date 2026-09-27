@@ -384,7 +384,12 @@ class Lexer:
         if cursor < 0:
             return False
         character = self.source[cursor]
-        if character in ")]":
+        if character in ")]'\"":
+            # A closing bracket, or the end of a string or a quoted name: a
+            # value, so what follows is division. Missing the quotes read
+            # `'GBP' / qty` as a pattern, found by the differential guard
+            # against the Excel surface (Q-122). Dividing text is still a type
+            # error, but the type checker says so; the lexer does not guess.
             return True
         if character.isdigit():
             return True

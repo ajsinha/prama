@@ -2550,3 +2550,28 @@ counts the orphan.
 
 The tests use 1,000 terms and 500 columns, not 100: Python's default limit is
 1,000 frames, so a small case passes whether or not the walk is recursive.
+
+## Q-122 — `'GBP' / qty` lexed as a pattern; found by the guard on its first run
+
+**Where** `src/prama/pql/tokens.py::_previous_allows_division`.
+**From** the new differential guard,
+`tests/architecture/test_same_question_same_answer.py`, not from a catalogue
+case.
+
+`/` is either division or the start of a `/pattern/`. The lexer decides by
+the character before it: a value allows division. Closing brackets, digits
+and identifiers counted as values, but **the end of a string or a quoted
+name did not**. So `'GBP' / qty <> notional` read `/ qty <> notional …` as an
+unclosed pattern, while the Excel surface read the same expression correctly.
+Dividing text is still a type error, but it is now the type checker that says
+so; the lexer no longer misreads the text.
+
+**Why this is the point of the guard.** `Q-112` pinned one disagreement
+between the two surfaces (`a.b`). The guard generates 400 seeded expressions
+from the syntax both share and requires the same tree from each. On its
+first run it found six failures, all this one cause. None of the
+catalogue's cases covered it.
+
+The second guard from the handover, **absence-only regressions**, is built as
+a ratchet (`tests/architecture/test_no_vacuous_regressions.py`). The 33
+existing tests of that shape are listed for review; a new one fails the build.

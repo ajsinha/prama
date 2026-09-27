@@ -23,7 +23,7 @@ Ordered by what I would take first. Each item says why it matters.
 | 1.8 | Interface stack `CLI-081`, `CLI-185` | Never reproduced in round 3; still open |
 | 1.9 | The 184-case one-off tail (77 of them P1) | Not yet triaged into batches |
 | 1.10 | Then the full QA regression | Closes round 4 |
-| 1.11 | **Two guards that do not exist yet:** a differential guard between the Excel surface and the PQL parser (the "same question answered twice" cluster, five findings deep), and a narrowly scoped vacuous-assertion lint | Building the guard beat fixing the ninth instance by hand last round |
+| 1.11 | ~~**Two guards that do not exist yet:** a differential guard between the Excel surface and the PQL parser (the "same question answered twice" cluster, five findings deep), and a narrowly scoped vacuous-assertion lint~~ **done**: the differential guard found Q-122 on its first run; the vacuous-assertion lint is a ratchet over 33 baselined tests | Building the guard beat fixing the ninth instance by hand last round |
 | 1.12 | **New:** `prama control check` on `CHECK CONCEPT …` prints "nothing is known about " with an empty name | A lint that names nothing cannot be acted on |
 | 1.13 | `Threshold.render()` drops the comparator for a rate (`<` re-reads as `<=`) | Unreachable from the parser today; reachable from anything building a threshold in code |
 
