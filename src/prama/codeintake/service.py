@@ -27,8 +27,13 @@ from prama.codeintake.worker import limit_resources
 from prama.lineage.graph import Column, Edge, Transform
 from prama.lineage.sql import Gap
 
-#: Confidence of an edge the worker read with the pattern fallback.
+#: Confidence of an edge read by the pattern fallback or an unverified scanner.
 FALLBACK_CONFIDENCE = 0.8
+
+#: Methods whose edges are deterministic and verified: stored as `parsed`.
+PARSED_METHODS = frozenset(
+    {"code:sqlglot", "code:tsql_procedure", "code:plsql_procedure", "code:db2_procedure"}
+)
 
 
 def run_worker(root: Path, dialect: str, *, timeout: float = 300.0) -> dict[str, Any]:
@@ -104,9 +109,9 @@ async def analyse(
             )
         await uow.flush()  # the units' ids are assigned here, not when added
         unit_ids = {path: row.id for path, row in rows.items()}
-        grouped: dict[tuple[str, bool], list[Edge]] = defaultdict(list)
+        grouped: dict[tuple[str, str], list[Edge]] = defaultdict(list)
         for edge in result["edges"]:
-            grouped[(edge["unit"], edge["fallback"])].append(
+            grouped[(edge["unit"], edge["method"])].append(
                 Edge(
                     source=Column(dataset=edge["source"][0], name=edge["source"][1]),
                     target=Column(dataset=edge["target"][0], name=edge["target"][1]),
@@ -115,15 +120,17 @@ async def analyse(
                     expression=edge["expression"],
                 )
             )
+        # Only the SQL parser's edges are `parsed`. The pattern fallback and
+        # the unverified XML scanners produce `inferred` edges for review.
         batches = [
             (
                 edges,
-                "code:regex" if fallback else f"code:{READ['sql']}",
-                "inferred" if fallback else "parsed",
-                FALLBACK_CONFIDENCE if fallback else 1.0,
+                method,
+                "parsed" if method in PARSED_METHODS else "inferred",
+                1.0 if method in PARSED_METHODS else FALLBACK_CONFIDENCE,
                 unit_ids.get(path),
             )
-            for (path, fallback), edges in grouped.items()
+            for (path, method), edges in grouped.items()
         ]
         read = [u for u in result["units"] if u["read"]]
         lineage = await uow.lineage.ensure_source(

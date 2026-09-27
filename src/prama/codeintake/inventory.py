@@ -12,7 +12,13 @@ from __future__ import annotations
 from pathlib import Path
 
 #: Kinds whose lineage this build reads, and what reads it.
-READ: dict[str, str] = {"sql": "sqlglot"}
+READ: dict[str, str] = {
+    "sql": "sqlglot",
+    # The XML scanners are declared unverified against real exports
+    # (prama.lineage.scan), so their edges are stored as inferred.
+    "ssis": "ssis_xml",
+    "informatica": "powercenter_xml",
+}
 
 _BY_SUFFIX: dict[str, str] = {
     ".sql": "sql",

@@ -1,0 +1,17 @@
+{
+  "_comment": "Copyright (c) 2026 Ashutosh Sinha. All rights reserved. The true column lineage of bankco-etl, written by hand. Filter and join-key edges are excluded: the gate measures value lineage.",
+  "edges": [
+    {"from": "raw.trades.id", "to": "stg.trades.trade_id", "file": "sql/01_stage_trades.sql"},
+    {"from": "raw.trades.acct", "to": "stg.trades.account_id", "file": "sql/01_stage_trades.sql"},
+    {"from": "raw.trades.notional_amt", "to": "stg.trades.notional", "file": "sql/01_stage_trades.sql"},
+    {"from": "raw.trades.currency", "to": "stg.trades.ccy", "file": "sql/01_stage_trades.sql"},
+    {"from": "raw.trades.trade_dt", "to": "stg.trades.trade_date", "file": "sql/01_stage_trades.sql"},
+    {"from": "stg.trades.account_id", "to": "mart.positions.account_id", "file": "sql/02_mart_positions.sql"},
+    {"from": "stg.trades.notional", "to": "mart.positions.exposure_usd", "file": "sql/02_mart_positions.sql"},
+    {"from": "ref.fx_rates.rate", "to": "mart.positions.exposure_usd", "file": "sql/02_mart_positions.sql"},
+    {"from": "mart.positions.account_id", "to": "rpt.finrep_line_23.account_id", "file": "procs/finrep.sql"},
+    {"from": "mart.positions.exposure_usd", "to": "rpt.finrep_line_23.amount", "file": "procs/finrep.sql"},
+    {"from": "stg.trades.account_id", "to": "risk.var_input.account_id", "file": "jobs/risk_job.py"},
+    {"from": "stg.trades.notional", "to": "risk.var_input.notional", "file": "jobs/risk_job.py"}
+  ]
+}

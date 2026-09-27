@@ -19,14 +19,37 @@ from pathlib import Path
 from typing import Any
 
 #: The version of the reading logic, recorded on every unit it produced.
-VERSION = "1"
+VERSION = "2"
+
+
+def _extract(kind: str, text: str, relative: str, dialect: str) -> list[tuple[Any, str]]:
+    """(extraction, method) pairs for one file's text."""
+    from prama.lineage.scan import POWERCENTER, SSIS, ProceduralSqlScanner, XmlMappingScanner
+    from prama.lineage.sql import SqlLineage, split_statements
+
+    if kind == "ssis":
+        return [(XmlMappingScanner(SSIS).scan(text, source=relative).extraction, "code:ssis_xml")]
+    if kind == "informatica":
+        scanner = XmlMappingScanner(POWERCENTER)
+        return [(scanner.scan(text, source=relative).extraction, "code:powercenter_xml")]
+    if ProceduralSqlScanner.routine.search(text):
+        # A stored procedure: the wrapper is stripped and dynamic SQL is
+        # reported as a gap by the scanner rather than guessed at.
+        flavour = dialect if dialect in ("tsql", "plsql", "db2") else "tsql"
+        scanned = ProceduralSqlScanner(dialect=flavour).scan(text, source=relative)
+        return [(scanned.extraction, f"code:{flavour}_procedure")]
+    reader = SqlLineage(dialect=dialect)
+    out = []
+    for statement in split_statements(text):
+        extraction = reader.extract(statement, job=relative)
+        fell_back = any(g.kind == "regex_fallback" for g in extraction.gaps)
+        out.append((extraction, "code:regex" if fell_back else "code:sqlglot"))
+    return out
 
 
 def read(root: Path, dialect: str) -> dict[str, Any]:
     from prama.codeintake.inventory import READ, kind_of
-    from prama.lineage.sql import SqlLineage, split_statements
 
-    reader = SqlLineage(dialect=dialect)
     units: list[dict[str, Any]] = []
     edges: list[dict[str, Any]] = []
     for path in sorted(p for p in root.rglob("*") if p.is_file()):
@@ -38,11 +61,10 @@ def read(root: Path, dialect: str) -> dict[str, Any]:
             )
             continue
         text = path.read_bytes().decode("utf-8", errors="replace")
-        statements = split_statements(text)
         gaps: list[dict[str, str]] = []
-        for statement in statements:
-            extraction = reader.extract(statement, job=relative)
-            fell_back = any(g.kind == "regex_fallback" for g in extraction.gaps)
+        statements = 0
+        for extraction, method in _extract(kind, text, relative, dialect):
+            statements += max(1, extraction.statements)
             gaps.extend({"kind": g.kind, "detail": g.detail} for g in extraction.gaps)
             for edge in extraction.edges:
                 edges.append(
@@ -52,17 +74,11 @@ def read(root: Path, dialect: str) -> dict[str, Any]:
                         "target": [edge.target.dataset, edge.target.name],
                         "transform": edge.transform.value,
                         "expression": edge.expression,
-                        "fallback": fell_back,
+                        "method": method,
                     }
                 )
         units.append(
-            {
-                "path": relative,
-                "kind": kind,
-                "statements": len(statements),
-                "gaps": gaps,
-                "read": True,
-            }
+            {"path": relative, "kind": kind, "statements": statements, "gaps": gaps, "read": True}
         )
     return {"version": VERSION, "units": units, "edges": edges}
 
