@@ -35,6 +35,7 @@ from typing import Any
 
 from prama.backend.sql import _AGGREGATES as _COMPILED_AGGREGATES
 from prama.lineage.graph import Column, Edge, LineageGraph, Transform
+from prama.lineage.parsed import extract_statement
 
 #: Aggregate functions, which mark an edge as attenuating. Recognised by name
 #: because that is the only signal available without a type system.
@@ -295,7 +296,26 @@ class SqlLineage:
         ]
 
         for statement in statements:
-            found, problems = self._statement(statement, job)
+            parsed = extract_statement(
+                statement, job=job, schema=self._schema, dialect=self._dialect
+            )
+            if parsed is not None:
+                found, problems = parsed
+            else:
+                # The real parser could not read it. The regex extractor may,
+                # less reliably, so that is said rather than hidden.
+                found, problems = self._statement(statement, job)
+                problems = [
+                    *problems,
+                    Gap(
+                        kind="regex_fallback",
+                        detail=(
+                            "the SQL parser could not read this statement, so the "
+                            "pattern-based reader was used; check its edges"
+                        ),
+                        statement=statement,
+                    ),
+                ]
             edges.extend(found)
             gaps.extend(problems)
 
