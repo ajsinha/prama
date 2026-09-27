@@ -49,6 +49,7 @@ SCOPES: dict[str, str] = {
     "report:read": "read scorecards and reports",
     "attestation:read": "read attestations",
     "attestation:sign": "sign an attestation",
+    "llm:use": "send prompts to a model through the gateway (budgeted, audited)",
     "admin": "manage principals, roles and API keys",
 }
 

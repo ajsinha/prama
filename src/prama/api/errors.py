@@ -27,6 +27,7 @@ from prama.core.errors import (
     ValidationError,
 )
 from prama.core.log import correlation_id, get_logger
+from prama.llm.budget import BudgetExhausted
 
 _log = get_logger(__name__)
 
@@ -39,6 +40,7 @@ STATUS_BY_TYPE: list[tuple[type[PramaError], int]] = [
     (ConflictError, 409),
     (ValidationError, 422),
     (SchemaDriftError, 503),
+    (BudgetExhausted, 429),
 ]
 
 PROBLEM_TYPE_BASE = "https://prama.dev/problems/"

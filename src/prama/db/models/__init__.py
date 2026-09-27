@@ -22,7 +22,16 @@ from prama.db.models.base import (
 from prama.db.models.control import CtlControl, CtlControlVersion, CtlRejection
 from prama.db.models.evidence import EvRecord, EvRun, EvSample
 from prama.db.models.lineage import LinEdge, LinGap, LinRun, LinSource
-from prama.db.models.llm import LlmCall, LlmProfile, LlmProfileRoute, LlmProfileVersion, LlmProvider
+from prama.db.models.llm import (
+    LlmBudget,
+    LlmCall,
+    LlmModel,
+    LlmProfile,
+    LlmProfileRoute,
+    LlmProfileVersion,
+    LlmProvider,
+    LlmReservation,
+)
 from prama.db.models.platform import (
     ApiKey,
     AuditEvent,
@@ -76,11 +85,14 @@ __all__ = [
     "LinGap",
     "LinRun",
     "LinSource",
+    "LlmBudget",
     "LlmCall",
+    "LlmModel",
     "LlmProfile",
     "LlmProfileRoute",
     "LlmProfileVersion",
     "LlmProvider",
+    "LlmReservation",
     "ModelMixin",
     "Principal",
     "PrincipalRole",

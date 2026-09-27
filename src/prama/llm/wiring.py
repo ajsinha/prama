@@ -84,6 +84,7 @@ async def gateway_for(
     *,
     surface: str,
     principal_id: str | None = None,
+    api_key_id: str | None = None,
     offline: bool = False,
     ledger: CallLedger | None = None,
     opener: Any = None,
@@ -92,13 +93,21 @@ async def gateway_for(
     memory = ledger if isinstance(ledger, MemoryLedger) else MemoryLedger()
     routes = await load_routes(uow, tenant_id, offline=offline, opener=opener)
     gateway = LlmGateway(
-        routes, memory, tenant_id=tenant_id, surface=surface, principal_id=principal_id
+        routes,
+        memory,
+        tenant_id=tenant_id,
+        surface=surface,
+        principal_id=principal_id,
+        api_key_id=api_key_id,
     )
     return gateway, memory
 
 
 async def persist(uow: Any, tenant_id: str, ledger: MemoryLedger) -> int:
     """Write what the gateway recorded to the tenant's hash-chained ledger."""
-    written: int = await uow.llm.append_calls(tenant_id, ledger.records)
+    from prama.llm.budget import costed
+
+    records = [await costed(uow, record) for record in ledger.records]
+    written: int = await uow.llm.append_calls(tenant_id, records)
     ledger.records.clear()
     return written

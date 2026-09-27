@@ -98,6 +98,11 @@ class CallRecord:
     fallback_from: str | None = None
     grammar_enforced: bool = False
     outcome_detail: str = ""
+    api_key_id: str | None = None
+    #: Set when the record is persisted, from the dated price row: the
+    #: gateway does not know prices, the store does.
+    cost_micros: int = 0
+    price_model_id: str | None = None
 
     def content(self) -> dict[str, Any]:
         return dataclasses.asdict(self)
@@ -145,8 +150,10 @@ class LlmGateway:
         tenant_id: str,
         surface: str,
         principal_id: str | None = None,
+        api_key_id: str | None = None,
     ) -> None:
         self._routes = routes
+        self._api_key = api_key_id
         self._ledger = ledger
         self._tenant = tenant_id
         self._surface = surface
@@ -172,6 +179,7 @@ class LlmGateway:
             "request_fingerprint": request.fingerprint,
             "prompt_hash": _hash(request.system + "\x1f" + request.prompt),
             "principal_id": self._principal,
+            "api_key_id": self._api_key,
             "profile_id": route.profile_id or None,
             "profile_version": route.version,
             "temperature": request.temperature,

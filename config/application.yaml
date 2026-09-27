@@ -46,6 +46,7 @@ scheduler:
 llm:
   # Providers and profiles live in the database (Models page, `prama llm`).
   offline: false                    # true: only self-hosted models on a local or private address
+  per_principal_rpm: 60             # requests per minute per principal through /api/v1/llm
 
 web:
   enabled: true                     # serve the console alongside the API

@@ -19,13 +19,21 @@ from sqlalchemy import func, select
 from prama.core.errors import ConflictError, NotFoundError, ValidationError
 from prama.db.dao.base import Dao
 from prama.db.models.llm import (
+    LlmBudget,
     LlmCall,
+    LlmModel,
     LlmProfile,
     LlmProfileRoute,
     LlmProfileVersion,
     LlmProvider,
 )
 from prama.llm.gateway import GENESIS, CallRecord, seal
+
+
+def _now() -> str:
+    from datetime import UTC, datetime
+
+    return datetime.now(UTC).isoformat(timespec="milliseconds")
 
 
 class LlmDao(Dao[LlmProvider]):
@@ -221,6 +229,121 @@ class LlmDao(Dao[LlmProvider]):
             select(func.count()).select_from(LlmCall).where(LlmCall.tenant_id == tenant_id)
         )
         return int(result.scalar_one())
+
+    # -- prices, budgets, spend -------------------------------------------
+
+    async def set_price(
+        self,
+        tenant_id: str,
+        provider: str,
+        model: str,
+        *,
+        input_micros: int,
+        output_micros: int,
+        cached_micros: int = 0,
+        effective_from: str = "",
+    ) -> LlmModel:
+        """A dated price per million tokens. Earlier prices are kept, so a past
+        call's cost can still be explained by the price in force at the time."""
+        row = await self.provider(tenant_id, provider)
+        if row is None:
+            raise NotFoundError(
+                f"no provider called {provider!r}", remedy="Add the provider first."
+            )
+        price = LlmModel(
+            tenant_id=tenant_id,
+            provider_id=row.id,
+            model=model,
+            price_in_micros=input_micros,
+            price_out_micros=output_micros,
+            price_cached_micros=cached_micros,
+            effective_from=effective_from or _now(),
+        )
+        self._session.add(price)
+        await self._session.flush()
+        return price
+
+    async def price_for(
+        self, tenant_id: str, provider_id: str, model: str, at: str
+    ) -> LlmModel | None:
+        """The price in force for *model* at *at*."""
+        result = await self._session.execute(
+            select(LlmModel)
+            .where(
+                LlmModel.tenant_id == tenant_id,
+                LlmModel.provider_id == provider_id,
+                LlmModel.model == model,
+                LlmModel.effective_from <= at,
+            )
+            .order_by(LlmModel.effective_from.desc())
+            .limit(1)
+        )
+        return result.scalars().first()
+
+    async def set_budget(
+        self,
+        tenant_id: str,
+        *,
+        scope_kind: str,
+        scope_id: str = "",
+        period: str = "month",
+        limit_micros: int | None = None,
+        limit_tokens: int | None = None,
+        action: str = "refuse",
+        by: str | None = None,
+    ) -> LlmBudget:
+        await self._session.flush()
+        existing = (
+            (
+                await self._session.execute(
+                    select(LlmBudget).where(
+                        LlmBudget.tenant_id == tenant_id,
+                        LlmBudget.scope_kind == scope_kind,
+                        LlmBudget.scope_id == scope_id,
+                        LlmBudget.period == period,
+                    )
+                )
+            )
+            .scalars()
+            .first()
+        )
+        row = existing or LlmBudget(
+            tenant_id=tenant_id, scope_kind=scope_kind, scope_id=scope_id, period=period
+        )
+        row.limit_micros, row.limit_tokens, row.action, row.updated_by = (
+            limit_micros,
+            limit_tokens,
+            action,
+            by,
+        )
+        if existing is None:
+            self._session.add(row)
+        await self._session.flush()
+        return row
+
+    async def budgets(self, tenant_id: str) -> list[LlmBudget]:
+        result = await self._session.execute(
+            select(LlmBudget).where(LlmBudget.tenant_id == tenant_id)
+        )
+        return list(result.scalars().all())
+
+    async def spend(
+        self, tenant_id: str, since: str, *, scope_kind: str = "tenant", scope_id: str = ""
+    ) -> tuple[int, int]:
+        """Micro-units and tokens spent since *since*, derived from the ledger."""
+        column = {
+            "principal": LlmCall.principal_id,
+            "api_key": LlmCall.api_key_id,
+            "profile": LlmCall.profile_id,
+        }.get(scope_kind)
+        statement = select(
+            func.coalesce(func.sum(LlmCall.cost_micros), 0),
+            func.coalesce(func.sum(LlmCall.input_tokens + LlmCall.output_tokens), 0),
+        ).where(LlmCall.tenant_id == tenant_id, LlmCall.started_at >= since)
+        if column is not None:
+            statement = statement.where(column == scope_id)
+        micros, tokens = (await self._session.execute(statement)).one()
+        return int(micros), int(tokens)
 
     # -- helpers for the other tables --------------------------------------
 
