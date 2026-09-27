@@ -203,6 +203,31 @@ terms — an alert budget or an FDR level — never as an opaque "medium". See
 [08](08-ai-ml-capabilities.md) §4.
 
 ### 4.6 Reconciliation
+
+**As built:**
+
+```pql
+RECONCILE a AGAINST b ON (key, x = y) COMPARING amount [= other]
+  [WITHIN n [CCY] [OR p%]]
+  [NORMALISING ccy_col TO 'USD' USING RATES rates_dataset]
+  [OFFSET BY n DAY[S]]
+```
+
+This is followed by the ordinary modifiers (`SEVERITY`, `DIMENSION`, `BECAUSE`, and a threshold
+such as `AT MOST n ROWS`).
+
+- **What runs it.** It is executed by the reconciliation engine (`prama.recon`), on the control
+  plane or on an agent.
+- **What fails it.** `violating_rows` counts the breaks that need a person: value differences
+  and missing rows. A timing difference that clears itself does not count.
+- **Where breaks go.** They land in the break workbench.
+- **The rates dataset** has the columns `currency`, `rate` (to the target currency) and,
+  optionally, `as_of`.
+- **Not built yet:** `CLASSIFY` rules (the engine's own classification applies), a `WHERE` on
+  one side, and rates `FROM` a named provider.
+
+The full form, as designed:
+
 ```pql
 RECONCILE subledger AGAINST general_ledger
   ON (account_code, cost_centre, accounting_date)

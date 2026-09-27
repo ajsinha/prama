@@ -21,7 +21,7 @@ import dataclasses
 import enum
 import re
 from decimal import Decimal
-from typing import Any, Final
+from typing import Any, ClassVar, Final
 
 from prama.pql.errors import Position
 
@@ -382,6 +382,10 @@ class ListExpression(Expression):
 class Assertion(Node):
     """What a control claims. Subclasses are the catalogue."""
 
+    #: True for an assertion that is a statement of its own (RECONCILE), which
+    #: renders its own head instead of following CHECK.
+    standalone: ClassVar[bool] = False
+
     def render(self) -> str:
         raise NotImplementedError
 
@@ -595,6 +599,75 @@ class DelegateAssertion(Assertion):
 
     def arguments(self) -> dict[str, Any]:
         return {name: literal.value for name, literal in self.parameters}
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class ReconcileAssertion(Assertion):
+    """``RECONCILE a AGAINST b ON (k, x = y) COMPARING amt = amount WITHIN 1.00 EUR OR 0.01%``.
+
+    Two datasets that should agree, row for row, on an amount. Run by the
+    reconciliation engine (`prama.recon`): rows are matched on the key, compared
+    within the tolerance, and every difference is classified into a break. The
+    control's threshold is on breaks that need a person (a value difference, a
+    missing row), so a timing difference that clears itself does not fail it,
+    and each break lands in the break workbench to be explained or accepted.
+    """
+
+    standalone: ClassVar[bool] = True
+
+    against: str = ""
+    keys: tuple[tuple[str, str], ...] = ()
+    amount: tuple[str, str] = ("", "")
+    absolute: str = ""
+    currency: str = ""
+    relative: str = ""
+    offset_days: int = 0
+    #: ``NORMALISING ccy TO 'USD' USING RATES fx_rates``: this side's amounts
+    #: are in the currency named by *currency_column*, converted with the
+    #: rates dataset (columns currency, rate[, as_of]) before comparison.
+    currency_column: str = ""
+    target_currency: str = ""
+    rates: str = ""
+
+    def _key(self) -> str:
+        return ", ".join(a if a == b else f"{a} = {b}" for a, b in self.keys)
+
+    def render_head(self, target: str) -> str:
+        text = (
+            f"RECONCILE {quote_dataset(target)} AGAINST {quote_dataset(self.against)} "
+            f"ON ({self._key()}) COMPARING {self.amount[0]}"
+        )
+        if self.amount[1] != self.amount[0]:
+            text += f" = {self.amount[1]}"
+        tolerance = []
+        if self.absolute:
+            tolerance.append(self.absolute + (f" {self.currency}" if self.currency else ""))
+        if self.relative:
+            tolerance.append(f"{self.relative}%")
+        if tolerance:
+            text += " WITHIN " + " OR ".join(tolerance)
+        if self.currency_column:
+            text += (
+                f" NORMALISING {self.currency_column} TO '{self.target_currency}' "
+                f"USING RATES {quote_dataset(self.rates)}"
+            )
+        if self.offset_days:
+            text += f" OFFSET BY {self.offset_days} DAY{'S' if self.offset_days != 1 else ''}"
+        return text
+
+    def render(self) -> str:
+        return self.render_head("?")
+
+    def describe(self) -> str:
+        bounds = [
+            f"{self.absolute} {self.currency}".strip() if self.absolute else "",
+            f"{self.relative}%" if self.relative else "",
+        ]
+        within = " within " + " or ".join(b for b in bounds if b) if any(bounds) else ""
+        return (
+            f"every row agrees with {self.against} on {self.amount[0]}, matched on "
+            f"({self._key()}){within}, and nothing is missing from either side"
+        )
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -882,7 +955,8 @@ class Control(Node):
         if self.selector is not None:
             lines = [f"CHECK {self.selector.render()} {self.assertion.render_selected()}"]
         else:
-            lines = [f"CHECK {self.assertion.render_head(self.target)}"]
+            head = self.assertion.render_head(self.target)
+            lines = [head if self.assertion.standalone else f"CHECK {head}"]
         if self.where is not None:
             lines.append(f"  WHERE {self.where.render()}")
         if self.segmentation is not None:

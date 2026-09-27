@@ -72,9 +72,7 @@ class Dataset:
 
 def _domain(attribute: Attribute) -> ValueDomain:
     if attribute.codelist:
-        return ValueDomain(
-            kind=ValueDomainKind.CODELIST, allowed_values=tuple(attribute.codelist)
-        )
+        return ValueDomain(kind=ValueDomainKind.CODELIST, allowed_values=tuple(attribute.codelist))
     if attribute.minimum is not None or attribute.maximum is not None:
         return ValueDomain(
             kind=ValueDomainKind.RANGE,

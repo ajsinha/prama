@@ -80,9 +80,7 @@ class DefectLog:
         lines = [f"{len(self._defects)} defect(s) planted, {self.rows:,} affected row(s):"]
         for defect in self._defects:
             mark = " " if defect.detectable else "!"
-            lines.append(
-                f"  {mark} {defect.dataset:<22} {defect.rows:>7,}  {defect.what}"
-            )
+            lines.append(f"  {mark} {defect.dataset:<22} {defect.rows:>7,}  {defect.what}")
             if defect.caveat:
                 lines.append(f"      └─ {defect.caveat}")
         return "\n".join(lines)

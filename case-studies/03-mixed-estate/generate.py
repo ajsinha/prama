@@ -28,12 +28,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import duckdb  # noqa: E402
-import pyarrow as pa  # noqa: E402
-import pyarrow.parquet as pq  # noqa: E402
-
-from _common.bank import FX, Book  # noqa: E402
-from _common.defects import DefectLog  # noqa: E402
+import duckdb
+import pyarrow as pa
+import pyarrow.parquet as pq
+from _common.bank import FX, Book
+from _common.defects import DefectLog
 
 WAREHOUSE_SCHEMA = """
 CREATE TABLE instrument_master (
@@ -118,14 +117,11 @@ def build(workspace: Path) -> tuple[Path, Path, Path, DefectLog, dict[str, int]]
         ),
         rows=1,
         dimension="consistency",
-        detectable=False,
         caveat=(
-            "The reconciliation *is* declared here, and Γ turns it into a comparison "
-            "specification rather than a control — because a reconciliation is "
-            "matching, tolerance and break classification, not one SQL predicate. "
-            "The matching engine (prama.recon) executes it and is not wired into the "
-            "control runner, so the study shows the declaration and does not claim "
-            "the finding."
+            "Found by the RECONCILE control, which normalises positions to USD with "
+            "the treasury's rates before comparing them to the ledger. The same book "
+            "also carries the null market values planted below, so its break is "
+            "reported once, for both reasons."
         ),
     )
 
@@ -208,8 +204,7 @@ def build(workspace: Path) -> tuple[Path, Path, Path, DefectLog, dict[str, int]]
         f"SELECT * FROM read_csv_auto('{landing}/trades/*.csv', header=true)"
     )
     duck.execute(
-        f"CREATE VIEW position_feed AS "
-        f"SELECT * FROM read_parquet('{landing}/positions/*.parquet')"
+        f"CREATE VIEW position_feed AS SELECT * FROM read_parquet('{landing}/positions/*.parquet')"
     )
     for view, stem in (
         ("instrument_master", "INSTRUMENT_MASTER"),
@@ -220,6 +215,14 @@ def build(workspace: Path) -> tuple[Path, Path, Path, DefectLog, dict[str, int]]
             f"CREATE VIEW {view} AS "
             f"SELECT * FROM read_parquet('{landing}/reference/{stem}_*.parquet')"
         )
+    # The treasury's closing rates, to USD: what the reconciliation normalises
+    # positions with before comparing them to the USD ledger.
+
+    duck.execute(
+        "CREATE VIEW fx_rates AS SELECT * FROM (VALUES "
+        + ", ".join(f"('{ccy}', {rate})" for ccy, rate in FX.items())
+        + ") AS rates(currency, rate)"
+    )
     duck.close()
 
     counts = {
@@ -235,8 +238,7 @@ def build(workspace: Path) -> tuple[Path, Path, Path, DefectLog, dict[str, int]]
 def _insert(connection: sqlite3.Connection, table: str, rows: list[dict]) -> None:
     columns = list(rows[0])
     connection.executemany(
-        f"INSERT INTO {table} ({', '.join(columns)}) "
-        f"VALUES ({', '.join('?' for _ in columns)})",
+        f"INSERT INTO {table} ({', '.join(columns)}) VALUES ({', '.join('?' for _ in columns)})",
         [tuple(row[c] for c in columns) for row in rows],
     )
 

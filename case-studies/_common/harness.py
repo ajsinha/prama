@@ -110,8 +110,8 @@ class Harness:
         self.dataset_ids: dict[str, str] = {}
         self.accepted = 0
         self.unsatisfiable: list[dict[str, str]] = []
-        #: Reconciliations. Specifications rather than controls: the matching
-        #: engine executes them, and it is not wired to the runner yet.
+        #: Comparisons PQL cannot say yet (row-count or aggregate parity):
+        #: declared and shown, not executed, not claimed.
         self.comparisons: list[dict[str, str]] = []
 
     # -- stages ------------------------------------------------------------
@@ -253,10 +253,18 @@ class Harness:
                     self.accepted += 1
                     say(f"      → {derived.content.splitlines()[0][:88]}")
                 for spec in generation.comparisons:
-                    # A reconciliation is not a control. It is a *comparison
-                    # specification* executed by the matching engine
-                    # (prama.recon), which is not wired into the control runner
-                    # — so it is printed here and not claimed as a finding.
+                    # A reconciliation with a PQL form is a RECONCILE control,
+                    # run by the matching engine like any other control. Other
+                    # comparison kinds are specifications PQL cannot say yet,
+                    # printed and not claimed as findings.
+                    # Γ proposes a reconciliation as runnable RECONCILE PQL,
+                    # for a reviewer to complete: a declaration does not say
+                    # how amounts in different currencies are normalised, so
+                    # activating it unreviewed would report breaks that are
+                    # only currency. A study authors its complete one.
+                    runnable = spec.to_pql()
+                    if runnable:
+                        say(f"      ≈ proposed: {runnable[:84]}")
                     self.comparisons.append(
                         {
                             "kind": spec.kind.value,
@@ -364,10 +372,10 @@ class Harness:
         say(f"  Merkle root: {verification.merkle_root}")
         if self.comparisons:
             say()
-            say("  DECLARED BUT NOT EXECUTED HERE")
-            say("  A reconciliation is a comparison specification, executed by the")
-            say("  matching engine rather than as one SQL control. It is declared,")
-            say("  stored and visible — and this study does not claim its findings.")
+            say("  DERIVED FROM RELATIONSHIPS, FOR REVIEW")
+            say("  Γ proposes each comparison; a reconciliation comes as runnable")
+            say("  RECONCILE PQL for a reviewer to complete (normalisation, say). Only")
+            say("  what a person activated runs, and only that is claimed above.")
             for spec in self.comparisons:
                 say(f"    ≈ {spec['kind']}: {spec['left']} against {spec['right']}")
 

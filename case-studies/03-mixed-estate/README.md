@@ -47,7 +47,7 @@ python run.py --no-serve      # build and run, print the report, stop
 | 1 | Trades naming an instrument not in the master | 37 | ✅ **37 of 4,000** — integrity |
 | 2 | Trades naming a counterparty not in the master | 14 | ✅ **14 of 4,000** — integrity |
 | 3 | `market_value` missing (a CDE) | 11 | ✅ **11 of 60** — completeness |
-| 4 | Ledger adjusted with no matching position move | 1 | ⚠️ declared, not executed here |
+| 4 | Ledger adjusted with no matching position move | 1 | ✅ **1 break** — consistency, by `RECONCILE` |
 
 Defects 1 and 2 are the ones the first two studies could not touch. They are
 found here for one reason: somebody declared what is true between the datasets.
@@ -76,18 +76,30 @@ The ledger break needs a reconciliation, and this study **declares** one:
 positions against the book of record, matched on book, comparing market value,
 within a dollar or a basis point.
 
-Γ turns that into a **comparison specification**, not a control — and that is
-correct. A reconciliation is matching, normalisation, tolerance and break
-classification; it is not one SQL predicate. The engine that executes it
-(`prama.recon`) is not wired into the control runner, so the run prints:
+Γ proposes that declaration as runnable PQL, and a person completes it. The
+positions are in their instruments' currencies and the ledger is in USD, so the
+finance controller adds the normalisation before activating it:
 
-```
-DECLARED BUT NOT EXECUTED HERE
-  ≈ reconciliation: position_feed against general_ledger
+```pql
+RECONCILE position_feed AGAINST general_ledger ON (book)
+  COMPARING market_value = balance_usd WITHIN 1 USD OR 0.01%
+  NORMALISING currency TO 'USD' USING RATES fx_rates
+  SEVERITY critical DIMENSION consistency
 ```
 
-The declaration is stored and visible in the console. The finding is not
-claimed. That distinction is the whole discipline of these studies.
+The reconciliation engine (`prama.recon`) runs it like any other control. It
+matches positions to ledger rows on the book, sums each book's positions in USD,
+compares them within the tolerance, and classifies each difference. Breaks that
+need a person fail the control, and each one lands in the break workbench.
+
+It finds **exactly one break**, CREDIT-01: the planted 0.6% adjustment. The same
+book also carries the eleven null market values planted below, so the break is
+reported once, for both reasons.
+
+Without the normalisation, every book with non-USD positions shows as broken.
+That is why Γ proposes the reconciliation instead of activating it: a
+declaration does not say how currencies are converted, and a reconciliation that
+guesses reports breaks that are only currency.
 
 ## A copy, said out loud
 
