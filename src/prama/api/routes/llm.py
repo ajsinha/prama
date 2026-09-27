@@ -22,6 +22,7 @@ from prama.api.deps import LlmUser, Uow
 from prama.api.errors import problem_document
 from prama.core.concurrency.limits import RateLimiter
 from prama.llm import budget
+from prama.llm.gateway import ResponseCache
 from prama.llm.spi import Request as ModelRequest
 from prama.llm.wiring import gateway_for, persist
 from prama.semantic.values import Sensitivity
@@ -48,6 +49,15 @@ class _Limiters:
 
 
 _limiters = _Limiters()
+
+
+def _cache(request: Request) -> ResponseCache:
+    """One bounded cache per application, created on first use."""
+    state = request.app.state
+    if getattr(state, "llm_cache", None) is None:
+        state.llm_cache = ResponseCache()
+    cache: ResponseCache = state.llm_cache
+    return cache
 
 
 class ChatIn(BaseModel):
@@ -120,6 +130,7 @@ async def chat(body: ChatIn, caller: LlmUser, uow: Uow, request: Request) -> Cha
         principal_id=caller.principal_id,
         api_key_id=caller.api_key_id,
         offline=config.get_bool("llm.offline", False),
+        cache=_cache(request),
     )
     try:
         # Provider calls are blocking HTTP; run them off the event loop so one

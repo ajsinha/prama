@@ -103,6 +103,7 @@ class CallRecord:
     #: gateway does not know prices, the store does.
     cost_micros: int = 0
     price_model_id: str | None = None
+    served_from: str = "provider"
 
     def content(self) -> dict[str, Any]:
         return dataclasses.asdict(self)
@@ -131,6 +132,46 @@ class MemoryLedger(CallLedger):
         self.records.append(record)
 
 
+class ResponseCache:
+    """Answers to deterministic requests, bounded, least recently used first out.
+
+    Only temperature-zero requests are cached, since those are the ones asked
+    to give the same answer twice. A cached answer is served only after the
+    candidate's policy checks pass, so it is never an oracle for a request that
+    would now be refused.
+    """
+
+    def __init__(self, max_entries: int = 10_000) -> None:
+        import collections
+
+        self._entries: collections.OrderedDict[str, Response] = collections.OrderedDict()
+        self._max = max_entries
+
+    @staticmethod
+    def key(tenant: str, route: Route, candidate: Candidate, request: Request) -> str:
+        return "|".join(
+            (
+                tenant,
+                request.fingerprint,
+                candidate.provider_id,
+                candidate.model,
+                str(route.version),
+            )
+        )
+
+    def get(self, key: str) -> Response | None:
+        found = self._entries.get(key)
+        if found is not None:
+            self._entries.move_to_end(key)
+        return found
+
+    def put(self, key: str, response: Response) -> None:
+        self._entries[key] = response
+        self._entries.move_to_end(key)
+        while len(self._entries) > self._max:
+            self._entries.popitem(last=False)
+
+
 def _now() -> str:
     return datetime.now(UTC).isoformat(timespec="milliseconds")
 
@@ -151,9 +192,11 @@ class LlmGateway:
         surface: str,
         principal_id: str | None = None,
         api_key_id: str | None = None,
+        cache: ResponseCache | None = None,
     ) -> None:
         self._routes = routes
         self._api_key = api_key_id
+        self._cache = cache
         self._ledger = ledger
         self._tenant = tenant_id
         self._surface = surface
@@ -190,6 +233,32 @@ class LlmGateway:
         for candidate in route.candidates:
             if LOCALITY[candidate.hosting] > first_locality and not route.fallback_across_hosting:
                 continue
+            cacheable = self._cache is not None and request.temperature == 0
+            if cacheable:
+                try:
+                    # Policy first: a cached answer must not reach a request
+                    # this candidate would now refuse.
+                    candidate.provider.permit(request)
+                    candidate.provider.permit_residency(request)
+                except PramaError as exc:
+                    refusal = exc
+                    previous = candidate
+                    continue
+                key = ResponseCache.key(self._tenant, route, candidate, request)
+                hit = self._cache.get(key) if self._cache else None
+                if hit is not None:
+                    self._record(
+                        base,
+                        started,
+                        clock,
+                        candidate,
+                        hit,
+                        attempts,
+                        previous,
+                        "ok",
+                        served_from="cache",
+                    )
+                    return hit
             for _ in range(max(1, route.max_attempts)):
                 attempts += 1
                 try:
@@ -200,6 +269,8 @@ class LlmGateway:
                     refusal = exc
                     break
                 if response.text or not response.incomplete:
+                    if cacheable and self._cache is not None and response.text:
+                        self._cache.put(key, response)
                     self._record(
                         base, started, clock, candidate, response, attempts, previous, "ok"
                     )
@@ -236,6 +307,8 @@ class LlmGateway:
         fell_from: Candidate | None,
         outcome: str,
         detail: str = "",
+        *,
+        served_from: str = "provider",
     ) -> None:
         extra: dict[str, Any] = {}
         if candidate is not None:
@@ -264,6 +337,7 @@ class LlmGateway:
                 fallback_from=fell_from.provider_id if fell_from else None,
                 outcome=outcome,
                 outcome_detail=detail[:1000],
+                served_from=served_from,
             )
         )
 
