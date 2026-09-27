@@ -67,4 +67,6 @@ async def test_bankco_etl_meets_the_gate(
     }
     assert not unexplained, f"true edges missed with no gap reported: {unexplained}"
     # The control: this fixture is not trivially satisfied by reading nothing.
-    assert recall >= 0.9  # was 0.83 before the PySpark reader; a drop is a regression
+    # 0.83 before the PySpark reader, 0.67 of today's gold before the pandas and
+    # Airflow readers; a drop is a regression.
+    assert recall >= 0.95

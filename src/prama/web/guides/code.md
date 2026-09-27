@@ -29,9 +29,14 @@ The **Code** page (linked from Lineage) does the same with an upload form.
 
 ## What it reads today
 
-SQL files, in about twenty dialects. Every other kind of file (Python, PySpark, Airflow, SSIS,
-Informatica, COBOL, JCL, shell) is **inventoried and reported as not yet read**, so a run always
-says how much of the application it covered.
+- **SQL files**, in about twenty dialects, including stored procedures.
+- **PySpark and pandas jobs, and Airflow DAGs.** These are read from their syntax tree and never
+  run. A join, a merge, templated SQL or a procedure call is reported as a gap, not guessed at.
+- **SSIS and Informatica exports.** Their edges are stored as *inferred* until a person confirms
+  them.
+
+Every other kind of file (COBOL, JCL, shell, Scala, Java) is **inventoried and reported as not yet
+read**, so a run always says how much of the application it covered.
 
 ## When a model helps
 

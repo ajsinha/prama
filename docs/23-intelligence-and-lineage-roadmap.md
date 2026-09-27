@@ -127,15 +127,29 @@ Three questions are answered here, each with a design note behind it:
 - **The gold gate (`tests/codeintake/test_gold_fixture.py`, `tests/fixtures/code/bankco-etl`).**
   - Precision must be ≥ 0.98, and every true edge must be found or sit in a unit reported as
     unread or incomplete.
-  - Today: **precision 1.00, recall 1.00**. It was 0.83 before the PySpark reader.
+  - Today: **precision 1.00, recall 1.00** over 18 edges. Recall was 0.83 before the PySpark
+    reader. Against today's gold it would be 0.67 without the pandas and Airflow readers, and the
+    gate now requires at least 0.95.
 - **PySpark reader (`prama.lineage.pyspark`).**
   - It parses the syntax tree and never executes the job.
   - It follows `spark.table`, `select`/`alias`, `withColumn`, `withColumnRenamed`,
     `groupBy().agg()` and `filter` to `saveAsTable`/`insertInto`. A column carried forward keeps
     how it was made.
   - Joins, UDFs and computed names are gaps, never guesses.
+- **pandas reader (`prama.lineage.pandas_ast`).**
+  - It parses the syntax tree, into function bodies, and never executes the job.
+  - It follows `read_sql_table`, and `read_sql` with a literal query (the SQL parser names the
+    query's sources), then column lists, `rename`, a column assigned from other columns, and row
+    filters, through to `to_sql`.
+  - `merge`, `groupby`, `apply`, `inplace=True` and a whole-table copy with unnamed columns are
+    gaps.
+- **Airflow reader (`prama.lineage.airflow`).**
+  - It parses the DAG and never imports it.
+  - Every `sql=` string literal is read by the SQL parser, with `produced_by` set to
+    `dag-file:task_id`. A `.sql` file reference is left to the file's own reading.
+  - Templated SQL, SQL built at run time, and `EXEC`/`CALL` of a procedure are named gaps.
 - **Still to do in Wave 14:**
-  - pandas, Airflow task lineage and COBOL/JCL;
+  - COBOL/JCL;
   - templates and evaluation governance.
 
 **Wave 15, as built so far:**

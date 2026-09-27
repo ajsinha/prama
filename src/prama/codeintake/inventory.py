@@ -19,6 +19,8 @@ READ: dict[str, str] = {
     "ssis": "ssis_xml",
     "informatica": "powercenter_xml",
     "pyspark": "pyspark_ast",
+    "pandas": "pandas_ast",
+    "airflow": "airflow_ast",
 }
 
 _BY_SUFFIX: dict[str, str] = {
@@ -56,6 +58,8 @@ def kind_of(path: Path) -> str:
             return "airflow"
         if kind == "python" and b"pyspark" in head:
             return "pyspark"
+        if kind == "python" and (b"import pandas" in head or b"from pandas" in head):
+            return "pandas"
         if kind == "xml" and b"POWERMART" in head.upper():
             return "informatica"
     return kind
