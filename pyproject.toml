@@ -148,6 +148,10 @@ markers = [
 line-length = 100
 src = ["src", "tests"]
 target-version = "py311"
+# Sample application code that intake reads as *input*, written in the style
+# of the third-party code it imitates (PySpark's `functions as F`). Linting it
+# as Prama's own would mean rewriting the fixture into something no bank runs.
+extend-exclude = ["tests/fixtures/code"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "SIM", "RET", "ARG", "PTH", "RUF"]

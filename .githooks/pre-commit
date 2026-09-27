@@ -45,7 +45,11 @@ if command -v "$ruff_cmd" >/dev/null 2>&1; then
   pyfiles=$(staged | grep -E '\.py$' || true)
   if [ -n "$pyfiles" ]; then
     # shellcheck disable=SC2086
-    "$ruff_cmd" check $pyfiles && "$ruff_cmd" format --check $pyfiles
+    # Two statements, not `a && b`: under `set -e` a failure on the left of
+    # `&&` does not stop the script, so lint errors were printed and the
+    # commit went ahead anyway (found 2026-09-27, when it let one through).
+    "$ruff_cmd" check $pyfiles
+    "$ruff_cmd" format --check $pyfiles
   fi
 fi
 exit 0
