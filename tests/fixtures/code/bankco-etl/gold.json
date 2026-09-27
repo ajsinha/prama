@@ -18,6 +18,13 @@
     {"from": "stg.trades.trade_date", "to": "fin.daily_notional.business_date", "file": "jobs/finance_extract.py"},
     {"from": "stg.trades.notional", "to": "fin.daily_notional.notional_k", "file": "jobs/finance_extract.py"},
     {"from": "rpt.finrep_line_23.account_id", "to": "rpt.finrep_archive.account_id", "file": "dags/finrep_dag.py"},
-    {"from": "rpt.finrep_line_23.amount", "to": "rpt.finrep_archive.amount", "file": "dags/finrep_dag.py"}
+    {"from": "rpt.finrep_line_23.amount", "to": "rpt.finrep_archive.amount", "file": "dags/finrep_dag.py"},
+    {"from": "mart.positions.account_id", "to": "powerbi.risk_dashboard.positions.account_id", "file": "bi/model.bim"},
+    {"from": "mart.positions.exposure_usd", "to": "powerbi.risk_dashboard.positions.exposure", "file": "bi/model.bim"},
+    {"from": "powerbi.risk_dashboard.positions.exposure", "to": "powerbi.risk_dashboard.positions.total exposure", "file": "bi/model.bim"},
+    {"from": "risk.var_input.account_id", "to": "powerbi.risk_dashboard.var.account_id", "file": "bi/model.bim"},
+    {"from": "risk.var_input.notional", "to": "powerbi.risk_dashboard.var.notional", "file": "bi/model.bim"},
+    {"from": "powerbi.risk_dashboard.positions.total exposure", "to": "powerbi.risk_dashboard.positions.exposure per var", "file": "bi/model.bim"},
+    {"from": "powerbi.risk_dashboard.var.notional", "to": "powerbi.risk_dashboard.positions.exposure per var", "file": "bi/model.bim"}
   ]
 }

@@ -15,14 +15,17 @@ from __future__ import annotations
 
 import json
 import sys
+import zipfile
 from pathlib import Path
 from typing import Any
 
 #: The version of the reading logic, recorded on every unit it produced.
-VERSION = "4"
+VERSION = "5"
 
 
-def _extract(kind: str, text: str, relative: str, dialect: str) -> list[tuple[Any, str]]:
+def _extract(
+    kind: str, text: str, relative: str, dialect: str, raw: bytes = b""
+) -> list[tuple[Any, str]]:
     """(extraction, method) pairs for one file's text."""
     from prama.lineage.scan import POWERCENTER, SSIS, ProceduralSqlScanner, XmlMappingScanner
     from prama.lineage.sql import SqlLineage, split_statements
@@ -31,6 +34,17 @@ def _extract(kind: str, text: str, relative: str, dialect: str) -> list[tuple[An
         from prama.lineage import pyspark
 
         return [(pyspark.extract(text, job=relative), "code:pyspark_ast")]
+    if kind == "powerbi":
+        from prama.lineage import powerbi
+
+        return [
+            (
+                powerbi.extract(
+                    powerbi.schema_of(raw, relative), name=Path(relative).stem, job=relative
+                ),
+                "code:powerbi_model",
+            )
+        ]
     if kind == "pandas":
         from prama.lineage import pandas_ast
 
@@ -87,7 +101,22 @@ def read(root: Path, dialect: str, skip: frozenset[str] = frozenset()) -> dict[s
         text = path.read_bytes().decode("utf-8", errors="replace")
         gaps: list[dict[str, str]] = []
         statements = 0
-        for extraction, method in _extract(kind, text, relative, dialect):
+        try:
+            extracted = _extract(kind, text, relative, dialect, path.read_bytes())
+        except (ValueError, KeyError, zipfile.BadZipFile) as exc:
+            # A model file this reader cannot open is a gap in that unit, not
+            # the end of the run.
+            units.append(
+                {
+                    "path": relative,
+                    "kind": kind,
+                    "statements": 1,
+                    "gaps": [{"kind": "unparsed", "detail": f"could not be read: {exc}"}],
+                    "read": True,
+                }
+            )
+            continue
+        for extraction, method in extracted:
             statements += max(1, extraction.statements)
             gaps.extend({"kind": g.kind, "detail": g.detail} for g in extraction.gaps)
             for edge in extraction.edges:

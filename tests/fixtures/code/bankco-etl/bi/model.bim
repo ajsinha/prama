@@ -1,0 +1,92 @@
+{
+  "_comment": "Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE.",
+  "name": "Risk Dashboard",
+  "compatibilityLevel": 1550,
+  "model": {
+    "tables": [
+      {
+        "name": "Positions",
+        "columns": [
+          {
+            "name": "account_id",
+            "sourceColumn": "account_id",
+            "dataType": "string"
+          },
+          {
+            "name": "Exposure",
+            "sourceColumn": "Exposure",
+            "dataType": "double"
+          }
+        ],
+        "partitions": [
+          {
+            "name": "p",
+            "source": {
+              "type": "m",
+              "expression": [
+                "let",
+                "    Source = Sql.Database(\"warehouse\", \"bank\"),",
+                "    mart_positions = Source{[Schema=\"mart\",Item=\"positions\"]}[Data],",
+                "    Renamed = Table.RenameColumns(mart_positions, {{\"exposure_usd\", \"Exposure\"}})",
+                "in",
+                "    Renamed"
+              ]
+            }
+          }
+        ],
+        "measures": [
+          {
+            "name": "Total Exposure",
+            "expression": "SUM(Positions[Exposure])"
+          },
+          {
+            "name": "Exposure per VaR",
+            "expression": "DIVIDE([Total Exposure], SUM('VaR'[notional]))"
+          }
+        ]
+      },
+      {
+        "name": "VaR",
+        "columns": [
+          {
+            "name": "account_id",
+            "sourceColumn": "account_id",
+            "dataType": "string"
+          },
+          {
+            "name": "notional",
+            "sourceColumn": "notional",
+            "dataType": "double"
+          }
+        ],
+        "partitions": [
+          {
+            "name": "p",
+            "source": {
+              "type": "m",
+              "expression": "let Source = Sql.Database(\"warehouse\", \"bank\", [Query=\"SELECT account_id, notional FROM risk.var_input\"]) in Source"
+            }
+          }
+        ]
+      },
+      {
+        "name": "FX Feed",
+        "columns": [
+          {
+            "name": "rate",
+            "sourceColumn": "rate"
+          }
+        ],
+        "partitions": [
+          {
+            "name": "p",
+            "source": {
+              "type": "m",
+              "expression": "let Source = Csv.Document(Web.Contents(\"https://fx.example/rates.csv\")) in Source"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

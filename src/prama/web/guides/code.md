@@ -32,6 +32,8 @@ The **Code** page (linked from Lineage) does the same with an upload form.
 - **SQL files**, in about twenty dialects, including stored procedures.
 - **PySpark and pandas jobs, and Airflow DAGs.** These are read from their syntax tree and never
   run. A join, a merge, templated SQL or a procedure call is reported as a gap, not guessed at.
+- **Power BI models** (`.pbit` or `model.bim`). The reader follows where each report column and
+  measure comes from, through Power Query and DAX, so an impact analysis reaches the dashboard.
 - **SSIS and Informatica exports.** Their edges are stored as *inferred* until a person confirms
   them.
 
