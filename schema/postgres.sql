@@ -1045,3 +1045,141 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_rec_break_key
 CREATE INDEX IF NOT EXISTS ix_rec_break_open
     ON rec_break (tenant_id, definition, state, first_seen);
 CREATE INDEX IF NOT EXISTS ix_rec_break_owner ON rec_break (tenant_id, owner);
+
+
+-- ===========================================================================
+-- LLM GATEWAY  (Wave 12)
+-- ===========================================================================
+-- Providers and profiles are data, not configuration: one authority, managed
+-- on the Models page or with `prama llm`. A provider stores a reference the
+-- secrets layer resolves, never a secret. Hosting has no default, because the
+-- default used to be the one class exempt from residency checks.
+--
+-- Every column the later gateway phases need (budgets, cache, templates) is
+-- declared now. Prama has no migrations, so a column added later would be
+-- drift on every deployed database. Foreign keys to tables that do not exist
+-- yet (llm_template, llm_model) are left out and added with those tables.
+CREATE TABLE IF NOT EXISTS llm_provider (
+    id             VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id      VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    name           VARCHAR(64)   NOT NULL,
+    kind           VARCHAR(64)   NOT NULL,
+    dialect        VARCHAR(32)   NOT NULL DEFAULT '',
+    hosting        VARCHAR(16)   NOT NULL,
+    endpoint       VARCHAR(512)  NOT NULL DEFAULT '',
+    region         VARCHAR(32)   NOT NULL DEFAULT '',
+    credential_ref VARCHAR(512),
+    settings_json  TEXT          NOT NULL DEFAULT '{}',
+    enabled        INTEGER       NOT NULL DEFAULT 1,
+    created_at     VARCHAR(32)   NOT NULL,
+    created_by     VARCHAR(26),
+    updated_at     VARCHAR(32)   NOT NULL,
+    updated_by     VARCHAR(26),
+    CONSTRAINT uq_llm_provider_name UNIQUE (tenant_id, name),
+    CONSTRAINT ck_llm_provider_hosting CHECK (hosting IN ('hosted', 'tenant', 'self_hosted')),
+    CONSTRAINT ck_llm_provider_enabled CHECK (enabled IN (0, 1))
+);
+
+-- A purpose ("author", "explain") mapped to an ordered route of provider and
+-- model. Versioned and append-only: which model wrote a proposal must stay
+-- answerable after the profile changes.
+CREATE TABLE IF NOT EXISTS llm_profile (
+    id              VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id       VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    purpose         VARCHAR(64)   NOT NULL,
+    current_version INTEGER,
+    created_at      VARCHAR(32)   NOT NULL,
+    CONSTRAINT uq_llm_profile_purpose UNIQUE (tenant_id, purpose)
+);
+
+CREATE TABLE IF NOT EXISTS llm_profile_version (
+    id                 VARCHAR(26)   NOT NULL PRIMARY KEY,
+    profile_id         VARCHAR(26)   NOT NULL REFERENCES llm_profile (id) ON DELETE CASCADE,
+    version            INTEGER       NOT NULL,
+    purpose_class      VARCHAR(16)   NOT NULL DEFAULT 'author',
+    params_json        TEXT          NOT NULL DEFAULT '{}',
+    overridable_json   TEXT          NOT NULL DEFAULT '[]',
+    max_sensitivity    VARCHAR(16)   NOT NULL DEFAULT 'internal',
+    redactors_json     TEXT          NOT NULL DEFAULT '[]',
+    template_id        VARCHAR(26),
+    template_version   INTEGER,
+    timeout_ms         INTEGER       NOT NULL DEFAULT 60000,
+    max_attempts       INTEGER       NOT NULL DEFAULT 3,
+    schema_repairs     INTEGER       NOT NULL DEFAULT 1,
+    cache_ttl_s        INTEGER       NOT NULL DEFAULT 86400,
+    fallback_across_hosting INTEGER  NOT NULL DEFAULT 0,
+    eval_run_id        VARCHAR(26),
+    note               TEXT          NOT NULL DEFAULT '',
+    recorded_at        VARCHAR(32)   NOT NULL,
+    recorded_by        VARCHAR(26),
+    CONSTRAINT uq_llm_profile_version UNIQUE (profile_id, version),
+    CONSTRAINT ck_llm_profile_class CHECK (purpose_class IN ('author', 'explain', 'summarise', 'embed')),
+    CONSTRAINT ck_llm_profile_fallback CHECK (fallback_across_hosting IN (0, 1))
+);
+
+CREATE TABLE IF NOT EXISTS llm_profile_route (
+    profile_version_id VARCHAR(26)  NOT NULL REFERENCES llm_profile_version (id) ON DELETE CASCADE,
+    position           INTEGER      NOT NULL,
+    provider_id        VARCHAR(26)  NOT NULL REFERENCES llm_provider (id),
+    model              VARCHAR(128) NOT NULL,
+    params_json        TEXT         NOT NULL DEFAULT '{}',
+    PRIMARY KEY (profile_version_id, position)
+);
+
+-- Every model call, hash-chained per tenant like the evidence ledger. Hashes of
+-- the prompt and answer, never their text.
+CREATE TABLE IF NOT EXISTS llm_call (
+    id                  VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id           VARCHAR(26)   NOT NULL,
+    sequence            INTEGER       NOT NULL,
+    started_at          VARCHAR(32)   NOT NULL,
+    finished_at         VARCHAR(32)   NOT NULL,
+    principal_id        VARCHAR(26),
+    api_key_id          VARCHAR(26),
+    surface             VARCHAR(32)   NOT NULL,
+    purpose             VARCHAR(64)   NOT NULL DEFAULT '',
+    profile_id          VARCHAR(26),
+    profile_version     INTEGER,
+    template_id         VARCHAR(26),
+    template_version    INTEGER,
+    provider_id         VARCHAR(26),
+    provider_kind       VARCHAR(64)   NOT NULL DEFAULT '',
+    hosting             VARCHAR(16)   NOT NULL DEFAULT '',
+    destination_region  VARCHAR(32)   NOT NULL DEFAULT '',
+    jurisdiction        VARCHAR(32)   NOT NULL DEFAULT '',
+    sensitivity         VARCHAR(16)   NOT NULL,
+    model_requested     VARCHAR(128)  NOT NULL DEFAULT '',
+    model_reported      VARCHAR(128)  NOT NULL DEFAULT '',
+    model_version       VARCHAR(128)  NOT NULL DEFAULT '',
+    price_model_id      VARCHAR(26),
+    request_fingerprint VARCHAR(64)   NOT NULL,
+    prompt_hash         VARCHAR(64)   NOT NULL,
+    response_hash       VARCHAR(64)   NOT NULL DEFAULT '',
+    payload_digest      VARCHAR(64),
+    redactions_json     TEXT          NOT NULL DEFAULT '{}',
+    temperature         REAL          NOT NULL DEFAULT 0,
+    seed                INTEGER,
+    input_tokens        INTEGER       NOT NULL DEFAULT 0,
+    cached_tokens       INTEGER       NOT NULL DEFAULT 0,
+    output_tokens       INTEGER       NOT NULL DEFAULT 0,
+    tokens_estimated    INTEGER       NOT NULL DEFAULT 0,
+    cost_micros         INTEGER       NOT NULL DEFAULT 0,
+    latency_ms          INTEGER       NOT NULL DEFAULT 0,
+    attempts            INTEGER       NOT NULL DEFAULT 1,
+    fallback_from       VARCHAR(26),
+    served_from         VARCHAR(16)   NOT NULL DEFAULT 'provider',
+    schema_valid        INTEGER,
+    grammar_enforced    INTEGER       NOT NULL DEFAULT 0,
+    outcome             VARCHAR(24)   NOT NULL,
+    outcome_detail      TEXT          NOT NULL DEFAULT '',
+    correlation_id      VARCHAR(64),
+    previous_hash       VARCHAR(64)   NOT NULL,
+    record_hash         VARCHAR(64)   NOT NULL,
+    CONSTRAINT uq_llm_call_sequence UNIQUE (tenant_id, sequence),
+    CONSTRAINT ck_llm_call_served CHECK (served_from IN ('provider', 'cache', 'replay')),
+    CONSTRAINT ck_llm_call_outcome CHECK (outcome IN ('ok', 'incomplete', 'refused_policy',
+        'refused_budget', 'refused_rate', 'error', 'cancelled')),
+    CONSTRAINT ck_llm_call_flags CHECK (tokens_estimated IN (0, 1) AND grammar_enforced IN (0, 1)
+        AND (schema_valid IS NULL OR schema_valid IN (0, 1)))
+);
+CREATE INDEX IF NOT EXISTS ix_llm_call_started ON llm_call (tenant_id, started_at);

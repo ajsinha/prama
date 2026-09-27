@@ -21,6 +21,7 @@ from prama.db.models.base import (
 )
 from prama.db.models.control import CtlControl, CtlControlVersion, CtlRejection
 from prama.db.models.evidence import EvRecord, EvRun, EvSample
+from prama.db.models.llm import LlmCall, LlmProfile, LlmProfileRoute, LlmProfileVersion, LlmProvider
 from prama.db.models.platform import (
     ApiKey,
     AuditEvent,
@@ -70,6 +71,11 @@ __all__ = [
     "EvSample",
     "EvidenceBase",
     "LeaseRow",
+    "LlmCall",
+    "LlmProfile",
+    "LlmProfileRoute",
+    "LlmProfileVersion",
+    "LlmProvider",
     "ModelMixin",
     "Principal",
     "PrincipalRole",

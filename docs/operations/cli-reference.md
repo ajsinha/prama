@@ -30,6 +30,7 @@ need different people.
 | [`prama control`](#prama-control) | read, check, explain, compile and import controls |
 | [`prama db`](#prama-db) | database schema operations (Prama has no migrations) |
 | [`prama estate`](#prama-estate) | export, diff and score the declared estate |
+| [`prama llm`](#prama-llm) | model providers, profiles and the call ledger |
 | [`prama lsp`](#prama-lsp) | language server for PQL, for an editor outside the console |
 | [`prama mcp`](#prama-mcp) | expose Prama to an MCP client |
 | [`prama pack`](#prama-pack) | what a domain pack ships, and what it does not claim |
@@ -311,6 +312,42 @@ export, diff and score the declared estate
 |---|---|
 | `--tenant` **required** |  |
 | `--domain` |  |
+
+## `prama llm`
+
+model providers, profiles and the call ledger
+
+| Subcommand | What it does |
+|---|---|
+| `prama llm ask` | send one prompt through a purpose's profile, and record it |
+| `prama llm calls` | the most recent model calls, newest first (hashes, never text) |
+| `prama llm profile` | which model serves which purpose |
+| `prama llm provider` | where models run |
+
+**`prama llm ask`**
+
+| Argument | Meaning |
+|---|---|
+| `purpose` **required** |  |
+| `prompt` **required** |  |
+| `--system` |  |
+| `--tenant` | slug or id; defaults to the configured one |
+**`prama llm calls`**
+
+| Argument | Meaning |
+|---|---|
+| `--limit` |  |
+| `--tenant` | slug or id; defaults to the configured one |
+**`prama llm profile`**
+
+| Argument | Meaning |
+|---|---|
+| `profile_command` |  One of: set, show. |
+**`prama llm provider`**
+
+| Argument | Meaning |
+|---|---|
+| `provider_command` |  One of: add, list. |
 
 ## `prama lsp`
 

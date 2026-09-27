@@ -35,6 +35,7 @@ becomes `PRAMA_DATABASE__SQLITE__PATH`.
 | `tenancy.default_tenant` | *(empty)* |  |
 | `server.host` | `127.0.0.1` | bind address; 0.0.0.0 accepts on every interface |
 | `server.port` | `5900` | the console and the API share this listener |
+| `llm.offline` | `False` | true: only self-hosted models on a local or private address |
 | `web.enabled` | `True` | serve the console alongside the API |
 | `web.preview.source` | *(empty)* | a local .duckdb or .sqlite file |
 | `web.preview.dialect` | `duckdb` | duckdb \| sqlite |
