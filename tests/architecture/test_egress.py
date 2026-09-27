@@ -123,6 +123,11 @@ class TestNothingSendsWithoutBeingRegistered:
             "inbound: it accepts connections and sends nothing, so no tenant "
             "data leaves through it"
         ),
+        "prama/cli/delegate.py": (
+            "`prama delegate pull` fetches approved delegate sources from the "
+            "operator's own Prama server, inward, with a key the operator supplies. "
+            "Nothing about the estate's data is sent."
+        ),
         "prama/codeintake/git.py": (
             "imports socket to resolve a repository host and refuse private, loopback "
             "and metadata addresses before cloning (SSRF). A fetch brings code in and "

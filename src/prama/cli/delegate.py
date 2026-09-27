@@ -193,9 +193,52 @@ class CheckCommand(Command):
         return EXIT_OK if report.ok else EXIT_ERROR
 
 
+class PullCommand(Command):
+    name = "pull"
+    help = "copy the estate's approved uploads into a directory (a remote agent's delegates.paths)"
+
+    def configure(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("--server", required=True, help="the Prama server, https://…")
+        parser.add_argument("--key-env", default="PRAMA_API_KEY", help="env var holding the key")
+        parser.add_argument("--out", required=True, help="the directory to write into")
+
+    def run(self, ctx: CommandContext) -> int:
+        import hashlib
+        import os
+        import urllib.request
+
+        key = os.environ.get(ctx.args.key_env, "")
+        if not key:
+            raise ValidationError(
+                f"{ctx.args.key_env} is empty", remedy="Export an API key with control:read."
+            )
+        base = ctx.args.server.rstrip("/") + "/api/v1/delegates/uploads"
+
+        def get(url: str) -> bytes:
+            request = urllib.request.Request(url, headers={"Authorization": f"Bearer {key}"})
+            with urllib.request.urlopen(request, timeout=30) as response:
+                return bytes(response.read())
+
+        out = Path(ctx.args.out)
+        out.mkdir(parents=True, exist_ok=True)
+        pulled = 0
+        for item in json.loads(get(base)):
+            body = get(f"{base}/{item['id']}/source")
+            if hashlib.sha256(body).hexdigest() != item["source_hash"]:
+                ctx.emit(f"REFUSED {item['name']}@{item['version']}: hash mismatch")
+                continue
+            (out / item["filename"]).write_bytes(body)
+            pulled += 1
+            ctx.emit(
+                f"{item['name']}@{item['version']}  {item['filename']}  {item['source_hash'][:12]}"
+            )
+        ctx.emit(f"{pulled} delegate(s) in {out}; the agent vets them again when it loads them.")
+        return EXIT_OK
+
+
 class DelegateCommand(CommandGroup):
     name = "delegate"
     help = "Python DQ checks: list, vet and try them"
 
     def commands(self) -> list[Command]:
-        return [ListCommand(), ScanCommand(), TestCommand(), CheckCommand()]
+        return [ListCommand(), ScanCommand(), TestCommand(), CheckCommand(), PullCommand()]

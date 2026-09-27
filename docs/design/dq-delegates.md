@@ -133,8 +133,31 @@ Authors run this in their own CI, as `check_delegate(path, cases=[Case(...)])` i
 6. the author's own cases (`scanned`, `violating`, `established`, and a subset of
    observations).
 
+## Console uploads (`prama/delegates/uploads.py`)
+
+The flow is received → vetted → proposed → approved (four eyes) → adopted.
+
+- **Received.** One `.py` file of at most 256 KB, in UTF-8.
+- **Vetted.** The full conformance kit runs in a resource-limited subprocess
+  (`python -m prama.delegates.vet`). The file must hold exactly one delegate. The server process
+  never imports uploaded code, not even to vet it. A refusal is shown to the uploader and not
+  stored.
+- **Proposed.** The upload is stored in `dq_delegate_upload`, with its source, SHA-256, vetted
+  description and findings.
+- **Approved.** Approval needs `control:approve`, and the approver must not be the uploader. A
+  version is immutable: fix a rejected upload and raise its version.
+- **Adopted** at the start of each control-plane run (`DelegateHost.adopt_uploads`), and again
+  from scratch on every pass, so a retired upload stops running:
+  - the source is written to `delegates.upload_dir/<tenant>/<sha256>/`;
+  - it is registered from its stored description without being imported, as `sandbox_only`;
+  - the worker re-hashes the file before importing it, so a file tampered with on disk is
+    refused;
+  - a configured delegate of the same name takes precedence.
+- **Remote agents.** An agent receives approved uploads through `GET /api/v1/delegates/uploads`
+  and `…/{id}/source` (`control:read`), or `prama delegate pull --server … --out <its
+  delegates.paths>`. Hashes are verified on arrival, and the agent vets each file again when it
+  loads it.
+
 ## Not built yet
 
-- **Delegates uploaded through the console** (tier 2). This would need content-addressed storage,
-  the same gate, and the proposal and approval queue.
 - **Arrow record batches** in place of JSON-line row dictionaries, for speed on very wide tables.

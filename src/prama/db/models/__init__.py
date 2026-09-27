@@ -21,6 +21,7 @@ from prama.db.models.base import (
 )
 from prama.db.models.code import CodeAnalysisRun, CodeSource, CodeUnit
 from prama.db.models.control import CtlControl, CtlControlVersion, CtlRejection
+from prama.db.models.delegate import DqDelegateUpload
 from prama.db.models.evidence import EvRecord, EvRun, EvSample
 from prama.db.models.lineage import LinEdge, LinGap, LinRun, LinSource
 from prama.db.models.llm import (
@@ -94,6 +95,7 @@ __all__ = [
     "CtlControlVersion",
     "CtlRejection",
     "CurSuggestion",
+    "DqDelegateUpload",
     "EvRecord",
     "EvRun",
     "EvSample",

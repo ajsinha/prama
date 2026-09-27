@@ -1,0 +1,51 @@
+{# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{% extends "base.html" %}
+{% block title %}Delegates — Prama{% endblock %}
+{% block heading %}DQ delegates{% endblock %}
+{% block content %}
+<p class="text-muted small" style="max-width: 58rem">A delegate is a Python check named from PQL:
+  <code>CHECK t USING DELEGATE 'name'</code>. It returns counts; the control's threshold decides.
+  An upload is vetted in a sandbox (the conformance kit), then approved by <strong>someone other than the uploader</strong>.
+  Approved uploads run only in the sandbox. See Help → DQ delegates.</p>
+
+<form method="post" action="{{ url_for('delegates_upload') }}" enctype="multipart/form-data" class="row g-2 mb-4" style="max-width: 36rem">
+  <div class="col-8"><label class="visually-hidden" for="d-file">Delegate file</label>
+    <input class="form-control form-control-sm" id="d-file" type="file" name="delegate" accept=".py" required></div>
+  <div class="col-4"><button class="btn btn-sm btn-primary w-100" type="submit">Upload and vet</button></div>
+</form>
+
+<h2 class="h6">Uploaded</h2>
+{% if not uploads %}<p class="small text-muted">None yet.</p>{% endif %}
+{% for row, d, checks in uploads %}
+<section class="border rounded p-3 mb-3" aria-labelledby="u-{{ row.id }}">
+  <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+    <h3 class="h6 mb-0" id="u-{{ row.id }}"><code>{{ row.name }}@{{ row.version }}</code></h3>
+    <span class="badge {{ {'approved': 'text-bg-success', 'proposed': 'text-bg-warning', 'rejected': 'text-bg-danger'}.get(row.state, 'text-bg-secondary') }}">{{ row.state }}</span>
+    <span class="small text-muted">{{ row.filename }} · sha256 {{ row.source_hash[:12] }} · counts {{ d.unit }}</span>
+  </div>
+  <p class="small mb-1">{{ d.summary }}</p>
+  <p class="small mb-1">Reads: {{ d.requires | join(', ') or 'every column' }}{% if d.parameters %} · parameters: {% for p in d.parameters %}{{ p.name }} ({{ p.kind }}){% if not loop.last %}, {% endif %}{% endfor %}{% endif %}</p>
+  <details class="small mb-2"><summary>Vetting: {{ checks | length }} checks passed</summary>
+    <ul class="mb-0">{% for c in checks %}<li>{{ c.name }}{% if c.detail %} — {{ c.detail }}{% endif %}</li>{% endfor %}</ul>
+    <pre class="mt-2 mb-0" style="max-height: 20rem; overflow: auto"><code>{{ row.source }}</code></pre>
+  </details>
+  {% if row.note %}<p class="small mb-1">Note: {{ row.note }}</p>{% endif %}
+  {% if row.state == 'proposed' %}
+  <form method="post" action="{{ url_for('delegates_decide', upload_id=row.id) }}" class="d-flex flex-wrap gap-2">
+    <input class="form-control form-control-sm" style="max-width: 24rem" name="note" placeholder="Review note" aria-label="Review note">
+    <button class="btn btn-sm btn-success" name="action" value="approve" type="submit" {% if row.submitted_by == me %}disabled title="You uploaded it; someone else must approve"{% endif %}>Approve</button>
+    <button class="btn btn-sm btn-outline-danger" name="action" value="reject" type="submit">Reject</button>
+  </form>
+  {% elif row.state == 'approved' %}
+  <form method="post" action="{{ url_for('delegates_decide', upload_id=row.id) }}"><button class="btn btn-sm btn-outline-secondary" name="action" value="retire" type="submit">Retire</button></form>
+  {% endif %}
+</section>
+{% endfor %}
+
+<h2 class="h6 mt-4">Configured on this server</h2>
+<p class="small text-muted">From <code>delegates:</code> in configuration. Each remote agent has its own.</p>
+<ul class="small">
+{% for d in configured %}<li><code>{{ d.name }}@{{ d.version }}</code> — {{ d.summary }} <span class="text-muted">({{ d.origin }})</span></li>{% else %}<li class="text-muted">None.</li>{% endfor %}
+{% for name, why in refused.items() %}<li class="text-danger">Refused {{ name }}: {{ why }}</li>{% endfor %}
+</ul>
+{% endblock %}

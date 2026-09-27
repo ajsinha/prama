@@ -49,6 +49,9 @@ class Admitted:
     #: sandbox refuses to import a file whose bytes no longer match, so a file
     #: edited between admission and a run cannot run unvetted.
     source_hash: str = ""
+    #: Adopted from an approved upload's stored description, never imported
+    #: into this process: it can only run in the sandbox.
+    sandbox_only: bool = False
 
     @property
     def name(self) -> str:
@@ -128,6 +131,13 @@ def check(delegate: DqDelegate) -> None:
             )
 
 
+class _Uploaded(DqDelegate):
+    """Stands in for an uploaded delegate in the host, which never imports it."""
+
+    def measure(self, rows: Any, params: Any) -> Any:  # noqa: ARG002
+        raise RuntimeError(f"{self.name} is an uploaded delegate; it runs only in the sandbox")
+
+
 class DelegateRegistry:
     """The delegates this host admitted, by name."""
 
@@ -165,6 +175,38 @@ class DelegateRegistry:
             origin,
             admitted.implementation_hash[:12],
         )
+        return admitted
+
+    def drop_uploads(self) -> None:
+        """Forget every adopted upload, so a retired one stops running on the next pass."""
+        for name in [n for n, a in self._admitted.items() if a.sandbox_only]:
+            del self._admitted[name]
+
+    def adopt_described(
+        self, described: dict[str, Any], *, origin: str, source_hash: str
+    ) -> Admitted | None:
+        """Register an approved upload from its vetted description, without importing it."""
+        from prama.delegates.spi import Parameter
+
+        name = str(described.get("name", ""))
+        existing = self._admitted.get(name)
+        if existing is not None:
+            if existing.source_hash != source_hash:
+                # A configured delegate outranks an upload of the same name: the
+                # operator's file is what this host was set up to run.
+                self.refused[f"{name} (upload)"] = "a delegate of this name is already installed"
+            return None
+        attributes = {
+            "name": name,
+            "version": str(described.get("version", "1")),
+            "requires": tuple(described.get("requires") or ()),
+            "parameters": tuple(Parameter(**p) for p in described.get("parameters") or ()),
+            "unit": str(described.get("unit", "rows")),
+            "summary": str(described.get("summary", "")),
+        }
+        proxy = type("UploadedDelegate", (_Uploaded,), attributes)()
+        admitted = Admitted(proxy, origin, source_hash, source_hash, sandbox_only=True)
+        self._admitted[name] = admitted
         return admitted
 
     def get(self, name: str, *, version: str = "") -> Admitted:

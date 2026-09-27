@@ -73,6 +73,14 @@ class DelegateHost:
     max_rows: int = 5_000_000
     #: Rows fetched from the engine's cursor at a time.
     batch_rows: int = 10_000
+    #: Where approved uploads are written, content-addressed, before a run.
+    upload_dir: str = "data/delegates"
+
+    async def adopt_uploads(self, uow: Any, tenant_id: str) -> int:
+        """Register the tenant's approved uploads (`prama.delegates.uploads.adopt`)."""
+        from prama.delegates.uploads import adopt
+
+        return await adopt(uow, tenant_id, self)
 
     def columns(self, detail: dict[str, Any]) -> tuple[str, ...]:
         """The columns to fetch for a plan: the delegate's own `requires`, if installed here."""
@@ -108,7 +116,7 @@ class DelegateHost:
             )
         params = delegate.resolve(dict(detail.get("parameters") or {}))
         counter = _Counter(self.max_rows)
-        if self.sandbox:
+        if self.sandbox or admitted.sandbox_only:
             measurement = self._sandboxed(admitted, counter.lines(batches), params)
         else:
             measurement = delegate.measure(counter.rows(batches), params)
@@ -278,4 +286,5 @@ def host_from_config(config: Any) -> DelegateHost:
         memory_mb=int(section.get("memory_mb", 2048)),
         max_rows=int(section.get("max_rows", 5_000_000)),
         batch_rows=int(section.get("batch_rows", 10_000)),
+        upload_dir=str(section.get("upload_dir", "data/delegates")),
     )

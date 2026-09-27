@@ -255,6 +255,9 @@ class ControlRun:
         await self._uow.commit()
 
         live = await self._uow.controls.live(self._tenant)
+        if self._delegates is not None:
+            # Approved uploads join the configured delegates for this tenant.
+            await self._delegates.adopt_uploads(self._uow, self._tenant)
         elsewhere: list[Any] = []
         if self._datasets is not None:
             reachable = [c for c in live if c.dataset in self._datasets]

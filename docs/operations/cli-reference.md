@@ -328,6 +328,7 @@ Python DQ checks: list, vet and try them
 |---|---|
 | `prama delegate check` | conformance: everything Prama checks, plus your own cases (for CI) |
 | `prama delegate list` | the delegates this host admitted, and those it refused |
+| `prama delegate pull` | copy the estate's approved uploads into a directory (a remote agent's delegates.paths) |
 | `prama delegate scan` | vet delegate files without importing them |
 | `prama delegate test` | run one delegate over rows from a file, exactly as a control would |
 
@@ -344,6 +345,13 @@ Python DQ checks: list, vet and try them
 | Argument | Meaning |
 |---|---|
 | `--path` | a directory of delegate files, in addition to delegates.paths |
+**`prama delegate pull`**
+
+| Argument | Meaning |
+|---|---|
+| `--server` **required** | the Prama server, https://… |
+| `--key-env` | env var holding the key |
+| `--out` **required** | the directory to write into |
 **`prama delegate scan`**
 
 | Argument | Meaning |

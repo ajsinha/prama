@@ -54,6 +54,7 @@ delegates:
   memory_mb: 2048
   max_rows: 5000000                 # a larger dataset is refused, never truncated
   batch_rows: 10000                 # rows per batch streamed from the cursor to the delegate
+  upload_dir: data/delegates        # approved console uploads, stored by content hash
 
 codeintake:
   # Application code received as a ZIP or fetched from git. Never executed.

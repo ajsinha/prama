@@ -50,6 +50,7 @@ if TYPE_CHECKING:
         TenantDao,
     )
     from prama.db.dao.code import CodeDao
+    from prama.db.dao.delegate import DelegateUploadDao
     from prama.db.dao.lineage import LineageDao
     from prama.db.dao.llm import LlmDao
     from prama.db.dao.steward import StewardDao
@@ -152,6 +153,12 @@ class UnitOfWork:
         from prama.db.dao import AuditDao
 
         return self._dao("audit", AuditDao)  # type: ignore[no-any-return]
+
+    @property
+    def delegate_uploads(self) -> DelegateUploadDao:
+        from prama.db.dao.delegate import DelegateUploadDao
+
+        return self._dao("delegate_uploads", DelegateUploadDao)  # type: ignore[no-any-return]
 
     @property
     def stewards(self) -> StewardDao:

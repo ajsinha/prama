@@ -18,6 +18,7 @@ from prama.web.routes.base import UiRoutes
 from prama.web.routes.code_routes import CodeRoutes
 from prama.web.routes.control_routes import ControlRoutes
 from prama.web.routes.declaration_routes import DeclarationRoutes
+from prama.web.routes.delegate_routes import DelegateRoutes
 from prama.web.routes.estate_routes import EstateRoutes
 from prama.web.routes.lineage_routes import LineageRoutes
 from prama.web.routes.llm_routes import LlmRoutes
@@ -38,6 +39,7 @@ ROUTE_CLASSES: tuple[type[UiRoutes], ...] = (
     AdminRoutes,
     LlmRoutes,
     AgentRoutes,
+    DelegateRoutes,
     EstateRoutes,
     DeclarationRoutes,
     ControlRoutes,
@@ -64,6 +66,7 @@ __all__ = [
     "CodeRoutes",
     "ControlRoutes",
     "DeclarationRoutes",
+    "DelegateRoutes",
     "EstateRoutes",
     "LineageRoutes",
     "LlmRoutes",
