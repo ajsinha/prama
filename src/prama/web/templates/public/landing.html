@@ -1,15 +1,19 @@
 {# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
-{# The landing page, adopted from Maya's second edition: a centred hero over a
-   live network, a strip of numbers, the chain of evidence, capability cards,
-   the ways in, and a closing call. Its colour comes only from Prama's theme
+{# The landing page, adopted from Maya's second edition: a centred hero, a
+   strip of numbers, the chain of evidence, the estate, capability cards, the
+   ways in, and a closing call. Three moments move, each saying what its
+   section claims: the hero types a declaration and proves it, the chain is
+   tampered with and breaks, and the estate fills in and a failure spreads.
+   Only one runs at a time (whichever is on screen), and each rests on a
+   meaningful still frame for a reader who asked for less motion. Its colour comes only from Prama's theme
    tokens, so it is the same page in every theme; its numbers are counted
    by the route, never typed here. #}
 {% extends "base.html" %}
 {% block title %}Prama — {{ app_tagline }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='vendor/fonts/landing-fonts.css') }}">{% endblock %}
 {% block main_class %}container-fluid px-0 pt-0 pb-0{% endblock %}
 {% block content %}
 <section class="lp-hero">
-  <canvas id="lpNet" aria-hidden="true"></canvas>
   <div class="lp-hero-inner">
     <div class="lp-badge"><i class="bi bi-circle-fill" aria-hidden="true"></i>
       {{ app_tagline }} · version {{ app_version }}</div>
@@ -18,6 +22,16 @@
     <p class="lp-sub">A data owner says what a dataset means. Prama turns that declaration into
       controls, runs them where the data lives, and keeps a sealed record of every verdict — so
       "is this number right?" is answered by evidence somebody else can check, not by assertion.</p>
+    {# Study 1: the sentence becomes evidence. The resting frame is the first
+       declaration, already proved, so the hero reads complete without script. #}
+    {% set first = declarations[0] %}
+    <div class="lp-live" data-lp-hero data-declarations='{{ declarations | tojson }}'>
+      <div class="lp-said"><span data-said>{{ first.said }}</span><span class="lp-caret" aria-hidden="true"></span></div>
+      <pre class="lp-pql" data-pql>{{ first.pql }}</pre>
+      <div class="lp-run" data-run>scanned {{ '{:,}'.format(first.rows) }} rows · {{ first.violations }} violations</div>
+      <div class="lp-seal lp-pass" data-seal>PASS <small>evidence sealed · sha256 9f3a…c1</small></div>
+      <p class="lp-note">Illustrative run. The PQL is real.</p>
+    </div>
     <div class="lp-actions">
       {% if single_tenant %}
       <a class="lp-btn lp-btn-primary" href="{{ url_for('estate_map') }}"><i class="bi bi-diagram-3" aria-hidden="true"></i> Open the console</a>
@@ -41,73 +55,40 @@
 <section class="lp-section lp-chain">
   <div>
     <p class="lp-eyebrow">The chain</p>
-    <h2 class="lp-h2">From a sentence a data owner writes to a verdict a regulator reads.</h2>
+    <h2 class="lp-h2">Every verdict is sealed by the one before it.</h2>
     <p class="lp-desc">A declaration says what the data means. A control is derived from it, compiled to
-      the engine the data lives on, and run. The run leaves evidence in an append-only ledger, and an
-      owner attests to it. Every box in this figure is an object Prama stores, with a version, an owner
-      and an audit trail.</p>
+      the engine the data lives on, and run. Each run leaves a record in an append-only ledger, chained to
+      the one before by its hash. Change an old record and every record after it stops verifying, and
+      <code>scripts/verify_evidence.py</code> says which one was touched, on a machine with no Prama
+      installed.</p>
   </div>
-  <figure class="lp-figure">
-    <svg viewBox="0 0 420 448" role="img" aria-labelledby="lp-fig-title">
-      <title id="lp-fig-title">The chain of evidence: declaration, control, run, evidence, attestation</title>
-      <defs>
-        <marker id="lp-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-          <path d="M0 0 L10 5 L0 10 z" fill="currentColor"></path>
-        </marker>
-      </defs>
-      <g class="lp-wire" fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#lp-arrow)">
-        <path id="lp-w1" d="M210 66 L210 104"></path>
-        <path id="lp-w2" d="M210 150 L210 188"></path>
-        <path id="lp-w3" d="M210 234 L210 272"></path>
-        <path id="lp-w4" d="M210 318 L210 356"></path>
-      </g>
-      <g class="lp-node">
-        <rect x="120" y="28" width="180" height="38" rx="8"></rect>
-        <rect x="120" y="112" width="180" height="38" rx="8"></rect>
-        <rect x="120" y="196" width="180" height="38" rx="8"></rect>
-        <rect x="120" y="280" width="180" height="38" rx="8"></rect>
-        <rect x="120" y="364" width="180" height="38" rx="8"></rect>
-      </g>
-      {# One verdict making the whole journey, once every 6.2 seconds; every
-         timing is a fraction of that one cycle so the steps cannot drift. A
-         reader who asked for less motion gets the diagram standing still. #}
-      <g class="lp-motion" aria-hidden="true">
-        <g class="lp-lit" fill="none" stroke-width="2.5">
-          <rect x="120" y="28" width="180" height="38" rx="8" opacity="0"><animate attributeName="opacity" dur="6.2s" repeatCount="indefinite" values="1;1;0;0" keyTimes="0;0.02;0.12;1"></animate></rect>
-          <rect x="120" y="112" width="180" height="38" rx="8" opacity="0"><animate attributeName="opacity" dur="6.2s" repeatCount="indefinite" values="0;0;1;0;0" keyTimes="0;0.16;0.19;0.30;1"></animate></rect>
-          <rect x="120" y="196" width="180" height="38" rx="8" opacity="0"><animate attributeName="opacity" dur="6.2s" repeatCount="indefinite" values="0;0;1;0;0" keyTimes="0;0.36;0.39;0.50;1"></animate></rect>
-          <rect x="120" y="280" width="180" height="38" rx="8" opacity="0"><animate attributeName="opacity" dur="6.2s" repeatCount="indefinite" values="0;0;1;0;0" keyTimes="0;0.56;0.59;0.70;1"></animate></rect>
-          <rect x="120" y="364" width="180" height="38" rx="8" opacity="0"><animate attributeName="opacity" dur="6.2s" repeatCount="indefinite" values="0;0;1;1;0" keyTimes="0;0.76;0.79;0.94;1"></animate></rect>
-        </g>
-        <g class="lp-pulse">
-          {% for w, t0, t1 in [("lp-w1", "0.02", "0.16"), ("lp-w2", "0.22", "0.36"), ("lp-w3", "0.42", "0.56"), ("lp-w4", "0.62", "0.76")] %}
-          <circle r="4" opacity="0">
-            <animateMotion dur="6.2s" repeatCount="indefinite" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;{{ t0 }};{{ t1 }};1"><mpath href="#{{ w }}"></mpath></animateMotion>
-            <animate attributeName="opacity" dur="6.2s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;{{ t0 }};{{ '%.2f' % (t0|float + 0.02) }};{{ '%.2f' % (t1|float - 0.01) }};{{ '%.2f' % (t1|float + 0.01) }};1"></animate>
-          </circle>
-          {% endfor %}
-        </g>
-        <g class="lp-stamp" text-anchor="middle" opacity="0">
-          <animate attributeName="opacity" dur="6.2s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.78;0.82;0.92;0.96;1"></animate>
-          <text x="210" y="430">evidence, not assertion</text>
-        </g>
-      </g>
-      <g class="lp-label" text-anchor="middle">
-        <text x="210" y="52">declaration · meaning</text>
-        <text x="210" y="136">control · derived</text>
-        <text x="210" y="220">run · where data lives</text>
-        <text x="210" y="304">evidence · sealed</text>
-        <text x="210" y="388">attestation · signed</text>
-      </g>
-      <g class="lp-aside" text-anchor="start">
-        <text x="312" y="136">never restated</text>
-        <text x="312" y="220">pushed down</text>
-        <text x="312" y="304">append-only</text>
-        <text x="312" y="388">by a person</text>
-      </g>
-    </svg>
-    <figcaption>The chain Prama keeps. Each step is an object with a version, an owner and an audit trail.</figcaption>
+  {# Study 2: the ledger that cannot be edited. Records are appended, each
+     sealed by the hash of the one before; then an old one is edited, and every
+     link after it breaks. Illustrative records. #}
+  <figure class="lp-ledger" data-lp-chain>
+    <div class="lp-links" data-links aria-hidden="true"></div>
+    <figcaption class="lp-chain-status" data-status role="status">chain verified · 5 records</figcaption>
   </figure>
+</section>
+
+<section class="lp-section lp-estate-band">
+  <div>
+    <p class="lp-eyebrow">The estate</p>
+    <h2 class="lp-h2">Grey until proven. Trust flows along lineage.</h2>
+    <p class="lp-desc">A dataset nobody has examined is grey, never green. As owners declare and controls
+      run, each one takes the colour its evidence earns. When one fails, everything downstream of it
+      loses trust too, because a report is only as good as what feeds it.</p>
+  </div>
+  {# Study 5: the estate fills in. Illustrative estate. #}
+  <div class="lp-estate" data-lp-estate>
+    <canvas aria-hidden="true"></canvas>
+    <div class="lp-legend">
+      <span style="--c: var(--unverified-grey)">not examined</span>
+      <span style="--c: var(--dim-completeness)">passing</span>
+      <span style="--c: var(--dim-validity)">failing</span>
+      <span style="--c: var(--accent)">lineage</span>
+    </div>
+  </div>
 </section>
 
 <section class="lp-section" id="capabilities">
