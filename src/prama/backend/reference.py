@@ -29,9 +29,9 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import dataclasses
-import math
 import re
 from collections.abc import Callable, Iterable, Mapping
+from decimal import Decimal
 from typing import Any
 
 from prama.backend.execute import ControlResult, judge, judge_segments
@@ -39,7 +39,7 @@ from prama.classify.validators import REGISTRY as VALIDATORS
 from prama.ir.model import ControlPlan, Expr, Metric, MetricAggregate
 from prama.pql.errors import PqlUnsupportedError
 from prama.pql.functions import UNSET
-from prama.pql.library import FUNCTIONS
+from prama.pql.library import FUNCTIONS, exact_number
 
 #: The aggregates this interpreter computes exactly. `APPROX_COUNT_DISTINCT`
 #: is deliberately absent: an approximation is an engine's own algorithm and
@@ -389,6 +389,12 @@ def _compare(operator: str, left: Any, right: Any) -> Any:
     """
     if left is UNKNOWN or right is UNKNOWN:
         return UNKNOWN
+    # An exact result compared with a float column value: the float is read
+    # as the decimal it prints as, or `Decimal("0.3") == 0.3` is false.
+    if isinstance(left, Decimal) and isinstance(right, float):
+        right = Decimal(repr(right))
+    elif isinstance(right, Decimal) and isinstance(left, float):
+        left = Decimal(repr(left))
     try:
         return {
             "=": left == right,
@@ -478,7 +484,12 @@ def _sign(operator: str, value: Any) -> Any:
 def _arithmetic(operator: str, values: list[Any]) -> Any:
     if any(v is UNKNOWN for v in values):
         return UNKNOWN
-    left, right = float(values[0]), float(values[1])
+    # `Decimal`, through the same conversion the functions use. `float` here
+    # made `0.1 + 0.2` differ from `ROUND(0.1 + 0.2, 2)`, took `TRUE` as 1,
+    # and crashed on text (QA C1). Anything that is not a number is unknown.
+    left, right = exact_number(values[0]), exact_number(values[1])
+    if left is None or right is None:
+        return UNKNOWN
     if operator in ("/", "%") and right == 0:
         # Division by zero is unknown, not an error and not zero. An error
         # would abort a control over one bad row; zero would silently change
@@ -489,11 +500,12 @@ def _arithmetic(operator: str, values: list[Any]) -> Any:
         "-": left - right,
         "*": left * right,
         "/": left / right if right else UNKNOWN,
-        # `math.fmod`, not `%`. Python floors and every SQL engine truncates:
-        # -10 % 3 is 2 here and -1 there, so this interpreter reported a
+        # Truncating, not flooring. Python's int `%` floors and every SQL
+        # engine truncates: -10 % 3 is 2 in Python and -1 in SQL, so this
+        # interpreter once reported a
         # violation none of the three engines did (finding C4). The engines
         # already agreed with each other, and the emitted SQL is what a DBA
         # reads, so the SQL meaning is the one Prama defines and this is the
-        # side that changed.
-        "%": math.fmod(left, right) if right else UNKNOWN,
+        # side that changed. `Decimal`'s `%` truncates, as `math.fmod` did.
+        "%": left % right if right else UNKNOWN,
     }[operator]

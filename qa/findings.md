@@ -2437,3 +2437,64 @@ that produced one earlier, and the three engines spell it three ways.
 `float`. It passes the "not quoted" assertion and throws the scale away —
 `Decimal("10.00")` becomes `10.0` — so the regression asserts the scale
 survives as well as the quoting.
+
+## Q-116 — the verifier that needs no Prama and Prama's own disagreed
+
+**Where** `scripts/verify_evidence.py::canonical`, `src/prama/evidence/ledger.py::verify`.
+**From** `EVD-006` (P1), `EVD-014` (P1), `EVD-144` (P1); triage batch data-stack `C4`.
+
+Two separate causes, both reproduced before repair:
+
+- **`EVD-006`.** Prama hashes UTF-8 (`ensure_ascii=False`); the independent
+  verifier used the stdlib default and escaped `münchen.positionen` to `ü`
+  before hashing. It reported every non-ASCII record as altered.
+  **The direction of the fix matters.** Changing Prama's side would have
+  re-hashed every chain already stored, so the independent verifier moved.
+- **`EVD-014`.** `EvidenceRecord.from_dict` keeps only the fields it knows,
+  and `verify` rehashed the rebuilt record. So `"note": "approved by treasury"`
+  added to a stored record was invisible to Prama and caught by the
+  independent verifier. `verify` now treats any field the record's version
+  does not define as an alteration. Two readers of the same bytes must not
+  disagree about whether the bytes were changed.
+
+`EVD-144` closes as a consequence, not as a third fix.
+
+Regression: `tests/evidence/test_independent_verifier.py::TestTheTwoVerifiersAgree`.
+Both tests failed before repair for the stated reasons: the first on the
+content hash, the second on Prama reporting no breach. The control is that the
+untouched bundle passes in both verifiers.
+
+## Q-117 — one language, two arithmetic models
+
+**Where** `src/prama/backend/reference.py::_arithmetic`, `::_compare`.
+**From** `PQL-300` (P1), `BE-078` (P1), `BE-079`, `BE-080` (P1); triage batch language-stack `C1`.
+
+Operators did `float(x)` while every function went through
+`library._number` and got `Decimal`. So `0.1 + 0.2` was `0.30000000000000004`
+through `+` and `0.3` through `ROUND`. `TRUE` counted as 1, and text crashed
+with a bare `ValueError`. The operators now use the same conversion
+(`library.exact_number`): anything that is not a number is unknown.
+
+**The second half, which the triage did not name.** Making the sum exact is
+not enough. `Decimal("0.3") == 0.3` is **false** in Python, because the float
+is not 0.3. So `a + b = c` over a float column would have gone from wrong by
+rounding to wrong by exactness. `_compare` reads a float as the decimal it
+prints as when it meets a `Decimal`. The regression asserts the comparison, not
+only the sum. Modulo keeps SQL's truncation, because `Decimal`'s `%`
+truncates just as `math.fmod` did.
+
+Regression: `tests/pql/test_numbers_survive.py::TestOperatorArithmeticIsExact`,
+with whole-number arithmetic and division by zero as the controls.
+
+## Q-118 — `:g` kept six significant figures, and the formatter would write them
+
+**Where** `src/prama/pql/ast.py`: `Literal.render`, `Threshold.render`, `Threshold.describe`.
+**From** `PQL-141` (P1), `PQL-209`; triage batch language-stack `C22`.
+
+`AT MOST 1234567 ROWS` rendered as `1.23457e+06` and re-read as 1234570.
+`prama control format --write` would have committed that to disk. All nine
+`:g` sites now go through `ast.exact`, which scales in `Decimal` too, so a rate
+of 0.001234567 is `0.1234567%` rather than what `* 100` gives in binary. As
+the triage warned, the round trip is tested at seven digits, not only on `5`:
+`:g` is invisible below a million, so a small-value test would pass for the
+wrong reason. `5` is kept as the control.

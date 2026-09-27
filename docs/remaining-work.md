@@ -13,9 +13,9 @@ Ordered by what I would take first. Each item says why it matters.
 
 | # | Item | Why it matters |
 |---|---|---|
-| 1.1 | **Data-stack `C4`: Prama's own evidence verifier disagrees with the independent one** | Two verifiers disagreeing undermines the evidence ledger's whole credibility |
-| 1.2 | **`C1`: `reference._arithmetic` uses `float` where `library._number` uses `Decimal`** | Sibling of `Q-115`, the only finding that gave a wrong verdict on real data |
-| 1.3 | **`C22`: `%g` loses precision on render** (`PQL-141`, P1) | The same family: a number quietly changing on the way through |
+| 1.1 | ~~**Data-stack `C4`: Prama's own evidence verifier disagrees with the independent one**~~ **done** (Q-116/117/118) | Two verifiers disagreeing undermines the evidence ledger's whole credibility |
+| 1.2 | ~~**`C1`: `reference._arithmetic` uses `float` where `library._number` uses `Decimal`**~~ **done** (Q-116/117/118) | Sibling of `Q-115`, the only finding that gave a wrong verdict on real data |
+| 1.3 | ~~**`C22`: `%g` loses precision on render** (`PQL-141`, P1)~~ **done** (Q-116/117/118) | The same family: a number quietly changing on the way through |
 | 1.4 | `C9`: `SqlCompiler` keeps per-call state on the instance (`BE-034`, `BE-037`) | Correctness risk under any reuse |
 | 1.5 | `C20`: unbounded recursion reachable from an HTTP endpoint | Security-adjacent; must be a bounded refusal, not a `RecursionError` |
 | 1.6 | `C23`: the type checker does not walk every expression-bearing field | A coverage gap in the checker |
