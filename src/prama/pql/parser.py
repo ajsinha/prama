@@ -233,13 +233,72 @@ class Parser:
             return self._references(self._require_subject(subject, token))
         if token.is_keyword("SATISFIES"):
             return self._satisfies()
+        if token.is_keyword("USING"):
+            if subject is not None:
+                raise self._error(
+                    "a delegate checks a dataset, not one column",
+                    remedy=(
+                        "Write CHECK trades USING DELEGATE '…'. The delegate declares the "
+                        "columns it reads, and Prama fetches exactly those."
+                    ),
+                )
+            return self._delegate()
         raise self._error(
             f"expected something to check about {target} and found {token.describe}",
             remedy=(
                 "A control says what must be true: IS NOT NULL, IN CODELIST, "
-                "HAS UNIQUE KEY (…), HAS ROW COUNT BETWEEN …, REFERENCES …, SATISFIES …"
+                "HAS UNIQUE KEY (…), HAS ROW COUNT BETWEEN …, REFERENCES …, SATISFIES …, "
+                "USING DELEGATE '…'"
             ),
         )
+
+    def _delegate(self) -> ast.DelegateAssertion:
+        """``USING DELEGATE 'name[@version]' (param = literal, …)``."""
+        start = self._expect_keyword("USING").position
+        self._expect_keyword("DELEGATE")
+        name = self._text("the delegate's registered name in quotes, as in 'acme.settlement_cycle'")
+        parameters: list[tuple[str, ast.Literal]] = []
+        if self._peek.is_punctuation("("):
+            self._advance()
+            while True:
+                key = self._name("a parameter name")
+                self._expect_operator_equals()
+                value = self._primary()
+                if not isinstance(value, ast.Literal) or value.literal_type not in (
+                    "number",
+                    "text",
+                    "boolean",
+                ):
+                    raise self._error(
+                        f"the parameter {key} must be a number, text or TRUE/FALSE",
+                        remedy=(
+                            "A delegate's parameters are part of the control's identity, "
+                            "so they are literals: market = 'US', settlement_days = 1."
+                        ),
+                    )
+                if any(k == key.lower() for k, _ in parameters):
+                    raise self._error(
+                        f"the parameter {key} is given twice",
+                        remedy="Give each parameter once.",
+                    )
+                parameters.append((key.lower(), value))
+                if self._peek.is_punctuation(","):
+                    self._advance()
+                    continue
+                self._expect_punctuation(")")
+                break
+        return ast.DelegateAssertion(
+            delegate=name.strip(), parameters=tuple(parameters), position=start
+        )
+
+    def _expect_operator_equals(self) -> None:
+        token = self._peek
+        if token.kind is not TokenKind.OPERATOR or token.text != "=":
+            raise self._error(
+                f"expected = after a parameter name and found {token.describe}",
+                remedy="Parameters are written name = value, as in market = 'US'.",
+            )
+        self._advance()
 
     def _has_assertion(self, subject: ast.Expression | None) -> ast.Assertion:
         start = self._expect_keyword("HAS").position

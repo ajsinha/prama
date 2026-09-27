@@ -37,6 +37,14 @@ becomes `PRAMA_DATABASE__SQLITE__PATH`.
 | `server.port` | `5900` | the console and the API share this listener |
 | `agents.enabled` | `True` |  |
 | `agents.interval` | `60s` | how often due goals are checked |
+| `delegates.enabled` | `True` |  |
+| `delegates.paths` | *(empty)* | directories of delegate .py files, vetted before import |
+| `delegates.entry_points` | `True` | also load the prama.delegates entry point |
+| `delegates.disabled` | *(empty)* | names to refuse even if installed |
+| `delegates.sandbox` | `True` | run in a resource-limited subprocess |
+| `delegates.timeout` | `120` | CPU seconds per run |
+| `delegates.memory_mb` | `2048` |  |
+| `delegates.max_rows` | `5000000` | a larger dataset is refused, never truncated |
 | `codeintake.workdir` | `data/code` | extracted here while read; deleted after |
 | `codeintake.timeout` | `300` | seconds the sandboxed reader may take |
 | `codeintake.git.allowed_hosts` | *(empty)* | empty: any public host; or e.g. [git.bank.example] |

@@ -152,6 +152,7 @@ KEYWORDS: frozenset[str] = frozenset(
         "COMPARING",
         "NORMALISING",
         "USING",
+        "DELEGATE",
         "FROM",
         "OFFSET",
         "CLASSIFY",

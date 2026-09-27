@@ -582,7 +582,8 @@ class TestAnEstateWithMoreThanOneSource:
 
         elsewhere = [s for s in report.skipped if s.reason == "another_source"]
         assert [s.dataset for s in elsewhere] == ["ledger_feed"]
-        assert "1 not due" in report.describe()
+        assert "1 on another source" in report.describe()
+        assert "not due" not in report.describe()  # it was due; it is elsewhere
 
     async def test_being_on_another_source_is_not_a_defect(
         self, started_database: Database, tenant_id: str

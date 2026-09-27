@@ -83,6 +83,14 @@ class Lowerer:
     def control(self, control: ast.Control, *, source: str = "") -> ControlPlan:
         self._residuals = []
         predicate, kind, detail = self._assertion(control.assertion)
+        if kind == "delegate" and control.segmentation is not None:
+            raise ValidationError(
+                "a delegate control cannot be segmented with FOR EACH",
+                remedy=(
+                    "A delegate returns one measurement for the rows it is given. Write one "
+                    "control per segment with WHERE, or segment inside the delegate."
+                ),
+            )
         filter_expression = self._expression(control.where) if control.where is not None else None
         if self._residuals:
             # Part of ``detail``, which is part of the plan's meaning, so a
@@ -172,6 +180,19 @@ class Lowerer:
                     "target_dataset": assertion.target_dataset,
                     "target_column": assertion.target_column,
                 },
+            )
+        if isinstance(assertion, ast.DelegateAssertion):
+            # The delegate's name, pinned version and parameters are the plan's
+            # meaning. The implementation hash is *not* folded in here: the
+            # delegate may be installed only on the agent beside the data, so the
+            # control plane cannot know it. The hash of what actually ran goes on
+            # every evidence record instead, and a pinned version is enforced at
+            # run time.
+            name, _, version = assertion.delegate.partition("@")
+            return (
+                None,
+                "delegate",
+                {"delegate": name, "version": version, "parameters": assertion.arguments()},
             )
         if isinstance(assertion, ast.FreshnessAssertion):
             return (
@@ -444,6 +465,10 @@ class Lowerer:
         if kind == "row_count":
             # The row count *is* the metric; there is no per-row violation.
             return (scanned,)
+        if kind == "delegate":
+            # Both measured by the delegate, not by SQL. Declared so the
+            # threshold names a metric the plan emits (`unanswerable`).
+            return (scanned, Metric(name=VIOLATING, aggregate=MetricAggregate.SUM))
         if kind == "functional_dependency":
             # NOT the unique-key test. A functional dependency says each
             # determinant has one dependent, not that the determinant occurs

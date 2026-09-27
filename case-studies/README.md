@@ -6,7 +6,7 @@ Proprietary and confidential. No licence is granted except by separate written a
 
 ---
 
-Four runnable studies over fabricated banking and trading data. Each builds its
+Five runnable studies over fabricated banking and trading data. Each builds its
 own data, declares an estate in business terms, lets Prama derive the controls,
 runs them, and serves the console — all on localhost, nothing external.
 
@@ -16,6 +16,7 @@ runs them, and serves the console — all on localhost, nothing external.
 | **2** | [Daily feeds, CSV and Parquet](02-feeds-csv-parquet/) | A landing zone of files | Arrival: the defects a content check cannot see |
 | **3** | [A mixed estate](03-mixed-estate/) | SQLite **and** files | Relationships: the defects one dataset cannot see |
 | **4** | [Expressions and plugins](04-expressions-and-plugins/) | CSV via DuckDB | Excel formulas, and a validator somebody else wrote |
+| **5** | [DQ delegates](05-dq-delegates/) | CSV via DuckDB, and a remote agent | Python checks PQL cannot say, judged by Prama, run beside the data |
 
 ## Run one
 
@@ -25,7 +26,7 @@ python run.py                 # build, run, then serve the console
 python run.py --no-serve      # build, run, print the report, stop
 ```
 
-The consoles are on `:8801` to `:8804`, one per study, so all four
+The consoles are on `:8801` to `:8805`, one per study, so all five
 can run at once. Everything lives under each study's `workspace/`; delete the
 directory to start over. The data is seeded, so two runs produce the same
 numbers and the figures in each README are checkable rather than decorative.

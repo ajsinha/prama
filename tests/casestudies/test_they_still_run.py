@@ -39,7 +39,7 @@ def study_directories() -> list[Path]:
 def test_there_are_studies_to_run() -> None:
     """Anti-vacuity. A glob that matched nothing would make every test below
     pass by not existing."""
-    assert len(study_directories()) >= 4
+    assert len(study_directories()) >= 5
 
 
 @pytest.mark.parametrize("study", study_directories(), ids=lambda p: p.name)

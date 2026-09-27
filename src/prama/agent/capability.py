@@ -50,6 +50,11 @@ class AgentCapabilities:
     #: which is the ordinary case; naming them is for an agent deliberately
     #: confined to part of a zone.
     datasets: tuple[str, ...] = ()
+    #: `name@version` of each DQ delegate installed beside this agent, from its
+    #: own `delegates:` configuration. Derived from what was admitted, never
+    #: typed by hand: an agent claiming a delegate it cannot load would accept
+    #: work it can only fail.
+    delegates: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -60,6 +65,7 @@ class AgentCapabilities:
             "max_concurrency": self.max_concurrency,
             "budget": self.budget,
             "datasets": list(self.datasets),
+            "delegates": list(self.delegates),
         }
 
     @classmethod
@@ -72,6 +78,7 @@ class AgentCapabilities:
             max_concurrency=int(payload.get("max_concurrency", 4)),
             budget=float(payload.get("budget", 100.0)),
             datasets=tuple(payload.get("datasets") or ()),
+            delegates=tuple(payload.get("delegates") or ()),
         )
 
 
@@ -124,6 +131,19 @@ def fits(plan: ControlPlan, capabilities: AgentCapabilities, *, engine: str = ""
             f"control is about {plan.scope.dataset}"
         )
         remedies.append("widen the agent's datasets, or assign the control elsewhere")
+
+    if plan.assertion_kind == "delegate":
+        name = str(plan.detail.get("delegate", ""))
+        pinned = str(plan.detail.get("version", ""))
+        installed = dict(d.partition("@")[::2] for d in capabilities.delegates)
+        if name not in installed:
+            reasons.append(f"the control uses the delegate {name}, which this agent does not have")
+            remedies.append(f"add {name} to the agent's delegates configuration")
+        elif pinned and installed[name] != pinned:
+            reasons.append(
+                f"the control pins {name}@{pinned} and this agent has @{installed[name]}"
+            )
+            remedies.append("install the pinned version beside the agent, or move the pin")
 
     return Fitness(
         assignable=not reasons,

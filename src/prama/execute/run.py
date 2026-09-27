@@ -143,8 +143,14 @@ class RunReport:
             return "no controls were live, so nothing ran"
         else:
             parts.append("nothing was due")
-        if self.skipped:
-            parts.append(f"{len(self.skipped)} not due")
+        # Told apart: "not due" is the scheduler working, "on another source" is
+        # data this pass cannot reach. Calling the second "not due" said the
+        # estate had decided not to look at something it could not see.
+        elsewhere = sum(1 for item in self.skipped if isinstance(item, _Elsewhere))
+        if len(self.skipped) - elsewhere:
+            parts.append(f"{len(self.skipped) - elsewhere} not due")
+        if elsewhere:
+            parts.append(f"{elsewhere} on another source")
         if self.unschedulable:
             parts.append(
                 f"{len(self.unschedulable)} with a schedule that cannot be read, "
@@ -189,6 +195,7 @@ class ControlRun:
         validators: ValidatorRegistry | None = None,
         respect_schedule: bool = False,
         datasets: set[str] | None = None,
+        delegates: Any = None,
     ) -> None:
         self._uow = uow
         self._tenant = tenant_id
@@ -212,6 +219,10 @@ class ControlRun:
         #: ``None`` means "everything", which is right for a single-source
         #: estate and for somebody running by hand.
         self._datasets = datasets
+        #: A `prama.delegates.host.DelegateHost`, or None: then a control that
+        #: names a delegate is recorded as an error saying none is installed,
+        #: rather than skipped.
+        self._delegates = delegates
 
     async def execute_all(self) -> RunReport:
         """Run every live control, recording each outcome as it goes."""
@@ -308,7 +319,14 @@ class ControlRun:
         try:
             control = parse_control(version.pql)
             plan = resolved(control)
-            compiled = compile_for(plan, self._engine, table=plan.scope.dataset)
+            compiled = compile_for(
+                plan,
+                self._engine,
+                table=plan.scope.dataset,
+                columns=self._delegates.columns(plan.detail)
+                if self._delegates is not None and plan.assertion_kind == "delegate"
+                else (),
+            )
         except (PramaError, Exception) as exc:
             # A control that will not compile today is a finding about the
             # estate, recorded like any other. Raising would take every control
@@ -332,7 +350,18 @@ class ControlRun:
         # `judge_segments` has been in the backend all along: the control fails
         # if *any* segment does, because aggregating them back into one number
         # restores exactly the averaging segmentation exists to avoid.
-        if plan.scope.segment_by and len(rows) > 1:
+        extra: dict[str, str] = {}
+        delegate_samples: list[dict[str, Any]] | None = None
+        if plan.assertion_kind == "delegate":
+            try:
+                measured = await self._measure(plan, rows)
+            except Exception as exc:
+                return await self._record_error(version, run_id, started, f"delegate: {exc}")
+            result = judge(plan, measured.metrics, engine=self._engine)
+            metrics = dict(result.metrics)
+            extra = measured.parameters
+            delegate_samples = measured.samples
+        elif plan.scope.segment_by and len(rows) > 1:
             result = judge_segments(
                 plan, _segments_from(rows, plan.scope.segment_by), engine=self._engine
             )
@@ -348,7 +377,7 @@ class ControlRun:
             # supporting it was missing the number it was based on.
             metrics = dict(result.metrics)
         verdict = result.verdict.value
-        detail = ""
+        detail = measured.note if plan.assertion_kind == "delegate" else ""
 
         if not compiled.is_complete:
             residuals = ", ".join(
@@ -379,7 +408,12 @@ class ControlRun:
                     "the true count may be higher"
                 )
 
-        digest, sample_count = await self._store_samples(compiled, verdict)
+        if delegate_samples is not None:
+            digest, sample_count = await self._keep_samples(
+                delegate_samples if verdict != "pass" else []
+            )
+        else:
+            digest, sample_count = await self._store_samples(compiled, verdict)
         finished = self._clock.now()
         record = await self._uow.evidence.append(
             EvidenceRecord(
@@ -402,7 +436,10 @@ class ControlRun:
                 parameters={
                     "threshold": ", ".join(
                         f"{key}={value}" for key, value in sorted(plan.threshold.to_dict().items())
-                    )
+                    ),
+                    # For a delegate: which one, which version, the hash of its
+                    # source. What ran is part of what the verdict means.
+                    **extra,
                 },
                 samples_digest=digest,
                 sample_count=sample_count,
@@ -438,11 +475,28 @@ class ControlRun:
             # discarding the finding.
             _log.warning("samples could not be collected: %s", exc)
             return "", 0
+        return await self._keep_samples(rows)
+
+    async def _measure(self, plan: Any, rows: list[dict[str, Any]]) -> Any:
+        """A delegate's measurement, off the event loop: it may run a subprocess."""
+        import asyncio
+
+        from prama.core.errors import NotFoundError
+
+        if self._delegates is None:
+            raise NotFoundError(
+                f"no delegates are configured on this host, and the control names "
+                f"{plan.detail.get('delegate')!r}",
+                remedy="Configure `delegates:` for this host, or run it on an agent that has it.",
+            )
+        return await asyncio.to_thread(self._delegates.measure_plan, plan, rows)
+
+    async def _keep_samples(self, rows: Sequence[dict[str, Any]]) -> tuple[str, int]:
         if not rows:
             return "", 0
         from prama.evidence.recorder import SampleStore
 
-        sample = SampleStore().put(rows)
+        sample = SampleStore().put(list(rows))
         await self._uow.samples.put(
             tenant_id=self._tenant,
             digest=sample.digest,

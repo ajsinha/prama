@@ -240,6 +240,30 @@ Before Wave 12, what existed and what these waves build on:
 
 Modules named in the design notes that do not exist yet are marked `(planned)` there.
 
+**Wave 18 (requested mid-roadmap), DQ delegates, as built:**
+
+- **What it is.** Python checks the bank writes, named from PQL:
+  `CHECK t USING DELEGATE 'acme.x@1' (param = …)`.
+- **Where it lives:** `src/prama/delegates/` holds the interface (`DqDelegate`, `Measurement`),
+  the admission gate and the sandboxed host.
+- **Admission.** Each delegate file is scanned before import, probed twice for determinism, and
+  its source hashed.
+- **Verdicts.** A delegate returns counts; the control's threshold and the shared `judge()` decide
+  the verdict. The delegate, its version and its source hash are recorded on every evidence
+  record.
+- **Where it runs.** The control-plane run, the scheduler and `prama control run` take a delegate
+  host from `delegates:` in configuration. So does each remote execution agent, from its own
+  configuration; an agent advertises the delegates it admitted, and `fits()` assigns delegate
+  controls only to agents that have them.
+- **Tooling and docs:**
+  - `prama delegate list | scan | test`;
+  - the design, `docs/design/dq-delegates.md`;
+  - the console guide *DQ delegates*;
+  - case study 5, `case-studies/05-dq-delegates`. There, the settlement-cycle delegate finds the
+    36 planted off-cycle trades that a column comparison passes, and a Benford delegate on a PCI
+    zone agent fails the ledger with invented invoices while the clean ledger passes.
+- **A fix found on the way:** a run's summary called controls on another source "not due".
+
 ## 1. What the analysis found
 
 **1. Prama's lineage is a tested library that nothing uses.** `lineage/graph.py`, `lineage/sql.py`

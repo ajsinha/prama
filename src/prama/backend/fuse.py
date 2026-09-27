@@ -171,6 +171,10 @@ class Fuser:
         """
         grouped: dict[tuple[str, str, str, tuple[str, ...]], list[ControlPlan]] = {}
         for plan in plans:
+            if plan.assertion_kind == "delegate":
+                # A delegate reads rows and counts in Python; there is no SQL
+                # metric to share a scan with. Callers compile it on its own.
+                continue
             group = self._empty_group(plan)
             grouped.setdefault(group.key, []).append(plan)
         return [
