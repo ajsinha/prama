@@ -138,6 +138,7 @@ class TriageRoutes(UiRoutes):
             )
 
         latest = history[0] if history else None
+        upstream = await _upstream(uow, caller.tenant_id, latest.dataset if latest else "")
         return render(
             request,
             "incidents/detail.html",
@@ -152,7 +153,33 @@ class TriageRoutes(UiRoutes):
             began=_began(history),
             history_is_truncated=len(history) >= HISTORY,
             sample=await _sample(uow, latest, caller.tenant_id),
+            upstream=upstream,
         )
+
+
+async def _upstream(uow: Any, tenant_id: str, dataset: str) -> list[dict[str, Any]]:
+    """The datasets that feed *dataset*, from the lineage store, each with its
+    own trust from evidence.
+
+    Where an investigation looks first: a failure is often inherited, and the
+    feeder whose own controls are failing is the likeliest cause. Derived from
+    the persisted lineage and the ledger; nothing here is a model's guess.
+    """
+    if not dataset:
+        return []
+    from prama.lineage.trust import dataset_trust
+
+    feeders = sorted(
+        {
+            edge.source_dataset
+            for edge in await uow.lineage.edges(tenant_id, dataset=dataset)
+            if edge.target_dataset == dataset and edge.source_dataset != dataset
+        }
+    )
+    if not feeders:
+        return []
+    trust = dataset_trust((await uow.evidence.latest_per_control(tenant_id)).values())
+    return [{"dataset": name, "trust": trust.get(name)} for name in feeders]
 
 
 async def _sample(uow: Any, record: Any, tenant_id: str) -> Sample:

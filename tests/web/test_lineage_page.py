@@ -49,3 +49,67 @@ async def test_a_rejected_edge_leaves_the_working_graph(
     assert response.status_code == 303
     async with started_database.unit_of_work() as uow:
         assert not await uow.lineage.edges(tenant_id, dataset="raw.trades")
+
+
+async def test_a_failing_upstream_control_lowers_downstream_trust(
+    ui: Any, started_database: Database, tenant_id: str
+) -> None:
+    """E1's acceptance: trust drops through lineage, and removing the edge
+    restores it (the counterfactual)."""
+    from prama.evidence.record import EvidenceRecord, SnapshotRef
+
+    await _scan(started_database, tenant_id)
+    async with started_database.unit_of_work() as uow:
+        await uow.evidence.append(
+            EvidenceRecord(
+                plan_id="ir:sha256:" + "b" * 64,
+                control_id="ctl-raw",
+                dataset="raw.trades",
+                binding="raw.trades",
+                engine="duckdb",
+                snapshot=SnapshotRef(kind="wall_clock", identifier="t0"),
+                verdict="fail",
+                metrics={"scanned_rows": 100.0, "violating_rows": 40.0},
+                started_at="2026-09-27T06:00:00Z",
+                finished_at="2026-09-27T06:00:01Z",
+                tenant_id=tenant_id,
+            ),
+            tenant_id=tenant_id,
+        )
+    params = {"column": "stg.a.amt"}
+    lowered = await ui.get("/lineage", params=params)
+    assert "Trust 0.60" in lowered.text
+    async with started_database.unit_of_work() as uow:
+        edge = (await uow.lineage.edges(tenant_id, dataset="raw.trades"))[0]
+        await uow.lineage.decide(tenant_id, edge.id, "rejected", by=None)
+    restored = await ui.get("/lineage", params=params)
+    assert "Trust 1.00" in restored.text
+
+
+async def test_an_incident_names_its_upstream_feeders(
+    ui: Any, started_database: Database, tenant_id: str
+) -> None:
+    from prama.evidence.record import EvidenceRecord, SnapshotRef
+
+    await _scan(started_database, tenant_id)
+    async with started_database.unit_of_work() as uow:
+        for control, dataset in (("ctl-raw", "raw.trades"), ("ctl-stg", "stg.a")):
+            await uow.evidence.append(
+                EvidenceRecord(
+                    plan_id="ir:sha256:" + "c" * 64,
+                    control_id=control,
+                    dataset=dataset,
+                    binding=dataset,
+                    engine="duckdb",
+                    snapshot=SnapshotRef(kind="wall_clock", identifier="t0"),
+                    verdict="fail",
+                    metrics={"scanned_rows": 10.0, "violating_rows": 5.0},
+                    started_at="2026-09-27T06:00:00Z",
+                    finished_at="2026-09-27T06:00:01Z",
+                    tenant_id=tenant_id,
+                ),
+                tenant_id=tenant_id,
+            )
+    page = await ui.get("/incidents/ctl-stg")
+    assert "Upstream, from the lineage store" in page.text
+    assert "raw.trades" in page.text and "trust 0.50" in page.text
