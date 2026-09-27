@@ -127,12 +127,15 @@ Three questions are answered here, each with a design note behind it:
 - **The gold gate (`tests/codeintake/test_gold_fixture.py`, `tests/fixtures/code/bankco-etl`).**
   - Precision must be ≥ 0.98, and every true edge must be found or sit in a unit reported as
     unread or incomplete.
-  - Today: **precision 1.00, recall 0.83**. The two missed edges are in the PySpark job, which is
-    reported as unread.
+  - Today: **precision 1.00, recall 1.00**. It was 0.83 before the PySpark reader.
+- **PySpark reader (`prama.lineage.pyspark`).**
+  - It parses the syntax tree and never executes the job.
+  - It follows `spark.table`, `select`/`alias`, `withColumn`, `withColumnRenamed`,
+    `groupBy().agg()` and `filter` to `saveAsTable`/`insertInto`. A column carried forward keeps
+    how it was made.
+  - Joins, UDFs and computed names are gaps, never guesses.
 - **Still to do in Wave 14:**
-  - a PySpark and pandas reader (Python syntax tree, parse only), which lifts recall on the
-    fixture;
-  - Airflow task lineage and COBOL/JCL;
+  - pandas, Airflow task lineage and COBOL/JCL;
   - templates and evaluation governance.
 - **Deferred, each to the phase that first needs it:**
   - The transport-module extraction, multi-turn messages and JSON-schema validation go to

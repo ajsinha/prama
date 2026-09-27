@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 #: The version of the reading logic, recorded on every unit it produced.
-VERSION = "2"
+VERSION = "3"
 
 
 def _extract(kind: str, text: str, relative: str, dialect: str) -> list[tuple[Any, str]]:
@@ -27,6 +27,10 @@ def _extract(kind: str, text: str, relative: str, dialect: str) -> list[tuple[An
     from prama.lineage.scan import POWERCENTER, SSIS, ProceduralSqlScanner, XmlMappingScanner
     from prama.lineage.sql import SqlLineage, split_statements
 
+    if kind == "pyspark":
+        from prama.lineage import pyspark
+
+        return [(pyspark.extract(text, job=relative), "code:pyspark_ast")]
     if kind == "ssis":
         return [(XmlMappingScanner(SSIS).scan(text, source=relative).extraction, "code:ssis_xml")]
     if kind == "informatica":

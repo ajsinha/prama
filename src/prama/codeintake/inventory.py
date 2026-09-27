@@ -18,6 +18,7 @@ READ: dict[str, str] = {
     # (prama.lineage.scan), so their edges are stored as inferred.
     "ssis": "ssis_xml",
     "informatica": "powercenter_xml",
+    "pyspark": "pyspark_ast",
 }
 
 _BY_SUFFIX: dict[str, str] = {
