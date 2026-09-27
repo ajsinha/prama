@@ -12,7 +12,14 @@ from sqlalchemy import select
 
 from prama.core.errors import ConflictError
 from prama.db.dao.base import Dao
-from prama.db.models.steward import AgtApproval, AgtGoal, AgtMemory, AgtSteward, AgtTask
+from prama.db.models.steward import (
+    AgtApproval,
+    AgtGoal,
+    AgtMemory,
+    AgtSteward,
+    AgtTask,
+    CurSuggestion,
+)
 
 
 def _now() -> str:
@@ -220,3 +227,59 @@ class StewardDao(Dao[AgtSteward]):
         else:
             existing.body, existing.source_task_id = body[:20000], task_id
         await self._session.flush()
+
+    # -- curation suggestions ------------------------------------------------
+
+    async def suggest(
+        self,
+        tenant_id: str,
+        *,
+        object_kind: str,
+        object_id: str,
+        object_name: str,
+        field: str,
+        text: str,
+        model: str,
+        fingerprint: str | None,
+        steward_id: str | None,
+    ) -> CurSuggestion | None:
+        """Record a draft, unless one is already open for the same field."""
+        await self._session.flush()
+        open_already = await self._session.execute(
+            select(CurSuggestion.id).where(
+                CurSuggestion.tenant_id == tenant_id,
+                CurSuggestion.object_id == object_id,
+                CurSuggestion.field == field,
+                CurSuggestion.state == "open",
+            )
+        )
+        if open_already.first() is not None:
+            return None
+        row = CurSuggestion(
+            tenant_id=tenant_id,
+            object_kind=object_kind,
+            object_id=object_id,
+            object_name=object_name,
+            field=field,
+            suggested=text[:4000],
+            model=model,
+            request_fingerprint=fingerprint,
+            steward_id=steward_id,
+            created_at=_now(),
+        )
+        self._session.add(row)
+        await self._session.flush()
+        return row
+
+    async def suggestions(self, tenant_id: str, *, state: str = "open") -> list[CurSuggestion]:
+        await self._session.flush()
+        result = await self._session.execute(
+            select(CurSuggestion)
+            .where(CurSuggestion.tenant_id == tenant_id, CurSuggestion.state == state)
+            .order_by(CurSuggestion.created_at)
+        )
+        return list(result.scalars().all())
+
+    async def suggestion(self, tenant_id: str, suggestion_id: str) -> CurSuggestion | None:
+        row = await self._session.get(CurSuggestion, suggestion_id)
+        return row if row is not None and row.tenant_id == tenant_id else None

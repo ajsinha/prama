@@ -30,6 +30,14 @@ schedule such as `6h` or `1d`, or none to run only on request:
   pass, so new lineage and new proposals appear.
 - **Report the checks lineage implies.** How many lineage-derived proposals are waiting.
 
+## Suggested descriptions
+
+The goal kind `curation.describe` asks a model to draft a description for every dataset that has
+none. The model needs a profile for the purpose `curate` on the Models page. The drafts wait under
+**Suggested descriptions**. **Accept** amends the dataset with you as its author. **Reject** throws
+the draft away. Either way, nothing changes until a person decides. A draft for a dataset that has
+been described since is set aside, not applied.
+
 ## Asking before acting
 
 Tick **ask me before each run** on a goal, and each scheduled task waits under **Waiting for

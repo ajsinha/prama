@@ -57,6 +57,13 @@ class AgentRoutes(UiRoutes):
             methods=post,
             scope=ADMIN,
         )
+        self.page(
+            "/agents/suggestions/{suggestion_id}",
+            self.curate,
+            name="agents_suggestion",
+            methods=post,
+            scope=ADMIN,
+        )
 
     async def _page(self, request: Request, uow: Any, tenant: str, **extra: Any) -> Any:
         stewards = await uow.stewards.all(tenant)
@@ -70,6 +77,7 @@ class AgentRoutes(UiRoutes):
             goal_names={g.id: g.statement for g in goals},
             tools=TOOLS,
             approvals=await uow.stewards.open_approvals(tenant),
+            suggestions=await uow.stewards.suggestions(tenant),
             **extra,
         )
 
@@ -201,3 +209,30 @@ class AgentRoutes(UiRoutes):
         return redirect_to(
             request, "agents", flash_message="Granted." if answer == "grant" else "Denied."
         )
+
+    async def curate(
+        self,
+        request: Request,
+        uow: Uow,
+        caller: Caller,
+        suggestion_id: str,
+        answer: Annotated[str, Form()] = "",
+    ) -> Any:
+        from prama.curation.suggestions import decide
+
+        try:
+            row = await decide(
+                uow,
+                caller.tenant_id,
+                suggestion_id,
+                accept=answer == "accept",
+                by=caller.principal_id,
+            )
+        except PramaError as exc:
+            flash_error_and_log(request, "That suggestion could not be decided", exc)
+            return redirect_to(request, "agents")
+        said = {
+            "accepted": "Description applied, with you as its author.",
+            "stale": "That dataset already has a description; the draft was set aside.",
+        }.get(row.state, "Rejected.")
+        return redirect_to(request, "agents", flash_message=said)

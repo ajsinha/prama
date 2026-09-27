@@ -27,6 +27,23 @@
 </section>
 {% endif %}
 
+{% if suggestions %}
+<section class="border rounded p-3 mb-3" aria-labelledby="suggestions-h">
+  <h2 class="h6" id="suggestions-h">Suggested descriptions</h2>
+  <p class="small text-body-secondary">Drafted by a model. Accepting one amends the dataset with you as its author; the model is named only in the reason.</p>
+  {% for g in suggestions %}
+  <div class="border-top pt-2 mb-2 small">
+    <div><strong>{{ g.object_name }}</strong> <span class="text-body-secondary">{{ g.field }} &middot; {{ g.model or 'model' }}</span></div>
+    <p class="mb-1">{{ g.suggested }}</p>
+    <div class="d-flex gap-2">
+      <form method="post" action="{{ url_for('agents_suggestion', suggestion_id=g.id) }}"><input type="hidden" name="answer" value="accept"><button class="btn btn-sm btn-success" type="submit">Accept</button></form>
+      <form method="post" action="{{ url_for('agents_suggestion', suggestion_id=g.id) }}"><input type="hidden" name="answer" value="reject"><button class="btn btn-sm btn-outline-secondary" type="submit">Reject</button></form>
+    </div>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
 <form method="post" action="{{ url_for('agents_new') }}" class="row g-2 mb-4" style="max-width: 32rem">
   <div class="col-8"><label class="visually-hidden" for="a-name">Name</label>
     <input class="form-control form-control-sm" id="a-name" name="name" required placeholder="lineage-keeper"></div>
