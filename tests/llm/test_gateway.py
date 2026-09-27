@@ -84,10 +84,15 @@ def test_when_nothing_may_receive_it_the_refusal_is_recorded_and_raised() -> Non
     assert ledger.records[0].outcome == "refused_policy"
 
 
-def test_an_unconfigured_purpose_says_how_to_configure_it() -> None:
-    gateway, _ = _gateway(_candidate("local", ["x"]))
-    with pytest.raises(ValidationError, match="prama llm profile set explain"):
-        gateway.run("explain", Request(system="s", prompt="p"))
+def test_an_unconfigured_purpose_falls_to_the_mock_which_answers_nothing() -> None:
+    gateway, ledger = _gateway(_candidate("local", ["x"]))
+    response = gateway.run("explain", Request(system="s", prompt="p"))
+    # No text, ever: a placeholder that returned words would be stored as a
+    # description or shown as advice, indistinguishable from a real answer.
+    assert response.text == "" and response.provider == "mock"
+    assert "Models page" in response.incomplete and "'explain'" in response.incomplete
+    assert "".join(gateway.run_stream("explain", Request(system="s", prompt="p"))) == ""
+    assert {r.provider_kind for r in ledger.records} == {"mock"}  # recorded, not hidden
 
 
 def test_a_profile_provider_is_a_model_provider() -> None:

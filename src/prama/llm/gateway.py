@@ -202,17 +202,31 @@ class LlmGateway:
         self._surface = surface
         self._principal = principal_id
 
-    def run(self, purpose: str, request: Request) -> Response:
+    def _route(self, purpose: str) -> Route:
+        """The purpose's profile, or the mock model when none is configured.
+
+        It used to raise, so every caller needed its own "no model" branch and
+        the unconfigured case looked like a failure. The mock answers with no
+        text and says why, which is the path every feature already has for a
+        model that returned nothing.
+        """
         route = self._routes.get(purpose)
-        if route is None or not route.candidates:
-            raise ValidationError(
-                f"no model profile for the purpose {purpose!r}",
-                remedy=(
-                    "Configure one on the Models page or with `prama llm profile set "
-                    f"{purpose} …`. Until then the feature uses its deterministic path."
-                ),
-                context={"purpose": purpose},
-            )
+        if route is not None and route.candidates:
+            return route
+        from prama.llm.providers import MockProvider
+
+        mock = Candidate(
+            provider=MockProvider(purpose),
+            provider_id="",
+            provider_name="mock",
+            kind="mock",
+            hosting=Hosting.SELF_HOSTED,
+            model="mock",
+        )
+        return Route(purpose=purpose, candidates=(mock,), max_attempts=1)
+
+    def run(self, purpose: str, request: Request) -> Response:
+        route = self._route(purpose)
         started, clock = _now(), time.monotonic()
         base = {
             "tenant_id": self._tenant,
@@ -303,13 +317,7 @@ class LlmGateway:
         back, so the choice of candidate is made before the first token. The
         call is recorded when the stream ends, however it ends.
         """
-        route = self._routes.get(purpose)
-        if route is None or not route.candidates:
-            raise ValidationError(
-                f"no model profile for the purpose {purpose!r}",
-                remedy=f"Configure one: `prama llm profile set {purpose} …`.",
-                context={"purpose": purpose},
-            )
+        route = self._route(purpose)
         started, clock = _now(), time.monotonic()
         base = {
             "tenant_id": self._tenant,
@@ -373,7 +381,7 @@ class LlmGateway:
         extra: dict[str, Any] = {}
         if candidate is not None:
             extra = {
-                "provider_id": candidate.provider_id,
+                "provider_id": candidate.provider_id or None,
                 "provider_kind": candidate.kind,
                 "hosting": candidate.hosting.value,
                 "model_requested": candidate.model,
