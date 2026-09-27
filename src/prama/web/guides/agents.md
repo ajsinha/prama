@@ -30,6 +30,31 @@ schedule such as `6h` or `1d`, or none to run only on request:
   pass, so new lineage and new proposals appear.
 - **Report the checks lineage implies.** How many lineage-derived proposals are waiting.
 
+## Asking before acting
+
+Tick **ask me before each run** on a goal, and each scheduled task waits under **Waiting for
+your approval** on the Agents page until someone grants or denies it. Granting lets the agent
+take that one action. It never approves a control: anything the agent proposes still goes to the
+Proposals queue.
+
+## Running a steward as its own process
+
+Tick **done by the agent's own process** on a goal, and its tasks are queued for a steward that
+runs elsewhere, anywhere that can reach Prama over HTTPS (Prama never calls out). With the key
+shown when the steward was created:
+
+```text
+POST /api/v1/agents/claim                   {"most": 1}             -> tasks, each with a fencing_token
+POST /api/v1/agents/tasks/{id}/heartbeat    {"fencing_token": n}    -> "continue" or "cancel"
+POST /api/v1/agents/tasks/{id}/ask          {"fencing_token": n, "action": {...}, "justification": "..."}
+POST /api/v1/agents/tasks/{id}/result       {"fencing_token": n, "state": "succeeded", "output": {...}}
+```
+
+The agent does its thinking through `POST /api/v1/llm/chat` with the same key, so it never holds a
+provider credential. A claim is a five-minute lease that each heartbeat renews. If the agent
+vanishes, the task goes back to the queue with a new token, and the old holder's late result is
+refused (HTTP 409), so two copies of an agent cannot both write a task's outcome.
+
 ## The kill switch
 
 - **Pause:** no new tasks.

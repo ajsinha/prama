@@ -50,6 +50,13 @@ class AgentRoutes(UiRoutes):
             methods=post,
             scope=ADMIN,
         )
+        self.page(
+            "/agents/approvals/{approval_id}",
+            self.decide,
+            name="agents_decide",
+            methods=post,
+            scope=ADMIN,
+        )
 
     async def _page(self, request: Request, uow: Any, tenant: str, **extra: Any) -> Any:
         stewards = await uow.stewards.all(tenant)
@@ -62,6 +69,7 @@ class AgentRoutes(UiRoutes):
             tasks=await uow.stewards.tasks(tenant),
             goal_names={g.id: g.statement for g in goals},
             tools=TOOLS,
+            approvals=await uow.stewards.open_approvals(tenant),
             **extra,
         )
 
@@ -100,16 +108,22 @@ class AgentRoutes(UiRoutes):
         statement: Annotated[str, Form()] = "",
         schedule: Annotated[str, Form()] = "",
         source: Annotated[str, Form()] = "",
+        remote: Annotated[str, Form()] = "",
+        approve_before_run: Annotated[str, Form()] = "",
     ) -> Any:
         try:
-            if kind not in TOOLS:
+            if kind not in TOOLS and not remote:
                 raise NotFoundError(f"no goal kind {kind!r}", remedy="Choose one from the list.")
             await uow.stewards.add_goal(
                 caller.tenant_id,
                 steward_id,
                 statement=statement.strip() or TOOLS[kind][0],
                 kind=kind,
-                inputs={"source": source.strip()} if source.strip() else {},
+                inputs={
+                    **({"source": source.strip()} if source.strip() else {}),
+                    **({"remote": True} if remote else {}),
+                    **({"approve_before_run": True} if approve_before_run else {}),
+                },
                 schedule=schedule.strip() or None,
                 by=caller.principal_id or "console",
             )
@@ -162,3 +176,28 @@ class AgentRoutes(UiRoutes):
             key=f"{goal.id}:manual:{datetime.now(UTC).strftime('%Y%m%dT%H%M%S')}",
         )
         return redirect_to(request, "agents", flash_message=f"Task {task.state}.")
+
+    async def decide(
+        self,
+        request: Request,
+        uow: Uow,
+        caller: Caller,
+        approval_id: str,
+        answer: Annotated[str, Form()] = "",
+    ) -> Any:
+        from prama.steward import protocol
+
+        try:
+            await protocol.decide(
+                uow,
+                caller.tenant_id,
+                approval_id,
+                granted=answer == "grant",
+                by=caller.principal_id or "console",
+            )
+        except PramaError as exc:
+            flash_error_and_log(request, "That approval could not be recorded", exc)
+            return redirect_to(request, "agents")
+        return redirect_to(
+            request, "agents", flash_message="Granted." if answer == "grant" else "Denied."
+        )
