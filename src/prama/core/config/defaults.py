@@ -68,6 +68,8 @@ DEFAULTS: dict[str, Any] = {
         # is deployment policy only. Offline builds only self-hosted providers
         # on this host or a private network, by address.
         "offline": False,
+        # Requests per minute per principal through /api/v1/llm, per server.
+        "per_principal_rpm": 60,
     },
     "web": {
         "enabled": True,

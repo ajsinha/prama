@@ -212,3 +212,75 @@ class LlmCall(UlidPrimaryKey, Base):
         ),
         Index("ix_llm_call_started", "tenant_id", "started_at"),
     )
+
+
+class LlmModel(UlidPrimaryKey, Base):
+    """A model's price, dated. Micro-units per million tokens."""
+
+    __tablename__ = "llm_model"
+
+    tenant_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False
+    )
+    provider_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("llm_provider.id", ondelete="CASCADE"), nullable=False
+    )
+    model: Mapped[str] = mapped_column(String(128), nullable=False)
+    capabilities_json: Mapped[dict[str, Any]] = mapped_column(
+        JsonText, nullable=False, default=dict
+    )
+    context_window: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    price_in_micros: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    price_cached_micros: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    price_out_micros: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
+    effective_from: Mapped[str] = mapped_column(String(32), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, nullable=False, default=utc_now)
+
+    __table_args__ = (
+        UniqueConstraint("provider_id", "model", "effective_from", name="uq_llm_model_price"),
+    )
+
+
+class LlmBudget(UlidPrimaryKey, Base):
+    """A spending limit for a tenant, a profile, a principal or an API key."""
+
+    __tablename__ = "llm_budget"
+
+    tenant_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False
+    )
+    scope_kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    scope_id: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    period: Mapped[str] = mapped_column(String(8), nullable=False)
+    limit_micros: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    limit_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    action: Mapped[str] = mapped_column(String(8), nullable=False, default="refuse")
+    updated_at: Mapped[datetime] = mapped_column(
+        UtcDateTime, nullable=False, default=utc_now, onupdate=utc_now
+    )
+    updated_by: Mapped[str | None] = mapped_column(String(26), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id", "scope_kind", "scope_id", "period", name="uq_llm_budget_scope"
+        ),
+        CheckConstraint(
+            "scope_kind IN ('tenant', 'profile', 'principal', 'api_key')",
+            name="ck_llm_budget_kind",
+        ),
+        CheckConstraint("period IN ('day', 'month')", name="ck_llm_budget_period"),
+        CheckConstraint("action IN ('refuse', 'warn')", name="ck_llm_budget_action"),
+    )
+
+
+class LlmReservation(UlidPrimaryKey, Base):
+    """Budget held while a call is in flight."""
+
+    __tablename__ = "llm_reservation"
+
+    tenant_id: Mapped[str] = mapped_column(String(26), nullable=False)
+    scopes_json: Mapped[list[str]] = mapped_column(JsonText, nullable=False)
+    reserved_micros: Mapped[int] = mapped_column(Integer, nullable=False)
+    reserved_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    expires_at: Mapped[str] = mapped_column(String(32), nullable=False)

@@ -13,7 +13,7 @@ from typing import Annotated, Any
 
 from fastapi import Form, Request
 
-from prama.core.errors import PramaError
+from prama.core.errors import PramaError, ValidationError
 from prama.llm.kinds import DIALECTS, KINDS, ProviderSpec, build
 from prama.llm.spi import Request as ModelRequest
 from prama.llm.wiring import gateway_for, persist
@@ -48,6 +48,12 @@ class LlmRoutes(UiRoutes):
             scope=ADMIN,
         )
         self.page("/models/try", self.try_prompt, name="models_try", methods=post, scope=ADMIN)
+        self.page(
+            "/models/prices", self.set_price, name="models_price_set", methods=post, scope=ADMIN
+        )
+        self.page(
+            "/models/budgets", self.set_budget, name="models_budget_set", methods=post, scope=ADMIN
+        )
 
     async def _context(self, uow: Any, tenant: str) -> dict[str, Any]:
         providers = await uow.llm.providers(tenant)
@@ -65,7 +71,13 @@ class LlmRoutes(UiRoutes):
                         "fallback_across_hosting": version.fallback_across_hosting,
                     }
                 )
+        from prama.llm.budget import period_start
+
+        spent, tokens = await uow.llm.spend(tenant, period_start("month"))
         return {
+            "budgets": await uow.llm.budgets(tenant),
+            "spent_micros": spent,
+            "spent_tokens": tokens,
             "providers": providers,
             "profiles": profiles,
             "calls": await uow.llm.calls(tenant, limit=25),
@@ -188,3 +200,69 @@ class LlmRoutes(UiRoutes):
             asked_purpose=purpose,
             **await self._context(uow, caller.tenant_id),
         )
+
+    async def set_price(
+        self,
+        request: Request,
+        uow: Uow,
+        caller: Caller,
+        provider: Annotated[str, Form()] = "",
+        model: Annotated[str, Form()] = "",
+        input_per_million: Annotated[str, Form()] = "0",
+        output_per_million: Annotated[str, Form()] = "0",
+    ) -> Any:
+        from decimal import Decimal, InvalidOperation
+
+        try:
+            try:
+                prices = [
+                    int(Decimal(v) * 1_000_000) for v in (input_per_million, output_per_million)
+                ]
+            except InvalidOperation as exc:
+                raise ValidationError(
+                    "a price is a number of currency units per million tokens",
+                    remedy="For example 2.50",
+                    cause=exc,
+                ) from exc
+            await uow.llm.set_price(
+                caller.tenant_id,
+                provider.strip(),
+                model.strip(),
+                input_micros=prices[0],
+                output_micros=prices[1],
+            )
+        except PramaError as exc:
+            flash_error_and_log(request, "That price could not be saved", exc)
+            return redirect_to(request, "models")
+        return redirect_to(request, "models", flash_message=f"Price for {model} saved.")
+
+    async def set_budget(
+        self,
+        request: Request,
+        uow: Uow,
+        caller: Caller,
+        period: Annotated[str, Form()] = "month",
+        limit: Annotated[str, Form()] = "",
+        action: Annotated[str, Form()] = "refuse",
+    ) -> Any:
+        from decimal import Decimal, InvalidOperation
+
+        try:
+            try:
+                micros = int(Decimal(limit) * 1_000_000)
+            except InvalidOperation as exc:
+                raise ValidationError(
+                    "a budget is an amount of money", remedy="For example 250.00", cause=exc
+                ) from exc
+            await uow.llm.set_budget(
+                caller.tenant_id,
+                scope_kind="tenant",
+                period=period,
+                limit_micros=micros,
+                action=action,
+                by=caller.principal_id,
+            )
+        except PramaError as exc:
+            flash_error_and_log(request, "That budget could not be saved", exc)
+            return redirect_to(request, "models")
+        return redirect_to(request, "models", flash_message=f"Estate {period}ly budget saved.")

@@ -40,6 +40,9 @@ class CallerIdentity:
     tenant_id: str
     principal_id: str | None = None
     scopes: tuple[str, ...] = ()
+    #: The key that authenticated the request, for per-key budgets and the
+    #: model-call ledger. None for a console session.
+    api_key_id: str | None = None
 
     def require_scope(self, scope: str) -> None:
         """Refuse unless this credential carries *scope*.
@@ -131,6 +134,7 @@ async def get_caller(
         tenant_id=record.tenant_id,
         principal_id=record.principal_id,
         scopes=tuple(record.scopes_json or ()),
+        api_key_id=str(record.id),
     )
 
 
@@ -195,6 +199,7 @@ Reader = scoped("declaration:read")
 Writer = scoped("declaration:write")
 RelationshipReader = scoped("relationship:read")
 RelationshipWriter = scoped("relationship:write")
+LlmUser = scoped("llm:use")
 Uow = Annotated[UnitOfWork, Depends(get_uow)]
 Config = Annotated[Configuration, Depends(get_config)]
 Db = Annotated[Database, Depends(get_database)]

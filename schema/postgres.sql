@@ -1278,3 +1278,54 @@ CREATE TABLE IF NOT EXISTS lin_gap (
     unit_ref  VARCHAR(512)  NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS ix_lin_gap_run ON lin_gap (run_id);
+
+-- ===========================================================================
+-- LLM GATEWAY, PRICES AND BUDGETS  (Wave 13)
+-- ===========================================================================
+-- Money is integer micro-units: no REAL rounding in a figure somebody will
+-- reconcile against an invoice. Prices are per million tokens, dated, and
+-- each call records the price row it was costed with. Spend is derived from
+-- llm_call, never kept as a second counter that could disagree with it.
+CREATE TABLE IF NOT EXISTS llm_model (
+    id                   VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id            VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    provider_id          VARCHAR(26)   NOT NULL REFERENCES llm_provider (id) ON DELETE CASCADE,
+    model                VARCHAR(128)  NOT NULL,
+    capabilities_json    TEXT          NOT NULL DEFAULT '{}',
+    context_window       INTEGER       NOT NULL DEFAULT 0,
+    price_in_micros      INTEGER       NOT NULL DEFAULT 0,
+    price_cached_micros  INTEGER       NOT NULL DEFAULT 0,
+    price_out_micros     INTEGER       NOT NULL DEFAULT 0,
+    currency             VARCHAR(3)    NOT NULL DEFAULT 'USD',
+    effective_from       VARCHAR(32)   NOT NULL,
+    created_at           VARCHAR(32)   NOT NULL,
+    CONSTRAINT uq_llm_model_price UNIQUE (provider_id, model, effective_from)
+);
+
+CREATE TABLE IF NOT EXISTS llm_budget (
+    id            VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id     VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    scope_kind    VARCHAR(16)   NOT NULL,
+    scope_id      VARCHAR(64)   NOT NULL DEFAULT '',
+    period        VARCHAR(8)    NOT NULL,
+    limit_micros  INTEGER,
+    limit_tokens  INTEGER,
+    action        VARCHAR(8)    NOT NULL DEFAULT 'refuse',
+    updated_at    VARCHAR(32)   NOT NULL,
+    updated_by    VARCHAR(26),
+    CONSTRAINT uq_llm_budget_scope UNIQUE (tenant_id, scope_kind, scope_id, period),
+    CONSTRAINT ck_llm_budget_kind CHECK (scope_kind IN ('tenant', 'profile', 'principal', 'api_key')),
+    CONSTRAINT ck_llm_budget_period CHECK (period IN ('day', 'month')),
+    CONSTRAINT ck_llm_budget_action CHECK (action IN ('refuse', 'warn'))
+);
+
+-- Reserved-but-unspent budget while a call is in flight, so a fleet cannot
+-- jointly overrun a limit. Rows expire; nothing depends on their deletion.
+CREATE TABLE IF NOT EXISTS llm_reservation (
+    id             VARCHAR(26)  NOT NULL PRIMARY KEY,
+    tenant_id      VARCHAR(26)  NOT NULL,
+    scopes_json    TEXT         NOT NULL,
+    reserved_micros INTEGER     NOT NULL,
+    reserved_tokens INTEGER     NOT NULL,
+    expires_at     VARCHAR(32)  NOT NULL
+);

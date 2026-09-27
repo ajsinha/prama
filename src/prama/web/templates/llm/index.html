@@ -62,6 +62,36 @@
   <div class="col-12"><button class="btn btn-primary" type="submit">Save as a new version</button></div>
 </form></details>
 
+<h2 class="h6">Spend and budgets</h2>
+<p class="small">This month: <strong>{{ '%.2f' % (spent_micros / 1000000) }}</strong> across
+  {{ '{:,}'.format(spent_tokens) }} tokens, derived from the call ledger.</p>
+<table class="table table-sm small" style="max-width: 44rem">
+  <thead><tr><th scope="col">Applies to</th><th scope="col">Period</th><th scope="col">Limit</th><th scope="col">At the limit</th></tr></thead>
+  <tbody>{% for b in budgets %}
+    <tr><td>{{ b.scope_kind }}{% if b.scope_id %} {{ b.scope_id }}{% endif %}</td><td>{{ b.period }}</td>
+      <td>{{ '%.2f' % ((b.limit_micros or 0) / 1000000) if b.limit_micros is not none else (b.limit_tokens ~ ' tokens') }}</td><td>{{ b.action }}</td></tr>
+  {% else %}<tr><td colspan="4" class="text-muted">No budgets: model spend is unlimited.</td></tr>{% endfor %}</tbody>
+</table>
+<div class="row g-4 mb-4" style="max-width: 60rem">
+  <form method="post" action="{{ url_for('models_budget_set') }}" class="col-md-6 row g-2">
+    <div class="col-12 fw-semibold small">Estate budget</div>
+    <div class="col-4"><label class="visually-hidden" for="b-period">Period</label>
+      <select class="form-select form-select-sm" id="b-period" name="period"><option value="month">monthly</option><option value="day">daily</option></select></div>
+    <div class="col-4"><label class="visually-hidden" for="b-limit">Limit</label><input class="form-control form-control-sm" id="b-limit" name="limit" placeholder="250.00" required></div>
+    <div class="col-4"><label class="visually-hidden" for="b-action">Action</label>
+      <select class="form-select form-select-sm" id="b-action" name="action"><option value="refuse">refuse</option><option value="warn">warn</option></select></div>
+    <div class="col-12"><button class="btn btn-sm btn-outline-primary" type="submit">Save budget</button></div>
+  </form>
+  <form method="post" action="{{ url_for('models_price_set') }}" class="col-md-6 row g-2">
+    <div class="col-12 fw-semibold small">Model price, per million tokens</div>
+    <div class="col-6"><label class="visually-hidden" for="m-provider">Provider</label><input class="form-control form-control-sm" id="m-provider" name="provider" placeholder="provider" required></div>
+    <div class="col-6"><label class="visually-hidden" for="m-model">Model</label><input class="form-control form-control-sm" id="m-model" name="model" placeholder="model" required></div>
+    <div class="col-6"><label class="visually-hidden" for="m-in">Input</label><input class="form-control form-control-sm" id="m-in" name="input_per_million" placeholder="input 3.00"></div>
+    <div class="col-6"><label class="visually-hidden" for="m-out">Output</label><input class="form-control form-control-sm" id="m-out" name="output_per_million" placeholder="output 15.00"></div>
+    <div class="col-12"><button class="btn btn-sm btn-outline-primary" type="submit">Save price</button></div>
+  </form>
+</div>
+
 <h2 class="h6">Try a prompt</h2>
 <form method="post" action="{{ url_for('models_try') }}" class="row g-2 mb-3" style="max-width: 52rem">
   <div class="col-md-3"><label class="visually-hidden" for="t-purpose">Purpose</label><input class="form-control" id="t-purpose" name="purpose" required value="{{ asked_purpose or 'author' }}"></div>

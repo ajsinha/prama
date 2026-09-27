@@ -69,3 +69,30 @@ async def test_the_schedule_page_says_when_the_scheduler_is_off(ui: Any) -> None
     page = await ui.get("/schedule")
     assert page.status_code == 200 and "The scheduler is off" in page.text
     assert "scheduler:" in page.text  # it shows how to turn it on
+
+
+async def test_a_budget_and_a_price_are_managed_on_the_page(
+    ui: Any, started_database: Database, tenant_id: str
+) -> None:
+    await ui.post(
+        "/models/providers", data={"name": "local", "kind": "scripted", "hosting": "self_hosted"}
+    )
+    assert (
+        await ui.post("/models/budgets", data={"period": "month", "limit": "250.00"})
+    ).status_code == 303
+    assert (
+        await ui.post(
+            "/models/prices",
+            data={
+                "provider": "local",
+                "model": "qwen",
+                "input_per_million": "2.50",
+                "output_per_million": "10",
+            },
+        )
+    ).status_code == 303
+    async with started_database.unit_of_work() as uow:
+        (budget,) = await uow.llm.budgets(tenant_id)
+        assert budget.limit_micros == 250_000_000
+    page = await ui.get("/models")
+    assert "250.00" in page.text and "This month" in page.text

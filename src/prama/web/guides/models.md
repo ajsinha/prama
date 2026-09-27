@@ -42,6 +42,27 @@ The gateway tries each step in order and retries a failure once before moving on
 back to a less local model** unless the profile allows it. Saving a profile makes a new version,
 so you can always tell which model wrote a proposal.
 
+## Budgets and cost
+
+Set a price per million tokens for each model (Models page, or `uow.llm.set_price`). Every call is
+then costed in integer micro-units from the price in force when it started. A budget for the
+estate, a profile, a person or an API key, per day or month, either **refuses** further calls
+(HTTP 429, and the refusal is recorded) or **warns**. Spend is always derived from the call
+ledger, so it cannot disagree with it.
+
+## For programs and agents
+
+Programs and Prama agents call the server rather than a provider:
+
+```bash
+curl -X POST http://127.0.0.1:5900/api/v1/llm/chat \
+     -H "Authorization: Bearer pk_live_…" -H "content-type: application/json" \
+     -d '{"purpose": "author", "prompt": "Write a control that trades.notional is never null"}'
+```
+
+The key needs the `llm:use` scope. The server applies the profile, residency, redaction, the
+budget and a per-person rate limit, and records the call. No program needs a provider key.
+
 ## Offline
 
 Set `llm.offline: true` in `config/application.yaml` for an air-gapped estate. Only self-hosted

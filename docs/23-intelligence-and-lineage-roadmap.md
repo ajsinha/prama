@@ -69,6 +69,19 @@ Three questions are answered here, each with a design note behind it:
     uncompiled model is a gap; Prama never renders a project's Jinja.
   - Warehouse access-history readers (Snowflake, Databricks, BigQuery) wait on those connectors
     meeting a live account (remaining-work §4).
+- **LLM phase 2, the core.**
+  - `POST /api/v1/llm/chat` needs the new `llm:use` scope, which the owner and steward roles
+    hold; admin holds everything. It has a bounded per-principal rate limit.
+  - The provider call runs off the event loop.
+  - **Pricing** is dated `llm_model` rows in integer micro-units, and a call is costed from the
+    price in force when it started.
+  - **Budgets** (tenant, profile, principal, API key; day or month; refuse or warn) are checked
+    against spend derived from the ledger. A refusal is HTTP 429, and is itself recorded as
+    `refused_budget`.
+  - The Models page shows this month's spend and sets budgets and prices.
+- **Still to do in phase 2:**
+  - the fleet-wide budget reservation under a lease (the check is per-server today);
+  - SSE streaming, the response cache, stored payloads and the pattern redactors (email, IBAN).
 - **Deferred, each to the phase that first needs it:**
   - The transport-module extraction, multi-turn messages and JSON-schema validation go to
     Wave 13, with the new wire formats.
