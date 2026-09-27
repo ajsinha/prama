@@ -246,9 +246,59 @@ class IngestDbtCommand(Command):
         return EXIT_OK
 
 
+class HistoryCommand(Command):
+    name = "history"
+    help = "column lineage from a warehouse's query history (Snowflake, Databricks, BigQuery)"
+
+    def configure(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("warehouse", choices=["snowflake", "databricks", "bigquery"])
+        parser.add_argument("rows", nargs="?", default="", help="an export: JSON list or CSV")
+        parser.add_argument("--source", default="", help="a name; defaults to <warehouse>-history")
+        parser.add_argument("--query", action="store_true", help="print the export query and stop")
+        _tenant_flag(parser)
+
+    def run(self, ctx: CommandContext) -> int:
+        import csv
+        import io
+        import json
+
+        from prama.lineage.history import QUERIES, ingest_history
+
+        if ctx.args.query or not ctx.args.rows:
+            ctx.emit(QUERIES[ctx.args.warehouse])
+            return EXIT_OK
+        text = _read(ctx.args.rows)
+        rows = (
+            list(csv.DictReader(io.StringIO(text)))
+            if ctx.args.rows.lower().endswith(".csv")
+            else json.loads(text)
+        )
+        source = ctx.args.source or f"{ctx.args.warehouse}-history"
+
+        async def work(uow: Any, tenant: str) -> dict[str, Any]:
+            run = await ingest_history(uow, tenant, ctx.args.warehouse, rows, source=source)
+            return {"rows": len(rows), "edges": run.edges, "gaps": run.gaps}
+
+        result = _with_uow(ctx, work)
+        if ctx.json_output:
+            ctx.emit_json(result)
+        else:
+            ctx.emit(
+                f"{source}: {result['rows']} rows, {result['edges']} edges, {result['gaps']} gaps"
+            )
+        return EXIT_OK
+
+
 class LineageCommand(CommandGroup):
     name = "lineage"
     help = "column lineage: scan SQL, show edges, impact, gaps"
 
     def commands(self) -> list[Command]:
-        return [ScanCommand(), IngestDbtCommand(), ShowCommand(), ImpactCommand(), GapsCommand()]
+        return [
+            ScanCommand(),
+            IngestDbtCommand(),
+            HistoryCommand(),
+            ShowCommand(),
+            ImpactCommand(),
+            GapsCommand(),
+        ]
