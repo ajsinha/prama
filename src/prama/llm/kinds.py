@@ -29,10 +29,12 @@ from prama.core.errors import ValidationError
 from prama.llm.providers import (
     DIALECTS,
     AnthropicProvider,
+    AzureOpenAiProvider,
     BedrockProvider,
     NullProvider,
     OpenAiCompatibleProvider,
     ScriptedProvider,
+    VertexProvider,
 )
 from prama.llm.spi import Hosting, ModelProvider
 from prama.secrets.value import SecretValue
@@ -43,6 +45,8 @@ KINDS: dict[str, str] = {
     "openai_compatible": "vLLM, Ollama, llama.cpp, LM Studio, TGI, or any OpenAI-shaped API",
     "anthropic": "Anthropic's Messages API",
     "bedrock": "Amazon Bedrock's Converse API, signed with SigV4",
+    "azure_openai": "Azure OpenAI: a deployment in your Azure tenant (model = deployment name)",
+    "vertex": "Google Vertex AI's OpenAI-compatible endpoint (credential = access token)",
     "scripted": "fixed answers, for demonstrations and tests",
     "none": "no model: every feature falls back to its deterministic path",
 }
@@ -103,7 +107,7 @@ def build(
             context={"provider": spec.name},
             cause=exc,
         ) from exc
-    networked = spec.kind in ("openai_compatible", "anthropic", "bedrock")
+    networked = spec.kind in ("openai_compatible", "anthropic", "bedrock", "azure_openai", "vertex")
     if (
         offline
         and networked
@@ -126,6 +130,18 @@ def build(
             api_key=credential,
             hosting=hosting,
             dialect=spec.dialect or "generic",
+            gate=gate,
+            region=spec.region,
+            timeout=float(spec.settings.get("timeout_s", 60.0)),
+            **extra,
+        )
+    if spec.kind in ("azure_openai", "vertex"):
+        cls = AzureOpenAiProvider if spec.kind == "azure_openai" else VertexProvider
+        return cls(
+            endpoint=spec.endpoint,
+            model=model,
+            api_key=credential,
+            hosting=hosting,
             gate=gate,
             region=spec.region,
             timeout=float(spec.settings.get("timeout_s", 60.0)),

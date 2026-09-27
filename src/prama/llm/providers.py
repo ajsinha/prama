@@ -271,10 +271,17 @@ class OpenAiCompatibleProvider(_HttpProvider):
         self.dialect = dialect
         super().__init__(hosting=hosting, **kwargs)
 
-    def complete(self, request: Request) -> Response:
-        headers = {}
+    def _path(self) -> str:
+        """Where chat completions are posted, relative to the endpoint."""
+        return "/v1/chat/completions"
+
+    def _auth(self, headers: dict[str, str]) -> dict[str, str]:
         if self._api_key is not None:
             headers["authorization"] = f"Bearer {self._api_key.reveal()}"
+        return headers
+
+    def complete(self, request: Request) -> Response:
+        headers = self._auth({})
         body: dict[str, Any] = {
             "model": self._model,
             "messages": [
@@ -301,7 +308,7 @@ class OpenAiCompatibleProvider(_HttpProvider):
 
         started = time.monotonic()
         try:
-            payload = self._post("/v1/chat/completions", body, headers)
+            payload = self._post(self._path(), body, headers)
         except (urllib.error.URLError, OSError, ValueError, TimeoutError) as error:
             return self._failure(request, error)
         usage = payload.get("usage") or {}
@@ -322,9 +329,7 @@ class OpenAiCompatibleProvider(_HttpProvider):
 
     def stream(self, request: Request) -> Iterator[str]:
         """Tokens from ``/v1/chat/completions`` with ``stream: true`` (SSE)."""
-        headers = {"content-type": "application/json"}
-        if self._api_key is not None:
-            headers["authorization"] = f"Bearer {self._api_key.reveal()}"
+        headers = self._auth({"content-type": "application/json"})
         body = {
             "model": self._model,
             "messages": [
@@ -338,7 +343,7 @@ class OpenAiCompatibleProvider(_HttpProvider):
         if request.seed is not None:
             body["seed"] = request.seed
         call = urllib.request.Request(
-            url=f"{self._endpoint}/v1/chat/completions",
+            url=f"{self._endpoint}{self._path()}",
             data=json.dumps(body).encode("utf-8"),
             headers=headers,
             method="POST",
@@ -356,6 +361,62 @@ class OpenAiCompatibleProvider(_HttpProvider):
                 continue  # a malformed event is skipped, not fatal to the stream
             if delta.get("content"):
                 yield str(delta["content"])
+
+
+class AzureOpenAiProvider(OpenAiCompatibleProvider):
+    """Azure OpenAI: a deployment in the customer's own Azure tenant.
+
+    The route's model is the *deployment* name, and the key travels as
+    ``api-key``. Hosting defaults to `tenant`, which is what Azure OpenAI is.
+    """
+
+    name: ClassVar[str] = "azure_openai"
+    hosting: ClassVar[Hosting] = Hosting.TENANT
+    #: Pinned, for the same reason as Anthropic's: a moving API version changes
+    #: what every proposal was generated from without recording that it did.
+    api_version: ClassVar[str] = "2024-10-21"
+
+    def __init__(self, *, hosting: Hosting | None = None, **kwargs: Any) -> None:
+        kwargs["dialect"] = "openai"
+        super().__init__(hosting=hosting or Hosting.TENANT, **kwargs)
+
+    def _path(self) -> str:
+        deployment = urllib.parse.quote(self._model, safe="")
+        return f"/openai/deployments/{deployment}/chat/completions?api-version={self.api_version}"
+
+    def _auth(self, headers: dict[str, str]) -> dict[str, str]:
+        if self._api_key is not None:
+            headers["api-key"] = self._api_key.reveal()
+        return headers
+
+
+class VertexProvider(OpenAiCompatibleProvider):
+    """Google Vertex AI through its OpenAI-compatible endpoint.
+
+    The endpoint is the full base,
+    ``https://<location>-aiplatform.googleapis.com/v1/projects/<project>/locations/<location>/endpoints/openapi``,
+    and the credential reference resolves to an OAuth access token (for example
+    one refreshed by `gcloud auth print-access-token` into the secret store).
+    Models are named as Vertex names them: ``google/gemini-2.0-flash-001``.
+    """
+
+    name: ClassVar[str] = "vertex"
+    hosting: ClassVar[Hosting] = Hosting.HOSTED
+
+    def __init__(self, *, hosting: Hosting | None = None, **kwargs: Any) -> None:
+        if "/endpoints/openapi" not in str(kwargs.get("endpoint", "")):
+            raise ValidationError(
+                "a Vertex provider needs its OpenAI-compatible endpoint",
+                remedy=(
+                    "Set the endpoint to https://<location>-aiplatform.googleapis.com/v1/"
+                    "projects/<project>/locations/<location>/endpoints/openapi."
+                ),
+            )
+        kwargs["dialect"] = "openai"
+        super().__init__(hosting=hosting or Hosting.HOSTED, **kwargs)
+
+    def _path(self) -> str:
+        return "/chat/completions"
 
 
 class AnthropicProvider(_HttpProvider):

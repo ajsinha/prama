@@ -24,6 +24,13 @@ prama llm provider add vendor --kind anthropic --hosting hosted \
   settings (`aws_region`) and a credential reference resolving to
   `ACCESS_KEY_ID:SECRET_ACCESS_KEY[:SESSION_TOKEN]`. Requests are signed with SigV4, checked against
   AWS's own published example.
+- **Azure OpenAI**: `--kind azure_openai --hosting tenant --endpoint https://<resource>.openai.azure.com`.
+  The route's model is the **deployment name**. The key is sent as `api-key`, and the API version
+  is pinned.
+- **Google Vertex AI**: `--kind vertex --hosting hosted`, with the endpoint set to
+  `https://<location>-aiplatform.googleapis.com/v1/projects/<project>/locations/<location>/endpoints/openapi`.
+  The credential reference resolves to an OAuth access token. Models are Vertex names, such as
+  `google/gemini-2.0-flash-001`.
 - **OpenAI, Hugging Face and other OpenAI-shaped APIs**: `--kind openai_compatible --hosting hosted`
   with the vendor's endpoint and a credential reference.
 - **Hosting is required** and decides what data may be sent: `self_hosted` may receive anything,
