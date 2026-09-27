@@ -42,9 +42,16 @@ Three questions are answered here, each with a design note behind it:
     versus `inferred` versus a person's decision) and `lin_gap`.
   - **Code:** `prama.lineage.store.scan_sql` and `prama lineage scan|show|impact|gaps`.
   - **The Lineage page:** edges, confirm and reject, an impact drawing, recent scans, and gaps.
-- **Still to do in Wave 12:**
-  - give `score/trust.py` and `incident/rca.py` the persisted graph (E1 acceptance 2);
-  - the always-on scheduler.
+- **Trust over the persisted graph (E1 acceptance 2).** `prama.lineage.trust` derives local
+  trust from the latest verdicts. A 40%-violating upstream control gives 0.60 downstream, and
+  rejecting the edge restores 1.00. The incident page lists upstream feeders with their trust.
+  The full RCA ranker waits for correlated incidents.
+- **Always-on scheduler.**
+  - `prama.execute.scheduler` runs inside `prama serve` under the task supervisor, with one
+    server per tick by a database lease.
+  - It is off unless `scheduler.enabled`, `scheduler.against` and a default tenant are set.
+  - The Schedule page shows the recent ticks and has a "run a tick now" button.
+- **Wave 12 is complete.**
 - **Deferred, each to the phase that first needs it:**
   - The transport-module extraction, multi-turn messages and JSON-schema validation go to
     Wave 13, with the new wire formats.

@@ -1,0 +1,36 @@
+{# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{% extends "base.html" %}
+{% block title %}Schedule — Prama{% endblock %}
+{% block heading %}Schedule{% endblock %}
+{% block content %}
+{% if not scheduler %}
+<div class="alert alert-info" style="max-width: 52rem">
+  <p class="mb-2"><strong>The scheduler is off</strong>, so controls run only when something calls
+    <code>prama control run</code>. To run them from this server, set in <code>config/application.local.yaml</code>:</p>
+  <pre class="mb-0"><code>scheduler:
+  enabled: true
+  interval: 60s
+  against: /data/warehouse.duckdb
+  dialect: duckdb
+tenancy:
+  default_tenant: &lt;your estate id&gt;</code></pre>
+</div>
+{% else %}
+<p>Every <strong>{{ '%.0f' % scheduler.interval }} s</strong>, due controls run against <code>{{ scheduler.against }}</code>
+  ({{ scheduler.dialect }}). One server runs each tick, by a database lease.</p>
+<form method="post" action="{{ url_for('schedule_run') }}" class="mb-3"><button class="btn btn-sm btn-primary" type="submit">Run a tick now</button></form>
+<table class="table table-sm small">
+  <thead><tr><th scope="col">Started</th><th scope="col">Outcome</th><th scope="col">Controls run</th><th scope="col">Verdicts</th><th scope="col">Detail</th></tr></thead>
+  <tbody>
+  {% for t in scheduler.history %}
+    <tr><td>{{ t.started_at }}</td>
+      <td><span class="badge {{ {'ran': 'text-bg-success', 'skipped': 'text-bg-secondary'}.get(t.outcome, 'text-bg-danger') }}">{{ t.outcome }}</span></td>
+      <td>{{ t.executed }}</td><td>{% for v, n in t.verdicts.items() %}{{ v }} {{ n }}{% if not loop.last %}, {% endif %}{% endfor %}</td>
+      <td>{{ t.detail }}</td></tr>
+  {% else %}
+    <tr><td colspan="5" class="text-muted">No ticks yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

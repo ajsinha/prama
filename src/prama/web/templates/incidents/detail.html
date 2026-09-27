@@ -172,4 +172,20 @@
 {% endif %}
 
 <p class="mt-3"><a href="{{ url_for('incident_list') }}">Back to what is wrong</a></p>
+
+{% if upstream %}
+<section class="mt-4" aria-labelledby="upstream-h">
+  <h2 class="h6" id="upstream-h">Upstream, from the lineage store</h2>
+  <p class="small text-muted">The datasets that feed this one. A failure is often inherited; a feeder whose own
+    controls are failing is the first place to look.</p>
+  <ul class="small">
+  {% for u in upstream %}
+    <li><a href="{{ url_for('lineage') }}?dataset={{ u.dataset | urlencode }}"><code>{{ u.dataset }}</code></a>
+      {% if u.trust is none %}<span class="text-muted">— not examined</span>
+      {% elif u.trust < 1 %}<span class="badge text-bg-warning">trust {{ '%.2f' % u.trust }}</span>
+      {% else %}<span class="badge text-bg-success">passing</span>{% endif %}</li>
+  {% endfor %}
+  </ul>
+</section>
+{% endif %}
 {% endblock %}

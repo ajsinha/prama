@@ -63,3 +63,9 @@ async def test_the_page_is_for_administrators(
         await uow.roles.grant(str(person.id), str(role.id))
     await ui.post("/sign-in", data={"username": "sam", "password": "correct horse battery staple"})
     assert (await ui.get("/models")).status_code == 403
+
+
+async def test_the_schedule_page_says_when_the_scheduler_is_off(ui: Any) -> None:
+    page = await ui.get("/schedule")
+    assert page.status_code == 200 and "The scheduler is off" in page.text
+    assert "scheduler:" in page.text  # it shows how to turn it on

@@ -19,6 +19,10 @@
 {% if impact %}
 <section class="mb-4" aria-labelledby="impact-h">
   <h2 class="h6" id="impact-h">Impact of <code>{{ impact.origin }}</code></h2>
+  {% if not impact.error %}
+  <p class="small"><strong>Trust {{ '%.2f' % impact.trust }}</strong>
+    <span class="text-muted">— {{ impact.trust_explained }}</span></p>
+  {% endif %}
   {% if impact.error %}<div class="alert alert-warning">{{ impact.error }}</div>
   {% elif not impact.reached and not impact.upstream %}<p class="text-muted">Nothing upstream or downstream of it in the lineage store.</p>
   {% else %}

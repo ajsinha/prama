@@ -31,7 +31,7 @@ Ordered by what I would take first. Each item says why it matters.
 
 | # | Item | Why it matters |
 |---|---|---|
-| 2.1 | **An always-on scheduler inside `prama serve`** (supervised, lease-fenced, using `prama.schedule`) | Today evidence arrives only when cron or CI calls `prama control run`; that is the biggest functional gap in the product |
+| 2.1 | ~~**An always-on scheduler inside `prama serve`** (supervised, lease-fenced, using `prama.schedule`)~~ **done** in Wave 12 | Today evidence arrives only when cron or CI calls `prama control run`; that is the biggest functional gap in the product |
 | 2.2 | Re-querying the source for fresh failing rows in sample drill-down | Needs the connector query path |
 | 2.3 | Previews against a warehouse rather than a local DuckDB/SQLite file | The studio cannot preview on the estate it governs |
 | 2.4 | `DEC-17` streaming benchmark: the transport half | The evaluation half is measured; the transport is open |

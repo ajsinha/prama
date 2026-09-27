@@ -17,6 +17,7 @@ from fastapi import Form, Query, Request
 
 from prama.core.errors import PramaError
 from prama.lineage.graph import Column
+from prama.lineage.trust import trust_of
 from prama.web.deps import Caller, Uow
 from prama.web.rendering import flash_error_and_log, redirect_to, render
 from prama.web.routes.base import UiRoutes
@@ -55,7 +56,11 @@ class LineageRoutes(UiRoutes):
                 origin = Column.parse(column.strip())
                 graph = await uow.lineage.graph(tenant)
                 radius = graph.blast_radius(origin)
+                latest = (await uow.evidence.latest_per_control(tenant)).values()
+                trust = trust_of(origin, graph, latest)
                 impact = {
+                    "trust": trust.score,
+                    "trust_explained": trust.explain(),
                     "origin": origin.qualified,
                     "upstream": [e.source.qualified for e in graph.upstream(origin)],
                     "reached": [(r.column.qualified, r.impact, r.depth) for r in radius.reached],

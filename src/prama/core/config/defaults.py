@@ -54,6 +54,15 @@ DEFAULTS: dict[str, Any] = {
         "host": "127.0.0.1",
         "port": 5900,
     },
+    "scheduler": {
+        # Off unless configured: a scheduler that ran against a default source
+        # would produce evidence nobody asked for about data nobody named.
+        "enabled": False,
+        "interval": "60s",
+        # The data the controls run against: a local .duckdb or .sqlite file.
+        "against": "",
+        "dialect": "duckdb",
+    },
     "llm": {
         # Providers and profiles are data (the Models page, `prama llm`); this
         # is deployment policy only. Offline builds only self-hosted providers
