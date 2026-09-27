@@ -71,8 +71,9 @@
         <tbody>
           {% for proposal in proposals %}
           <tr>
-            <td><a href="{{ url_for('dataset_detail', dataset_id=proposal.dataset_id) }}">
-              {{ proposal.dataset }}</a></td>
+            <td>{% if proposal.dataset_id %}<a href="{{ url_for('dataset_detail', dataset_id=proposal.dataset_id) }}">
+              {{ proposal.dataset }}</a>{% else %}{# From lineage: a dataset seen in code, perhaps never declared. #}
+              <a href="{{ url_for('lineage') }}?dataset={{ proposal.dataset | urlencode }}">{{ proposal.dataset }}</a>{% endif %}</td>
             <td><code class="small">{{ proposal.rule }}</code></td>
             <td class="small">{{ proposal.sentence }}</td>
             <td>
