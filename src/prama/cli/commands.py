@@ -16,6 +16,7 @@ from prama.cli.apikey import ApiKeyCommand
 from prama.cli.base import EXIT_DRIFT, EXIT_OK, Command, CommandContext, CommandGroup
 from prama.cli.bench import BenchCommand
 from prama.cli.bundle import BundleCommand
+from prama.cli.code import CodeCommand
 from prama.cli.connect import ConnectCommand, ConnectorsCommand
 from prama.cli.contract import ContractCommand
 from prama.cli.control import ControlCommand
@@ -317,6 +318,7 @@ def all_commands() -> list[Command]:
         ApiKeyCommand(),
         LlmCommand(),
         LineageCommand(),
+        CodeCommand(),
         ServeCommand(),
         TenantCommand(),
     ]

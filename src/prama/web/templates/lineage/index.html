@@ -6,7 +6,8 @@
 <p class="text-muted small" style="max-width: 56rem">Column lineage from every source Prama has read. Each edge says
   how it is known: <strong>parsed</strong> by the SQL parser, <strong>inferred</strong> (by the fallback reader or a
   model, waiting for a person), or <strong>confirmed</strong> by one. Scan SQL with
-  <code>prama lineage scan etl/ --source warehouse</code>.</p>
+  <code>prama lineage scan etl/ --source warehouse</code>, or
+  <a href="{{ url_for('code') }}">send an application's code</a> as a ZIP or a git location.</p>
 
 <form class="row g-2 mb-4" method="get" action="{{ url_for('lineage') }}" style="max-width: 56rem">
   <div class="col-md-5"><label class="form-label small" for="l-dataset">Edges touching a dataset</label>

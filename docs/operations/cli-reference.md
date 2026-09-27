@@ -23,6 +23,7 @@ need different people.
 | [`prama apikey`](#prama-apikey) | API keys: the credential the HTTP API requires |
 | [`prama bench`](#prama-bench) | the labelled defect corpus, and what scores on it |
 | [`prama bundle`](#prama-bundle) | seal and verify an offline install |
+| [`prama code`](#prama-code) | application code: receive a ZIP or a git ref, read its lineage |
 | [`prama config`](#prama-config) | inspect configuration |
 | [`prama connect`](#prama-connect) | test, browse and profile a configured source |
 | [`prama connectors`](#prama-connectors) | list the installed connectors and what each one needs |
@@ -119,6 +120,40 @@ seal and verify an offline install
 |---|---|
 | `root` **required** |  |
 | `--publisher-key` | the publisher's Ed25519 public key, to check provenance |
+
+## `prama code`
+
+application code: receive a ZIP or a git ref, read its lineage
+
+| Subcommand | What it does |
+|---|---|
+| `prama code add-git` | fetch one ref of a git repository and read its lineage (never executed) |
+| `prama code add-zip` | receive a ZIP of application code and read its lineage (never executed) |
+| `prama code runs` | recent analysis runs |
+
+**`prama code add-git`**
+
+| Argument | Meaning |
+|---|---|
+| `url` **required** | https:// or ssh:// (git@host:org/repo.git) |
+| `--ref` |  |
+| `--source` **required** |  |
+| `--credential-ref` | e.g. env://GIT_TOKEN |
+| `--dialect` |  |
+| `--tenant` | slug or id; defaults to the configured one |
+**`prama code add-zip`**
+
+| Argument | Meaning |
+|---|---|
+| `archive` **required** |  |
+| `--source` **required** | a name for this code |
+| `--dialect` |  |
+| `--tenant` | slug or id; defaults to the configured one |
+**`prama code runs`**
+
+| Argument | Meaning |
+|---|---|
+| `--tenant` | slug or id; defaults to the configured one |
 
 ## `prama config`
 

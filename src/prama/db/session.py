@@ -49,6 +49,7 @@ if TYPE_CHECKING:
         SettingDao,
         TenantDao,
     )
+    from prama.db.dao.code import CodeDao
     from prama.db.dao.lineage import LineageDao
     from prama.db.dao.llm import LlmDao
 
@@ -150,6 +151,12 @@ class UnitOfWork:
         from prama.db.dao import AuditDao
 
         return self._dao("audit", AuditDao)  # type: ignore[no-any-return]
+
+    @property
+    def code(self) -> CodeDao:
+        from prama.db.dao.code import CodeDao
+
+        return self._dao("code", CodeDao)  # type: ignore[no-any-return]
 
     @property
     def lineage(self) -> LineageDao:

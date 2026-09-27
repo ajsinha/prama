@@ -54,6 +54,16 @@ DEFAULTS: dict[str, Any] = {
         "host": "127.0.0.1",
         "port": 5900,
     },
+    "codeintake": {
+        # Where received code is extracted while it is read; deleted after.
+        "workdir": "data/code",
+        # Seconds the sandboxed reader may take for one snapshot.
+        "timeout": 300,
+        "git": {
+            # Empty: any public host. A list: only these hosts.
+            "allowed_hosts": [],
+        },
+    },
     "scheduler": {
         # Off unless configured: a scheduler that ran against a default source
         # would produce evidence nobody asked for about data nobody named.
