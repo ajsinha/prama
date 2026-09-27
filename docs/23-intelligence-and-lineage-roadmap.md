@@ -190,11 +190,16 @@ Three questions are answered here, each with a design note behind it:
   - **Guard.** An AST scan fails the build if the steward package calls `activate`, `accept`,
     `sign`, `decide`, `approve`, `confirm` or `suppress`.
   - The Agents page and a help guide.
-- **Still to do in Wave 16:**
-  - the remote agent protocol (claim, heartbeat and result with fencing tokens) for stewards
-    running outside the server;
-  - approval gates;
-  - E8, the curation assistants.
+- **Remote protocol (`prama.steward.protocol`, `/api/v1/agents/*`, scope `agent:work`).**
+  - Claim leases `agt-task:<id>` and hands out the lease's fencing token. A heartbeat renews it
+    or answers `cancel`. A result or approval request carrying a stale token is refused with 409.
+  - Abandoned tasks are re-queued with a new token.
+  - A paused steward's claims are refused (403), and a key that is not a steward's cannot act as
+    one.
+- **Approval gates.** A goal with `approve_before_run` parks each task until a person grants it
+  (it then runs) or denies it (it fails). Remote agents ask with `/ask`. The console shows open
+  approvals. An approval covers the agent's action, never a control.
+- **Still to do in Wave 16:** E8, the curation assistants (glossary and description drafting).
 
 Before Wave 12, what existed and what these waves build on:
 

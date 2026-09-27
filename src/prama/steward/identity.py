@@ -13,6 +13,7 @@ from prama.core.errors import ValidationError
 #: What a steward may do: read, call models through the gateway, and nothing
 #: that decides. Its outputs are proposals and notes for people.
 STEWARD_SCOPES: tuple[str, ...] = (
+    "agent:work",
     "llm:use",
     "declaration:read",
     "relationship:read",

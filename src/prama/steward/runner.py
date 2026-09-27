@@ -18,6 +18,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from prama.core.log import get_logger
+from prama.steward.protocol import requeue_expired
 from prama.steward.tools import TOOLS, Context
 
 _log = get_logger(__name__)
@@ -44,9 +45,14 @@ async def run_task(
     uow: Any, config: Any, tenant_id: str, steward: Any, goal: Any, *, key: str
 ) -> Any:
     """Create and run one task for *goal*. Returns the task."""
+    task = await uow.stewards.add_task(tenant_id, goal, key)
+    return await execute(uow, config, tenant_id, steward, goal, task)
+
+
+async def execute(uow: Any, config: Any, tenant_id: str, steward: Any, goal: Any, task: Any) -> Any:
+    """Run an existing task on the server, as the steward."""
     from prama.llm.wiring import gateway_for, persist
 
-    task = await uow.stewards.add_task(tenant_id, goal, key)
     _, purpose, tool = TOOLS.get(goal.kind, ("", None, None))
     task.started_at, task.state, task.attempts = (
         _now().isoformat(timespec="milliseconds"),
@@ -81,7 +87,13 @@ async def run_task(
 
 
 async def tick(database: Any, config: Any) -> int:
-    """Run every due goal of every active steward, once. Returns tasks run."""
+    """One pass over every active steward's goals. Returns tasks run here.
+
+    A remote goal only has its due task queued, for a steward process to
+    claim over the API. A goal marked `approve_before_run` parks its task until
+    a person grants it; granted tasks run on the next pass. Tasks whose remote
+    holder vanished are re-queued.
+    """
     ran = 0
     async with database.unit_of_work() as uow:
         tenants = [t.id for t in await uow.tenants.list_active(limit=1000)]
@@ -90,9 +102,27 @@ async def tick(database: Any, config: Any) -> int:
             for steward in await uow.stewards.all(tenant_id):
                 if steward.state != "active":
                     continue
-                for goal in await uow.stewards.goals(tenant_id, steward.id):
+                goals = await uow.stewards.goals(tenant_id, steward.id)
+                await requeue_expired(uow, database, tenant_id, [g.id for g in goals])
+                for goal in goals:
+                    if goal.state != "active":
+                        continue
+                    # The switch is changed from another transaction (the
+                    # console), so it is re-read from a fresh one before acting.
+                    async with database.unit_of_work() as fresh:
+                        current = await fresh.stewards.one(tenant_id, steward.id)
+                    if current is None or current.state != "active":
+                        break
+                    remote = bool(goal.input_json.get("remote"))
+                    if not remote:
+                        # Tasks a person approved since the last pass run now.
+                        for granted in await uow.stewards.tasks_in(
+                            tenant_id, [goal.id], ("pending",)
+                        ):
+                            await execute(uow, config, tenant_id, steward, goal, granted)
+                            ran += 1
                     every = interval(goal.schedule)
-                    if goal.state != "active" or every is None:
+                    if every is None:
                         continue
                     last = await uow.stewards.last_task(tenant_id, goal.id)
                     if (
@@ -100,21 +130,20 @@ async def tick(database: Any, config: Any) -> int:
                         and datetime.fromisoformat(last.created_at) + every > _now()
                     ):
                         continue
-                    # The switch is changed from another transaction (the console),
-                    # so it is re-read from a fresh one just before acting.
-                    async with database.unit_of_work() as fresh:
-                        current = await fresh.stewards.one(tenant_id, steward.id)
-                    if current is None or current.state != "active":
-                        break
-                    await run_task(
-                        uow,
-                        config,
-                        tenant_id,
-                        steward,
-                        goal,
-                        key=f"{goal.id}:{_now().strftime('%Y%m%dT%H%M')}",
-                    )
-                    ran += 1
+                    key = f"{goal.id}:{_now().strftime('%Y%m%dT%H%M')}"
+                    if remote:
+                        await uow.stewards.add_task(tenant_id, goal, key)
+                    elif goal.input_json.get("approve_before_run"):
+                        task = await uow.stewards.add_task(tenant_id, goal, key)
+                        await uow.stewards.request_approval(
+                            tenant_id,
+                            task,
+                            {"kind": goal.kind, "input": goal.input_json},
+                            f"scheduled run of: {goal.statement}",
+                        )
+                    else:
+                        await run_task(uow, config, tenant_id, steward, goal, key=key)
+                        ran += 1
     return ran
 
 

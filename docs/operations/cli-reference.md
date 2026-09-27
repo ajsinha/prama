@@ -60,7 +60,7 @@ API keys: the credential the HTTP API requires
 | `name` **required** | what this key is for, e.g. 'ci' or 'etl-nightly' |
 | `--tenant` | slug or id; defaults to the configured one |
 | `--principal` **required** | username the key acts as. Required: every key is attributable, so an audit trail names a person and not just a credential. The principal's roles are NOT inherited — scopes are explicit. |
-| `--scope` | repeatable; one of admin, attestation:read, attestation:sign, break:read, break:write, control:approve, control:propose, control:read, declaration:read, declaration:write, evidence:read, incident:read, incident:write, llm:use, relationship:read, relationship:write, report:read, or '*' |
+| `--scope` | repeatable; one of admin, agent:work, attestation:read, attestation:sign, break:read, break:write, control:approve, control:propose, control:read, declaration:read, declaration:write, evidence:read, incident:read, incident:write, llm:use, relationship:read, relationship:write, report:read, or '*' |
 | `--expires-in-days` | 0 means no expiry, which is a decision rather than a default |
 | `--environment` | prefix tag: live \| test |
 **`prama apikey list`**

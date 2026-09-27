@@ -12,7 +12,7 @@ from sqlalchemy import select
 
 from prama.core.errors import ConflictError
 from prama.db.dao.base import Dao
-from prama.db.models.steward import AgtGoal, AgtMemory, AgtSteward, AgtTask
+from prama.db.models.steward import AgtApproval, AgtGoal, AgtMemory, AgtSteward, AgtTask
 
 
 def _now() -> str:
@@ -50,6 +50,62 @@ class StewardDao(Dao[AgtSteward]):
     async def one(self, tenant_id: str, steward_id: str) -> AgtSteward | None:
         row = await self._session.get(AgtSteward, steward_id)
         return row if row is not None and row.tenant_id == tenant_id else None
+
+    async def by_principal(self, tenant_id: str, principal_id: str) -> AgtSteward | None:
+        await self._session.flush()
+        result = await self._session.execute(
+            select(AgtSteward).where(
+                AgtSteward.tenant_id == tenant_id, AgtSteward.principal_id == principal_id
+            )
+        )
+        return result.scalars().first()
+
+    async def task(self, tenant_id: str, task_id: str) -> AgtTask | None:
+        row = await self._session.get(AgtTask, task_id)
+        return row if row is not None and row.tenant_id == tenant_id else None
+
+    async def tasks_in(
+        self, tenant_id: str, goal_ids: list[str], states: tuple[str, ...]
+    ) -> list[AgtTask]:
+        if not goal_ids:
+            return []
+        result = await self._session.execute(
+            select(AgtTask)
+            .where(
+                AgtTask.tenant_id == tenant_id,
+                AgtTask.goal_id.in_(goal_ids),
+                AgtTask.state.in_(states),
+            )
+            .order_by(AgtTask.created_at)
+        )
+        return list(result.scalars().all())
+
+    async def open_approvals(self, tenant_id: str) -> list[AgtApproval]:
+        result = await self._session.execute(
+            select(AgtApproval)
+            .where(AgtApproval.tenant_id == tenant_id, AgtApproval.state == "open")
+            .order_by(AgtApproval.created_at)
+        )
+        return list(result.scalars().all())
+
+    async def approval(self, tenant_id: str, approval_id: str) -> AgtApproval | None:
+        row = await self._session.get(AgtApproval, approval_id)
+        return row if row is not None and row.tenant_id == tenant_id else None
+
+    async def request_approval(
+        self, tenant_id: str, task: AgtTask, action: dict[str, Any], justification: str
+    ) -> AgtApproval:
+        row = AgtApproval(
+            tenant_id=tenant_id,
+            task_id=task.id,
+            action_json=action,
+            justification=justification[:4000],
+            created_at=_now(),
+        )
+        task.state = "awaiting_approval"
+        self._session.add(row)
+        await self._session.flush()
+        return row
 
     async def add_goal(
         self,

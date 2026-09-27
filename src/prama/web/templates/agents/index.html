@@ -13,6 +13,20 @@
   <pre class="mb-0 mt-1 user-select-all"><code>{{ issued.key }}</code></pre></div>
 {% endif %}
 
+{% if approvals %}
+<section class="alert alert-warning" aria-labelledby="approvals-h">
+  <h2 class="h6" id="approvals-h">Waiting for your approval</h2>
+  {% for a in approvals %}
+  <div class="d-flex flex-wrap gap-2 align-items-center mb-2 small">
+    <span>{{ a.justification or 'An agent asks to act' }}: <code>{{ a.action_json }}</code></span>
+    <form method="post" action="{{ url_for('agents_decide', approval_id=a.id) }}"><input type="hidden" name="answer" value="grant"><button class="btn btn-sm btn-success" type="submit">Grant</button></form>
+    <form method="post" action="{{ url_for('agents_decide', approval_id=a.id) }}"><input type="hidden" name="answer" value="deny"><button class="btn btn-sm btn-outline-danger" type="submit">Deny</button></form>
+  </div>
+  {% endfor %}
+  <p class="small mb-0">Granting lets the agent take that one action. It never approves a control: anything the agent proposes still goes to the Proposals queue.</p>
+</section>
+{% endif %}
+
 <form method="post" action="{{ url_for('agents_new') }}" class="row g-2 mb-4" style="max-width: 32rem">
   <div class="col-8"><label class="visually-hidden" for="a-name">Name</label>
     <input class="form-control form-control-sm" id="a-name" name="name" required placeholder="lineage-keeper"></div>
@@ -47,6 +61,10 @@
     <div class="col-md-3"><label class="visually-hidden" for="g-source-{{ s.id }}">Code source</label><input class="form-control form-control-sm" id="g-source-{{ s.id }}" name="source" placeholder="code source (if any)"></div>
     <div class="col-md-2"><label class="visually-hidden" for="g-sched-{{ s.id }}">Schedule</label><input class="form-control form-control-sm" id="g-sched-{{ s.id }}" name="schedule" placeholder="6h, 1d"></div>
     <div class="col-md-3"><button class="btn btn-sm btn-outline-primary w-100" type="submit">Add goal</button></div>
+    <div class="col-12 small d-flex gap-3">
+      <label class="form-check-label"><input class="form-check-input me-1" type="checkbox" name="approve_before_run" value="1">ask me before each run</label>
+      <label class="form-check-label"><input class="form-check-input me-1" type="checkbox" name="remote" value="1">done by the agent's own process (claimed over the API)</label>
+    </div>
   </form>
   {% endif %}
 </section>
