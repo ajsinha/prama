@@ -67,6 +67,7 @@ async def execute(uow: Any, config: Any, tenant_id: str, steward: Any, goal: Any
             surface="steward",
             principal_id=steward.principal_id,
             offline=config.get_bool("llm.offline", False),
+            config=config,
         )
     try:
         if tool is None:

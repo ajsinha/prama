@@ -462,8 +462,11 @@ model providers, profiles and the call ledger
 |---|---|
 | `prama llm ask` | send one prompt through a purpose's profile, and record it |
 | `prama llm calls` | the most recent model calls, newest first (hashes, never text) |
+| `prama llm eval` | evaluation suites, graded deterministically |
 | `prama llm profile` | which model serves which purpose |
 | `prama llm provider` | where models run |
+| `prama llm template` | versioned prompt templates |
+| `prama llm verify` | recompute the model-call ledger's hash chain |
 
 **`prama llm ask`**
 
@@ -479,16 +482,31 @@ model providers, profiles and the call ledger
 |---|---|
 | `--limit` |  |
 | `--tenant` | slug or id; defaults to the configured one |
+**`prama llm eval`**
+
+| Argument | Meaning |
+|---|---|
+| `eval_command` |  One of: run, list. |
 **`prama llm profile`**
 
 | Argument | Meaning |
 |---|---|
-| `profile_command` |  One of: set, show. |
+| `profile_command` |  One of: set, show, activate. |
 **`prama llm provider`**
 
 | Argument | Meaning |
 |---|---|
 | `provider_command` |  One of: add, list. |
+**`prama llm template`**
+
+| Argument | Meaning |
+|---|---|
+| `template_command` |  One of: add, list, approve. |
+**`prama llm verify`**
+
+| Argument | Meaning |
+|---|---|
+| `--tenant` | slug or id; defaults to the configured one |
 
 ## `prama lsp`
 

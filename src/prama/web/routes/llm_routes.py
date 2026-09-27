@@ -177,6 +177,7 @@ class LlmRoutes(UiRoutes):
                 surface="console",
                 principal_id=caller.principal_id,
                 offline=offline,
+                config=request.app.state.config,
             )
             try:
                 response = gateway.run(

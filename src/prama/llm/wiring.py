@@ -44,8 +44,12 @@ async def load_routes(
     offline: bool = False,
     secrets: SecretResolver | None = None,
     opener: Any = None,
+    pinned: dict[str, int] | None = None,
 ) -> dict[str, Route]:
     """Every purpose's current route for *tenant_id*, with providers built.
+
+    *pinned* names a version per purpose to use instead of the current one: an
+    evaluation run of a version that is not yet current.
 
     A disabled provider is skipped, not an error: switching one off is how an
     operator takes a model out of service without editing every profile.
@@ -54,10 +58,16 @@ async def load_routes(
     providers = {p.id: p for p in await uow.llm.providers(tenant_id)}
     routes: dict[str, Route] = {}
     for profile in await uow.llm.profiles(tenant_id):
-        current = await uow.llm.current(tenant_id, profile.purpose)
-        if current is None:
-            continue
-        _, version = current
+        wanted = (pinned or {}).get(profile.purpose)
+        if wanted is not None:
+            version = next((v for v in profile.versions if v.version == wanted), None)
+            if version is None:
+                continue
+        else:
+            current = await uow.llm.current(tenant_id, profile.purpose)
+            if current is None:
+                continue
+            _, version = current
         candidates = []
         for step in version.routes:
             row = providers.get(step.provider_id)
@@ -96,6 +106,7 @@ async def gateway_for(
     ledger: CallLedger | None = None,
     opener: Any = None,
     cache: ResponseCache | None = None,
+    config: Any = None,
 ) -> tuple[LlmGateway, MemoryLedger]:
     """A gateway over the tenant's profiles, and the ledger to persist after."""
     memory = ledger if isinstance(ledger, MemoryLedger) else MemoryLedger()
@@ -108,15 +119,44 @@ async def gateway_for(
         principal_id=principal_id,
         api_key_id=api_key_id,
         cache=cache,
+        payloads=_policy(config)[0],
     )
+    memory.retention_days = _policy(config)[1]
     return gateway, memory
+
+
+def _policy(config: Any) -> tuple[str, int]:
+    """`llm.audit.payloads` (none, redacted, full) and the days a payload is kept."""
+    if config is None:
+        return "none", 30
+    mode = str(config.get("llm.audit.payloads", "none") or "none")
+    if mode not in ("none", "redacted", "full"):
+        mode = "none"
+    return mode, int(config.get("llm.audit.payload_retention_days", 30) or 30)
 
 
 async def persist(uow: Any, tenant_id: str, ledger: MemoryLedger) -> int:
     """Write what the gateway recorded to the tenant's hash-chained ledger."""
+    from datetime import UTC, datetime, timedelta
+
     from prama.llm.budget import costed
 
     records = [await costed(uow, record) for record in ledger.records]
     written: int = await uow.llm.append_calls(tenant_id, records)
     ledger.records.clear()
+    if ledger.payloads:
+        expires = (datetime.now(UTC) + timedelta(days=ledger.retention_days)).isoformat(
+            timespec="milliseconds"
+        )
+        for digest, (asked, answered, mode) in ledger.payloads.items():
+            await uow.llm_governance.put_payload(
+                tenant_id,
+                digest,
+                request_json=asked,
+                response_json=answered,
+                mode=mode,
+                expires_at=expires,
+            )
+        ledger.payloads.clear()
+        await uow.llm_governance.expire_payloads(tenant_id)
     return written

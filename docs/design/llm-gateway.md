@@ -1,5 +1,7 @@
 <!-- Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. -->
 
+**Status (2026-09-27):** built. This includes templates, evaluation suites and the activation gate, stored payloads and the ledger verifier (`prama llm verify`). Evaluation graders are the deterministic set in `llm/evaluation.py`; the model-based rubric grader is not built, and the gate would ignore it anyway.
+
 > Design note behind [23 — Intelligence and lineage roadmap](../23-intelligence-and-lineage-roadmap.md). Written 2026-09-27. Where this note and doc 23 disagree, doc 23's reconciliation wins.
 
 # Prama LLM abstraction — design

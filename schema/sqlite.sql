@@ -1528,3 +1528,70 @@ CREATE TABLE IF NOT EXISTS dq_delegate_upload (
         CHECK (state IN ('proposed', 'approved', 'rejected', 'retired'))
 );
 CREATE INDEX IF NOT EXISTS ix_dq_delegate_upload_state ON dq_delegate_upload (tenant_id, state);
+
+-- ===========================================================================
+-- LLM GOVERNANCE: templates, stored payloads, evaluation runs  (Wave 14)
+-- ===========================================================================
+-- A prompt template is versioned like a profile: a change to the instructions
+-- is a change to every proposal made with them. A version is approved before
+-- use, and with llm.eval.gate_activation only after an evaluation run of that
+-- exact version passed. Payloads are kept only when llm.audit.payloads says so,
+-- redacted by default, and blanked at expiry; llm_call keeps the hashes, so the
+-- chain still verifies across the gap.
+CREATE TABLE IF NOT EXISTS llm_template (
+    id              VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id       VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    name            VARCHAR(128)  NOT NULL,
+    current_version INTEGER,
+    created_at      VARCHAR(32)   NOT NULL,
+    CONSTRAINT uq_llm_template_name UNIQUE (tenant_id, name)
+);
+CREATE TABLE IF NOT EXISTS llm_template_version (
+    id                   VARCHAR(26)   NOT NULL PRIMARY KEY,
+    template_id          VARCHAR(26)   NOT NULL REFERENCES llm_template (id) ON DELETE CASCADE,
+    version              INTEGER       NOT NULL,
+    system_text          TEXT          NOT NULL DEFAULT '',
+    body                 TEXT          NOT NULL,
+    variables_json       TEXT          NOT NULL DEFAULT '[]',
+    response_schema_json TEXT,
+    content_hash         VARCHAR(64)   NOT NULL,
+    status               VARCHAR(16)   NOT NULL DEFAULT 'draft',
+    eval_run_id          VARCHAR(26),
+    recorded_at          VARCHAR(32)   NOT NULL,
+    recorded_by          VARCHAR(26),
+    approved_at          VARCHAR(32),
+    approved_by          VARCHAR(26),
+    CONSTRAINT uq_llm_template_version UNIQUE (template_id, version),
+    CONSTRAINT ck_llm_template_status CHECK (status IN ('draft', 'approved', 'retired'))
+);
+CREATE TABLE IF NOT EXISTS llm_payload (
+    digest         VARCHAR(64)   NOT NULL PRIMARY KEY,
+    tenant_id      VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    request_json   TEXT          NOT NULL,
+    response_json  TEXT          NOT NULL DEFAULT '',
+    mode           VARCHAR(16)   NOT NULL,
+    created_at     VARCHAR(32)   NOT NULL,
+    expires_at     VARCHAR(32),
+    CONSTRAINT ck_llm_payload_mode CHECK (mode IN ('redacted', 'full', 'expired'))
+);
+CREATE INDEX IF NOT EXISTS ix_llm_payload_expiry ON llm_payload (expires_at);
+CREATE TABLE IF NOT EXISTS llm_eval_run (
+    id               VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id        VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    suite            VARCHAR(128)  NOT NULL,
+    suite_hash       VARCHAR(64)   NOT NULL,
+    purpose          VARCHAR(64)   NOT NULL DEFAULT '',
+    profile_id       VARCHAR(26),
+    profile_version  INTEGER,
+    template_id      VARCHAR(26),
+    template_version INTEGER,
+    cases            INTEGER       NOT NULL DEFAULT 0,
+    passed           INTEGER       NOT NULL DEFAULT 0,
+    status           VARCHAR(16)   NOT NULL DEFAULT 'running',
+    report_json      TEXT          NOT NULL DEFAULT '{}',
+    started_at       VARCHAR(32)   NOT NULL,
+    finished_at      VARCHAR(32),
+    started_by       VARCHAR(26),
+    CONSTRAINT ck_llm_eval_status CHECK (status IN ('running', 'passed', 'failed', 'error'))
+);
+CREATE INDEX IF NOT EXISTS ix_llm_eval_run_subject ON llm_eval_run (tenant_id, profile_id, template_id);
