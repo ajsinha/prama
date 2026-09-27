@@ -175,9 +175,14 @@ modern bank's data platform needs. It does not try to match Manta's breadth.
   - Model objects are named `powerbi.<model>.<table>`, so an impact analysis reaches the
     dashboard.
   - The gold fixture now includes a model: 25 edges, precision and recall 1.00.
+- **Warehouse query history, built** (`prama.lineage.history`,
+  `prama lineage history <warehouse> export.json`).
+  - It reads an export, or the rows of the query that `--query` prints.
+  - Snowflake `ACCESS_HISTORY` direct sources and Databricks `system.access.column_lineage` rows
+    are the warehouse's own lineage, taken as parsed.
+  - BigQuery job SQL goes through the parser.
+  - It does not wait for live connectors.
 - **In scope, to build:**
-  - warehouse query history (Snowflake access history, BigQuery jobs, Databricks Unity Catalog
-    lineage), once live connectors exist;
   - Tableau, only if a design partner asks.
 - **Out of scope:**
   - mainframe code of any kind (COBOL, JCL, copybooks);

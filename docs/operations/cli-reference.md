@@ -403,6 +403,7 @@ column lineage: scan SQL, show edges, impact, gaps
 | Subcommand | What it does |
 |---|---|
 | `prama lineage gaps` | what the latest scans could not read |
+| `prama lineage history` | column lineage from a warehouse's query history (Snowflake, Databricks, BigQuery) |
 | `prama lineage impact` | everything a defect in one column reaches, ranked |
 | `prama lineage ingest-dbt` | read a dbt project's column lineage from its manifest.json |
 | `prama lineage scan` | read SQL files into the lineage store as a run of a named source |
@@ -412,6 +413,15 @@ column lineage: scan SQL, show edges, impact, gaps
 
 | Argument | Meaning |
 |---|---|
+| `--tenant` | slug or id; defaults to the configured one |
+**`prama lineage history`**
+
+| Argument | Meaning |
+|---|---|
+| `warehouse` **required** |  One of: snowflake, databricks, bigquery. |
+| `rows` | an export: JSON list or CSV |
+| `--source` | a name; defaults to <warehouse>-history |
+| `--query` | print the export query and stop |
 | `--tenant` | slug or id; defaults to the configured one |
 **`prama lineage impact`**
 

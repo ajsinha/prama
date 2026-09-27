@@ -167,6 +167,7 @@ prama llm profile set author --route local:qwen2.5-coder   # purpose -> ordered 
 prama llm ask author "..."               # through the gateway; recorded in the call ledger
 prama lineage scan etl/ --source warehouse   # SQL -> column lineage store (sqlglot, regex fallback)
 prama lineage impact raw.trades.notional     # what a defect in this column reaches
+prama lineage history snowflake rows.json    # lineage from warehouse query history (--query prints the export)
 prama delegate list                      # Python DQ delegates admitted here (delegates: in config)
 prama delegate test acme.x --rows s.csv  # run one exactly as a control would, sandboxed
 prama db init                            # apply schema/<dialect>.sql idempotently
