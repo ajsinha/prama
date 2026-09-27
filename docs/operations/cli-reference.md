@@ -30,6 +30,7 @@ need different people.
 | [`prama control`](#prama-control) | read, check, explain, compile and import controls |
 | [`prama db`](#prama-db) | database schema operations (Prama has no migrations) |
 | [`prama estate`](#prama-estate) | export, diff and score the declared estate |
+| [`prama lineage`](#prama-lineage) | column lineage: scan SQL, show edges, impact, gaps |
 | [`prama llm`](#prama-llm) | model providers, profiles and the call ledger |
 | [`prama lsp`](#prama-lsp) | language server for PQL, for an editor outside the console |
 | [`prama mcp`](#prama-mcp) | expose Prama to an MCP client |
@@ -312,6 +313,43 @@ export, diff and score the declared estate
 |---|---|
 | `--tenant` **required** |  |
 | `--domain` |  |
+
+## `prama lineage`
+
+column lineage: scan SQL, show edges, impact, gaps
+
+| Subcommand | What it does |
+|---|---|
+| `prama lineage gaps` | what the latest scans could not read |
+| `prama lineage impact` | everything a defect in one column reaches, ranked |
+| `prama lineage scan` | read SQL files into the lineage store as a run of a named source |
+| `prama lineage show` | current edges, optionally those touching one dataset |
+
+**`prama lineage gaps`**
+
+| Argument | Meaning |
+|---|---|
+| `--tenant` | slug or id; defaults to the configured one |
+**`prama lineage impact`**
+
+| Argument | Meaning |
+|---|---|
+| `column` **required** | dataset.column, e.g. stg.trades.notional |
+| `--tenant` | slug or id; defaults to the configured one |
+**`prama lineage scan`**
+
+| Argument | Meaning |
+|---|---|
+| `paths` **required** | .sql files, or directories of them |
+| `--source` **required** | a name for this body of SQL |
+| `--dialect` | e.g. tsql, snowflake, postgres |
+| `--tenant` | slug or id; defaults to the configured one |
+**`prama lineage show`**
+
+| Argument | Meaning |
+|---|---|
+| `dataset` |  |
+| `--tenant` | slug or id; defaults to the configured one |
 
 ## `prama llm`
 

@@ -49,6 +49,7 @@ if TYPE_CHECKING:
         SettingDao,
         TenantDao,
     )
+    from prama.db.dao.lineage import LineageDao
     from prama.db.dao.llm import LlmDao
 
 _log = get_logger(__name__)
@@ -149,6 +150,12 @@ class UnitOfWork:
         from prama.db.dao import AuditDao
 
         return self._dao("audit", AuditDao)  # type: ignore[no-any-return]
+
+    @property
+    def lineage(self) -> LineageDao:
+        from prama.db.dao.lineage import LineageDao
+
+        return self._dao("lineage", LineageDao)  # type: ignore[no-any-return]
 
     @property
     def llm(self) -> LlmDao:

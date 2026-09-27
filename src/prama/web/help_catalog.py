@@ -85,6 +85,12 @@ SECTIONS: tuple[HelpSection, ...] = (
                 "bi-key",
             ),
             _g(
+                "lineage",
+                "Lineage",
+                "Scan SQL, see what feeds what, and what a defect reaches.",
+                "bi-bezier2",
+            ),
+            _g(
                 "models",
                 "Models",
                 "Local and remote LLMs, profiles, and the call ledger.",

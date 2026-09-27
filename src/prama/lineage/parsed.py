@@ -227,8 +227,14 @@ def extract_statement(
             c.name.lower() in ambiguous and not c.table for c in projection.find_all(exp.Column)
         ):
             continue
+        if projection.alias_or_name.lower() != name:
+            # Unaliased, and named by the INSERT's column list: give it that
+            # name so the parser can be asked about it.
+            aliased = exp.alias_(projection.copy(), name)
+            projection.replace(aliased)
+            projection = aliased
         try:
-            sources = _leaves(projection.alias_or_name, select, read)
+            sources = _leaves(name, select, read)
         except SqlglotError:
             return None
         transform = _transform(projection)

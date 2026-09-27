@@ -216,3 +216,12 @@ def test_what_the_parser_cannot_read_falls_back_and_says_so() -> None:
     sql = "CREATE VIEW v AS SELECT a.x AS x FROM a UNION ALL SELECT b.x AS x FROM b"
     _, extraction = edges(sql)
     assert any(gap.kind == "regex_fallback" for gap in extraction.gaps)
+
+
+def test_the_pattern_reader_does_not_read_a_string_literal_as_a_column() -> None:
+    found, _ = SqlLineage()._statement(
+        "INSERT INTO t (x) SELECT a.v FROM a WHERE a.s = 'BOOKED'", "j"
+    )
+    sources = {edge.source.qualified for edge in found}
+    assert "a.booked" not in sources
+    assert {"a.v", "a.s"} <= sources  # the control: real columns still found

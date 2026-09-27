@@ -270,6 +270,11 @@ class Extraction:
         }
 
 
+def split_statements(sql: str) -> list[str]:
+    """The statements in a script, in order. One definition, for every reader."""
+    return [part.strip() for part in re.split(r";\s*(?:\n|$)", sql) if part.strip()]
+
+
 class SqlLineage:
     """Reads column lineage out of SELECT, INSERT and CREATE statements."""
 
@@ -291,9 +296,7 @@ class SqlLineage:
     def extract(self, sql: str, *, job: str = "") -> Extraction:
         edges: list[Edge] = []
         gaps: list[Gap] = []
-        statements = [
-            statement.strip() for statement in re.split(r";\s*(?:\n|$)", sql) if statement.strip()
-        ]
+        statements = split_statements(sql)
 
         for statement in statements:
             parsed = extract_statement(
@@ -527,6 +530,10 @@ class SqlLineage:
         found: list[Column] = []
         ambiguous: dict[str, set[str]] = {}
         seen: set[str] = set()
+        # String literals are values, not columns: `status = 'BOOKED'` read
+        # BOOKED as a column called `booked` (found by the lineage store's
+        # first test, 2026-09-27).
+        expression = re.sub(r"'(?:[^']|'')*'", "''", expression)
 
         for match in _IDENTIFIER.finditer(expression):
             qualifier = match.group("qualifier").lower()
