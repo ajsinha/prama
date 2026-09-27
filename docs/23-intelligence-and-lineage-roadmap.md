@@ -166,10 +166,18 @@ modern bank's data platform needs. It does not try to match Manta's breadth.
   - Its unit, gaps and open edges are carried forward, with their method, status and
     confidence (`code_analysis_run.base_run_id`, `coverage_json.reused`).
   - A changed file is re-read, and the edges it no longer produces close.
+- **Power BI, built** (`prama.lineage.powerbi`).
+  - It reads a `.pbit` or a `model.bim`, and never Power BI itself.
+  - Power Query navigation, with its renames, and native SQL become column edges.
+  - DAX `Table[Column]` and `[Measure]` references become measure edges: `aggregated` for a
+    single aggregate, `derived` otherwise.
+  - Web, file, merge and custom M steps are gaps.
+  - Model objects are named `powerbi.<model>.<table>`, so an impact analysis reaches the
+    dashboard.
+  - The gold fixture now includes a model: 25 edges, precision and recall 1.00.
 - **In scope, to build:**
   - warehouse query history (Snowflake access history, BigQuery jobs, Databricks Unity Catalog
     lineage), once live connectors exist;
-  - one BI layer, Power BI;
   - Tableau, only if a design partner asks.
 - **Out of scope:**
   - mainframe code of any kind (COBOL, JCL, copybooks);

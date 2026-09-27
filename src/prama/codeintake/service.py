@@ -46,6 +46,7 @@ PARSED_METHODS = frozenset(
         "code:pyspark_ast",
         "code:pandas_ast",
         "code:airflow_sql",
+        "code:powerbi_model",
     }
 )
 

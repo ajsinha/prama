@@ -21,6 +21,7 @@ READ: dict[str, str] = {
     "pyspark": "pyspark_ast",
     "pandas": "pandas_ast",
     "airflow": "airflow_ast",
+    "powerbi": "powerbi_model",
 }
 
 _BY_SUFFIX: dict[str, str] = {
@@ -30,6 +31,7 @@ _BY_SUFFIX: dict[str, str] = {
     ".py": "python",
     ".ipynb": "notebook",
     ".dtsx": "ssis",
+    ".pbit": "powerbi",
     ".cbl": "cobol",
     ".cob": "cobol",
     ".cpy": "cobol",
@@ -49,6 +51,8 @@ def kind_of(path: Path) -> str:
     name = path.name.lower()
     if name == "dbt_project.yml":
         return "dbt_project"
+    if name == "model.bim":
+        return "powerbi"
     kind = _BY_SUFFIX.get(path.suffix.lower(), "other")
     if kind in ("python", "xml"):
         head = path.read_bytes()[:4096]
