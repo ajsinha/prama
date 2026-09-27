@@ -40,6 +40,13 @@ Every other kind of file (Scala, Java, shell, and mainframe code, which Prama do
 covered. If a model profile for `lineage` exists, the model may propose edges for Scala, Java and
 shell, and a person confirms them.
 
+## A new commit
+
+Re-reading a git source reads only the files that changed. If a file is byte-identical to the
+last run, and was read by the same reader version and SQL dialect, Prama carries its lineage and
+gaps forward unchanged. The run's coverage says how many files were reused. The model pass is
+offered only the files that were re-read.
+
 ## When a model helps
 
 If the estate has a model profile for the purpose **`lineage`**, files the readers could not

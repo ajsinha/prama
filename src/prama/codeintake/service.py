@@ -18,6 +18,7 @@ import shutil
 import subprocess
 import sys
 from collections import defaultdict
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -49,11 +50,40 @@ PARSED_METHODS = frozenset(
 )
 
 
-def run_worker(root: Path, dialect: str, *, timeout: float = 300.0) -> dict[str, Any]:
-    """Read *root* in a separate, resource-limited process."""
+async def _reusable(
+    uow: Any, tenant_id: str, source: Any, run: Any, snapshot: Snapshot, dialect: str
+) -> dict[str, Any]:
+    """Units of the base run whose file is byte-identical and read by the same
+    reader version and dialect: their results cannot differ, so they are reused.
+
+    A run whose coverage does not record its dialect is no base: reuse must be
+    provably equivalent, never probably.
+    """
+    base = await uow.code.last_completed_run(tenant_id, source.id, before=run.id)
+    if base is None or base.coverage_json.get("dialect") != dialect:
+        return {}
+    run.base_run_id = base.id
+    from prama.codeintake.worker import VERSION
+
+    out = {}
+    for unit in await uow.code.units(tenant_id, base.id):
+        digest = snapshot.files.get(unit.path, ("", 0))[0]
+        if digest and digest == unit.blob_sha and unit.scanner_version in (VERSION, ""):
+            out[unit.path] = unit
+    return out
+
+
+def run_worker(
+    root: Path, dialect: str, *, timeout: float = 300.0, skip: Sequence[str] = ()
+) -> dict[str, Any]:
+    """Read *root* in a separate, resource-limited process, except the *skip* paths."""
+    import tempfile
+
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+        json.dump(sorted(skip), handle)
     try:
         completed = subprocess.run(
-            [sys.executable, "-m", "prama.codeintake.worker", str(root), dialect],
+            [sys.executable, "-m", "prama.codeintake.worker", str(root), dialect, handle.name],
             capture_output=True,
             timeout=timeout,
             check=False,
@@ -61,10 +91,12 @@ def run_worker(root: Path, dialect: str, *, timeout: float = 300.0) -> dict[str,
             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         )
     except subprocess.TimeoutExpired as exc:
+        Path(handle.name).unlink(missing_ok=True)
         raise IntakeRefused(
             f"reading the code took longer than {timeout:.0f} s",
             remedy="Split the code into smaller sources, or raise codeintake.timeout.",
         ) from exc
+    Path(handle.name).unlink(missing_ok=True)
     if completed.returncode != 0:
         tail = completed.stderr.decode("utf-8", errors="replace").strip()[-400:]
         raise IntakeRefused(
@@ -96,9 +128,12 @@ async def analyse(
     """
     run = await uow.code.start_run(tenant_id, source, snapshot.digest)
     found = inventory(snapshot.root, snapshot.files)
+    reused = await _reusable(uow, tenant_id, source, run, snapshot, dialect)
     try:
         try:
-            result = await asyncio.to_thread(run_worker, snapshot.root, dialect, timeout=timeout)
+            result = await asyncio.to_thread(
+                run_worker, snapshot.root, dialect, timeout=timeout, skip=list(reused)
+            )
         except IntakeRefused as exc:
             await uow.code.finish_run(
                 run,
@@ -128,6 +163,33 @@ async def analyse(
                 Gap(kind=g["kind"], detail=f"{unit['path']}: {g['detail']}", statement="")
                 for g in unit["gaps"]
             )
+        # Files unchanged since the base run: their unit is copied, not re-read.
+        for path, previous in reused.items():
+            rows[path] = uow.code.add_unit(
+                tenant_id,
+                run.id,
+                path=path,
+                blob_sha=previous.blob_sha,
+                kind=previous.kind,
+                scanner=previous.scanner,
+                scanner_version=previous.scanner_version,
+                statements=previous.statements,
+                gaps_json=previous.gaps_json,
+            )
+            result["units"].append(
+                {
+                    "path": path,
+                    "kind": previous.kind,
+                    "statements": previous.statements,
+                    "gaps": list(previous.gaps_json),
+                    "read": previous.scanner != "none",
+                    "reused": True,
+                }
+            )
+            gaps.extend(
+                Gap(kind=g["kind"], detail=f"{path}: {g['detail']}", statement="")
+                for g in previous.gaps_json
+            )
         await uow.flush()  # the units' ids are assigned here, not when added
         unit_ids = {path: row.id for path, row in rows.items()}
         grouped: dict[tuple[str, str], list[Edge]] = defaultdict(list)
@@ -153,6 +215,27 @@ async def analyse(
             )
             for (path, method), edges in grouped.items()
         ]
+        # The base run's edges for unchanged files, carried forward as they
+        # stand: same method, status and confidence, now on this run's unit.
+        by_old_unit = {previous.id: path for path, previous in reused.items()}
+        for row in await uow.lineage.unit_edges(tenant_id, list(by_old_unit)):
+            batches.append(
+                (
+                    [
+                        Edge(
+                            source=Column(dataset=row.source_dataset, name=row.source_column),
+                            target=Column(dataset=row.target_dataset, name=row.target_column),
+                            transform=Transform(row.transform),
+                            produced_by=row.produced_by,
+                            expression=row.expression,
+                        )
+                    ],
+                    row.method,
+                    row.status,
+                    row.confidence,
+                    unit_ids.get(by_old_unit[str(row.unit_id)]),
+                )
+            )
         model_offered = model_kept = model_calls = 0
         if model is not None:
             from prama.codeintake.model_lineage import suggest
@@ -160,7 +243,9 @@ async def analyse(
             candidates = [
                 u
                 for u in result["units"]
-                if (not u["read"] or u["gaps"]) and u["kind"] in MODEL_KINDS
+                if (not u["read"] or u["gaps"])
+                and u["kind"] in MODEL_KINDS
+                and not u.get("reused")  # its model edges were carried forward
             ][:model_units]
             for unit in candidates:
                 text = (snapshot.root / unit["path"]).read_bytes().decode("utf-8", errors="replace")
@@ -217,6 +302,9 @@ async def analyse(
             # that invents is visible as a low ratio.
             "model_offered": model_offered,
             "model_kept": model_kept,
+            # Incremental: files unchanged since the base run, not re-read.
+            "reused": len(reused),
+            "dialect": dialect,
         }
         run.llm_calls = model_calls
         await uow.code.finish_run(
