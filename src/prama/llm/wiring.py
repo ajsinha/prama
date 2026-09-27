@@ -13,7 +13,14 @@ from __future__ import annotations
 from typing import Any
 
 from prama.llm import kinds
-from prama.llm.gateway import CallLedger, Candidate, LlmGateway, MemoryLedger, Route
+from prama.llm.gateway import (
+    CallLedger,
+    Candidate,
+    LlmGateway,
+    MemoryLedger,
+    ResponseCache,
+    Route,
+)
 from prama.llm.spi import Hosting
 from prama.secrets.resolver import SecretResolver, default_resolver
 
@@ -88,6 +95,7 @@ async def gateway_for(
     offline: bool = False,
     ledger: CallLedger | None = None,
     opener: Any = None,
+    cache: ResponseCache | None = None,
 ) -> tuple[LlmGateway, MemoryLedger]:
     """A gateway over the tenant's profiles, and the ledger to persist after."""
     memory = ledger if isinstance(ledger, MemoryLedger) else MemoryLedger()
@@ -99,6 +107,7 @@ async def gateway_for(
         surface=surface,
         principal_id=principal_id,
         api_key_id=api_key_id,
+        cache=cache,
     )
     return gateway, memory
 

@@ -101,3 +101,56 @@ def test_the_seal_chains() -> None:
     gateway.run("author", Request(system="s", prompt="p"))
     first = seal(ledger.records[0], sequence=0, previous_hash="0" * 64)
     assert seal(ledger.records[0], sequence=0, previous_hash=first) != first
+
+
+class TestTheCache:
+    def _cached(self) -> tuple[LlmGateway, MemoryLedger, ScriptedProvider]:
+        from prama.llm.gateway import ResponseCache
+
+        provider = ScriptedProvider(["first", "second"])
+        candidate = Candidate(provider, "local", "local", "scripted", Hosting.SELF_HOSTED, "m")
+        ledger = MemoryLedger()
+        gateway = LlmGateway(
+            {"author": Route("author", (candidate,), max_attempts=1)},
+            ledger,
+            tenant_id="t",
+            surface="test",
+            cache=ResponseCache(),
+        )
+        return gateway, ledger, provider
+
+    def test_a_repeated_deterministic_request_is_served_from_cache(self) -> None:
+        gateway, ledger, provider = self._cached()
+        ask = Request(system="s", prompt="p", temperature=0.0)
+        assert gateway.run("author", ask).text == "first"
+        assert gateway.run("author", ask).text == "first"
+        assert len(provider.calls) == 1
+        assert [r.served_from for r in ledger.records] == ["provider", "cache"]
+
+    def test_a_sampled_request_is_never_cached(self) -> None:
+        gateway, _, provider = self._cached()
+        ask = Request(system="s", prompt="p", temperature=0.7)
+        gateway.run("author", ask)
+        assert gateway.run("author", ask).text == "second"  # the control
+        assert len(provider.calls) == 2
+
+    def test_a_cached_answer_is_no_oracle_for_a_refused_request(self) -> None:
+        from prama.llm.gateway import ResponseCache
+
+        hosted = OpenAiCompatibleProvider(
+            endpoint="https://api.openai.com", model="m", hosting=Hosting.HOSTED
+        )
+        vendor = Candidate(hosted, "v", "v", "openai_compatible", Hosting.HOSTED, "m")
+        route = Route("author", (vendor,), max_attempts=1)
+        cache = ResponseCache()
+        pii = Request(system="s", prompt="p", sensitivity=Sensitivity.PII, temperature=0.0)
+        from prama.llm.spi import Response
+
+        cache.put(
+            ResponseCache.key("t", route, vendor, pii), Response("leak", "m", "v", pii.fingerprint)
+        )
+        gateway = LlmGateway(
+            {"author": route}, MemoryLedger(), tenant_id="t", surface="x", cache=cache
+        )
+        with pytest.raises((ValidationError, ResidencyRefused)):
+            gateway.run("author", pii)

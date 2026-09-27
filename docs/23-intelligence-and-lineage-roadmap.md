@@ -84,7 +84,11 @@ Three questions are answered here, each with a design note behind it:
   call's spend. The reservation is released with the call record.
 - **Pattern redactors.** IBANs (withheld only when the mod-97 check passes) and email
   addresses join secrets and card numbers.
-- **Still to do in phase 2:** SSE streaming, the response cache and stored payloads.
+- **Response cache.** It is bounded, holds temperature-zero requests only, and is keyed by
+  tenant, fingerprint, provider, model and profile version. It is consulted **after** the
+  candidate's policy checks, so it is never an oracle for a request that would now be refused
+  (tested with a planted entry). Hits are recorded as `served_from: cache`.
+- **Still to do in phase 2:** SSE streaming and stored payloads.
 - **Deferred, each to the phase that first needs it:**
   - The transport-module extraction, multi-turn messages and JSON-schema validation go to
     Wave 13, with the new wire formats.
