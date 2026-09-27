@@ -23,9 +23,11 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Callable, Sequence
 from typing import Any, ClassVar
@@ -135,6 +137,19 @@ class _HttpProvider(ModelProvider):
         #: API speak the same protocol and are not the same residency class.
         if hosting is not None:
             self.hosting = hosting  # type: ignore[misc]
+        vendor = _vendor_of(self._endpoint)
+        if vendor and self.hosting is Hosting.SELF_HOSTED:
+            # Self-hosted is exempt from residency checks, so calling a vendor's
+            # API self-hosted would send RESTRICTED data with no gate at all.
+            raise ValidationError(
+                f"{self._endpoint} is {vendor}'s API, which is not self-hosted",
+                remedy=(
+                    "Set hosting to 'hosted' (the vendor's shared API) or 'tenant' "
+                    "(the vendor's model in your own cloud tenancy), and install a "
+                    "residency gate."
+                ),
+                context={"endpoint": self._endpoint, "vendor": vendor},
+            )
         #: Injected so the wire format can be tested without a network. The
         #: request construction is the part with bugs in it; the socket is not.
         self._open = opener or _urlopen
@@ -173,6 +188,51 @@ class _HttpProvider(ModelProvider):
         )
 
 
+@dataclasses.dataclass(frozen=True, slots=True)
+class Dialect:
+    """What one OpenAI-compatible server does with a constrained-output request:
+    the body field it reads for a GBNF grammar and for a regex, or empty when it
+    has none and would ignore the field."""
+
+    grammar: str = ""
+    regex: str = ""
+
+
+DIALECTS: dict[str, Dialect] = {
+    "vllm": Dialect(grammar="guided_grammar", regex="guided_regex"),
+    "llamacpp": Dialect(grammar="grammar"),
+    "ollama": Dialect(),
+    "lmstudio": Dialect(),
+    "tgi": Dialect(),
+    "openai": Dialect(),
+    #: Unknown server: assume it enforces nothing, the safe side of the claim.
+    "generic": Dialect(),
+}
+
+#: API hosts that belong to a vendor. A provider pointed at one cannot be
+#: declared self-hosted.
+VENDOR_HOSTS: tuple[tuple[str, str], ...] = (
+    ("api.openai.com", "OpenAI"),
+    (".openai.azure.com", "Microsoft Azure"),
+    ("api.anthropic.com", "Anthropic"),
+    ("huggingface.co", "Hugging Face"),
+    (".amazonaws.com", "Amazon"),
+    ("googleapis.com", "Google"),
+    ("api.mistral.ai", "Mistral"),
+    ("api.together.xyz", "Together"),
+    ("api.groq.com", "Groq"),
+)
+
+
+def _vendor_of(endpoint: str) -> str:
+    host = (urllib.parse.urlsplit(endpoint).hostname or "").lower()
+    for suffix, vendor in VENDOR_HOSTS:
+        bare = suffix.lstrip(".")
+        if host == bare or host.endswith("." + bare):
+            return vendor
+    return ""
+
+
 class OpenAiCompatibleProvider(_HttpProvider):
     """Anything speaking ``/v1/chat/completions``.
 
@@ -185,6 +245,29 @@ class OpenAiCompatibleProvider(_HttpProvider):
     name: ClassVar[str] = "openai_compatible"
     hosting: ClassVar[Hosting] = Hosting.SELF_HOSTED
     supports_grammar: ClassVar[bool] = True
+
+    def __init__(
+        self, *, hosting: Hosting | None = None, dialect: str = "generic", **kwargs: Any
+    ) -> None:
+        # Required, not defaulted. The default used to be self-hosted, which
+        # is exempt from residency checks, so the one deployment that forgot
+        # to say where its model ran was the one that exported.
+        if hosting is None:
+            raise ValidationError(
+                "an OpenAI-compatible provider must say where the model runs",
+                remedy="Pass hosting: self_hosted, tenant or hosted.",
+            )
+        if dialect not in DIALECTS:
+            raise ValidationError(
+                f"unknown server dialect {dialect!r}",
+                remedy=f"One of: {', '.join(sorted(DIALECTS))}.",
+                context={"dialect": dialect},
+            )
+        #: Which server this is, because they differ in what they enforce:
+        #: vLLM honours a grammar and a regex, llama.cpp a grammar only, and
+        #: Ollama, LM Studio, TGI's chat route and OpenAI ignore both.
+        self.dialect = dialect
+        super().__init__(hosting=hosting, **kwargs)
 
     def complete(self, request: Request) -> Response:
         headers = {}
@@ -201,16 +284,17 @@ class OpenAiCompatibleProvider(_HttpProvider):
         }
         if request.seed is not None:
             body["seed"] = request.seed
+        # Enforced only where this server's dialect is known to apply it. It
+        # used to be recorded as enforced whenever the field was *sent*, and a
+        # server that does not know the field ignores it silently, so the
+        # record claimed a constraint that was never applied.
         enforced = False
-        if request.grammar is not None and request.grammar.definition:
-            # vLLM and llama.cpp take a GBNF grammar here. A server that does
-            # not understand the field ignores it, which is why the response
-            # records whether the constraint was actually applied rather than
-            # whether it was requested.
-            body["guided_grammar"] = request.grammar.definition
+        fields = DIALECTS[self.dialect]
+        if request.grammar is not None and request.grammar.definition and fields.grammar:
+            body[fields.grammar] = request.grammar.definition
             enforced = True
-        elif request.grammar is not None and request.grammar.pattern:
-            body["guided_regex"] = request.grammar.pattern
+        elif request.grammar is not None and request.grammar.pattern and fields.regex:
+            body[fields.regex] = request.grammar.pattern
             enforced = True
 
         started = time.monotonic()

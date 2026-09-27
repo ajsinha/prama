@@ -2575,3 +2575,24 @@ catalogue's cases covered it.
 The second guard from the handover, **absence-only regressions**, is built as
 a ratchet (`tests/architecture/test_no_vacuous_regressions.py`). The 33
 existing tests of that shape are listed for review; a new one fails the build.
+
+## Q-123 — the model layer claimed a grammar it never applied, trusted an unstated hosting, and sent secrets
+
+**Where** `src/prama/llm/providers.py`, `src/prama/llm/spi.py::ModelProvider.ask`, new `src/prama/llm/redact.py`.
+**From** the LLM gateway design (docs/design/llm-gateway.md §0); Wave 12's first item.
+
+- **Grammar.** `grammar_enforced=True` was recorded whenever the field was
+  *sent*. Ollama, LM Studio, TGI's chat route and OpenAI ignore it silently.
+  A per-server `Dialect` table now records what each server actually honours:
+  vLLM a grammar and a regex, llama.cpp a grammar only, the rest nothing.
+  An unknown server is `generic`, which enforces nothing.
+- **Hosting.** The default was self-hosted, which is exempt from residency
+  checks. `hosting` is now required, and a known vendor host (OpenAI, Azure,
+  Anthropic, Hugging Face, AWS, Google, Mistral, Together, Groq) cannot be
+  declared self-hosted.
+- **Redaction.** Secret shapes were checked on answers only. `ask()` now
+  withholds them from prompts too, on the one path every provider shares.
+  It also withholds card numbers that pass the Luhn check; the control is
+  that a 13-digit trade id survives. The patterns moved from
+  `assistant/safety.py` to `llm/redact.py`, so the lower layer owns them and
+  there is one list.
