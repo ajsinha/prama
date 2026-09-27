@@ -220,8 +220,9 @@ what it caught, and what it did **not** catch.
 | 2 | `02-feeds-csv-parquet` | Arrival: defects no content check can see |
 | 3 | `03-mixed-estate` | Relationships: defects no single dataset can see |
 | 4 | `04-expressions-and-plugins` | Excel formulas, and a third-party validator |
+| 5 | `05-dq-delegates` | Python checks named from PQL, one run on a remote agent |
 
-They use ports `:8801`–`:8804`, so all four can run at once.
+They use ports `:8801`–`:8805`, so all five can run at once.
 
 ---
 

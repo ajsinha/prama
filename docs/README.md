@@ -57,7 +57,7 @@ differ, `docs/19` decides.
 | 20 | [Competitive Analysis](20-competitive-analysis.md) | Head-to-head against Solidatus, Manta, Alation, Collibra, Monte Carlo and the rest — including where we are behind |
 | 21 | [How We Win](21-how-we-win.md) | The plan to beat them: three asymmetric unlocks, honest moat ratings, and the traps we set |
 | 22 | [Distributed Execution: Prama Agents](22-distributed-execution.md) | Agents beside the data: outbound-only, residency-bounded, surviving an outage |
-| 23 | [Intelligence and Lineage Roadmap](23-intelligence-and-lineage-roadmap.md) | Waves 12–17: the LLM gateway, lineage store and workbench, code-to-lineage, steward agents, closing the Manta/Alation gap. Design notes in [design/](design/) |
+| 23 | [Intelligence and Lineage Roadmap](23-intelligence-and-lineage-roadmap.md) | Waves 12–18: the LLM gateway, lineage store and workbench, code-to-lineage, steward agents, DQ delegates, and the lineage scope (what Prama reads, and what it deliberately does not). Design notes in [design/](design/) |
 | — | **[Operations](operations/)** | **Runbook, troubleshooting, CLI reference, configuration reference** |
 | — | [Brand](brand.md) | Name, mark, slogan, palette, voice |
 | — | [Glossary](glossary.md) | Terms of art |
