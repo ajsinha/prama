@@ -72,8 +72,23 @@ def create_app(config: Configuration | None = None, *, database: Database | None
         app.state.config = config
         app.state.database = db
         _log.info("prama %s ready on %s", VERSION, db.dialect.name)
+        # The always-on scheduler, supervised: it lives exactly as long as the
+        # application and is cancelled with it, never a free-running task.
+        from prama.core.concurrency.supervisor import RestartPolicy, TaskSupervisor
+        from prama.execute.scheduler import from_config
+
+        scheduler = from_config(config, db)
+        app.state.scheduler = scheduler
         try:
-            yield
+            async with TaskSupervisor("scheduler") as supervisor:
+                if scheduler is not None:
+                    supervisor.spawn("tick", scheduler.loop, policy=RestartPolicy.ON_FAILURE)
+                    _log.info(
+                        "scheduler on: every %.0fs against %s",
+                        scheduler.interval,
+                        scheduler.against,
+                    )
+                yield
         finally:
             if owned:
                 await db.stop()

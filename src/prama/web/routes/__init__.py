@@ -26,6 +26,7 @@ from prama.web.routes.public_routes import PublicRoutes
 from prama.web.routes.recon_routes import ReconRoutes
 from prama.web.routes.relationship_routes import RelationshipRoutes
 from prama.web.routes.report_routes import ReportRoutes
+from prama.web.routes.schedule_routes import ScheduleRoutes
 from prama.web.routes.triage_routes import TriageRoutes
 
 ROUTE_CLASSES: tuple[type[UiRoutes], ...] = (
@@ -46,6 +47,7 @@ ROUTE_CLASSES: tuple[type[UiRoutes], ...] = (
     ReconRoutes,
     AttestationRoutes,
     ReportRoutes,
+    ScheduleRoutes,
 )
 
 __all__ = [
@@ -66,6 +68,7 @@ __all__ = [
     "ReconRoutes",
     "RelationshipRoutes",
     "ReportRoutes",
+    "ScheduleRoutes",
     "TriageRoutes",
     "UiRoutes",
 ]
