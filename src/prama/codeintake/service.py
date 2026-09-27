@@ -29,7 +29,7 @@ from prama.lineage.sql import Gap
 
 #: Kinds worth asking a model about: code that expresses data movement.
 MODEL_KINDS = frozenset(
-    {"sql", "python", "pyspark", "airflow", "scala", "java", "shell", "notebook"}
+    {"sql", "python", "pyspark", "pandas", "airflow", "scala", "java", "shell", "notebook"}
 )
 
 #: Confidence of an edge read by the pattern fallback or an unverified scanner.
@@ -43,6 +43,8 @@ PARSED_METHODS = frozenset(
         "code:plsql_procedure",
         "code:db2_procedure",
         "code:pyspark_ast",
+        "code:pandas_ast",
+        "code:airflow_sql",
     }
 )
 

@@ -12,6 +12,12 @@
     {"from": "mart.positions.account_id", "to": "rpt.finrep_line_23.account_id", "file": "procs/finrep.sql"},
     {"from": "mart.positions.exposure_usd", "to": "rpt.finrep_line_23.amount", "file": "procs/finrep.sql"},
     {"from": "stg.trades.account_id", "to": "risk.var_input.account_id", "file": "jobs/risk_job.py"},
-    {"from": "stg.trades.notional", "to": "risk.var_input.notional", "file": "jobs/risk_job.py"}
+    {"from": "stg.trades.notional", "to": "risk.var_input.notional", "file": "jobs/risk_job.py"},
+    {"from": "stg.trades.account_id", "to": "fin.daily_notional.account_id", "file": "jobs/finance_extract.py"},
+    {"from": "stg.trades.notional", "to": "fin.daily_notional.notional", "file": "jobs/finance_extract.py"},
+    {"from": "stg.trades.trade_date", "to": "fin.daily_notional.business_date", "file": "jobs/finance_extract.py"},
+    {"from": "stg.trades.notional", "to": "fin.daily_notional.notional_k", "file": "jobs/finance_extract.py"},
+    {"from": "rpt.finrep_line_23.account_id", "to": "rpt.finrep_archive.account_id", "file": "dags/finrep_dag.py"},
+    {"from": "rpt.finrep_line_23.amount", "to": "rpt.finrep_archive.amount", "file": "dags/finrep_dag.py"}
   ]
 }

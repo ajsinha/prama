@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 #: The version of the reading logic, recorded on every unit it produced.
-VERSION = "3"
+VERSION = "4"
 
 
 def _extract(kind: str, text: str, relative: str, dialect: str) -> list[tuple[Any, str]]:
@@ -31,6 +31,22 @@ def _extract(kind: str, text: str, relative: str, dialect: str) -> list[tuple[An
         from prama.lineage import pyspark
 
         return [(pyspark.extract(text, job=relative), "code:pyspark_ast")]
+    if kind == "pandas":
+        from prama.lineage import pandas_ast
+
+        return [(pandas_ast.extract(text, job=relative), "code:pandas_ast")]
+    if kind == "airflow":
+        from prama.lineage import airflow
+
+        return [
+            (
+                extraction,
+                "code:regex"
+                if any(g.kind == "regex_fallback" for g in extraction.gaps)
+                else "code:airflow_sql",
+            )
+            for extraction in airflow.extract(text, job=relative, dialect=dialect)
+        ]
     if kind == "ssis":
         return [(XmlMappingScanner(SSIS).scan(text, source=relative).extraction, "code:ssis_xml")]
     if kind == "informatica":
