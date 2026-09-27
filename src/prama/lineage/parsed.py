@@ -62,7 +62,7 @@ def _qualified(table: exp.Table) -> str:
     return ".".join(part for part in (table.catalog, table.db, table.name) if part)
 
 
-def _transform(projection: exp.Expression) -> Transform:
+def _transform(projection: Any) -> Transform:
     node = projection.this if isinstance(projection, exp.Alias) else projection
     if node.find(exp.AggFunc) is not None:
         return Transform.AGGREGATED
@@ -160,8 +160,6 @@ def extract_statement(
     try:
         tree = sqlglot.parse_one(statement, read=read)
     except SqlglotError:
-        return None
-    if tree is None:
         return None
 
     target_columns: list[str] = []
