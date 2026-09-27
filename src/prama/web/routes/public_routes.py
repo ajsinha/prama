@@ -31,6 +31,39 @@ from prama.web.routes.base import UiRoutes
 _ASSET_TYPES = {".svg": "image/svg+xml", ".png": "image/png"}
 
 
+#: The declarations the landing page's hero types out, then proves. Each PQL
+#: string is parsed by a test (tests/web/test_landing.py), so the hero cannot
+#: show a control the language would refuse. The run figures are illustrative
+#: and the page says so; one of the four fails, because a hero in which
+#: everything passes is advertising, not evidence.
+HERO_DECLARATIONS: tuple[dict[str, object], ...] = (
+    {
+        "said": "Every trade has a notional.",
+        "pql": "CHECK trades.notional IS NOT NULL",
+        "rows": 1_204_339,
+        "violations": 0,
+    },
+    {
+        "said": "One trade, one booking.",
+        "pql": "CHECK trades.trade_id IS UNIQUE",
+        "rows": 1_204_339,
+        "violations": 0,
+    },
+    {
+        "said": "Settlement follows the trade.",
+        "pql": "CHECK trades.settle_date >= trades.trade_date",
+        "rows": 1_204_339,
+        "violations": 17,
+    },
+    {
+        "said": "Every instrument has a valid ISIN.",
+        "pql": "CHECK CONCEPT Instrument.ISIN IS VALID ISIN",
+        "rows": 88_412,
+        "violations": 0,
+    },
+)
+
+
 class PublicRoutes(UiRoutes):
     """Landing, help and about."""
 
@@ -59,6 +92,7 @@ class PublicRoutes(UiRoutes):
             "public/landing.html",
             public_nav=True,
             stats=stats,
+            declarations=HERO_DECLARATIONS,
             single_tenant=bool(config.get_str("tenancy.default_tenant", "")),
         )
 

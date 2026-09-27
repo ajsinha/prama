@@ -9,6 +9,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Prama{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/favicon.svg') }}">
 
   {# Everything vendored. Nothing is fetched at run time, so the UI renders
      identically in an air-gapped deployment — not a nicety for the buyers this

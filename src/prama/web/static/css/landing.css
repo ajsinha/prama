@@ -10,7 +10,6 @@
   justify-content: center; text-align: center; min-height: 540px; padding: 4.5rem 1.8rem 3.5rem;
   background: radial-gradient(900px 420px at 50% 30%,
     color-mix(in srgb, var(--accent) 12%, transparent), transparent 72%); }
-#lpNet { position: absolute; inset: 0; width: 100%; height: 100%; }
 .lp-hero-inner { position: relative; z-index: 1; max-width: 900px; }
 .lp-badge { display: inline-flex; align-items: center; gap: .5rem; padding: .38rem 1rem;
   border-radius: 999px; margin-bottom: 1.6rem; font-size: 12.5px; color: var(--text-muted);
@@ -54,16 +53,61 @@
 .lp-chain { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2.5rem;
   align-items: center; }
 @media (max-width: 991.98px) { .lp-chain { grid-template-columns: 1fr; } }
-.lp-figure { margin: 0; color: var(--text-muted); }
-.lp-figure svg { width: 100%; max-width: 440px; height: auto; display: block; margin: 0 auto; }
-.lp-figure figcaption { font-size: 12.5px; text-align: center; margin-top: .4rem; }
-.lp-node rect { fill: var(--bg-card); stroke: var(--border-color); stroke-width: 1.2; }
-.lp-label text { fill: var(--text-primary); font-size: 13px; font-weight: 600; }
-.lp-aside text { fill: var(--text-muted); font-size: 11.5px; font-style: italic; }
-.lp-lit rect { stroke: var(--accent); }
-.lp-pulse circle { fill: var(--accent); }
-.lp-stamp text { fill: var(--text-link); font-size: 12px; font-style: italic; letter-spacing: .04em; }
-@media (prefers-reduced-motion: reduce) { .lp-motion { display: none; } }
+/* Study 1 — the hero's live declaration: said, compiled, scanned, sealed. */
+.lp-live { display: grid; justify-items: center; gap: .7rem; margin: 0 auto 2rem; max-width: 640px; }
+.lp-said { font-family: "Instrument Serif", Georgia, serif; font-size: clamp(1.5rem, 3vw, 2rem);
+  color: var(--text-primary); min-height: 1.3em; }
+.lp-caret { display: inline-block; width: 2px; height: 1em; margin-left: 2px; vertical-align: -.12em;
+  background: var(--text-link); animation: lp-blink 1s steps(1) infinite; }
+@keyframes lp-blink { 50% { opacity: 0; } }
+.lp-pql { margin: 0; max-width: 100%; overflow-x: auto; padding: .55rem 1rem; border-radius: 8px;
+  font-family: "Spline Sans Mono", ui-monospace, monospace; font-size: 13.5px; color: var(--text-link);
+  background: var(--bg-card); border: 1px solid var(--border-color); transition: opacity .4s; }
+.lp-run { font-family: "Spline Sans Mono", ui-monospace, monospace; font-size: 13px; color: var(--text-muted);
+  font-variant-numeric: tabular-nums; min-height: 1.4em; }
+.lp-seal { display: inline-flex; align-items: center; gap: .5rem; padding: .35rem .9rem; border: 2px solid currentColor;
+  border-radius: 6px; font: 600 13px "Spline Sans Mono", ui-monospace, monospace; letter-spacing: .06em;
+  transform: rotate(-3deg); transition: transform .25s cubic-bezier(.2, 1.6, .4, 1), opacity .2s; }
+.lp-seal small { font-weight: 400; letter-spacing: 0; opacity: .85; }
+.lp-pass { color: var(--dim-completeness-text); }
+.lp-fail { color: var(--dim-validity-text); }
+.lp-seal.lp-off { opacity: 0; transform: rotate(-3deg) scale(1.8); }
+.lp-note { margin: 0; font-size: 11.5px; color: var(--text-muted); }
+
+/* Study 2 — the ledger that cannot be edited. */
+.lp-ledger { margin: 0; display: grid; gap: .9rem; }
+.lp-links { display: flex; align-items: center; justify-content: center; overflow: hidden; min-height: 76px; }
+.lp-rec { flex: none; width: 112px; padding: .45rem .6rem; border-radius: 8px; background: var(--bg-card);
+  border: 1.5px solid var(--border-color); font: 11px/1.45 "Spline Sans Mono", ui-monospace, monospace;
+  transition: border-color .3s, transform .3s, opacity .3s; }
+.lp-rec .id { color: var(--text-muted); }
+.lp-rec .h { color: var(--text-link); }
+.lp-rec .p { color: var(--dim-completeness-text); font-weight: 600; }
+.lp-rec .f { color: var(--dim-validity-text); font-weight: 600; }
+.lp-rec.lp-new { opacity: 0; transform: translateY(8px); }
+.lp-rec.lp-bad { border-color: var(--dim-validity); }
+.lp-rec.lp-tamper { animation: lp-jitter .12s 6; border-color: var(--dim-validity); }
+@keyframes lp-jitter { 50% { transform: translateX(2px) rotate(.6deg); } }
+.lp-hook { flex: none; width: 22px; height: 2px; background: var(--accent); transition: background .3s; }
+.lp-hook.lp-broken { background: repeating-linear-gradient(90deg, var(--dim-validity) 0 4px, transparent 4px 7px); }
+.lp-chain-status { text-align: center; font: 12.5px "Spline Sans Mono", ui-monospace, monospace; color: var(--text-muted); }
+.lp-chain-status.lp-alarm { color: var(--dim-validity-text); }
+
+/* Study 5 — the estate fills in. */
+.lp-estate-band { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 2.5rem; align-items: center; }
+@media (max-width: 991.98px) { .lp-estate-band { grid-template-columns: 1fr; } }
+.lp-estate { position: relative; height: 300px; border: 1px solid var(--border-color); border-radius: 14px;
+  background: var(--bg-card); overflow: hidden; }
+.lp-estate canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.lp-legend { position: absolute; left: .8rem; bottom: .6rem; display: flex; flex-wrap: wrap; gap: .8rem;
+  font: 11px "Spline Sans Mono", ui-monospace, monospace; color: var(--text-muted); }
+.lp-legend span::before { content: ""; display: inline-block; width: 9px; height: 9px; margin-right: 5px;
+  border-radius: 50%; vertical-align: -1px; background: var(--c); }
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-caret, .lp-rec.lp-tamper { animation: none; }
+  .lp-seal, .lp-rec, .lp-hook, .lp-pql { transition: none; }
+}
 
 .lp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 1.1rem; }
 .lp-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px;
@@ -101,7 +145,7 @@
 
 .lp-cta { margin-top: 3.4rem; padding: 3.4rem 1.8rem; text-align: center; color: var(--text-on-primary);
   background: var(--bg-header); }
-.lp-cta h2 { font-size: clamp(1.6rem, 3.4vw, 2.4rem); font-weight: 800; font-style: italic; margin-bottom: .6rem; }
+.lp-cta h2 { color: var(--text-on-primary); font-size: clamp(1.6rem, 3.4vw, 2.4rem); font-weight: 800; font-style: italic; margin-bottom: .6rem; }
 .lp-cta p { opacity: .9; margin-bottom: 1.6rem; }
 .lp-btn-light, .lp-btn-light:hover { background: var(--text-on-primary); color: #14182E; }
 .lp-btn-ghost, .lp-btn-ghost:hover { color: var(--text-on-primary);

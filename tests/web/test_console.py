@@ -45,7 +45,7 @@ class TestShell:
         Prama is. With the single-tenant fallback, the way in is the console."""
         response = await ui.get("/")
         assert response.status_code == 200
-        assert "lpNet" in response.text
+        assert "data-lp-hero" in response.text
         assert 'href="/estate"' in response.text
 
     async def test_the_estate_page_renders(self, ui: httpx.AsyncClient) -> None:

@@ -102,6 +102,7 @@ where = ["src"]
     "templates/**/*.html",
     "static/css/*.css",
     "static/js/*.js",
+    "static/img/*.svg",
     "static/vendor/**/*",
 ]
 
