@@ -157,3 +157,71 @@ def test_the_extraction_goes_straight_into_a_lineage_graph() -> None:
         "risk.summary.total_value",
         "risk.summary.base_value",
     }
+
+
+# -- what the SQL parser adds over the pattern reader (Wave 12) --------------
+
+
+def _regex_only(sql: str):  # type: ignore[no-untyped-def]
+    """The old path, for comparison: the pattern reader on its own."""
+    lineage = SqlLineage()
+    found = []
+    for statement in [s for s in sql.split(";") if s.strip()]:
+        edges_found, _ = lineage._statement(statement.strip(), "nightly")
+        found.extend(edges_found)
+    return {(e.source.qualified, e.target.qualified) for e in found}
+
+
+CTE = """
+CREATE VIEW risk.exposure AS
+WITH live AS (SELECT account_id, market_value FROM positions WHERE status = 'ACTIVE')
+SELECT l.account_id AS account, SUM(l.market_value) AS exposure
+FROM live l
+GROUP BY l.account_id;
+"""
+
+
+def test_the_parser_path_is_the_one_running() -> None:
+    _, extraction = edges(VIEW)
+    assert not any(gap.kind == "regex_fallback" for gap in extraction.gaps)
+
+
+def test_a_cte_is_traced_to_the_table_behind_it() -> None:
+    found, extraction = edges(CTE)
+    assert ("positions.market_value", "risk.exposure.exposure") in found
+    assert found[("positions.market_value", "risk.exposure.exposure")].transform is (
+        Transform.AGGREGATED
+    )
+    # The counterfactual: the pattern reader names the CTE, not the table.
+    assert ("positions.market_value", "risk.exposure.exposure") not in _regex_only(CTE)
+
+
+def test_a_subquery_is_traced_too() -> None:
+    sql = (
+        "INSERT INTO finrep.totals (desk, amount) "
+        "SELECT t.desk, t.amt FROM (SELECT desk, SUM(notional) AS amt FROM trades GROUP BY desk) t"
+    )
+    found, _ = edges(sql)
+    assert ("trades.notional", "finrep.totals.amount") in found
+
+
+def test_a_dialect_the_patterns_cannot_read_is_parsed() -> None:
+    sql = "INSERT INTO [dbo].[out] ([a]) SELECT [s].[x] FROM [dbo].[src] AS [s]"
+    found, extraction = edges(sql, dialect="tsql")
+    assert ("dbo.src.x", "dbo.out.a") in found
+    assert not any(gap.kind == "regex_fallback" for gap in extraction.gaps)
+
+
+def test_what_the_parser_cannot_read_falls_back_and_says_so() -> None:
+    sql = "CREATE VIEW v AS SELECT a.x AS x FROM a UNION ALL SELECT b.x AS x FROM b"
+    _, extraction = edges(sql)
+    assert any(gap.kind == "regex_fallback" for gap in extraction.gaps)
+
+
+def test_the_pattern_reader_does_not_read_a_string_literal_as_a_column() -> None:
+    found, _ = SqlLineage()._statement(
+        "INSERT INTO t (x) SELECT a.v FROM a WHERE a.s = 'BOOKED'", "j"
+    )
+    sources = {edge.source.qualified for edge in found}
+    assert "a.booked" not in sources
+    assert {"a.v", "a.s"} <= sources  # the control: real columns still found

@@ -1183,3 +1183,98 @@ CREATE TABLE IF NOT EXISTS llm_call (
         AND (schema_valid IS NULL OR schema_valid IN (0, 1)))
 );
 CREATE INDEX IF NOT EXISTS ix_llm_call_started ON llm_call (tenant_id, started_at);
+
+-- ===========================================================================
+-- LINEAGE STORE  (Wave 12)
+-- ===========================================================================
+-- Lineage as data: where it came from, each scan of it, every column edge
+-- with its provenance and history, and what could not be read. One store for
+-- every origin: parsed SQL, code, OpenLineage, dbt, warehouse history, a
+-- declared journey, an import from another tool.
+CREATE TABLE IF NOT EXISTS lin_source (
+    id            VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id     VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    name          VARCHAR(128)  NOT NULL,
+    kind          VARCHAR(32)   NOT NULL,
+    location      VARCHAR(512)  NOT NULL DEFAULT '',
+    dialect       VARCHAR(32)   NOT NULL DEFAULT 'ansi',
+    settings_json TEXT          NOT NULL DEFAULT '{}',
+    created_at    VARCHAR(32)   NOT NULL,
+    created_by    VARCHAR(26),
+    last_run_id   VARCHAR(26),
+    CONSTRAINT uq_lin_source_name UNIQUE (tenant_id, name),
+    CONSTRAINT ck_lin_source_kind CHECK (kind IN ('sql', 'code', 'openlineage', 'dbt',
+        'warehouse', 'declared', 'import'))
+);
+
+CREATE TABLE IF NOT EXISTS lin_run (
+    id          VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id   VARCHAR(26)   NOT NULL,
+    source_id   VARCHAR(26)   NOT NULL REFERENCES lin_source (id) ON DELETE CASCADE,
+    started_at  VARCHAR(32)   NOT NULL,
+    finished_at VARCHAR(32),
+    statements  INTEGER       NOT NULL DEFAULT 0,
+    edges       INTEGER       NOT NULL DEFAULT 0,
+    gaps        INTEGER       NOT NULL DEFAULT 0,
+    understood  REAL          NOT NULL DEFAULT 0,
+    outcome     VARCHAR(16)   NOT NULL DEFAULT 'running',
+    detail      TEXT          NOT NULL DEFAULT '',
+    started_by  VARCHAR(26),
+    CONSTRAINT ck_lin_run_outcome CHECK (outcome IN ('running', 'ok', 'partial', 'failed')),
+    CONSTRAINT ck_lin_run_understood CHECK (understood >= 0 AND understood <= 1)
+);
+CREATE INDEX IF NOT EXISTS ix_lin_run_source ON lin_run (source_id, started_at);
+
+-- An edge is identified by its source, its two columns and its transform, so a
+-- re-scan finds it again. Bitemporal: valid_to is set when a scan of the same
+-- source stops finding it, and the row is kept. `parsed` edges come from a
+-- deterministic parser; `inferred` ones (heuristic or model) wait for a person.
+CREATE TABLE IF NOT EXISTS lin_edge (
+    id              VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id       VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    source_id       VARCHAR(26)   NOT NULL REFERENCES lin_source (id) ON DELETE CASCADE,
+    identity        VARCHAR(64)   NOT NULL,
+    source_dataset  VARCHAR(255)  NOT NULL,
+    source_column   VARCHAR(255)  NOT NULL,
+    target_dataset  VARCHAR(255)  NOT NULL,
+    target_column   VARCHAR(255)  NOT NULL,
+    transform       VARCHAR(16)   NOT NULL,
+    produced_by     VARCHAR(512)  NOT NULL DEFAULT '',
+    expression      TEXT          NOT NULL DEFAULT '',
+    status          VARCHAR(16)   NOT NULL DEFAULT 'parsed',
+    method          VARCHAR(128)  NOT NULL,
+    confidence      REAL          NOT NULL DEFAULT 1,
+    unit_id         VARCHAR(26),
+    line_start      INTEGER,
+    line_end        INTEGER,
+    excerpt         TEXT          NOT NULL DEFAULT '',
+    llm_fingerprint VARCHAR(64),
+    decided_by      VARCHAR(26),
+    decided_at      VARCHAR(32),
+    decision_note   TEXT,
+    valid_from      VARCHAR(32)   NOT NULL,
+    valid_to        VARCHAR(32),
+    first_seen_run  VARCHAR(26)   NOT NULL,
+    last_seen_run   VARCHAR(26)   NOT NULL,
+    CONSTRAINT uq_lin_edge_identity UNIQUE (tenant_id, identity),
+    CONSTRAINT ck_lin_edge_status CHECK (status IN ('parsed', 'inferred', 'confirmed',
+        'rejected', 'retired')),
+    CONSTRAINT ck_lin_edge_transform CHECK (transform IN ('identity', 'rename', 'derived',
+        'aggregated', 'filter', 'join_key')),
+    CONSTRAINT ck_lin_edge_confidence CHECK (confidence >= 0 AND confidence <= 1)
+);
+CREATE INDEX IF NOT EXISTS ix_lin_edge_source_col ON lin_edge (tenant_id, source_dataset, source_column);
+CREATE INDEX IF NOT EXISTS ix_lin_edge_target_col ON lin_edge (tenant_id, target_dataset, target_column);
+
+-- What a run could not read. Kept per run, because "37% of this package was not
+-- parsed" is a claim about a moment, and the next scan may say something else.
+CREATE TABLE IF NOT EXISTS lin_gap (
+    id        VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id VARCHAR(26)   NOT NULL,
+    run_id    VARCHAR(26)   NOT NULL REFERENCES lin_run (id) ON DELETE CASCADE,
+    kind      VARCHAR(32)   NOT NULL,
+    detail    TEXT          NOT NULL,
+    statement TEXT          NOT NULL DEFAULT '',
+    unit_ref  VARCHAR(512)  NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS ix_lin_gap_run ON lin_gap (run_id);

@@ -32,6 +32,19 @@ Three questions are answered here, each with a design note behind it:
     `ProfileProvider`) and `prama.llm.wiring`.
   - **Surfaces:** `prama llm provider|profile|ask|calls` and the **Models** page.
   - **Guard:** an import-graph test that no verdict-producing package can reach `prama.llm`.
+- **Real SQL parser** (`sqlglot`, `prama.lineage.parsed`). It follows columns through CTEs and
+  subqueries, and parses T-SQL brackets and about twenty dialects. The pattern reader remains the
+  declared fallback, and a `regex_fallback` gap says when it was used. Building the store also
+  found and fixed a defect in the pattern reader: it read a string literal (`'BOOKED'`) as a
+  column.
+- **Lineage store and workbench (E1):**
+  - **Tables:** `lin_source`, `lin_run`, `lin_edge` (bitemporal, with provenance; `parsed`
+    versus `inferred` versus a person's decision) and `lin_gap`.
+  - **Code:** `prama.lineage.store.scan_sql` and `prama lineage scan|show|impact|gaps`.
+  - **The Lineage page:** edges, confirm and reject, an impact drawing, recent scans, and gaps.
+- **Still to do in Wave 12:**
+  - give `score/trust.py` and `incident/rca.py` the persisted graph (E1 acceptance 2);
+  - the always-on scheduler.
 - **Deferred, each to the phase that first needs it:**
   - The transport-module extraction, multi-turn messages and JSON-schema validation go to
     Wave 13, with the new wire formats.

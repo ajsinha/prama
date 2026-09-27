@@ -29,6 +29,10 @@ dependencies = [
     # The help centre renders the design corpus and the console guides from
     # their Markdown sources, so the help and the documents cannot disagree.
     "markdown>=3.6",
+    # Lineage: a real SQL parser, about twenty dialects, pure Python, MIT. The
+    # regex extractor stays only as the fallback for what it cannot parse,
+    # reported as a gap (docs/23, Wave 12; owner-approved 2026-09-27).
+    "sqlglot>=25",
 ]
 
 [project.optional-dependencies]
@@ -169,7 +173,7 @@ warn_unreachable = true
 disallow_any_generics = false
 
 [[tool.mypy.overrides]]
-module = ["yaml", "orjson", "pyarrow", "pyarrow.*", "duckdb", "markdown"]
+module = ["yaml", "orjson", "pyarrow", "pyarrow.*", "duckdb", "markdown", "sqlglot", "sqlglot.*"]
 ignore_missing_imports = true
 
 [tool.coverage.run]

@@ -1,0 +1,94 @@
+{# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{% extends "base.html" %}
+{% block title %}Lineage — Prama{% endblock %}
+{% block heading %}Lineage{% endblock %}
+{% block content %}
+<p class="text-muted small" style="max-width: 56rem">Column lineage from every source Prama has read. Each edge says
+  how it is known: <strong>parsed</strong> by the SQL parser, <strong>inferred</strong> (by the fallback reader or a
+  model, waiting for a person), or <strong>confirmed</strong> by one. Scan SQL with
+  <code>prama lineage scan etl/ --source warehouse</code>.</p>
+
+<form class="row g-2 mb-4" method="get" action="{{ url_for('lineage') }}" style="max-width: 56rem">
+  <div class="col-md-5"><label class="form-label small" for="l-dataset">Edges touching a dataset</label>
+    <input class="form-control" id="l-dataset" name="dataset" value="{{ dataset }}" placeholder="stg.trades"></div>
+  <div class="col-md-5"><label class="form-label small" for="l-column">What a defect in this column reaches</label>
+    <input class="form-control" id="l-column" name="column" value="{{ column }}" placeholder="raw.trades.notional"></div>
+  <div class="col-md-2 d-flex align-items-end"><button class="btn btn-primary w-100" type="submit">Show</button></div>
+</form>
+
+{% if impact %}
+<section class="mb-4" aria-labelledby="impact-h">
+  <h2 class="h6" id="impact-h">Impact of <code>{{ impact.origin }}</code></h2>
+  {% if impact.error %}<div class="alert alert-warning">{{ impact.error }}</div>
+  {% elif not impact.reached and not impact.upstream %}<p class="text-muted">Nothing upstream or downstream of it in the lineage store.</p>
+  {% else %}
+  {# Drawn server-side: upstream on the left, the column, then everything it
+     reaches in order of how much of a defect survives the trip. #}
+  {% set rows = [impact.upstream | length, impact.reached | length, 1] | max %}
+  {% set h = 34 * rows + 20 %}
+  <div style="overflow-x: auto">
+  <svg viewBox="0 0 900 {{ h }}" width="100%" style="min-width: 700px; max-height: 520px" role="img"
+       aria-label="Lineage around {{ impact.origin }}">
+    {% set cy = h / 2 %}
+    {% for up in impact.upstream %}{% set y = 20 + loop.index0 * 34 %}
+      <path d="M 250 {{ y + 10 }} C 300 {{ y + 10 }}, 300 {{ cy }}, 340 {{ cy }}" fill="none" stroke="var(--accent)" stroke-width="1.4"/>
+      <rect x="10" y="{{ y }}" width="240" height="22" rx="5" fill="var(--bg-card)" stroke="var(--border-color)"/>
+      <text x="18" y="{{ y + 15 }}" font-size="11" fill="var(--text-primary)">{{ up[:36] }}</text>
+    {% endfor %}
+    <rect x="340" y="{{ cy - 13 }}" width="220" height="26" rx="6" fill="var(--bg-card)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="350" y="{{ cy + 4 }}" font-size="12" font-weight="600" fill="var(--text-primary)">{{ impact.origin[:32] }}</text>
+    {% for col, share, depth in impact.reached %}{% set y = 20 + loop.index0 * 34 %}
+      <path d="M 560 {{ cy }} C 600 {{ cy }}, 600 {{ y + 10 }}, 640 {{ y + 10 }}" fill="none" stroke="var(--accent)" stroke-width="{{ 0.6 + 2 * share }}" opacity="{{ 0.35 + 0.65 * share }}"/>
+      <rect x="640" y="{{ y }}" width="250" height="22" rx="5" fill="var(--bg-card)" stroke="var(--border-color)"/>
+      <text x="648" y="{{ y + 15 }}" font-size="11" fill="var(--text-primary)">{{ '%3d' % (share * 100) }}%  {{ col[:30] }}</text>
+    {% endfor %}
+  </svg>
+  </div>
+  <p class="small text-muted">Line weight is the share of a defect that survives the path; an aggregate carries least.</p>
+  {% endif %}
+</section>
+{% endif %}
+
+<h2 class="h6">Edges{% if dataset %} touching <code>{{ dataset }}</code>{% endif %} <span class="text-muted small">({{ total }})</span></h2>
+<div style="overflow-x: auto">
+<table class="table table-sm align-middle small">
+  <thead><tr><th scope="col">From</th><th scope="col">To</th><th scope="col">How</th><th scope="col">Known by</th><th scope="col">Source</th><th scope="col"><span class="visually-hidden">Decide</span></th></tr></thead>
+  <tbody>
+  {% for e in edges %}
+    <tr><td><code>{{ e.source_dataset }}.{{ e.source_column }}</code></td>
+      <td><code>{{ e.target_dataset }}.{{ e.target_column }}</code></td>
+      <td title="{{ e.expression }}">{{ e.transform }}</td>
+      <td><span class="badge {{ {'parsed': 'text-bg-success', 'confirmed': 'text-bg-primary', 'inferred': 'text-bg-warning'}.get(e.status, 'text-bg-secondary') }}">{{ e.status }}</span>
+        <span class="text-muted">{{ e.method }}{% if e.confidence < 1 %} · {{ '%.0f' % (e.confidence * 100) }}%{% endif %}</span></td>
+      <td>{{ sources.get(e.source_id, '') }}</td>
+      <td class="text-nowrap">{% if e.status in ('inferred', 'parsed') %}
+        <form method="post" action="{{ url_for('lineage_decide', edge_id=e.id) }}" class="d-inline">
+          <input type="hidden" name="decision" value="confirmed"><button class="btn btn-sm btn-outline-primary" type="submit">Confirm</button></form>
+        <form method="post" action="{{ url_for('lineage_decide', edge_id=e.id) }}" class="d-inline">
+          <input type="hidden" name="decision" value="rejected"><button class="btn btn-sm btn-outline-danger" type="submit">Reject</button></form>
+      {% endif %}</td></tr>
+  {% else %}
+    <tr><td colspan="6" class="text-muted">No lineage yet. Scan some SQL: <code>prama lineage scan etl/ --source warehouse</code></td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<div class="row g-4 mt-2">
+  <div class="col-lg-6">
+    <h2 class="h6">Recent scans</h2>
+    <table class="table table-sm small">
+      <thead><tr><th scope="col">Source</th><th scope="col">When</th><th scope="col">Statements</th><th scope="col">Edges</th><th scope="col">Understood</th><th scope="col">Outcome</th></tr></thead>
+      <tbody>{% for r in runs %}
+        <tr><td>{{ sources.get(r.source_id, '?') }}</td><td>{{ r.started_at[:19] }}</td><td>{{ r.statements }}</td><td>{{ r.edges }}</td>
+          <td>{{ '%.0f' % (r.understood * 100) }}%</td><td>{{ r.outcome }}{% if r.detail %}<div class="text-muted">{{ r.detail }}</div>{% endif %}</td></tr>
+      {% else %}<tr><td colspan="6" class="text-muted">No scans yet.</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+  <div class="col-lg-6">
+    <h2 class="h6">Not understood in the latest scan</h2>
+    {% for g in gaps %}<div class="small mb-2"><span class="badge text-bg-secondary">{{ g.kind }}</span> {{ g.detail }}</div>
+    {% else %}<p class="text-muted small">Nothing: every statement was read.</p>{% endfor %}
+  </div>
+</div>
+{% endblock %}

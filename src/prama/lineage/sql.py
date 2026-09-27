@@ -35,6 +35,7 @@ from typing import Any
 
 from prama.backend.sql import _AGGREGATES as _COMPILED_AGGREGATES
 from prama.lineage.graph import Column, Edge, LineageGraph, Transform
+from prama.lineage.parsed import extract_statement
 
 #: Aggregate functions, which mark an edge as attenuating. Recognised by name
 #: because that is the only signal available without a type system.
@@ -269,6 +270,11 @@ class Extraction:
         }
 
 
+def split_statements(sql: str) -> list[str]:
+    """The statements in a script, in order. One definition, for every reader."""
+    return [part.strip() for part in re.split(r";\s*(?:\n|$)", sql) if part.strip()]
+
+
 class SqlLineage:
     """Reads column lineage out of SELECT, INSERT and CREATE statements."""
 
@@ -290,12 +296,29 @@ class SqlLineage:
     def extract(self, sql: str, *, job: str = "") -> Extraction:
         edges: list[Edge] = []
         gaps: list[Gap] = []
-        statements = [
-            statement.strip() for statement in re.split(r";\s*(?:\n|$)", sql) if statement.strip()
-        ]
+        statements = split_statements(sql)
 
         for statement in statements:
-            found, problems = self._statement(statement, job)
+            parsed = extract_statement(
+                statement, job=job, schema=self._schema, dialect=self._dialect
+            )
+            if parsed is not None:
+                found, problems = parsed
+            else:
+                # The real parser could not read it. The regex extractor may,
+                # less reliably, so that is said rather than hidden.
+                found, problems = self._statement(statement, job)
+                problems = [
+                    *problems,
+                    Gap(
+                        kind="regex_fallback",
+                        detail=(
+                            "the SQL parser could not read this statement, so the "
+                            "pattern-based reader was used; check its edges"
+                        ),
+                        statement=statement,
+                    ),
+                ]
             edges.extend(found)
             gaps.extend(problems)
 
@@ -507,6 +530,10 @@ class SqlLineage:
         found: list[Column] = []
         ambiguous: dict[str, set[str]] = {}
         seen: set[str] = set()
+        # String literals are values, not columns: `status = 'BOOKED'` read
+        # BOOKED as a column called `booked` (found by the lineage store's
+        # first test, 2026-09-27).
+        expression = re.sub(r"'(?:[^']|'')*'", "''", expression)
 
         for match in _IDENTIFIER.finditer(expression):
             qualifier = match.group("qualifier").lower()
