@@ -85,10 +85,11 @@ PAGES = (
     "/attestations",
 )
 
-#: Both ends of the light/dark axis and the three brand themes. Computed
+#: Every theme the picker offers, derived rather than listed: a hand-kept list
+#: silently stopped covering the sixth theme the day it was added. Computed
 #: contrast is a property of the rendered page, so a palette that passes the
 #: arithmetic in every theme still has to be looked at in every theme.
-THEMES = ("light", "dark", "crimson", "bmo", "wallstreet")
+THEMES = tuple(theme.name for theme in _THEMES)
 
 
 def _playwright():

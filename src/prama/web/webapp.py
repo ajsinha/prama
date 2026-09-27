@@ -54,10 +54,6 @@ def mount_ui(app: FastAPI, config: Configuration) -> None:
         _log.info("unauthenticated UI request for %s: %s", request.url.path, exc)
         return RedirectResponse(url="/sign-in", status_code=303)
 
-    @app.get("/", include_in_schema=False, name="home")
-    async def _home() -> RedirectResponse:
-        return RedirectResponse(url="/estate", status_code=307)
-
     for route_class in ROUTE_CLASSES:
         route_class(app)
 

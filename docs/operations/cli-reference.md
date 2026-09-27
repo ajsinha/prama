@@ -424,8 +424,8 @@ run the HTTP API
 
 | Argument | Meaning |
 |---|---|
-| `--host` | bind address |
-| `--port` |  |
+| `--host` | bind address (server.host) |
+| `--port` | port (server.port, 5900) |
 | `--reload` | reload on code change |
 
 ## `prama tenant`

@@ -148,6 +148,20 @@ so explicitly rather than counting it as a pass.
 
 ---
 
+### Somebody leaves, or a key leaks
+
+**Offboarding.** An administrator opens **People & roles** (`/admin/users`) and
+presses **Disable**. Every session that person holds ends on its next request —
+sessions are revalidated against the account, not trusted from the cookie. Their
+API keys stop working at the same moment: a key is no more usable than the
+person it acts as. Do not delete anybody — evidence and attestations name their
+actor. Revoke their keys at **All API keys** (`/admin/keys`) as well, so the
+record says the keys were retired and not merely dormant.
+
+**A leaked key.** Revoke it by prefix at `/admin/keys` or with
+`prama apikey revoke <prefix>`. It stops working at once. Both actions are in
+the audit log.
+
 ## 4. Streaming and in-flight enforcement
 
 ### The pipeline stopped

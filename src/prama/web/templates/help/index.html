@@ -1,0 +1,34 @@
+{# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{# The help centre, after Maya's: a searchable catalogue of topic cards. Every
+   card opens a document rendered from its Markdown source. #}
+{% extends "base.html" %}
+{% block title %}Help — Prama{% endblock %}
+{% block heading %}Help centre{% endblock %}
+{% block content %}
+<p class="text-muted" style="max-width: 46rem">Every page here is rendered from the document that is
+  the authority for it — the console guides shipped with Prama, and the design corpus in
+  <code>docs/</code> — so the help and the documentation cannot disagree.</p>
+
+<div class="mb-4" style="max-width: 28rem">
+  <label class="visually-hidden" for="help-search">Search help</label>
+  <input class="form-control" id="help-search" type="search" placeholder="Search help topics…"
+         data-help-search autocomplete="off">
+</div>
+
+{% for section in sections %}
+<section class="mb-4" data-help-section>
+  <h2 class="h5 mb-3">{{ section.title }}</h2>
+  <div class="help-grid">
+    {% for e in section.entries %}
+    <a class="help-card" href="{{ url_for('help_topic', slug=e.slug) }}"
+       data-help-text="{{ (e.title ~ ' ' ~ e.summary) | lower }}">
+      <i class="bi {{ e.icon }}" aria-hidden="true"></i>
+      <div><strong>{{ e.title }}</strong><span>{{ e.summary }}</span></div>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}
+<p class="text-muted small">The REST API documents itself at <a href="/api/v1/docs">/api/v1/docs</a>.</p>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/help.js') }}"></script>{% endblock %}

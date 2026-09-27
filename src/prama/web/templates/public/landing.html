@@ -1,0 +1,188 @@
+{# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{# The landing page, adopted from Maya's second edition: a centred hero over a
+   live network, a strip of numbers, the chain of evidence, capability cards,
+   the ways in, and a closing call. Its colour comes only from Prama's theme
+   tokens, so it is the same page in every theme; its numbers are counted
+   by the route, never typed here. #}
+{% extends "base.html" %}
+{% block title %}Prama — {{ app_tagline }}{% endblock %}
+{% block main_class %}container-fluid px-0 pt-0 pb-0{% endblock %}
+{% block content %}
+<section class="lp-hero">
+  <canvas id="lpNet" aria-hidden="true"></canvas>
+  <div class="lp-hero-inner">
+    <div class="lp-badge"><i class="bi bi-circle-fill" aria-hidden="true"></i>
+      {{ app_tagline }} · version {{ app_version }}</div>
+    <h1 class="lp-title">Data quality the business declares,<br>
+      <span class="lp-gradient">and the evidence proves.</span></h1>
+    <p class="lp-sub">A data owner says what a dataset means. Prama turns that declaration into
+      controls, runs them where the data lives, and keeps a sealed record of every verdict — so
+      "is this number right?" is answered by evidence somebody else can check, not by assertion.</p>
+    <div class="lp-actions">
+      {% if single_tenant %}
+      <a class="lp-btn lp-btn-primary" href="{{ url_for('estate_map') }}"><i class="bi bi-diagram-3" aria-hidden="true"></i> Open the console</a>
+      {% else %}
+      <a class="lp-btn lp-btn-primary" href="{{ url_for('sign_in') }}"><i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> Sign in</a>
+      {% endif %}
+      <a class="lp-btn lp-btn-outline" href="{{ url_for('help_index') }}"><i class="bi bi-book" aria-hidden="true"></i> Read the documentation</a>
+    </div>
+  </div>
+</section>
+
+<div class="lp-body">
+<section class="lp-stats" aria-label="Prama in numbers">
+  <div><span class="lp-num">{{ stats.areas }}</span><span class="lp-label">console areas, one ledger</span></div>
+  <div><span class="lp-num">{{ stats.scopes }}</span><span class="lp-label">permission scopes, checked on every page</span></div>
+  <div><span class="lp-num">{{ stats.themes }}</span><span class="lp-label">themes, every one contrast-checked</span></div>
+  <div><span class="lp-num">{{ stats.help }}</span><span class="lp-label">help topics, rendered from source</span></div>
+  <div><span class="lp-num">0</span><span class="lp-label">verdicts decided by a model</span></div>
+</section>
+
+<section class="lp-section lp-chain">
+  <div>
+    <p class="lp-eyebrow">The chain</p>
+    <h2 class="lp-h2">From a sentence a data owner writes to a verdict a regulator reads.</h2>
+    <p class="lp-desc">A declaration says what the data means. A control is derived from it, compiled to
+      the engine the data lives on, and run. The run leaves evidence in an append-only ledger, and an
+      owner attests to it. Every box in this figure is an object Prama stores, with a version, an owner
+      and an audit trail.</p>
+  </div>
+  <figure class="lp-figure">
+    <svg viewBox="0 0 420 448" role="img" aria-labelledby="lp-fig-title">
+      <title id="lp-fig-title">The chain of evidence: declaration, control, run, evidence, attestation</title>
+      <defs>
+        <marker id="lp-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0 0 L10 5 L0 10 z" fill="currentColor"></path>
+        </marker>
+      </defs>
+      <g class="lp-wire" fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#lp-arrow)">
+        <path id="lp-w1" d="M210 66 L210 104"></path>
+        <path id="lp-w2" d="M210 150 L210 188"></path>
+        <path id="lp-w3" d="M210 234 L210 272"></path>
+        <path id="lp-w4" d="M210 318 L210 356"></path>
+      </g>
+      <g class="lp-node">
+        <rect x="120" y="28" width="180" height="38" rx="8"></rect>
+        <rect x="120" y="112" width="180" height="38" rx="8"></rect>
+        <rect x="120" y="196" width="180" height="38" rx="8"></rect>
+        <rect x="120" y="280" width="180" height="38" rx="8"></rect>
+        <rect x="120" y="364" width="180" height="38" rx="8"></rect>
+      </g>
+      {# One verdict making the whole journey, once every 6.2 seconds; every
+         timing is a fraction of that one cycle so the steps cannot drift. A
+         reader who asked for less motion gets the diagram standing still. #}
+      <g class="lp-motion" aria-hidden="true">
+        <g class="lp-lit" fill="none" stroke-width="2.5">
+          <rect x="120" y="28" width="180" height="38" rx="8" opacity="0"><animate attributeName="opacity" dur="6.2s" repeatCount="indefinite" values="1;1;0;0" keyTimes="0;0.02;0.12;1"></animate></rect>
+          <rect x="120" y="112" width="180" height="38" rx="8" opacity="0"><animate attributeName="opacity" dur="6.2s" repeatCount="indefinite" values="0;0;1;0;0" keyTimes="0;0.16;0.19;0.30;1"></animate></rect>
+          <rect x="120" y="196" width="180" height="38" rx="8" opacity="0"><animate attributeName="opacity" dur="6.2s" repeatCount="indefinite" values="0;0;1;0;0" keyTimes="0;0.36;0.39;0.50;1"></animate></rect>
+          <rect x="120" y="280" width="180" height="38" rx="8" opacity="0"><animate attributeName="opacity" dur="6.2s" repeatCount="indefinite" values="0;0;1;0;0" keyTimes="0;0.56;0.59;0.70;1"></animate></rect>
+          <rect x="120" y="364" width="180" height="38" rx="8" opacity="0"><animate attributeName="opacity" dur="6.2s" repeatCount="indefinite" values="0;0;1;1;0" keyTimes="0;0.76;0.79;0.94;1"></animate></rect>
+        </g>
+        <g class="lp-pulse">
+          {% for w, t0, t1 in [("lp-w1", "0.02", "0.16"), ("lp-w2", "0.22", "0.36"), ("lp-w3", "0.42", "0.56"), ("lp-w4", "0.62", "0.76")] %}
+          <circle r="4" opacity="0">
+            <animateMotion dur="6.2s" repeatCount="indefinite" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;{{ t0 }};{{ t1 }};1"><mpath href="#{{ w }}"></mpath></animateMotion>
+            <animate attributeName="opacity" dur="6.2s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;{{ t0 }};{{ '%.2f' % (t0|float + 0.02) }};{{ '%.2f' % (t1|float - 0.01) }};{{ '%.2f' % (t1|float + 0.01) }};1"></animate>
+          </circle>
+          {% endfor %}
+        </g>
+        <g class="lp-stamp" text-anchor="middle" opacity="0">
+          <animate attributeName="opacity" dur="6.2s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.78;0.82;0.92;0.96;1"></animate>
+          <text x="210" y="430">evidence, not assertion</text>
+        </g>
+      </g>
+      <g class="lp-label" text-anchor="middle">
+        <text x="210" y="52">declaration · meaning</text>
+        <text x="210" y="136">control · derived</text>
+        <text x="210" y="220">run · where data lives</text>
+        <text x="210" y="304">evidence · sealed</text>
+        <text x="210" y="388">attestation · signed</text>
+      </g>
+      <g class="lp-aside" text-anchor="start">
+        <text x="312" y="136">never restated</text>
+        <text x="312" y="220">pushed down</text>
+        <text x="312" y="304">append-only</text>
+        <text x="312" y="388">by a person</text>
+      </g>
+    </svg>
+    <figcaption>The chain Prama keeps. Each step is an object with a version, an owner and an audit trail.</figcaption>
+  </figure>
+</section>
+
+<section class="lp-section" id="capabilities">
+  <p class="lp-eyebrow lp-centre">Capabilities</p>
+  <h2 class="lp-h2 lp-centre">Not a rule list. A record of whether the data can be trusted.</h2>
+  <p class="lp-desc lp-centre">A rule list says what somebody checked once. A record says what was
+    declared, what ran, what it found and who signed for it — and refuses a verdict it cannot support.</p>
+  <div class="lp-grid">
+    <article class="lp-card"><i class="bi bi-journal-text" aria-hidden="true"></i>
+      <h3>Declarations a business owner writes</h3>
+      <p>Datasets, attributes, concepts and relationships in the business's own words, versioned, with an
+        owner. Controls are derived from them, never typed twice.</p></article>
+    <article class="lp-card"><i class="bi bi-code-square" aria-hidden="true"></i>
+      <h3>A rule language that type-checks</h3>
+      <p>PQL is parsed, linted and checked against the estate's catalogue, explained back as a sentence,
+        and compiled to the SQL each engine runs — fused into shared scans.</p></article>
+    <article class="lp-card"><i class="bi bi-shield-check" aria-hidden="true"></i>
+      <h3>An evidence ledger that cannot be edited</h3>
+      <p>Every run leaves a hash-chained record. A verifier that imports nothing from Prama checks it on
+        a machine that has never seen Prama.</p></article>
+    <article class="lp-card"><i class="bi bi-arrow-left-right" aria-hidden="true"></i>
+      <h3>Reconciliation that says what changed</h3>
+      <p>Breaks between systems are keyed, explained, assigned and accepted — what changed, not merely how
+        many rows differ.</p></article>
+    <article class="lp-card"><i class="bi bi-cpu" aria-hidden="true"></i>
+      <h3>AI that proposes, never adjudicates</h3>
+      <p>Models draft controls, rank incidents and explain findings. A deterministic, versioned engine
+        decides every verdict — enforced by the build, not by policy.</p></article>
+    <article class="lp-card"><i class="bi bi-bank" aria-hidden="true"></i>
+      <h3>A banking pack that states its limits</h3>
+      <p>Calendars, FIX, ISO 8583 and FpML, business concepts — and a list of what the pack does
+        <em>not</em> claim to discharge.</p></article>
+  </div>
+</section>
+
+<section class="lp-section lp-ways">
+  <p class="lp-eyebrow lp-centre">Ways in</p>
+  <h2 class="lp-h2 lp-centre">Four ways in. One ledger.</h2>
+  <p class="lp-desc lp-centre">The console, the API, the CLI and the language server all reach the same
+    services and are refused the same way.</p>
+  <div class="lp-ways-grid">
+    <div class="lp-ways-list">
+      <div class="lp-way"><i class="bi bi-window" aria-hidden="true"></i><div><strong>Console</strong>
+        <span>Estate map, control studio, incidents, reconciliation, attestations</span></div></div>
+      <div class="lp-way"><i class="bi bi-hdd-network" aria-hidden="true"></i><div><strong>REST API</strong>
+        <span>Under /api/v1, authenticated by scoped, expiring API keys</span></div></div>
+      <div class="lp-way"><i class="bi bi-terminal" aria-hidden="true"></i><div><strong>CLI</strong>
+        <span>The same verbs from a shell, and a CI gate that exits 3 on breach</span></div></div>
+      <div class="lp-way"><i class="bi bi-braces-asterisk" aria-hidden="true"></i><div><strong>Language server</strong>
+        <span>PQL completion and type errors in the editor you already use</span></div></div>
+    </div>
+    <div class="lp-code" aria-label="An example control">
+      <div class="lp-code-bar"><span></span><span></span><span></span><em>positions.pql</em></div>
+{# Real PQL, checked with `prama control check` and explained with
+   `prama control explain` when this page was written. #}
+<pre><span class="k">CHECK</span> positions.notional <span class="k">IS NOT NULL</span>
+  <span class="k">SEVERITY</span> critical
+  <span class="k">BECAUSE</span> <span class="s">'a position without a notional cannot be risk-weighted'</span>
+
+<span class="c">$ prama control explain positions.pql</span>
+<span class="c">· In positions, every notional has a value. No violations</span>
+<span class="c">  are allowed. A failure is critical.</span></pre>
+    </div>
+  </div>
+</section>
+</div>
+
+<section class="lp-cta">
+  <h2>{{ app_tagline }}</h2>
+  <p>Sign in to the console, or start with the help centre if you have not seen Prama before.</p>
+  <div class="lp-actions">
+    <a class="lp-btn lp-btn-light" href="{{ url_for('estate_map') if single_tenant else url_for('sign_in') }}">{{ 'Open the console' if single_tenant else 'Sign in' }}</a>
+    <a class="lp-btn lp-btn-ghost" href="{{ url_for('help_index') }}">Help centre</a>
+    <a class="lp-btn lp-btn-ghost" href="{{ url_for('about') }}">About Prama</a>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/landing.js') }}"></script>{% endblock %}

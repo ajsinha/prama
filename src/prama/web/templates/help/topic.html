@@ -1,0 +1,27 @@
+{# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{% extends "base.html" %}
+{% block title %}{{ entry.title }} — Prama help{% endblock %}
+{% block breadcrumb %}
+<nav aria-label="Breadcrumb"><ol class="breadcrumb small">
+  <li class="breadcrumb-item"><a href="{{ url_for('help_index') }}">Help</a></li>
+  <li class="breadcrumb-item active" aria-current="page">{{ entry.title }}</li>
+</ol></nav>
+{% endblock %}
+{% block content %}
+{% if rendered %}
+<div class="row g-4">
+  <article class="col-lg-9 help-doc">{{ rendered.html | safe }}</article>
+  {% if rendered.toc and '<li>' in rendered.toc %}
+  <aside class="col-lg-3 d-none d-lg-block"><div class="help-toc">
+    <p class="fw-semibold mb-1">On this page</p>{{ rendered.toc | safe }}</div></aside>
+  {% endif %}
+</div>
+<p class="text-muted small mt-4">Source: <code>{{ entry.path if entry.origin == 'doc' else 'prama/web/guides/' ~ entry.path }}</code></p>
+{% else %}
+<h1 class="h4">{{ entry.title }}</h1>
+{# Said rather than 404ed: the design corpus lives in the repository, not in
+   the installed package, and a reader deserves to know which one they have. #}
+<div class="alert alert-info">This document is part of the design corpus (<code>{{ entry.path }}</code>),
+  which ships with the source repository rather than the installed package. Read it there.</div>
+{% endif %}
+{% endblock %}

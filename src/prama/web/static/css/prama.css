@@ -250,7 +250,7 @@ a { color: var(--text-link); }
 }
 
 /* Bootstrap's secondary button hardcodes #6c757d and ignores every --bs-*
-   token, so it stayed Bootstrap grey in all five themes and failed AA on
+   token, so it stayed Bootstrap grey in every theme and failed AA on
    three of them: 4.38:1 on light, 3.98 on wallstreet, 3.65 on dark. Bound to
    the theme's own muted colour, which is measured against every ground the
    button can sit on. */
@@ -267,21 +267,12 @@ a { color: var(--text-link); }
     --bs-btn-disabled-border-color: var(--border-color);
 }
 
-/* The theme picker itself has to be readable on the masthead of every theme,
-   including the amber-on-black one where a default select is invisible. */
-#theme-select {
-    background: rgba(255, 255, 255, .1);
-    color: var(--text-on-primary);
-    border-color: rgba(255, 255, 255, .25);
-    /* Allowed to shrink, unlike the buttons. With eleven navigation items the
-       masthead is genuinely tight, and a select that refused to give way
-       simply hung off the right edge. */
-    width: auto;
-    min-width: 6rem;
-    max-width: 9.5rem;
-    flex-shrink: 1;
-}
-#theme-select option { color: #14182E; background: #FFFFFF; }
+/* The theme menu (adopted from Maya). The check mark is the aria state, drawn. */
+.theme-menu .dropdown-item { display: flex; align-items: center; gap: .55rem; }
+.theme-swatch { width: 14px; height: 14px; border-radius: 50%; flex: none;
+    border: 1px solid rgba(0, 0, 0, .18); }
+.theme-menu [aria-checked="true"]::after { content: "\2713"; margin-left: auto;
+    color: var(--text-link); font-weight: 700; }
 
 /* The editor's hover card.
    Positioned fixed against the pointer, so it is not clipped by the editor's

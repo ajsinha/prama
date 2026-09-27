@@ -1,0 +1,21 @@
+{# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{# The theme menu, adopted from Maya: a swatch per theme rather than a bare
+   select, because a list of names is hard to choose between and colours are
+   not. The check mark is the aria state, drawn, so what a screen reader is
+   told and what the eye sees cannot disagree. The swatch is the theme's own
+   masthead gradient, read from the theme definition rather than restated. #}
+<div class="dropdown theme-menu">
+  <button class="btn btn-sm btn-outline-light dropdown-toggle flex-shrink-0" type="button"
+          id="theme-menu" data-bs-toggle="dropdown" aria-expanded="false" title="Theme">
+    <i class="bi bi-palette" aria-hidden="true"></i><span class="visually-hidden">Theme</span>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="theme-menu">
+    {% for t in themes %}
+    <li><button class="dropdown-item" type="button" role="menuitemradio"
+                data-theme-choice="{{ t.name }}" title="{{ t.note }}"
+                aria-checked="{{ 'true' if t.name == theme else 'false' }}">
+      <span class="theme-swatch" style="background: {{ t.header }}"></span>{{ t.label }}
+    </button></li>
+    {% endfor %}
+  </ul>
+</div>

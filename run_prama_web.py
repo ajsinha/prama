@@ -117,8 +117,9 @@ def main() -> int:
         description="Start the Prama console and API.",
         epilog="Everything here is also available as `prama <command>`.",
     )
-    parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8080)
+    # None, so configuration answers: server.host / server.port (5900).
+    parser.add_argument("--host", default=None)
+    parser.add_argument("--port", type=int, default=None)
     parser.add_argument("--reload", action="store_true", help="reload on code change")
     parser.add_argument("--config", default="", help="configuration file to load")
     parser.add_argument(
@@ -188,6 +189,10 @@ def main() -> int:
 
     from prama.api import create_app
 
+    if args.host is None:
+        args.host = config.get_str("server.host", "127.0.0.1")
+    if args.port is None:
+        args.port = config.get_int("server.port")
     base = f"http://{args.host}:{args.port}"
     print()
     if config.get_bool("web.enabled", True):

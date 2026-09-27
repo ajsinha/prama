@@ -55,19 +55,17 @@
 
     /* The theme picker. The Bootstrap base for each theme comes from the
        server rather than being re-derived here: a second opinion about whether
-       "crimson" is a light theme would show up as one unreadable dropdown on
+       "maya-crimson" is a light theme would show up as one unreadable dropdown on
        one page, which is the hardest kind of bug to find. */
     var bases = window.pramaThemeBases || {};
-    var select = $("#theme-select");
-    if (select.length) {
-      select.val(document.documentElement.getAttribute("data-theme") || "light");
-      select.on("change", function () {
-        var chosen = $(this).val();
-        document.documentElement.setAttribute("data-bs-theme", bases[chosen] || "light");
-        applyPreference("data-theme", chosen);
-        announce($(this).find("option:selected").text() + " theme");
-      });
-    }
+    $("[data-theme-choice]").on("click", function () {
+      var chosen = $(this).data("themeChoice");
+      document.documentElement.setAttribute("data-bs-theme", bases[chosen] || "light");
+      applyPreference("data-theme", chosen);
+      $("[data-theme-choice]").attr("aria-checked", "false");
+      $(this).attr("aria-checked", "true");
+      announce($.trim($(this).text()) + " theme");
+    });
 
     $("#density-toggle").on("click", function () {
       var next = document.documentElement.getAttribute("data-density") === "compact"

@@ -29,7 +29,7 @@ from collections.abc import Iterable
 #: model that cannot be satisfied is worse than one that is not enforced,
 #: because it fails in production rather than in review.
 #:
-#: `prama.cli.principal.BUILTIN_ROLES` grants from this list and nothing else,
+#: `prama.security.accounts.BUILTIN_ROLES` grants from this list and nothing else,
 #: and `tests/architecture/test_scopes.py` checks both directions: a role may
 #: not grant a permission no route requires, and no route may require a
 #: permission no role can hold.

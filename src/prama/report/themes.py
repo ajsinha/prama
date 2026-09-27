@@ -198,24 +198,6 @@ THEMES: tuple[Theme, ...] = (
         note="The same palette on a night ground, for long sessions.",
     ),
     Theme(
-        name="crimson",
-        label="Harvard crimson",
-        base="light",
-        # Harvard Crimson is #A51C30. Used for the masthead and the accent, and
-        # deliberately *not* for any dimension: it sits between the validity red
-        # and the uniqueness orange, and a brand colour that reads as a
-        # dimension would corrupt the language on this theme alone.
-        surface="#FFFFFF",
-        body="#F7F4F4",
-        ink="#1C1416",
-        muted="#6E5C60",
-        border="#E7DDDF",
-        header="linear-gradient(135deg, #6B1220 0%, #A51C30 55%, #6B1220 100%)",
-        link="#8C1727",
-        accent="#A51C30",
-        note="Harvard Crimson on warm paper. An academic, print-like register.",
-    ),
-    Theme(
         name="bmo",
         label="BMO blue",
         base="light",
@@ -229,6 +211,70 @@ THEMES: tuple[Theme, ...] = (
         link="#0A4D86",
         accent="#E11B22",
         note="BMO Blue on cool grey. A retail-banking register.",
+    ),
+    # Maya's four themes, adopted so Prama and Maya read as one family on the
+    # same desk. Colours are Maya's tokens (maya/web/static/css/tokens.css):
+    # canvas -> body, slate -> muted, heading -> link, nav-from/via/to -> the
+    # masthead gradient, crimson -> accent. Dimension hues are still derived
+    # here, so the contrast guarantees hold on these as on every other theme.
+    Theme(
+        name="maya-crimson",
+        label="Maya crimson",
+        base="light",
+        surface="#FFFFFF",
+        body="#F7F5F2",
+        ink="#1A1A1A",
+        muted="#6B7480",
+        border="#E3DED7",
+        header="linear-gradient(135deg, #5C0E1B 0%, #A51C30 55%, #293352 100%)",
+        link="#6E1120",
+        accent="#A51C30",
+        note="Maya's default: crimson over indigo on warm paper.",
+    ),
+    Theme(
+        name="maya-dark",
+        label="Maya dark",
+        base="dark",
+        surface="#1F1F23",
+        body="#151517",
+        ink="#ECECEF",
+        muted="#8996A0",
+        border="#34343A",
+        header="linear-gradient(135deg, #2E0810 0%, #6E1120 55%, #1B2138 100%)",
+        # Maya's rose (#DE6B81) sits 38 units from the validity red on this
+        # ground, so the accent would read as a failing dimension. Moved
+        # towards pink just far enough to clear the 60-unit guard.
+        link="#E473AE",
+        accent="#E473AE",
+        note="Maya's night ground, with a rose accent.",
+    ),
+    Theme(
+        name="maya-blue",
+        label="Maya blue",
+        base="light",
+        surface="#FFFFFF",
+        body="#F0F5FA",
+        ink="#1E293B",
+        muted="#536578",
+        border="#DCE4EE",
+        header="linear-gradient(135deg, #002654 0%, #0079C1 55%, #003168 100%)",
+        link="#003168",
+        accent="#0079C1",
+        note="Maya's blue register on a cool ground.",
+    ),
+    Theme(
+        name="maya-green",
+        label="Maya green",
+        base="light",
+        surface="#FFFFFF",
+        body="#F7F5EF",
+        ink="#1A1A1A",
+        muted="#5E6A64",
+        border="#E3DECF",
+        header="linear-gradient(135deg, #00261A 0%, #006039 55%, #1C3A2E 100%)",
+        link="#004D2E",
+        accent="#006039",
+        note="Maya's green register on warm paper.",
     ),
     Theme(
         name="wallstreet",

@@ -190,3 +190,22 @@ class TestMergeHelpers:
         # Concatenation looks helpful and makes removing a default impossible.
         merged = deep_merge({"x": [1, 2, 3]}, {"x": [9]})
         assert merged["x"] == [9]
+
+
+class TestServerPort:
+    """The listener is stated once, in configuration, and it is 5900."""
+
+    def test_default_port_is_5900(self) -> None:
+        from prama.core.config import load_configuration
+
+        assert load_configuration().get_int("server.port") == 5900
+
+    def test_serve_takes_its_port_from_configuration_not_argparse(self) -> None:
+        import argparse
+
+        from prama.cli.commands import ServeCommand
+
+        parser = argparse.ArgumentParser()
+        ServeCommand().configure(parser)
+        # A literal default here would be a second authority that drifts.
+        assert parser.parse_args([]).port is None
