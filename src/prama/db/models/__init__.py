@@ -19,6 +19,7 @@ from prama.db.models.base import (
     Timestamped,
     UlidPrimaryKey,
 )
+from prama.db.models.code import CodeAnalysisRun, CodeSource, CodeUnit
 from prama.db.models.control import CtlControl, CtlControlVersion, CtlRejection
 from prama.db.models.evidence import EvRecord, EvRun, EvSample
 from prama.db.models.lineage import LinEdge, LinGap, LinRun, LinSource
@@ -72,6 +73,9 @@ __all__ = [
     "AttAttestation",
     "AuditEvent",
     "Base",
+    "CodeAnalysisRun",
+    "CodeSource",
+    "CodeUnit",
     "CreatedAt",
     "CtlControl",
     "CtlControlVersion",

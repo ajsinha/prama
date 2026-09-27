@@ -1,0 +1,45 @@
+{# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{% extends "base.html" %}
+{% block title %}Code — Prama{% endblock %}
+{% block heading %}Application code{% endblock %}
+{% block content %}
+<p class="text-muted small" style="max-width: 56rem">Send Prama an application's code and it reads the ETL
+  lineage out of it: <strong>it never runs, imports or renders anything it receives</strong>. Archives are
+  checked for escaping paths, links and bombs before anything is written, reading happens in a separate
+  resource-limited process, and the extracted files are deleted afterwards. Only hashes and the short
+  expressions lineage edges cite are kept. What was read appears on the <a href="{{ url_for('lineage') }}">Lineage</a> page.</p>
+
+<div class="row g-4 mb-4" style="max-width: 64rem">
+  <form method="post" action="{{ url_for('code_zip') }}" enctype="multipart/form-data" class="col-md-6 row g-2">
+    <div class="col-12 fw-semibold">Upload a ZIP</div>
+    <div class="col-6"><label class="form-label small" for="z-source">Source name</label><input class="form-control form-control-sm" id="z-source" name="source" required placeholder="finrep-etl"></div>
+    <div class="col-6"><label class="form-label small" for="z-dialect">SQL dialect</label><input class="form-control form-control-sm" id="z-dialect" name="dialect" value="ansi"></div>
+    <div class="col-12"><label class="visually-hidden" for="z-file">Archive</label><input class="form-control form-control-sm" id="z-file" type="file" name="archive" accept=".zip" required></div>
+    <div class="col-12"><button class="btn btn-sm btn-primary" type="submit">Receive and read</button></div>
+  </form>
+  <form method="post" action="{{ url_for('code_git') }}" class="col-md-6 row g-2">
+    <div class="col-12 fw-semibold">Fetch from git</div>
+    <div class="col-6"><label class="form-label small" for="g-source">Source name</label><input class="form-control form-control-sm" id="g-source" name="source" required></div>
+    <div class="col-6"><label class="form-label small" for="g-ref">Branch, tag or commit</label><input class="form-control form-control-sm" id="g-ref" name="ref" value="main"></div>
+    <div class="col-12"><label class="form-label small" for="g-url">Location (https or ssh)</label><input class="form-control form-control-sm" id="g-url" name="url" required placeholder="https://git.bank.example/risk/etl.git"></div>
+    <div class="col-12"><label class="form-label small" for="g-cred">Credential reference <span class="text-muted">(never the token)</span></label><input class="form-control form-control-sm" id="g-cred" name="credential_ref" placeholder="env://GIT_TOKEN"></div>
+    <div class="col-12"><button class="btn btn-sm btn-primary" type="submit">Fetch and read</button></div>
+  </form>
+</div>
+
+<h2 class="h6">Runs</h2>
+<table class="table table-sm small">
+  <thead><tr><th scope="col">Started</th><th scope="col">Source</th><th scope="col">Status</th><th scope="col">Files read</th><th scope="col">Edges</th><th scope="col">Gaps</th><th scope="col">Not yet read</th></tr></thead>
+  <tbody>
+  {% for r in runs %}{% set cov = r.coverage_json or {} %}{% set src = sources.get(r.source_id) %}
+    <tr><td>{{ r.started_at[:19] }}</td><td>{{ src.name if src else '?' }} <span class="text-muted">{{ src.kind if src else '' }}</span></td>
+      <td><span class="badge {{ {'succeeded': 'text-bg-success', 'partial': 'text-bg-warning'}.get(r.status, 'text-bg-danger') }}">{{ r.status }}</span>
+        {% if r.error %}<div class="text-danger">{{ r.error }}</div>{% endif %}</td>
+      <td>{{ cov.get('read', 0) }} / {{ cov.get('units', 0) }}</td><td>{{ cov.get('edges', 0) }}</td><td>{{ cov.get('gaps', 0) }}</td>
+      <td>{{ (cov.get('unread_kinds') or []) | join(', ') }}</td></tr>
+  {% else %}
+    <tr><td colspan="7" class="text-muted">No code received yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

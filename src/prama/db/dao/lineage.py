@@ -108,14 +108,14 @@ class LineageDao(Dao[LinEdge]):
         self,
         tenant_id: str,
         source: LinSource,
-        batches: Sequence[tuple[Sequence[Edge], str, str, float]],
+        batches: Sequence[tuple[Any, ...]],
         gaps: Iterable[Any],
         *,
         statements: int,
         understood: float,
         by: str | None = None,
     ) -> LinRun:
-        """Store one scan: *batches* are (edges, method, status, confidence)."""
+        """Store one scan: *batches* are (edges, method, status, confidence[, unit_id])."""
         now = _now()
         run = LinRun(
             tenant_id=tenant_id,
@@ -138,7 +138,9 @@ class LineageDao(Dao[LinEdge]):
             ).scalars()
         }
         seen: set[str] = set()
-        for edges, method, status, confidence in batches:
+        for batch in batches:
+            edges, method, status, confidence = batch[:4]
+            unit_id = batch[4] if len(batch) > 4 else None
             for edge in edges:
                 key = identity_of(source.id, edge)
                 if key in seen:
@@ -164,11 +166,13 @@ class LineageDao(Dao[LinEdge]):
                             valid_from=now,
                             first_seen_run=run.id,
                             last_seen_run=run.id,
+                            unit_id=unit_id,
                         )
                     )
                     continue
                 row.last_seen_run = run.id
                 row.expression = edge.expression
+                row.unit_id = unit_id or row.unit_id
                 if row.valid_to is not None and row.status != "rejected":
                     row.valid_to = None  # found again: back in the working graph
         closed = 0

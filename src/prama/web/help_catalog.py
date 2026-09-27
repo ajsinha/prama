@@ -85,6 +85,12 @@ SECTIONS: tuple[HelpSection, ...] = (
                 "bi-key",
             ),
             _g(
+                "code",
+                "Application code",
+                "Send a ZIP or a git location; Prama reads its lineage and never runs it.",
+                "bi-file-earmark-code",
+            ),
+            _g(
                 "lineage",
                 "Lineage",
                 "Scan SQL, see what feeds what, and what a defect reaches.",

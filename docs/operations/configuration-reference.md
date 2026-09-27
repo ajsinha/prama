@@ -35,6 +35,9 @@ becomes `PRAMA_DATABASE__SQLITE__PATH`.
 | `tenancy.default_tenant` | *(empty)* |  |
 | `server.host` | `127.0.0.1` | bind address; 0.0.0.0 accepts on every interface |
 | `server.port` | `5900` | the console and the API share this listener |
+| `codeintake.workdir` | `data/code` | extracted here while read; deleted after |
+| `codeintake.timeout` | `300` | seconds the sandboxed reader may take |
+| `codeintake.git.allowed_hosts` | *(empty)* | empty: any public host; or e.g. [git.bank.example] |
 | `scheduler.enabled` | `False` |  |
 | `scheduler.interval` | `60s` |  |
 | `scheduler.against` | *(empty)* | a local .duckdb or .sqlite file |

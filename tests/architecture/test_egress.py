@@ -123,6 +123,12 @@ class TestNothingSendsWithoutBeingRegistered:
             "inbound: it accepts connections and sends nothing, so no tenant "
             "data leaves through it"
         ),
+        "prama/codeintake/git.py": (
+            "imports socket to resolve a repository host and refuse private, loopback "
+            "and metadata addresses before cloning (SSRF). A fetch brings code in and "
+            "sends the estate's data nowhere; what leaves is a request and, when "
+            "configured, a credential to the host the owner named (Wave 14)"
+        ),
         "prama/db/schema/bootstrap.py": (
             "imports socket for gethostname, to record who applied a schema. "
             "Nothing of the tenant's leaves"

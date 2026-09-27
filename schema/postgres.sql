@@ -1329,3 +1329,61 @@ CREATE TABLE IF NOT EXISTS llm_reservation (
     reserved_tokens INTEGER     NOT NULL,
     expires_at     VARCHAR(32)  NOT NULL
 );
+
+-- ===========================================================================
+-- CODE INTAKE  (Wave 14)
+-- ===========================================================================
+-- An application's code, received as a ZIP or fetched from git, inventoried
+-- and read for lineage. Never executed. A source holds a secret *reference*
+-- for git credentials, never the secret. Only file hashes and the short
+-- excerpts lineage edges cite are kept; the extracted tree is deleted after
+-- each run.
+CREATE TABLE IF NOT EXISTS code_source (
+    id              VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id       VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    name            VARCHAR(128)  NOT NULL,
+    kind            VARCHAR(16)   NOT NULL,
+    url             VARCHAR(1024),
+    ref             VARCHAR(255),
+    secret_ref      VARCHAR(255),
+    sensitivity     VARCHAR(16)   NOT NULL DEFAULT 'internal',
+    auto_refresh    INTEGER       NOT NULL DEFAULT 0,
+    created_at      VARCHAR(32)   NOT NULL,
+    created_by      VARCHAR(26),
+    CONSTRAINT uq_code_source_name UNIQUE (tenant_id, name),
+    CONSTRAINT ck_code_source_kind CHECK (kind IN ('zip', 'git')),
+    CONSTRAINT ck_code_source_auto CHECK (auto_refresh IN (0, 1))
+);
+
+CREATE TABLE IF NOT EXISTS code_analysis_run (
+    id              VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id       VARCHAR(26)   NOT NULL,
+    source_id       VARCHAR(26)   NOT NULL REFERENCES code_source (id) ON DELETE CASCADE,
+    commit_sha      VARCHAR(64),
+    snapshot_hash   VARCHAR(64)   NOT NULL,
+    base_run_id     VARCHAR(26),
+    status          VARCHAR(16)   NOT NULL,
+    started_at      VARCHAR(32)   NOT NULL,
+    finished_at     VARCHAR(32),
+    inventory_json  TEXT          NOT NULL DEFAULT '{}',
+    coverage_json   TEXT          NOT NULL DEFAULT '{}',
+    llm_calls       INTEGER       NOT NULL DEFAULT 0,
+    error           TEXT,
+    CONSTRAINT ck_code_run_status CHECK (status IN ('queued', 'running', 'succeeded',
+        'partial', 'failed', 'cancelled'))
+);
+CREATE INDEX IF NOT EXISTS ix_code_run_source ON code_analysis_run (source_id, started_at);
+
+CREATE TABLE IF NOT EXISTS code_unit (
+    id              VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id       VARCHAR(26)   NOT NULL,
+    run_id          VARCHAR(26)   NOT NULL REFERENCES code_analysis_run (id) ON DELETE CASCADE,
+    path            VARCHAR(1024) NOT NULL,
+    blob_sha        VARCHAR(64)   NOT NULL,
+    kind            VARCHAR(32)   NOT NULL,
+    scanner         VARCHAR(64)   NOT NULL,
+    scanner_version VARCHAR(32)   NOT NULL,
+    statements      INTEGER       NOT NULL DEFAULT 0,
+    gaps_json       TEXT          NOT NULL DEFAULT '[]'
+);
+CREATE INDEX IF NOT EXISTS ix_code_unit_run ON code_unit (run_id);

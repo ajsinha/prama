@@ -99,6 +99,30 @@ Three questions are answered here, each with a design note behind it:
     slow client slows the model. The call is recorded when the stream ends.
 - **Moved to Wave 14:** stored payloads (`llm_payload`), with the template and evaluation
   governance that decides what may be kept.
+
+**Wave 14, as built so far:**
+
+- **Safe intake (P1), `prama.codeintake`.**
+  - ZIPs are checked from the central directory before extraction, and sizes are re-checked
+    while streaming. Refused: zip-slip, absolute paths, bombs by compression ratio, too many
+    entries, oversized files. Symlinks are recorded and never created, and nothing received is
+    executable.
+  - git accepts `https`/`ssh` only. Refused: private, loopback and metadata addresses, and option
+    injection. A host allow-list is optional. Clones are hardened (no hooks, no `file`/`ext`
+    transports, no submodules, `fsckObjects`, `symlinks=false`, depth 1), and the token goes via
+    `GIT_CONFIG_*` environment variables, never argv.
+  - Reading happens in a separate `python -m prama.codeintake.worker` process with CPU, memory,
+    file and core limits. The tree is deleted after every run.
+  - Tables `code_source`, `code_analysis_run` and `code_unit`, with a tenant on each.
+- **Deterministic code lineage (P2, SQL units).** SQL files become `code:<name>` lineage, with
+  each edge pointing at its unit. Every other kind of file is inventoried and reported as not yet
+  read. Surfaces are `prama code add-zip|add-git|runs` and the Code page.
+- **Not a registered egress point:** a git fetch sends no estate data. The reasoning is in
+  `prama.codeintake.git`.
+- **Still to do in Wave 14:**
+  - the Python, PySpark, Airflow, SSIS, Informatica and COBOL/JCL detectors;
+  - the gold fixture `bankco-etl` with its precision and recall gate;
+  - templates and evaluation governance.
 - **Deferred, each to the phase that first needs it:**
   - The transport-module extraction, multi-turn messages and JSON-schema validation go to
     Wave 13, with the new wire formats.
