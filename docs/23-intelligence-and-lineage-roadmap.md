@@ -174,6 +174,28 @@ Three questions are answered here, each with a design note behind it:
   - `ProfileProvider` is ready, but no production builder constructs the assistant or inducer
     yet. The first will be the Wave 16 agents.
 
+**Wave 16, as built so far:**
+
+- **Steward agents, server-hosted (`prama.steward`).**
+  - **Identity.** A steward is a service principal with a human sponsor and a 30-day key.
+    `control:approve`, `attestation:sign`, `admin`, `relationship:write` and `*` are refused.
+  - **Goals and tasks.** Goals run on schedules (`6h`, `1d`) or on request. The runner lives in
+    the app's supervisor and re-reads the kill switch from a fresh transaction before each task.
+  - **Tools**, which read and propose only: summarise incidents, re-read a git code source's
+    lineage, and report lineage proposals.
+  - **Model calls** go through the gateway as the steward's principal (surface `steward`), so
+    they are costed, budgeted and recorded.
+  - **Kill switch.** Pause, stop (open tasks cancelled) and revoke (key revoked, principal
+    disabled). A revoked steward stays revoked.
+  - **Guard.** An AST scan fails the build if the steward package calls `activate`, `accept`,
+    `sign`, `decide`, `approve`, `confirm` or `suppress`.
+  - The Agents page and a help guide.
+- **Still to do in Wave 16:**
+  - the remote agent protocol (claim, heartbeat and result with fencing tokens) for stewards
+    running outside the server;
+  - approval gates;
+  - E8, the curation assistants.
+
 Before Wave 12, what existed and what these waves build on:
 
 - **Built and tested:**

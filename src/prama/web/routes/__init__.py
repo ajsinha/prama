@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from prama.web.routes.account_routes import AccountRoutes
 from prama.web.routes.admin_routes import AdminRoutes
+from prama.web.routes.agent_routes import AgentRoutes
 from prama.web.routes.attestation_routes import AttestationRoutes
 from prama.web.routes.auth_routes import AuthRoutes
 from prama.web.routes.base import UiRoutes
@@ -36,6 +37,7 @@ ROUTE_CLASSES: tuple[type[UiRoutes], ...] = (
     AccountRoutes,
     AdminRoutes,
     LlmRoutes,
+    AgentRoutes,
     EstateRoutes,
     DeclarationRoutes,
     ControlRoutes,
@@ -56,6 +58,7 @@ __all__ = [
     "ROUTE_CLASSES",
     "AccountRoutes",
     "AdminRoutes",
+    "AgentRoutes",
     "AttestationRoutes",
     "AuthRoutes",
     "CodeRoutes",
