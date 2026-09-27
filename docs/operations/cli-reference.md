@@ -322,6 +322,7 @@ column lineage: scan SQL, show edges, impact, gaps
 |---|---|
 | `prama lineage gaps` | what the latest scans could not read |
 | `prama lineage impact` | everything a defect in one column reaches, ranked |
+| `prama lineage ingest-dbt` | read a dbt project's column lineage from its manifest.json |
 | `prama lineage scan` | read SQL files into the lineage store as a run of a named source |
 | `prama lineage show` | current edges, optionally those touching one dataset |
 
@@ -334,7 +335,17 @@ column lineage: scan SQL, show edges, impact, gaps
 
 | Argument | Meaning |
 |---|---|
-| `column` **required** | dataset.column, e.g. stg.trades.notional |
+| `column` | dataset.column |
+| `--diff` | two versions of a SQL file: what does the change put at risk? exits 3 if any control or attestation is affected |
+| `--dialect` |  |
+| `--tenant` | slug or id; defaults to the configured one |
+**`prama lineage ingest-dbt`**
+
+| Argument | Meaning |
+|---|---|
+| `manifest` **required** | target/manifest.json, after `dbt compile` |
+| `--source` | a name for this project |
+| `--dialect` |  |
 | `--tenant` | slug or id; defaults to the configured one |
 **`prama lineage scan`**
 

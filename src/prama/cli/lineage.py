@@ -9,7 +9,7 @@ import argparse
 from pathlib import Path
 from typing import Any
 
-from prama.cli.base import EXIT_OK, Command, CommandContext, CommandGroup
+from prama.cli.base import EXIT_DRIFT, EXIT_OK, Command, CommandContext, CommandGroup
 from prama.cli.llm import _tenant_flag, _with_uow
 from prama.core.errors import ValidationError
 
@@ -110,12 +110,27 @@ class ImpactCommand(Command):
     help = "everything a defect in one column reaches, ranked"
 
     def configure(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("column", help="dataset.column, e.g. stg.trades.notional")
+        parser.add_argument("column", nargs="?", default="", help="dataset.column")
+        parser.add_argument(
+            "--diff",
+            nargs=2,
+            metavar=("BEFORE", "AFTER"),
+            help="two versions of a SQL file: what does the change put at risk? exits 3 if "
+            "any control or attestation is affected",
+        )
+        parser.add_argument("--dialect", default="ansi")
         _tenant_flag(parser)
 
     def run(self, ctx: CommandContext) -> int:
         from prama.lineage.graph import Column
 
+        if ctx.args.diff:
+            return self._diff(ctx)
+        if not ctx.args.column:
+            raise ValidationError(
+                "name a column, or pass --diff BEFORE AFTER",
+                remedy="prama lineage impact raw.trades.notional",
+            )
         origin = Column.parse(ctx.args.column)
 
         async def work(uow: Any, tenant: str) -> Any:
@@ -133,6 +148,43 @@ class ImpactCommand(Command):
         for r in [] if ctx.json_output else rows:
             ctx.emit(f"{r['impact']:>6.0%}  {r['column']}  (depth {r['depth']})")
         return EXIT_OK
+
+    def _diff(self, ctx: CommandContext) -> int:
+        """What a change between two SQL files puts at risk. Exit 3 if anything."""
+        from prama.lineage.change import assess, changed_columns
+
+        before, after = (_read(p) for p in ctx.args.diff)
+        changed = changed_columns(before, after, dialect=ctx.args.dialect)
+
+        async def work(uow: Any, tenant: str) -> Any:
+            return await assess(uow, tenant, changed)
+
+        impact = _with_uow(ctx, work)
+        if ctx.json_output:
+            ctx.emit_json(impact.to_dict())
+        elif not impact.changed:
+            ctx.emit("The change alters no column lineage.")
+        else:
+            ctx.emit(f"Changed: {', '.join(impact.changed)}")
+            for column, share in impact.reached:
+                ctx.emit(f"  {share:>6.0%}  {column}")
+            for c in impact.controls:
+                label = c["name"] or c["control"]
+                ctx.emit(f"  control at risk: {label} on {c['dataset']} [{c['severity']}]")
+            for a in impact.attestations:
+                ctx.emit(f"  attestation at risk: {a['scope']}, signed by {a['attester']}")
+            if not impact.at_risk:
+                ctx.emit("  Nothing downstream is controlled or attested.")
+        # Exit 3 is the code `prama contract check` uses for a breach, so one
+        # CI rule stops either.
+        return EXIT_DRIFT if impact.at_risk else EXIT_OK
+
+
+def _read(path: str) -> str:
+    target = Path(path)
+    if not target.is_file():
+        raise ValidationError(f"there is no file at {path}", remedy="Pass two SQL files.")
+    return target.read_text(encoding="utf-8", errors="replace")
 
 
 class GapsCommand(Command):
@@ -160,9 +212,43 @@ class GapsCommand(Command):
         return EXIT_OK
 
 
+class IngestDbtCommand(Command):
+    name = "ingest-dbt"
+    help = "read a dbt project's column lineage from its manifest.json"
+
+    def configure(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("manifest", help="target/manifest.json, after `dbt compile`")
+        parser.add_argument("--source", default="dbt", help="a name for this project")
+        parser.add_argument("--dialect", default="ansi")
+        _tenant_flag(parser)
+
+    def run(self, ctx: CommandContext) -> int:
+        import json
+
+        from prama.lineage.ingest import ingest_dbt
+
+        manifest = json.loads(_read(ctx.args.manifest))
+
+        async def work(uow: Any, tenant: str) -> dict[str, Any]:
+            run = await ingest_dbt(
+                uow, tenant, manifest, source=ctx.args.source, dialect=ctx.args.dialect
+            )
+            return {"models": run.statements, "edges": run.edges, "gaps": run.gaps}
+
+        result = _with_uow(ctx, work)
+        if ctx.json_output:
+            ctx.emit_json(result)
+        else:
+            ctx.emit(
+                f"{ctx.args.source}: {result['models']} models, {result['edges']} edges, "
+                f"{result['gaps']} gaps"
+            )
+        return EXIT_OK
+
+
 class LineageCommand(CommandGroup):
     name = "lineage"
     help = "column lineage: scan SQL, show edges, impact, gaps"
 
     def commands(self) -> list[Command]:
-        return [ScanCommand(), ShowCommand(), ImpactCommand(), GapsCommand()]
+        return [ScanCommand(), IngestDbtCommand(), ShowCommand(), ImpactCommand(), GapsCommand()]
