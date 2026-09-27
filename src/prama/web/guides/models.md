@@ -88,6 +88,34 @@ budget and a per-person rate limit, and records the call. No program needs a pro
 Set `llm.offline: true` in `config/application.yaml` for an air-gapped estate. Only self-hosted
 providers on this machine or a private network address are then used.
 
+## Templates, evaluation and the gate
+
+A **prompt template** is a feature's instructions, with named `{{ variables }}`. Each variable
+declares a sensitivity, and whether it is trusted, meaning Prama composed it itself. Everything
+untrusted reaches the model fenced, marked as data rather than instructions.
+
+```bash
+prama llm template add explain.yaml               # a new draft version
+prama llm eval run explain-suite.yaml             # grade it: deterministic checks only
+prama llm template approve explain 3 --by <id>    # someone other than its author
+```
+
+An **evaluation suite** lists cases and what each answer must satisfy: `nonempty`, `contains`,
+`absent`, `matches`, `json_valid`, `json_keys`, `pql_parses` or `max_latency_ms`. No model grades
+another model.
+
+With `llm.eval.gate_activation: true`, `prama llm profile set` records a new version without
+making it current. After a passing run, `prama llm eval run suite.yaml --profile-version N` and
+then `prama llm profile activate <purpose> N` make it current. With no model configured nothing
+can pass, because the mock answers with nothing.
+
+## Stored payloads
+
+By default only hashes are kept. Set `llm.audit.payloads: redacted` to keep each exchange with
+secrets, card numbers, IBANs and emails removed, or `full` to keep it exactly. Stored payloads
+are blanked after `payload_retention_days`. `prama llm verify` recomputes the call ledger's hash
+chain, and it still verifies after payloads expire.
+
 ## The call ledger
 
 Every call, including refusals and failures, is recorded with its purpose, model, hosting,

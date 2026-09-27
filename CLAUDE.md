@@ -165,6 +165,8 @@ prama llm provider add local --kind openai_compatible --hosting self_hosted \
     --dialect ollama --endpoint http://localhost:11434   # a model provider; no secret stored
 prama llm profile set author --route local:qwen2.5-coder   # purpose -> ordered route
 prama llm ask author "..."               # through the gateway; recorded in the call ledger
+prama llm eval run suite.yaml            # deterministic graders; gates activation when configured
+prama llm verify                         # recompute the model-call ledger's hash chain
 prama lineage scan etl/ --source warehouse   # SQL -> column lineage store (sqlglot, regex fallback)
 prama lineage impact raw.trades.notional     # what a defect in this column reaches
 prama lineage history snowflake rows.json    # lineage from warehouse query history (--query prints the export)

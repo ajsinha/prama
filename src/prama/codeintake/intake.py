@@ -35,6 +35,7 @@ async def _read(
             surface="codeintake",
             principal_id=by,
             offline=config.get_bool("llm.offline", False),
+            config=config,
         )
     try:
         return await analyse(

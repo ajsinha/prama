@@ -11,6 +11,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Iterable, Sequence
 from typing import Any
 
@@ -125,8 +126,10 @@ class LlmDao(Dao[LlmProvider]):
         fallback_across_hosting: bool = False,
         note: str = "",
         by: str | None = None,
+        activate: bool = True,
     ) -> LlmProfileVersion:
-        """Record a new version of *purpose*'s profile and make it current.
+        """Record a new version of *purpose*'s profile and, unless *activate* is
+        false (the evaluation gate), make it current.
 
         *route* is ``(provider name, model)`` in the order to try them.
         """
@@ -175,7 +178,8 @@ class LlmDao(Dao[LlmProvider]):
                     model=model,
                 )
             )
-        profile.current_version = number
+        if activate:
+            profile.current_version = number
         await self._session.flush()
         await self._session.refresh(profile, ["versions"])
         await self._session.refresh(version, ["routes"])
@@ -224,6 +228,26 @@ class LlmDao(Dao[LlmProvider]):
             sequence, previous, written = sequence + 1, digest, written + 1
         await self._session.flush()
         return written
+
+    async def verify_calls(self, tenant_id: str) -> tuple[bool, int, str]:
+        """Recompute the tenant's call chain: (intact, records checked, first break)."""
+        from prama.llm.gateway import CallRecord
+
+        fields = {f.name for f in dataclasses.fields(CallRecord)}
+        result = await self._session.execute(
+            select(LlmCall).where(LlmCall.tenant_id == tenant_id).order_by(LlmCall.sequence)
+        )
+        previous = GENESIS
+        checked = 0
+        for row in result.scalars():
+            record = CallRecord(**{name: getattr(row, name) for name in fields})
+            if (
+                row.previous_hash != previous
+                or seal(record, sequence=row.sequence, previous_hash=previous) != row.record_hash
+            ):
+                return False, checked, f"call {row.sequence} does not match its seal"
+            previous, checked = row.record_hash, checked + 1
+        return True, checked, ""
 
     async def count_calls(self, tenant_id: str) -> int:
         result = await self._session.execute(

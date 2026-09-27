@@ -148,7 +148,20 @@ Three questions are answered here, each with a design note behind it:
   - Every `sql=` string literal is read by the SQL parser, with `produced_by` set to
     `dag-file:task_id`. A `.sql` file reference is left to the file's own reading.
   - Templated SQL, SQL built at run time, and `EXEC`/`CALL` of a procedure are named gaps.
-- **Still to do in Wave 14:** templates and evaluation governance.
+- **Templates and evaluation governance, built** (`llm/templates.py`, `llm/evaluation.py`,
+  `llm_template*`, `llm_eval_run`, `llm_payload`).
+  - **Templates** are versioned. Rendering fences every untrusted value and takes the highest
+    declared sensitivity. A version is approved by someone other than its author, and the call
+    ledger records which version produced each call.
+  - **Evaluation suites** are YAML with deterministic graders only: `nonempty`, `contains`,
+    `absent`, `matches`, `json_valid`, `json_keys`, `pql_parses` and `max_latency_ms`.
+  - **The gate.** With `llm.eval.gate_activation`, a profile or template version becomes
+    current only after a passing run of that exact version (`prama llm profile activate`,
+    `prama llm template approve`).
+  - **Payloads** follow `llm.audit.payloads`: `none`, `redacted` (the default when kept) or
+    `full`. They are blanked at expiry.
+  - **`prama llm verify`** recomputes the call chain. Fields added later are left out of the
+    sealed content when empty, so older records still verify.
 
 **Lineage scope (decided 2026-09-27).** Prama adopts the parts of Manta's capability a
 modern bank's data platform needs. It does not try to match Manta's breadth.

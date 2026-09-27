@@ -56,6 +56,9 @@ becomes `PRAMA_DATABASE__SQLITE__PATH`.
 | `scheduler.dialect` | `duckdb` | duckdb \| sqlite |
 | `llm.offline` | `False` | true: only self-hosted models on a local or private address |
 | `llm.per_principal_rpm` | `60` | requests per minute per principal through /api/v1/llm |
+| `llm.audit.payloads` | `none` | none \| redacted \| full: what of each exchange is kept |
+| `llm.audit.payload_retention_days` | `30` | then blanked; the call ledger keeps its hashes |
+| `llm.eval.gate_activation` | `False` | true: a version goes current only after a passing eval |
 | `web.enabled` | `True` | serve the console alongside the API |
 | `web.preview.source` | *(empty)* | a local .duckdb or .sqlite file |
 | `web.preview.dialect` | `duckdb` | duckdb \| sqlite |

@@ -90,7 +90,6 @@ Ordered by what I would take first. Each item says why it matters.
 
 ## 7. Intelligence roadmap (docs/23), still open
 
-- **Wave 14:** prompt templates and evaluation governance, and stored payloads (`llm_payload`).
 - **Wave 15:** reconciliation proposals from lineage, which need `RECONCILE` in PQL. Tableau
   lineage only if a design partner asks.
 - **Wave 17:**

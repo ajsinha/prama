@@ -108,6 +108,19 @@ DEFAULTS: dict[str, Any] = {
         "offline": False,
         # Requests per minute per principal through /api/v1/llm, per server.
         "per_principal_rpm": 60,
+        "audit": {
+            # What of each model exchange is kept, beside the hashes the call
+            # ledger always keeps: none, redacted (secrets, cards, IBANs and
+            # emails removed) or full. Kept for payload_retention_days, then
+            # blanked; the ledger's chain still verifies.
+            "payloads": "none",
+            "payload_retention_days": 30,
+        },
+        "eval": {
+            # When on, a profile or template version becomes current only after
+            # an evaluation run of that exact version passed.
+            "gate_activation": False,
+        },
     },
     "web": {
         "enabled": True,

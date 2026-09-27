@@ -53,6 +53,7 @@ if TYPE_CHECKING:
     from prama.db.dao.delegate import DelegateUploadDao
     from prama.db.dao.lineage import LineageDao
     from prama.db.dao.llm import LlmDao
+    from prama.db.dao.llm_governance import LlmGovernanceDao
     from prama.db.dao.steward import StewardDao
 
 _log = get_logger(__name__)
@@ -153,6 +154,12 @@ class UnitOfWork:
         from prama.db.dao import AuditDao
 
         return self._dao("audit", AuditDao)  # type: ignore[no-any-return]
+
+    @property
+    def llm_governance(self) -> LlmGovernanceDao:
+        from prama.db.dao.llm_governance import LlmGovernanceDao
+
+        return self._dao("llm_governance", LlmGovernanceDao)  # type: ignore[no-any-return]
 
     @property
     def delegate_uploads(self) -> DelegateUploadDao:

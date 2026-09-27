@@ -134,6 +134,7 @@ async def chat(body: ChatIn, caller: LlmUser, uow: Uow, request: Request) -> Cha
         principal_id=caller.principal_id,
         api_key_id=caller.api_key_id,
         offline=config.get_bool("llm.offline", False),
+        config=config,
         cache=_cache(request),
     )
     try:
@@ -197,6 +198,7 @@ async def chat_stream(body: ChatIn, caller: LlmUser, uow: Uow, request: Request)
         principal_id=caller.principal_id,
         api_key_id=caller.api_key_id,
         offline=config.get_bool("llm.offline", False),
+        config=config,
     )
 
     async def events() -> AsyncIterator[str]:

@@ -27,6 +27,7 @@ from __future__ import annotations
 import abc
 import dataclasses
 import hashlib
+import json
 import time
 from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
@@ -104,9 +105,20 @@ class CallRecord:
     cost_micros: int = 0
     price_model_id: str | None = None
     served_from: str = "provider"
+    #: Which template version produced the prompt, and the digest of the stored
+    #: payload when `llm.audit.payloads` keeps one. Left out of the sealed
+    #: content when empty, so records written before these fields existed still
+    #: hash to what they were sealed as.
+    template_id: str | None = None
+    template_version: int | None = None
+    payload_digest: str | None = None
 
     def content(self) -> dict[str, Any]:
-        return dataclasses.asdict(self)
+        content = dataclasses.asdict(self)
+        for late in ("template_id", "template_version", "payload_digest"):
+            if content[late] is None:
+                del content[late]
+        return content
 
 
 def seal(record: CallRecord, *, sequence: int, previous_hash: str) -> str:
@@ -127,6 +139,10 @@ class MemoryLedger(CallLedger):
 
     def __init__(self) -> None:
         self.records: list[CallRecord] = []
+        #: digest -> (request JSON, response JSON, mode), for `llm_payload`.
+        self.payloads: dict[str, tuple[str, str, str]] = {}
+        #: How long a stored payload is kept (`llm.audit.payload_retention_days`).
+        self.retention_days = 30
 
     def append(self, record: CallRecord) -> None:
         self.records.append(record)
@@ -193,7 +209,10 @@ class LlmGateway:
         principal_id: str | None = None,
         api_key_id: str | None = None,
         cache: ResponseCache | None = None,
+        payloads: str = "none",
     ) -> None:
+        #: `none`, `redacted` or `full`: what of each exchange is kept.
+        self._payloads = payloads
         self._routes = routes
         self._api_key = api_key_id
         self._cache = cache
@@ -241,6 +260,8 @@ class LlmGateway:
             "profile_version": route.version,
             "temperature": request.temperature,
             "seed": request.seed,
+            **_template_of(request),
+            "_request": request,
         }
         first_locality = LOCALITY[route.candidates[0].hosting]
         attempts, previous, refusal, failure = 0, None, None, None
@@ -332,6 +353,8 @@ class LlmGateway:
             "profile_version": route.version,
             "temperature": request.temperature,
             "seed": request.seed,
+            **_template_of(request),
+            "_request": request,
         }
         first_locality = LOCALITY[route.candidates[0].hosting]
         refusal: PramaError | None = None
@@ -364,6 +387,19 @@ class LlmGateway:
             raise refusal
         raise ValidationError(detail, remedy="Check the profile's route and its hosting.")
 
+    def _keep(self, request: Request, response: Response) -> str:
+        """Store the exchange per policy; return its digest. Redacted unless `full`."""
+        from prama.llm.redact import redact
+
+        full = self._payloads == "full"
+        sent = request if full else ModelProvider.withhold(request)
+        asked = json.dumps({"system": sent.system, "prompt": sent.prompt}, sort_keys=True)
+        answered = json.dumps({"text": response.text if full else redact(response.text)})
+        digest = hashlib.sha256((asked + "\n" + answered).encode("utf-8")).hexdigest()
+        if isinstance(self._ledger, MemoryLedger):
+            self._ledger.payloads[digest] = (asked, answered, "full" if full else "redacted")
+        return digest
+
     def _record(
         self,
         base: dict[str, Any],
@@ -378,9 +414,13 @@ class LlmGateway:
         *,
         served_from: str = "provider",
     ) -> None:
+        base = dict(base)
+        request = base.pop("_request", None)
         extra: dict[str, Any] = {}
+        if response is not None and request is not None and self._payloads != "none":
+            extra["payload_digest"] = self._keep(request, response)
         if candidate is not None:
-            extra = {
+            extra |= {
                 "provider_id": candidate.provider_id or None,
                 "provider_kind": candidate.kind,
                 "hosting": candidate.hosting.value,
@@ -408,6 +448,14 @@ class LlmGateway:
                 served_from=served_from,
             )
         )
+
+
+def _template_of(request: Request) -> dict[str, Any]:
+    template = request.context.get("template_id")
+    version = request.context.get("template_version")
+    if not template:
+        return {}
+    return {"template_id": template, "template_version": int(version) if version else None}
 
 
 class ProfileProvider(ModelProvider):

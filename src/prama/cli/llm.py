@@ -195,6 +195,9 @@ class ProfileSetCommand(Command):
                 max_attempts=ctx.args.attempts,
                 fallback_across_hosting=ctx.args.fallback_across_hosting,
                 note=ctx.args.note,
+                # With the evaluation gate on, a new version waits for a
+                # passing run and `prama llm profile activate`.
+                activate=not ctx.config.get_bool("llm.eval.gate_activation", False),
             )
             return int(version.version)
 
@@ -202,7 +205,13 @@ class ProfileSetCommand(Command):
         if ctx.json_output:
             ctx.emit_json({"purpose": ctx.args.purpose, "version": number})
         else:
-            ctx.emit(f"{ctx.args.purpose}: version {number} is now current")
+            gated = ctx.config.get_bool("llm.eval.gate_activation", False)
+            ctx.emit(
+                f"{ctx.args.purpose}: version {number} recorded; run an eval suite, then "
+                f"`prama llm profile activate {ctx.args.purpose} {number}`"
+                if gated
+                else f"{ctx.args.purpose}: version {number} is now current"
+            )
         return EXIT_OK
 
 
@@ -261,7 +270,9 @@ class AskCommand(Command):
         offline = ctx.config.get_bool("llm.offline", False)
 
         async def work(uow: Any, tenant: str) -> dict[str, Any]:
-            gateway, ledger = await gateway_for(uow, tenant, surface="cli", offline=offline)
+            gateway, ledger = await gateway_for(
+                uow, tenant, surface="cli", offline=offline, config=ctx.config
+            )
             try:
                 response = gateway.run(
                     ctx.args.purpose, Request(system=ctx.args.system, prompt=ctx.args.prompt)
@@ -336,7 +347,9 @@ class _Profile(CommandGroup):
     help = "which model serves which purpose"
 
     def commands(self) -> list[Command]:
-        return [ProfileSetCommand(), ProfileShowCommand()]
+        from prama.cli.llm_governance import ProfileActivateCommand
+
+        return [ProfileSetCommand(), ProfileShowCommand(), ProfileActivateCommand()]
 
 
 class LlmCommand(CommandGroup):
@@ -344,4 +357,14 @@ class LlmCommand(CommandGroup):
     help = "model providers, profiles and the call ledger"
 
     def commands(self) -> list[Command]:
-        return [_Provider(), _Profile(), AskCommand(), CallsCommand()]
+        from prama.cli.llm_governance import EvalCommand, TemplateCommand, VerifyCommand
+
+        return [
+            _Provider(),
+            _Profile(),
+            TemplateCommand(),
+            EvalCommand(),
+            AskCommand(),
+            CallsCommand(),
+            VerifyCommand(),
+        ]
