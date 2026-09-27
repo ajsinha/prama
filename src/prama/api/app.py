@@ -88,6 +88,12 @@ def create_app(config: Configuration | None = None, *, database: Database | None
                         scheduler.interval,
                         scheduler.against,
                     )
+                if config.get_bool("agents.enabled", True):
+                    from prama.steward.runner import loop as stewards
+
+                    supervisor.spawn(
+                        "stewards", lambda: stewards(db, config), policy=RestartPolicy.ON_FAILURE
+                    )
                 yield
         finally:
             if owned:

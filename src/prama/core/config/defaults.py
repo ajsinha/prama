@@ -54,6 +54,12 @@ DEFAULTS: dict[str, Any] = {
         "host": "127.0.0.1",
         "port": 5900,
     },
+    "agents": {
+        # Steward agents run their goals inside `prama serve`. They exist only
+        # when an administrator creates one, so on by default costs nothing.
+        "enabled": True,
+        "interval": "60s",
+    },
     "codeintake": {
         # Where received code is extracted while it is read; deleted after.
         "workdir": "data/code",

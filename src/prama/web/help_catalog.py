@@ -85,6 +85,12 @@ SECTIONS: tuple[HelpSection, ...] = (
                 "bi-key",
             ),
             _g(
+                "agents",
+                "Steward agents",
+                "Persistent AI agents that read, think through the gateway, and propose.",
+                "bi-robot",
+            ),
+            _g(
                 "code",
                 "Application code",
                 "Send a ZIP or a git location; Prama reads its lineage and never runs it.",

@@ -1387,3 +1387,90 @@ CREATE TABLE IF NOT EXISTS code_unit (
     gaps_json       TEXT          NOT NULL DEFAULT '[]'
 );
 CREATE INDEX IF NOT EXISTS ix_code_unit_run ON code_unit (run_id);
+
+-- ===========================================================================
+-- STEWARD AGENTS  (Wave 16)
+-- ===========================================================================
+-- Persistent AI agents. A steward is a service principal with a human sponsor
+-- and a propose-only key: it may read, call models through the gateway, and
+-- propose; it may never approve, confirm, sign or administer (CON-007). Its
+-- model calls are rows in llm_call, not a second ledger.
+CREATE TABLE IF NOT EXISTS agt_steward (
+    id              VARCHAR(26)  NOT NULL PRIMARY KEY,
+    tenant_id       VARCHAR(26)  NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    principal_id    VARCHAR(26)  NOT NULL REFERENCES principal (id) ON DELETE CASCADE,
+    sponsor_id      VARCHAR(26)  NOT NULL REFERENCES principal (id),
+    name            VARCHAR(128) NOT NULL,
+    state           VARCHAR(16)  NOT NULL DEFAULT 'active',
+    budget_json     TEXT         NOT NULL DEFAULT '{}',
+    approvals_json  TEXT         NOT NULL DEFAULT '[]',
+    last_seen_at    VARCHAR(32),
+    created_at      VARCHAR(32)  NOT NULL,
+    CONSTRAINT uq_agt_steward_name UNIQUE (tenant_id, name),
+    CONSTRAINT ck_agt_steward_state CHECK (state IN ('active', 'paused', 'stopped', 'revoked'))
+);
+
+CREATE TABLE IF NOT EXISTS agt_goal (
+    id            VARCHAR(26)  NOT NULL PRIMARY KEY,
+    tenant_id     VARCHAR(26)  NOT NULL,
+    steward_id    VARCHAR(26)  NOT NULL REFERENCES agt_steward (id) ON DELETE CASCADE,
+    statement     TEXT         NOT NULL,
+    kind          VARCHAR(64)  NOT NULL,
+    input_json    TEXT         NOT NULL DEFAULT '{}',
+    schedule      VARCHAR(128),
+    trigger_json  TEXT         NOT NULL DEFAULT '[]',
+    state         VARCHAR(16)  NOT NULL DEFAULT 'active',
+    created_by    VARCHAR(26)  NOT NULL,
+    created_at    VARCHAR(32)  NOT NULL,
+    CONSTRAINT ck_agt_goal_state CHECK (state IN ('active', 'paused', 'done', 'cancelled'))
+);
+
+CREATE TABLE IF NOT EXISTS agt_task (
+    id             VARCHAR(26)  NOT NULL PRIMARY KEY,
+    tenant_id      VARCHAR(26)  NOT NULL,
+    goal_id        VARCHAR(26)  NOT NULL REFERENCES agt_goal (id) ON DELETE CASCADE,
+    task_key       VARCHAR(255) NOT NULL,
+    kind           VARCHAR(64)  NOT NULL,
+    input_json     TEXT         NOT NULL DEFAULT '{}',
+    state          VARCHAR(24)  NOT NULL DEFAULT 'pending',
+    attempts       INTEGER      NOT NULL DEFAULT 0,
+    fencing_token  INTEGER,
+    output_json    TEXT,
+    trace_digest   VARCHAR(64),
+    tokens_in      INTEGER      NOT NULL DEFAULT 0,
+    tokens_out     INTEGER      NOT NULL DEFAULT 0,
+    created_at     VARCHAR(32)  NOT NULL,
+    started_at     VARCHAR(32),
+    finished_at    VARCHAR(32),
+    CONSTRAINT uq_agt_task_key UNIQUE (goal_id, task_key),
+    CONSTRAINT ck_agt_task_state CHECK (state IN ('pending', 'leased', 'running',
+        'awaiting_approval', 'succeeded', 'failed', 'cancelled', 'expired'))
+);
+CREATE INDEX IF NOT EXISTS ix_agt_task_state ON agt_task (state, created_at);
+
+CREATE TABLE IF NOT EXISTS agt_approval (
+    id             VARCHAR(26)  NOT NULL PRIMARY KEY,
+    tenant_id      VARCHAR(26)  NOT NULL,
+    task_id        VARCHAR(26)  NOT NULL REFERENCES agt_task (id) ON DELETE CASCADE,
+    action_json    TEXT         NOT NULL,
+    justification  TEXT         NOT NULL DEFAULT '',
+    state          VARCHAR(16)  NOT NULL DEFAULT 'open',
+    decided_by     VARCHAR(26),
+    decided_at     VARCHAR(32),
+    created_at     VARCHAR(32)  NOT NULL,
+    CONSTRAINT ck_agt_approval_state CHECK (state IN ('open', 'granted', 'denied', 'expired'))
+);
+
+CREATE TABLE IF NOT EXISTS agt_memory (
+    id              VARCHAR(26)  NOT NULL PRIMARY KEY,
+    tenant_id       VARCHAR(26)  NOT NULL,
+    steward_id      VARCHAR(26)  NOT NULL REFERENCES agt_steward (id) ON DELETE CASCADE,
+    kind            VARCHAR(16)  NOT NULL,
+    mkey            VARCHAR(255) NOT NULL,
+    body            TEXT         NOT NULL,
+    source_task_id  VARCHAR(26),
+    expires_at      VARCHAR(32),
+    created_at      VARCHAR(32)  NOT NULL,
+    CONSTRAINT uq_agt_memory_key UNIQUE (steward_id, kind, mkey),
+    CONSTRAINT ck_agt_memory_kind CHECK (kind IN ('episodic', 'note'))
+);

@@ -1,0 +1,67 @@
+{# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{% extends "base.html" %}
+{% block title %}Agents — Prama{% endblock %}
+{% block heading %}Steward agents{% endblock %}
+{% block content %}
+<p class="text-muted small" style="max-width: 58rem">A steward is a persistent AI agent that pursues goals on a schedule:
+  it reads the estate, thinks through the model gateway under its own identity (budgeted and recorded), and
+  <strong>proposes</strong>. It can never approve a control, confirm lineage, sign an attestation or administer anything:
+  those stay with people. Each steward has a human sponsor and an expiring key.</p>
+
+{% if issued %}
+<div class="alert alert-success" role="alert"><strong>{{ issued.name }}</strong> created. Its key, shown once, for running it elsewhere:
+  <pre class="mb-0 mt-1 user-select-all"><code>{{ issued.key }}</code></pre></div>
+{% endif %}
+
+<form method="post" action="{{ url_for('agents_new') }}" class="row g-2 mb-4" style="max-width: 32rem">
+  <div class="col-8"><label class="visually-hidden" for="a-name">Name</label>
+    <input class="form-control form-control-sm" id="a-name" name="name" required placeholder="lineage-keeper"></div>
+  <div class="col-4"><button class="btn btn-sm btn-primary w-100" type="submit">New steward</button></div>
+</form>
+
+{% for s in stewards %}
+<section class="border rounded p-3 mb-3" aria-labelledby="s-{{ s.id }}">
+  <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+    <h2 class="h6 mb-0" id="s-{{ s.id }}">{{ s.name }}</h2>
+    <span class="badge {{ {'active': 'text-bg-success', 'paused': 'text-bg-warning'}.get(s.state, 'text-bg-danger') }}">{{ s.state }}</span>
+    <span class="small text-muted">last active {{ s.last_seen_at[:19] if s.last_seen_at else 'never' }}</span>
+    <span class="ms-auto d-flex gap-1">
+      {% for target, label, style in [('active', 'Resume', 'outline-success'), ('paused', 'Pause', 'outline-warning'), ('stopped', 'Stop', 'outline-danger'), ('revoked', 'Revoke', 'danger')] %}
+      {% if s.state != target and s.state != 'revoked' %}
+      <form method="post" action="{{ url_for('agents_state', steward_id=s.id) }}"><input type="hidden" name="state" value="{{ target }}">
+        <button class="btn btn-sm btn-{{ style }}" type="submit">{{ label }}</button></form>
+      {% endif %}{% endfor %}
+    </span>
+  </div>
+  <table class="table table-sm small mb-2">
+    <thead><tr><th scope="col">Goal</th><th scope="col">Kind</th><th scope="col">Schedule</th><th scope="col"><span class="visually-hidden">Run</span></th></tr></thead>
+    <tbody>{% for g in goals[s.id] %}
+      <tr><td>{{ g.statement }}{% if g.input_json.get('source') %} <code>{{ g.input_json.source }}</code>{% endif %}</td><td><code>{{ g.kind }}</code></td><td>{{ g.schedule or 'on request' }}</td>
+        <td>{% if s.state == 'active' %}<form method="post" action="{{ url_for('agents_run', goal_id=g.id) }}"><button class="btn btn-sm btn-outline-primary" type="submit">Run now</button></form>{% endif %}</td></tr>
+    {% else %}<tr><td colspan="4" class="text-muted">No goals yet.</td></tr>{% endfor %}</tbody>
+  </table>
+  {% if s.state != 'revoked' %}
+  <form method="post" action="{{ url_for('agents_goal', steward_id=s.id) }}" class="row g-2">
+    <div class="col-md-4"><label class="visually-hidden" for="g-kind-{{ s.id }}">Kind</label>
+      <select class="form-select form-select-sm" id="g-kind-{{ s.id }}" name="kind">{% for k, (desc, purpose, _) in tools.items() %}<option value="{{ k }}">{{ desc }}</option>{% endfor %}</select></div>
+    <div class="col-md-3"><label class="visually-hidden" for="g-source-{{ s.id }}">Code source</label><input class="form-control form-control-sm" id="g-source-{{ s.id }}" name="source" placeholder="code source (if any)"></div>
+    <div class="col-md-2"><label class="visually-hidden" for="g-sched-{{ s.id }}">Schedule</label><input class="form-control form-control-sm" id="g-sched-{{ s.id }}" name="schedule" placeholder="6h, 1d"></div>
+    <div class="col-md-3"><button class="btn btn-sm btn-outline-primary w-100" type="submit">Add goal</button></div>
+  </form>
+  {% endif %}
+</section>
+{% else %}
+<p class="text-muted">No stewards yet.</p>
+{% endfor %}
+
+<h2 class="h6 mt-4">Recent tasks</h2>
+<table class="table table-sm small">
+  <thead><tr><th scope="col">Started</th><th scope="col">Goal</th><th scope="col">State</th><th scope="col">Tokens</th><th scope="col">Output</th></tr></thead>
+  <tbody>{% for t in tasks %}
+    <tr><td>{{ (t.started_at or t.created_at)[:19] }}</td><td>{{ goal_names.get(t.goal_id, t.kind) }}</td>
+      <td><span class="badge {{ {'succeeded': 'text-bg-success', 'running': 'text-bg-info'}.get(t.state, 'text-bg-secondary') }}">{{ t.state }}</span></td>
+      <td>{{ t.tokens_in + t.tokens_out }}</td>
+      <td style="max-width: 36rem">{% if t.output_json %}{{ t.output_json.get('summary') or t.output_json.get('note') or t.output_json.get('error') or t.output_json }}{% endif %}</td></tr>
+  {% else %}<tr><td colspan="5" class="text-muted">No tasks yet.</td></tr>{% endfor %}</tbody>
+</table>
+{% endblock %}

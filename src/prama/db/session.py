@@ -52,6 +52,7 @@ if TYPE_CHECKING:
     from prama.db.dao.code import CodeDao
     from prama.db.dao.lineage import LineageDao
     from prama.db.dao.llm import LlmDao
+    from prama.db.dao.steward import StewardDao
 
 _log = get_logger(__name__)
 
@@ -151,6 +152,12 @@ class UnitOfWork:
         from prama.db.dao import AuditDao
 
         return self._dao("audit", AuditDao)  # type: ignore[no-any-return]
+
+    @property
+    def stewards(self) -> StewardDao:
+        from prama.db.dao.steward import StewardDao
+
+        return self._dao("stewards", StewardDao)  # type: ignore[no-any-return]
 
     @property
     def code(self) -> CodeDao:

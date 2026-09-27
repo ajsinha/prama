@@ -96,3 +96,26 @@ async def test_a_budget_and_a_price_are_managed_on_the_page(
         assert budget.limit_micros == 250_000_000
     page = await ui.get("/models")
     assert "250.00" in page.text and "This month" in page.text
+
+
+async def test_the_agents_page_creates_a_steward_and_shows_its_key_once(
+    ui: Any, started_database: Database, tenant_id: str
+) -> None:
+    assert "No stewards yet" in (await ui.get("/agents")).text
+    # Nobody signed in: no sponsor, so no steward (the control).
+    refused = await ui.post("/agents/new", data={"name": "orphan"})
+    assert refused.status_code == 303
+    from prama.security.accounts import BUILTIN_ROLES
+
+    async with started_database.unit_of_work() as uow:
+        person = uow.principals.create(tenant_id=tenant_id, username="root", display_name="Root")
+        uow.principals.set_password(person, "correct horse battery staple")
+        _, permissions = BUILTIN_ROLES["admin"]
+        role = uow.roles.create(tenant_id=tenant_id, name="admin", permissions=permissions)
+        await uow.flush()
+        await uow.roles.grant(str(person.id), str(role.id))
+    await ui.post("/sign-in", data={"username": "root", "password": "correct horse battery staple"})
+    created = await ui.post("/agents/new", data={"name": "keeper"})
+    assert created.status_code == 200 and "pk_agent_" in created.text
+    again = await ui.get("/agents")
+    assert "keeper" in again.text and "pk_agent_" not in again.text
