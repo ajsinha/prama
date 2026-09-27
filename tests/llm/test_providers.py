@@ -362,3 +362,38 @@ class TestPatternRedaction:
 
         out = redact("ask ada.lovelace@bank.example about trades.notional")
         assert "ada.lovelace" not in out and "trades.notional" in out
+
+
+class TestStreaming:
+    def test_the_openai_stream_is_read_token_by_token(self) -> None:
+        events = [
+            b'data: {"choices":[{"delta":{"role":"assistant"}}]}\n',
+            b'data: {"choices":[{"delta":{"content":"CHECK "}}]}\n',
+            b": keep-alive\n",
+            b"data: not json\n",
+            b'data: {"choices":[{"delta":{"content":"t.a IS NOT NULL"}}]}\n',
+            b"data: [DONE]\n",
+            b'data: {"choices":[{"delta":{"content":"after done"}}]}\n',
+        ]
+        provider = OpenAiCompatibleProvider(
+            endpoint="http://x",
+            model="m",
+            hosting=Hosting.SELF_HOSTED,
+            streamer=lambda _request, _timeout: iter(events),
+        )
+        pieces = list(provider.ask_stream(Request(system="s", prompt="p")))
+        assert pieces == ["CHECK ", "t.a IS NOT NULL"]
+
+    def test_a_provider_that_cannot_stream_yields_its_answer_once(self) -> None:
+        from prama.llm.providers import ScriptedProvider
+
+        assert list(ScriptedProvider(["whole"]).ask_stream(Request(system="s", prompt="p"))) == [
+            "whole"
+        ]
+
+    def test_streaming_applies_the_same_residency_rule(self) -> None:
+        hosted = OpenAiCompatibleProvider(
+            endpoint="https://api.openai.com", model="m", hosting=Hosting.HOSTED
+        )
+        with pytest.raises(ValidationError):
+            list(hosted.ask_stream(Request(system="s", prompt="p", sensitivity=Sensitivity.PII)))

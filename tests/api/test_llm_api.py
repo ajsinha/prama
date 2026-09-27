@@ -114,3 +114,17 @@ async def test_a_reservation_counts_as_spend_until_released(
         after = await uow.llm.spend(tenant_id, "2000-01-01")
     assert during == (before[0] + 10, before[1] + 4000)
     assert after == before  # the control: released, it no longer counts
+
+
+async def test_a_streamed_chat_arrives_as_events_and_is_recorded(
+    client: Any, started_database: Database, tenant_id: str
+) -> None:
+    await _configure(started_database, tenant_id, ["CHECK t.a IS NOT NULL"])
+    reply = await client.post("/llm/chat/stream", json={"purpose": "author", "prompt": "p"})
+    assert reply.status_code == 200
+    assert reply.headers["content-type"].startswith("text/event-stream")
+    assert 'data: {"text": "CHECK t.a IS NOT NULL"}' in reply.text
+    assert "event: done" in reply.text
+    async with started_database.unit_of_work() as uow:
+        (call,) = await uow.llm.calls(tenant_id)
+    assert call.outcome == "ok" and call.response_hash

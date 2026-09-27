@@ -13,10 +13,14 @@ from __future__ import annotations
 
 import asyncio
 import collections
+import json
+from collections.abc import AsyncIterator
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
+from starlette.concurrency import iterate_in_threadpool
 
 from prama.api.deps import LlmUser, Uow
 from prama.api.errors import problem_document
@@ -153,3 +157,61 @@ async def chat(body: ChatIn, caller: LlmUser, uow: Uow, request: Request) -> Cha
         grammar_enforced=response.grammar_enforced,
         warnings=warnings,
     )
+
+
+@router.post("/llm/chat/stream")
+async def chat_stream(body: ChatIn, caller: LlmUser, uow: Uow, request: Request) -> Any:
+    """The same as ``/llm/chat``, answered as server-sent events.
+
+    ``data: {"text": "…"}`` per piece, then ``event: done``. Tokens are pulled
+    from the provider one at a time on a worker thread, so a slow client
+    slows the model rather than filling a buffer.
+    """
+    config = request.app.state.config
+    per_minute = config.get_int("llm.per_principal_rpm", 60)
+    if not _limiters.allow(caller.principal_id or caller.tenant_id, per_minute):
+        raise HTTPException(
+            status_code=429, detail="too many model requests", headers={"Retry-After": "60"}
+        )
+    try:
+        sensitivity = Sensitivity(body.sensitivity)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422, detail=f"unknown sensitivity {body.sensitivity!r}"
+        ) from exc
+    question = ModelRequest(system=body.system, prompt=body.prompt, sensitivity=sensitivity)
+    database = request.app.state.database
+    warnings, reservation = await budget.admit(
+        database,
+        caller.tenant_id,
+        body.purpose,
+        question,
+        principal_id=caller.principal_id,
+        api_key_id=caller.api_key_id,
+        holder=caller.api_key_id or caller.principal_id or "console",
+    )
+    gateway, ledger = await gateway_for(
+        uow,
+        caller.tenant_id,
+        surface="api",
+        principal_id=caller.principal_id,
+        api_key_id=caller.api_key_id,
+        offline=config.get_bool("llm.offline", False),
+    )
+
+    async def events() -> AsyncIterator[str]:
+        try:
+            for warning in warnings:
+                yield f"event: warning\ndata: {json.dumps({'warning': warning})}\n\n"
+            async for piece in iterate_in_threadpool(gateway.run_stream(body.purpose, question)):
+                yield f"data: {json.dumps({'text': piece})}\n\n"
+            yield "event: done\ndata: {}\n\n"
+        except Exception as exc:
+            yield f"event: error\ndata: {json.dumps({'error': str(exc)})}\n\n"
+        finally:
+            async with database.unit_of_work() as own:
+                await persist(own, caller.tenant_id, ledger)
+                if reservation is not None:
+                    await own.llm.release_reservation(caller.tenant_id, reservation)
+
+    return StreamingResponse(events(), media_type="text/event-stream")

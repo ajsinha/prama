@@ -28,7 +28,7 @@ import abc
 import dataclasses
 import hashlib
 import time
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
 from typing import Any, ClassVar
 
@@ -292,6 +292,66 @@ class LlmGateway:
             return failure
         detail = str(refusal) if refusal else "no candidate is allowed by the profile"
         self._record(base, started, clock, None, None, attempts, None, "refused_policy", detail)
+        if refusal is not None:
+            raise refusal
+        raise ValidationError(detail, remedy="Check the profile's route and its hosting.")
+
+    def run_stream(self, purpose: str, request: Request) -> Iterator[str]:
+        """Stream the answer from the first candidate the policy allows.
+
+        No fallback once tokens have gone out: half an answer cannot be taken
+        back, so the choice of candidate is made before the first token. The
+        call is recorded when the stream ends, however it ends.
+        """
+        route = self._routes.get(purpose)
+        if route is None or not route.candidates:
+            raise ValidationError(
+                f"no model profile for the purpose {purpose!r}",
+                remedy=f"Configure one: `prama llm profile set {purpose} …`.",
+                context={"purpose": purpose},
+            )
+        started, clock = _now(), time.monotonic()
+        base = {
+            "tenant_id": self._tenant,
+            "surface": self._surface,
+            "purpose": purpose,
+            "sensitivity": request.sensitivity.value,
+            "request_fingerprint": request.fingerprint,
+            "prompt_hash": _hash(request.system + "\x1f" + request.prompt),
+            "principal_id": self._principal,
+            "api_key_id": self._api_key,
+            "profile_id": route.profile_id or None,
+            "profile_version": route.version,
+            "temperature": request.temperature,
+            "seed": request.seed,
+        }
+        first_locality = LOCALITY[route.candidates[0].hosting]
+        refusal: PramaError | None = None
+        for candidate in route.candidates:
+            if LOCALITY[candidate.hosting] > first_locality and not route.fallback_across_hosting:
+                continue
+            try:
+                candidate.provider.permit(request)
+                candidate.provider.permit_residency(request)
+            except PramaError as exc:
+                refusal = exc
+                continue
+            pieces: list[str] = []
+            outcome, detail = "ok", ""
+            try:
+                for piece in candidate.provider.ask_stream(request):
+                    pieces.append(piece)
+                    yield piece
+            except Exception as exc:
+                outcome, detail = "error", f"{type(exc).__name__}: {exc}"
+                raise
+            finally:
+                text = "".join(pieces)
+                done = Response(text, candidate.model, candidate.provider_name, request.fingerprint)
+                self._record(base, started, clock, candidate, done, 1, None, outcome, detail)
+            return
+        detail = str(refusal) if refusal else "no candidate is allowed by the profile"
+        self._record(base, started, clock, None, None, 0, None, "refused_policy", detail)
         if refusal is not None:
             raise refusal
         raise ValidationError(detail, remedy="Check the profile's route and its hosting.")
