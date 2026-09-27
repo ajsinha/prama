@@ -408,8 +408,8 @@ class VertexProvider(OpenAiCompatibleProvider):
             raise ValidationError(
                 "a Vertex provider needs its OpenAI-compatible endpoint",
                 remedy=(
-                    "Set the endpoint to https://<location>-aiplatform.googleapis.com/v1/"
-                    "projects/<project>/locations/<location>/endpoints/openapi."
+                    "Set the endpoint to Vertex's OpenAI-compatible base URL, the one ending "
+                    "in /endpoints/openapi (Help → Models shows its full form)."
                 ),
             )
         kwargs["dialect"] = "openai"
