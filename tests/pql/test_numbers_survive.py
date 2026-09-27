@@ -58,3 +58,20 @@ class TestRenderingKeepsEveryDigit:
         first = parse_control(source)
         again = parse_control(first.render())
         assert again.threshold.value == first.threshold.value, first.render()
+
+
+class TestQualifiedDatasetsSurviveRendering:
+    """Q-124: a quoted, schema-qualified dataset lost its quotes on render."""
+
+    def test_a_dotted_dataset_round_trips(self) -> None:
+        for source in (
+            'CHECK "stg.trades".notional IS NOT NULL',
+            'CHECK "stg.trades".account_id REFERENCES "raw.trades".account_id',
+            'CHECK "stg.trades" HAS UNIQUE KEY (a, b)',
+        ):
+            control = parse_control(source)
+            assert parse_control(control.render()) == control, control.render()
+
+    def test_a_plain_dataset_is_still_written_bare(self) -> None:
+        # The control: ordinary names do not start acquiring quotes.
+        assert parse_control("CHECK p.a IS NOT NULL").render().startswith("CHECK p.a ")

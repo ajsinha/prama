@@ -137,6 +137,20 @@ Three questions are answered here, each with a design note behind it:
 - **Still to do in Wave 14:**
   - pandas, Airflow task lineage and COBOL/JCL;
   - templates and evaluation governance.
+
+**Wave 15, as built so far:**
+
+- **Proposals from lineage (P4), `prama.derive.lineage_controls`.** Two deterministic rules:
+  - `lineage_propagated`: a live control on a source column is proposed for every copied or
+    renamed column downstream;
+  - `lineage_referential`: a copied key must `REFERENCES` its source.
+
+  Proposals from `inferred` edges are held until the edge is confirmed. They appear on the
+  Proposals page beside the declaration-derived ones, link to the Lineage page, and are accepted
+  with origin `mining`. The existing CHECK constraint was kept rather than altered, since there
+  are no migrations. Building this found Q-124.
+- **Not yet:** reconciliation proposals between hops (the design's first rule) wait for PQL's
+  `RECONCILE`, which the language records as not yet implemented.
 - **Deferred, each to the phase that first needs it:**
   - The transport-module extraction, multi-turn messages and JSON-schema validation go to
     Wave 13, with the new wire formats.

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import dataclasses
 import enum
+import re
 from decimal import Decimal
 from typing import Any, Final
 
@@ -37,6 +38,21 @@ def exact(value: Any, *, scale: int = 1) -> str:
     if number == number.to_integral_value():
         return str(int(number))
     return format(number.normalize(), "f")
+
+
+#: A dataset name the parser reads bare. Anything else (a schema-qualified
+#: `stg.trades`) must be written quoted, or the rendered text does not re-read.
+_PLAIN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def quote_dataset(name: str) -> str:
+    """*name* as PQL text: bare when it can be, quoted when it must be.
+
+    Rendering dropped the quotes, so `CHECK "stg.trades".notional IS NOT NULL`
+    came back as `stg.trades.notional`, which the parser refuses: a control over
+    a schema-qualified dataset did not survive a format round trip (Q-124).
+    """
+    return name if not name or _PLAIN.fullmatch(name) else '"' + name.replace('"', '""') + '"'
 
 
 class Severity(enum.Enum):
@@ -235,7 +251,7 @@ class ColumnRef(Expression):
         return f"{self.dataset}.{self.name}" if self.dataset else self.name
 
     def render(self) -> str:
-        return self.qualified
+        return f"{quote_dataset(self.dataset)}.{self.name}" if self.dataset else self.name
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -403,7 +419,7 @@ class Assertion(Node):
         round-tripping, and a formatter whose output will not re-read is worse
         than no formatter.
         """
-        return f"{target} {self.render()}"
+        return f"{quote_dataset(target)} {self.render()}"
 
     def render_selected(self) -> str:
         """The assertion after a selector, which has already named the subject.
@@ -450,8 +466,8 @@ class PredicateAssertion(Assertion):
 
     def render_head(self, target: str) -> str:
         if isinstance(self.subject, ColumnRef) and self.subject.dataset in (target, ""):
-            return f"{target}.{self.subject.name} {self._clause()}"
-        return f"{target} {self.render()}"
+            return f"{quote_dataset(target)}.{self.subject.name} {self._clause()}"
+        return f"{quote_dataset(target)} {self.render()}"
 
     def render_selected(self) -> str:
         return self._clause()
@@ -560,7 +576,10 @@ class ReferenceAssertion(Assertion):
         return f"{self.column.render()} REFERENCES {self.target_dataset}.{self.target_column}"
 
     def render_head(self, target: str) -> str:
-        return f"{target}.{self.column.name} REFERENCES {self.target_dataset}.{self.target_column}"
+        return (
+            f"{quote_dataset(target)}.{self.column.name} REFERENCES "
+            f"{quote_dataset(self.target_dataset)}.{self.target_column}"
+        )
 
     def describe(self) -> str:
         return f"every {self.column.name} exists in {self.target_dataset}.{self.target_column}"

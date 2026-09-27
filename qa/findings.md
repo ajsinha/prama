@@ -2596,3 +2596,20 @@ existing tests of that shape are listed for review; a new one fails the build.
   that a 13-digit trade id survives. The patterns moved from
   `assistant/safety.py` to `llm/redact.py`, so the lower layer owns them and
   there is one list.
+
+## Q-124 — a schema-qualified dataset lost its quotes on the way out
+
+**Where** `src/prama/pql/ast.py`: `ColumnRef.render` and every `render_head`.
+**From** building lineage-derived proposals (Wave 15), not from a catalogue case.
+
+PQL reads a dataset reference with one dot, so a schema-qualified dataset is
+written quoted: `CHECK "stg.trades".notional IS NOT NULL`. That parses. But
+`render()` wrote it back as `stg.trades.notional`, which does not. A control
+over any schema-qualified table could not survive `prama control format`, and
+proposal text built from rendered AST would not re-read. Both are the
+formatter-changes-meaning class again (see Q-118).
+
+`ast.quote_dataset` writes a name bare when the parser can read it bare, and
+quoted otherwise, in all three places a dataset is written. The regression
+round-trips three forms (column, `REFERENCES`, `HAS UNIQUE KEY`). The control
+is that `p.a` is still written bare.

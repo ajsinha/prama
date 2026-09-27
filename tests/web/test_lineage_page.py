@@ -113,3 +113,36 @@ async def test_an_incident_names_its_upstream_feeders(
     page = await ui.get("/incidents/ctl-stg")
     assert "Upstream, from the lineage store" in page.text
     assert "raw.trades" in page.text and "trust 0.50" in page.text
+
+
+async def test_lineage_proposals_reach_the_queue_and_can_be_accepted(
+    ui: Any, started_database: Database, tenant_id: str
+) -> None:
+    async with started_database.unit_of_work() as uow:
+        await scan_sql(
+            uow,
+            tenant_id,
+            source="w",
+            sql="INSERT INTO stg.a (account_id) SELECT t.account_id FROM raw.trades t;",
+        )
+    page = await ui.get("/proposals")
+    assert "REFERENCES &#34;raw.trades&#34;.account_id" in page.text or (
+        'REFERENCES "raw.trades".account_id' in page.text
+    )
+    import re
+
+    identity = re.search(r'name="identity" value="(lineage-[0-9a-f]+)"', page.text)
+    assert identity, "the lineage proposal has no accept form"
+    accepted = await ui.post(
+        "/proposals/accept",
+        data={
+            "identity": identity.group(1),
+            "pql": 'CHECK "stg.a".account_id REFERENCES "raw.trades".account_id '
+            "BECAUSE 'lineage: every account_id is copied from raw.trades.account_id'",
+            "rule": "lineage_referential",
+        },
+    )
+    assert accepted.status_code == 303
+    async with started_database.unit_of_work() as uow:
+        stored = await uow.controls.by_identity(tenant_id, identity.group(1))
+    assert stored is not None

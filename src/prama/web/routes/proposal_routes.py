@@ -128,6 +128,48 @@ class ProposalRoutes(UiRoutes):
                         "reason": getattr(postponed, "reason", ""),
                     }
                 )
+        # Proposals derived from lineage: controls carried downstream, and keys
+        # checked against where they were copied from. Held while the edge
+        # they rest on is only inferred.
+        import hashlib
+
+        from prama.derive.lineage_controls import propose as from_lineage
+
+        for mined in from_lineage(
+            await uow.lineage.edges(caller.tenant_id), await uow.controls.live(caller.tenant_id)
+        ):
+            if dataset_id:
+                continue  # a per-dataset view lists what that dataset's declaration implies
+            content_hash = hashlib.sha256(mined.pql.encode("utf-8")).hexdigest()
+            if await uow.rejections.was_rejected(caller.tenant_id, mined.identity, content_hash):
+                rejected_already += 1
+                continue
+            if await uow.controls.by_identity(caller.tenant_id, mined.identity) is not None:
+                accepted_already += 1
+                continue
+            if mined.deferred_because:
+                deferred.append(
+                    {
+                        "dataset": mined.dataset,
+                        "dataset_id": "",
+                        "rule": mined.rule,
+                        "reason": mined.deferred_because,
+                    }
+                )
+                continue
+            proposals.append(
+                {
+                    "dataset": mined.dataset,
+                    "dataset_id": "",
+                    "identity": mined.identity,
+                    "rule": mined.rule,
+                    "sentence": mined.sentence,
+                    "pql": mined.pql,
+                    "content_hash": content_hash,
+                    "criticality": 3,
+                    "amends": False,
+                }
+            )
         # Tier 1 first, then by rule so a systematically bad rule is visible as
         # a block rather than scattered through the list.
         proposals.sort(key=lambda p: (p["criticality"], p["rule"], p["dataset"]))
@@ -183,7 +225,9 @@ class ProposalRoutes(UiRoutes):
                 tenant_id=caller.tenant_id,
                 identity=identity,
                 pql=pql,
-                origin="declaration",
+                # Lineage-derived proposals are mined from the estate; the rule
+                # (lineage_propagated, lineage_referential) says which way.
+                origin="mining" if rule.startswith("lineage_") else "declaration",
                 rule=rule,
                 source_ref=dataset_id,
                 status="proposed",
