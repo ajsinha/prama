@@ -87,3 +87,18 @@ Ordered by what I would take first. Each item says why it matters.
   - a ruff complexity and function-length ceiling (C90 and PLR0915).
 
   Adopting any of these will first need a sweep of existing code to get under the new limit.
+
+## 7. Intelligence roadmap (docs/23), still open
+
+- **Wave 14:** prompt templates and evaluation governance, and stored payloads (`llm_payload`).
+- **Wave 15:** reconciliation proposals from lineage, which need `RECONCILE` in PQL. Tableau
+  lineage only if a design partner asks.
+- **Wave 17:**
+  - E5: glossary terms, and importing glossaries and lineage from Manta, Alation and Collibra;
+  - E6: search, steward queues and comments;
+  - E7: usage signals;
+  - E9: write-back verified against live catalogs, which needs live catalogs.
+- **Delegates:** Arrow record batches in place of JSON lines.
+- **Out of scope by decision (2026-09-27):** mainframe code (COBOL, JCL, copybooks), and DataStage,
+  Talend, Ab Initio and SAS.
+

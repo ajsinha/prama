@@ -182,6 +182,9 @@ Start with **[QUICKSTART.md](QUICKSTART.md)** if you want to run it, or
 | 20 | [Competitive Analysis](docs/20-competitive-analysis.md) | Head-to-head against Solidatus, Manta, Alation, Collibra, Monte Carlo and the rest — including where we are behind |
 | 21 | [How We Win](docs/21-how-we-win.md) | The plan to beat them: three asymmetric unlocks, honest moat ratings, and the traps we set |
 | 22 | [Distributed Execution](docs/22-distributed-execution.md) | Prama agents: an agent runs beside the data, does the work there, and sends findings rather than data |
+| 23 | [Intelligence and Lineage Roadmap](docs/23-intelligence-and-lineage-roadmap.md) | The LLM gateway, lineage, code-to-lineage, steward agents and DQ delegates, as built and as planned; the lineage scope |
+| — | [Design notes](docs/design/) | LLM gateway, code lineage and steward agents, DQ delegates, the Manta/Alation gap |
+| — | [Remaining work](docs/remaining-work.md) | What is left, in the order it would be taken |
 | — | [Brand](docs/brand.md) | Name, mark, slogan, palette, voice |
 | — | [Glossary](docs/glossary.md) | Terms of art |
 | — | [Academic Paper](docs/paper/) | Manuscript, bibliography, experiment plan |
@@ -228,8 +231,11 @@ Five contributions, targeting **ACM JDIQ** with a **VLDB Industrial** companion 
 
 ## Status
 
-**Implemented.** Eleven waves are complete; two tasks stay open on infrastructure
-rather than code. The suite is at <!--tests-->5,873 passing, 118 skipped<!--/tests-->,
+**Implemented.** The eleven foundation waves of [docs/19](docs/19-implementation-roadmap.md)
+are complete, apart from two tasks that are open on infrastructure rather than code. So is most of
+the intelligence roadmap in [docs/23](docs/23-intelligence-and-lineage-roadmap.md): the LLM gateway
+and the lineage workbench, code-to-lineage, steward agents, and DQ delegates. What is left is in
+[docs/remaining-work.md](docs/remaining-work.md). The suite is at <!--tests-->5,873 passing, 118 skipped<!--/tests-->,
 derived from a green run by `scripts/sync_test_counts.py` rather than typed — a
 count in prose rots the first time somebody adds a test.
 
@@ -271,6 +277,29 @@ run against an account and ODBC not built ([19 §W3.11](docs/19-implementation-r
 and the enterprise surface — SSO, SCIM, residency, customer-managed
 keys, an operator, an offline bundle with publisher signing.
 
+The intelligence layer adds these pieces:
+
+- **An LLM gateway.** Models can be local (Ollama, vLLM, llama.cpp) or remote (Anthropic,
+  OpenAI, Hugging Face, Amazon Bedrock, Azure OpenAI, Vertex AI). Each call is routed by purpose,
+  budgeted, redacted and recorded in a hash-chained ledger. When no model is configured, a mock
+  that answers with nothing stands in.
+- **Column lineage, from many sources:**
+  - SQL in about twenty dialects, including stored procedures;
+  - dbt and OpenLineage;
+  - PySpark, pandas and Airflow;
+  - Power BI models;
+  - Snowflake, Databricks and BigQuery query history.
+- **Code intake.** A ZIP or a git repository is read in a sandbox and never executed, re-reading
+  only what a commit changed. A model may propose further edges, which are checked before a
+  person confirms them.
+- **Controls proposed from lineage.**
+- **Steward agents** that read and propose, and never approve.
+- **DQ delegates.** These are Python checks named from PQL, vetted before import, run in a
+  sandbox, streamed large inputs, and uploaded through the console with four-eyes approval.
+- **`CHECK CUSTOM SQL`**, a read-only escape hatch.
+
+Mainframe code (COBOL, JCL) is deliberately out of scope.
+
 **Figures marked as targets or gates are objectives, not measured results**
 (see [NOTICE §6](NOTICE)). Where something is built but unverified, the document
 that describes it says so in those words — the operator has not met a real API
@@ -287,16 +316,17 @@ prama/
 ├── NOTICE             ← legal notice, trademarks, third-party references
 ├── SECURITY.md        ← reporting, what Prama holds, and what is unverified
 ├── CONTRIBUTING.md    ← the habits this codebase is held to
-├── src/prama/         ← the product: 43 packages
+├── src/prama/         ← the product: 46 packages
 ├── tests/             ← the suite, mirroring the package tree
 ├── qa/                ← the QA corpus: catalogue, logs, harness, regressions
 ├── schema/            ← sqlite.sql and postgres.sql; there are no migrations
 ├── config/            ← application.yaml; secrets live in application.local.yaml
 ├── deploy/            ← Dockerfile, Helm chart, operator CRDs
 ├── scripts/           ← the gate, the file-length ceiling, the evidence verifier
-├── case-studies/      ← worked examples end to end
+├── case-studies/      ← five worked examples, end to end
 └── docs/
-    ├── 00–22          ← the analysis, requirements, design and roadmap corpus
+    ├── 00–23          ← the analysis, requirements, design and roadmap corpus
+    ├── design/        ← design notes: LLM gateway, code lineage, delegates, Manta/Alation gap
     ├── operations/    ← runbook, configuration and CLI reference, troubleshooting
     ├── assets/        ← logo, seal, favicon, brand preview
     ├── brand.md · glossary.md

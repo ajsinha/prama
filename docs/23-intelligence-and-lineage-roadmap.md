@@ -306,6 +306,14 @@ Modules named in the design notes that do not exist yet are marked `(planned)` t
     36 planted off-cycle trades that a column comparison passes, and a Benford delegate on a PCI
     zone agent fails the ledger with invented invoices while the clean ledger passes.
 - **A fix found on the way:** a run's summary called controls on another source "not due".
+- **Added afterwards, on request:**
+  - `CHECK CUSTOM SQL`: one read-only query, checked on its syntax tree at parse time;
+  - large inputs streamed to delegates in cursor batches;
+  - the author conformance kit (`prama delegate check`);
+  - console uploads, vetted in a sandbox and approved by someone other than the uploader;
+  - `prama delegate pull`, for remote agents.
+- **Also added:** the mock LLM provider. When no model is configured, the gateway uses a
+  placeholder that answers with nothing.
 
 ## 1. What the analysis found
 
