@@ -77,12 +77,11 @@ def _write_local_secret() -> str:
     generated = secrets.token_urlsafe(48)
     existing = LOCAL_CONFIG.read_text() if LOCAL_CONFIG.exists() else ""
     if "session_secret" in existing:
-        raise SystemExit(
-            _fail(
-                f"{LOCAL_CONFIG} already sets session_secret",
-                "Leaving it alone. Edit the file if you meant to change it.",
-            )
-        )
+        # The goal of the flag, a secret in the local file, is already met. It
+        # used to stop here with exit 1, which turned "run it again with the
+        # same command" into a failure; the existing secret is kept, never
+        # replaced, because rotating it would sign everybody out.
+        return "kept"
     with LOCAL_CONFIG.open("a") as handle:
         handle.write(
             "\n# Written by run_prama_web.py --init-secret. This file is git-ignored;\n"
@@ -142,8 +141,10 @@ def main() -> int:
     print(BANNER.format(version=VERSION))
 
     if args.init_secret:
-        _write_local_secret()
-        print(f"  wrote a session secret to {LOCAL_CONFIG}")
+        if _write_local_secret() == "kept":
+            print(f"  {LOCAL_CONFIG} already has a session secret; keeping it")
+        else:
+            print(f"  wrote a session secret to {LOCAL_CONFIG}")
 
     try:
         config = _configuration(args.config or None)
