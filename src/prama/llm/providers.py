@@ -438,3 +438,95 @@ PQL_CONTROL_GRAMMAR = Grammar(
     ),
     pattern=r"(?s)^CHECK\s+\S+.*$",
 )
+
+
+class BedrockProvider(_HttpProvider):
+    """Amazon Bedrock's Converse API, signed with SigV4 from the standard library.
+
+    The credential is one secret reference resolving to
+    ``ACCESS_KEY_ID:SECRET_ACCESS_KEY`` (optionally ``:SESSION_TOKEN``), so no
+    key is ever stored in configuration. Hosting defaults to `tenant`: the model
+    runs in the customer's own AWS account, which is what Bedrock is for.
+    """
+
+    name: ClassVar[str] = "bedrock"
+    hosting: ClassVar[Hosting] = Hosting.TENANT
+    supports_grammar: ClassVar[bool] = False
+
+    def __init__(self, *, aws_region: str, hosting: Hosting | None = None, **kwargs: Any) -> None:
+        if not aws_region:
+            raise ValidationError(
+                "a Bedrock provider needs its AWS region", remedy="Set settings.aws_region."
+            )
+        self.aws_region = aws_region
+        kwargs.setdefault("endpoint", f"https://bedrock-runtime.{aws_region}.amazonaws.com")
+        super().__init__(hosting=hosting or Hosting.TENANT, **kwargs)
+
+    def _credentials(self) -> tuple[str, str, str]:
+        if self._api_key is None:
+            raise ValidationError(
+                "a Bedrock provider needs a credential reference",
+                remedy="Point credential_ref at ACCESS_KEY_ID:SECRET_ACCESS_KEY[:SESSION_TOKEN].",
+            )
+        parts = self._api_key.reveal().split(":")
+        if len(parts) not in (2, 3):
+            raise ValidationError(
+                "the Bedrock credential is not ACCESS_KEY_ID:SECRET_ACCESS_KEY[:SESSION_TOKEN]",
+                remedy="Store the credential in that form under the referenced secret.",
+            )
+        return parts[0], parts[1], parts[2] if len(parts) == 3 else ""
+
+    def complete(self, request: Request) -> Response:
+        from datetime import UTC, datetime
+
+        from prama.llm.sigv4 import sign
+
+        body = {
+            "messages": [{"role": "user", "content": [{"text": request.prompt}]}],
+            "system": [{"text": request.system}],
+            "inferenceConfig": {
+                "maxTokens": request.max_tokens,
+                "temperature": request.temperature,
+            },
+        }
+        payload = json.dumps(body).encode("utf-8")
+        path = f"/model/{urllib.parse.quote(self._model, safe='')}/converse"
+        host = urllib.parse.urlsplit(self._endpoint).hostname or ""
+        started = time.monotonic()
+        try:
+            access, secret, token = self._credentials()
+            headers = {"content-type": "application/json"}
+            headers |= sign(
+                method="POST",
+                host=host,
+                path=path,
+                headers=headers,
+                payload=payload,
+                access_key=access,
+                secret_key=secret,
+                region=self.aws_region,
+                service="bedrock",
+                amz_date=datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ"),
+                session_token=token,
+            )
+            call = urllib.request.Request(
+                url=f"{self._endpoint}{path}", data=payload, headers=headers, method="POST"
+            )
+            reply = json.loads(self._open(call, self._timeout))
+        except (urllib.error.URLError, OSError, ValueError, TimeoutError) as error:
+            return self._failure(request, error)
+        content = ((reply.get("output") or {}).get("message") or {}).get("content") or []
+        text = "".join(str(block.get("text", "")) for block in content if isinstance(block, dict))
+        usage = reply.get("usage") or {}
+        return Response(
+            text=text,
+            model=self._model,
+            provider=self.name,
+            request_fingerprint=request.fingerprint,
+            input_tokens=int(usage.get("inputTokens") or 0),
+            output_tokens=int(usage.get("outputTokens") or 0),
+            latency_ms=(time.monotonic() - started) * 1000,
+            incomplete="truncated: hit the token limit"
+            if reply.get("stopReason") == "max_tokens"
+            else "",
+        )

@@ -20,6 +20,12 @@ prama llm provider add vendor --kind anthropic --hosting hosted \
     --credential-ref env://ANTHROPIC_API_KEY
 ```
 
+- **Amazon Bedrock**: `--kind bedrock --hosting tenant` with the AWS region in the provider's
+  settings (`aws_region`) and a credential reference resolving to
+  `ACCESS_KEY_ID:SECRET_ACCESS_KEY[:SESSION_TOKEN]`. Requests are signed with SigV4, checked against
+  AWS's own published example.
+- **OpenAI, Hugging Face and other OpenAI-shaped APIs**: `--kind openai_compatible --hosting hosted`
+  with the vendor's endpoint and a credential reference.
 - **Hosting is required** and decides what data may be sent: `self_hosted` may receive anything,
   `tenant` (a vendor's model in your own cloud) anything but restricted data, and `hosted` only
   public and internal data. A vendor's API cannot be declared self-hosted.

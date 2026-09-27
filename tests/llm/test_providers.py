@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.request
+from typing import Any
 
 import pytest
 
@@ -397,3 +398,39 @@ class TestStreaming:
         )
         with pytest.raises(ValidationError):
             list(hosted.ask_stream(Request(system="s", prompt="p", sensitivity=Sensitivity.PII)))
+
+
+class TestBedrock:
+    def _provider(self, opener: Any) -> Any:
+        from prama.llm.providers import BedrockProvider
+
+        return BedrockProvider(
+            aws_region="eu-west-1",
+            model="anthropic.claude-sonnet-5",
+            opener=opener,
+            api_key=SecretValue("AKIDEXAMPLE:wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"),
+            gate=permitting_gate(),
+        )
+
+    def test_a_converse_call_is_signed_and_read(self) -> None:
+        opener = canned(
+            {
+                "output": {"message": {"content": [{"text": "CHECK t.a IS NOT NULL"}]}},
+                "usage": {"inputTokens": 12, "outputTokens": 6},
+                "stopReason": "end_turn",
+            }
+        )
+        response = self._provider(opener).ask(Request(system="s", prompt="p"))
+        assert response.text == "CHECK t.a IS NOT NULL" and response.input_tokens == 12
+        sent = opener.seen  # type: ignore[attr-defined]
+        assert sent.full_url.endswith("/model/anthropic.claude-sonnet-5/converse")
+        authorization = sent.get_header("Authorization")
+        assert authorization.startswith("AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/")
+        assert "/eu-west-1/bedrock/aws4_request" in authorization
+        assert "wJalrXUtnFEMI" not in json.dumps(response.to_dict())
+
+    def test_bedrock_cannot_be_declared_self_hosted(self) -> None:
+        from prama.llm.providers import BedrockProvider
+
+        with pytest.raises(ValidationError, match="not self-hosted"):
+            BedrockProvider(aws_region="eu-west-1", model="m", hosting=Hosting.SELF_HOSTED)

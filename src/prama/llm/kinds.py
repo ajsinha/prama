@@ -29,6 +29,7 @@ from prama.core.errors import ValidationError
 from prama.llm.providers import (
     DIALECTS,
     AnthropicProvider,
+    BedrockProvider,
     NullProvider,
     OpenAiCompatibleProvider,
     ScriptedProvider,
@@ -41,6 +42,7 @@ from prama.security.egress import Gate
 KINDS: dict[str, str] = {
     "openai_compatible": "vLLM, Ollama, llama.cpp, LM Studio, TGI, or any OpenAI-shaped API",
     "anthropic": "Anthropic's Messages API",
+    "bedrock": "Amazon Bedrock's Converse API, signed with SigV4",
     "scripted": "fixed answers, for demonstrations and tests",
     "none": "no model: every feature falls back to its deterministic path",
 }
@@ -101,7 +103,7 @@ def build(
             context={"provider": spec.name},
             cause=exc,
         ) from exc
-    networked = spec.kind in ("openai_compatible", "anthropic")
+    networked = spec.kind in ("openai_compatible", "anthropic", "bedrock")
     if (
         offline
         and networked
@@ -132,6 +134,16 @@ def build(
     if spec.kind == "anthropic":
         return AnthropicProvider(
             endpoint=spec.endpoint or "https://api.anthropic.com",
+            model=model,
+            api_key=credential,
+            hosting=hosting,
+            gate=gate,
+            region=spec.region,
+            **extra,
+        )
+    if spec.kind == "bedrock":
+        return BedrockProvider(
+            aws_region=str(spec.settings.get("aws_region", spec.region or "")),
             model=model,
             api_key=credential,
             hosting=hosting,
