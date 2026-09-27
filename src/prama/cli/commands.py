@@ -20,6 +20,7 @@ from prama.cli.connect import ConnectCommand, ConnectorsCommand
 from prama.cli.contract import ContractCommand
 from prama.cli.control import ControlCommand
 from prama.cli.estate import EstateCommand
+from prama.cli.llm import LlmCommand
 from prama.cli.lsp import LspCommand
 from prama.cli.mcp import McpCommand
 from prama.cli.pack import PackCommand
@@ -313,6 +314,7 @@ def all_commands() -> list[Command]:
         BenchCommand(),
         PrincipalCommand(),
         ApiKeyCommand(),
+        LlmCommand(),
         ServeCommand(),
         TenantCommand(),
     ]

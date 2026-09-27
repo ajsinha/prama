@@ -161,6 +161,10 @@ prama control import schema.yml --from dbt   # and what did not come across
 prama tenant create acme-bank            # the estate; prints the id to configure
 prama principal create alice --admin     # somebody who can sign in (password prompted)
 prama serve                              # console + API on server.port (5900)
+prama llm provider add local --kind openai_compatible --hosting self_hosted \
+    --dialect ollama --endpoint http://localhost:11434   # a model provider; no secret stored
+prama llm profile set author --route local:qwen2.5-coder   # purpose -> ordered route
+prama llm ask author "..."               # through the gateway; recorded in the call ledger
 prama db init                            # apply schema/<dialect>.sql idempotently
 prama db verify                          # fail loudly if the live schema has drifted
 prama pack list                          # what the banking pack ships

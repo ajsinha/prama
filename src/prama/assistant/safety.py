@@ -41,21 +41,17 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
+from prama.llm.redact import SECRET_SHAPES
+from prama.llm.redact import redact as redact  # re-exported for callers of the old home
+
 #: The fence. Chosen to be something no ordinary text contains and no model has
 #: been trained to treat as a section boundary it may write.
 FENCE_OPEN = "<<<untrusted-data"
 FENCE_CLOSE = "untrusted-data>>>"
 
-#: Shapes that must never appear in an answer. Not an injection filter — a
-#: last check on the way out, because the read tools are supposed to make this
-#: impossible and a match here means one of them did not.
-_SECRET_SHAPES: tuple[tuple[str, str], ...] = (
-    (r"\b(?:postgres|postgresql|mysql|mongodb)(?:\+\w+)?://[^\s\"']+", "a connection string"),
-    (r"\b(?:sk|pk)-[A-Za-z0-9]{16,}", "an API key"),
-    (r"-----BEGIN [A-Z ]*PRIVATE KEY-----", "a private key"),
-    (r"\baws_secret_access_key\s*[=:]\s*\S+", "an AWS secret"),
-    (r"\bpassword\s*[=:]\s*\S{6,}", "a password"),
-)
+#: Shapes that must never appear in an answer, shared with the model layer,
+#: which now withholds them from prompts too.
+_SECRET_SHAPES = SECRET_SHAPES
 
 #: Phrases that are *evidence of an attempt*, not a basis for blocking. Blocking
 #: on them would be security theatre: an attacker rephrases and the filter
@@ -273,14 +269,6 @@ def scan_output(text: str) -> tuple[Leak, ...]:
         if match:
             leaks.append(Leak(kind=kind, excerpt=match.group(0)[:24] + "…"))
     return tuple(leaks)
-
-
-def redact(text: str) -> str:
-    """Remove anything that must not leave, leaving a marker that it was there."""
-    result = text
-    for pattern, kind in _SECRET_SHAPES:
-        result = re.sub(pattern, f"[{kind} withheld]", result, flags=re.IGNORECASE)
-    return result
 
 
 # ---------------------------------------------------------------------------

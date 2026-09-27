@@ -54,6 +54,12 @@ DEFAULTS: dict[str, Any] = {
         "host": "127.0.0.1",
         "port": 5900,
     },
+    "llm": {
+        # Providers and profiles are data (the Models page, `prama llm`); this
+        # is deployment policy only. Offline builds only self-hosted providers
+        # on this host or a private network, by address.
+        "offline": False,
+    },
     "web": {
         "enabled": True,
         "preview": {

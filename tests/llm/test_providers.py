@@ -103,7 +103,9 @@ def test_an_unreachable_model_returns_a_response_rather_than_raising() -> None:
     def refuse(request: urllib.request.Request, timeout: float) -> bytes:
         raise urllib.error.URLError("connection refused")
 
-    provider = OpenAiCompatibleProvider(endpoint="http://localhost:1", model="m", opener=refuse)
+    provider = OpenAiCompatibleProvider(
+        endpoint="http://localhost:1", model="m", opener=refuse, hosting=Hosting.SELF_HOSTED
+    )
     response = provider.ask(Request(system="s", prompt="p"))
     assert not response.ok
     assert "connection refused" in response.incomplete
@@ -120,7 +122,9 @@ def test_the_openai_shape_carries_system_and_user_messages() -> None:
             "usage": {"prompt_tokens": 10, "completion_tokens": 5},
         }
     )
-    provider = OpenAiCompatibleProvider(endpoint="http://x", model="m", opener=opener)
+    provider = OpenAiCompatibleProvider(
+        endpoint="http://x", model="m", opener=opener, hosting=Hosting.SELF_HOSTED, dialect="vllm"
+    )
     response = provider.ask(Request(system="be terse", prompt="write a control"))
     assert response.text == "CHECK t.x IS NOT NULL"
     assert response.input_tokens == 10
@@ -132,7 +136,9 @@ def test_the_openai_shape_carries_system_and_user_messages() -> None:
 
 def test_a_grammar_is_passed_through_and_the_response_says_it_was() -> None:
     opener = canned({"choices": [{"message": {"content": "x"}}]})
-    provider = OpenAiCompatibleProvider(endpoint="http://x", model="m", opener=opener)
+    provider = OpenAiCompatibleProvider(
+        endpoint="http://x", model="m", opener=opener, hosting=Hosting.SELF_HOSTED, dialect="vllm"
+    )
     response = provider.ask(
         Request(
             system="s",
@@ -148,7 +154,9 @@ def test_a_truncated_completion_is_reported_as_incomplete() -> None:
     """Silently returning half a control would send unparseable PQL to the
     gate and blame the model for a token limit."""
     opener = canned({"choices": [{"message": {"content": "CHECK t.x"}, "finish_reason": "length"}]})
-    provider = OpenAiCompatibleProvider(endpoint="http://x", model="m", opener=opener)
+    provider = OpenAiCompatibleProvider(
+        endpoint="http://x", model="m", opener=opener, hosting=Hosting.SELF_HOSTED, dialect="vllm"
+    )
     assert "truncated" in provider.ask(Request(system="s", prompt="p")).incomplete
 
 
@@ -258,3 +266,83 @@ class TestResidencyIsEnforcedNotAssumed:
                 context={"jurisdiction": "EU", "dataset": "positions"},
             )
         ).ok
+
+
+class TestTheThreeDefects:
+    """Wave 12's first item (docs/design/llm-gateway.md §0). Each test fails
+    against the code before the repair."""
+
+    @pytest.mark.parametrize("dialect", ["ollama", "lmstudio", "tgi", "openai", "generic"])
+    def test_a_server_that_ignores_grammars_is_not_recorded_as_enforcing_one(
+        self, dialect: str
+    ) -> None:
+        opener = canned({"choices": [{"message": {"content": "x"}}]})
+        provider = OpenAiCompatibleProvider(
+            endpoint="http://x",
+            model="m",
+            opener=opener,
+            hosting=Hosting.SELF_HOSTED,
+            dialect=dialect,
+        )
+        response = provider.ask(
+            Request(system="s", prompt="p", grammar=Grammar(name="g", definition='root ::= "x"'))
+        )
+        assert not response.grammar_enforced
+        assert "guided_grammar" not in json.loads(opener.seen.data)  # type: ignore[attr-defined]
+
+    def test_llamacpp_takes_a_grammar_but_not_a_regex(self) -> None:
+        opener = canned({"choices": [{"message": {"content": "x"}}]})
+        provider = OpenAiCompatibleProvider(
+            endpoint="http://x",
+            model="m",
+            opener=opener,
+            hosting=Hosting.SELF_HOSTED,
+            dialect="llamacpp",
+        )
+        grammar = provider.ask(
+            Request(system="s", prompt="p", grammar=Grammar(name="g", definition="root ::= x"))
+        )
+        assert grammar.grammar_enforced  # the control: a dialect that does enforce
+        assert json.loads(opener.seen.data)["grammar"]  # type: ignore[attr-defined]
+        regex = provider.ask(
+            Request(system="s", prompt="p", grammar=Grammar(name="g", pattern="^CHECK"))
+        )
+        assert not regex.grammar_enforced
+
+    def test_hosting_must_be_stated(self) -> None:
+        with pytest.raises(ValidationError, match="must say where the model runs"):
+            OpenAiCompatibleProvider(endpoint="http://localhost:8000", model="m")
+
+    @pytest.mark.parametrize(
+        "endpoint",
+        [
+            "https://api.openai.com",
+            "https://bank.openai.azure.com",
+            "https://router.huggingface.co",
+            "https://bedrock-runtime.eu-west-1.amazonaws.com",
+        ],
+    )
+    def test_a_vendor_api_cannot_be_declared_self_hosted(self, endpoint: str) -> None:
+        with pytest.raises(ValidationError, match="not self-hosted"):
+            OpenAiCompatibleProvider(endpoint=endpoint, model="m", hosting=Hosting.SELF_HOSTED)
+
+    def test_a_vendor_api_declared_hosted_is_accepted(self) -> None:
+        # The control: the check is about the claim, not the vendor.
+        OpenAiCompatibleProvider(
+            endpoint="https://api.openai.com", model="m", hosting=Hosting.HOSTED
+        )
+
+    def test_a_secret_and_a_card_number_are_withheld_from_the_prompt(self) -> None:
+        opener = canned({"choices": [{"message": {"content": "x"}}]})
+        provider = OpenAiCompatibleProvider(
+            endpoint="http://x", model="m", opener=opener, hosting=Hosting.SELF_HOSTED
+        )
+        provider.ask(
+            Request(
+                system="s",
+                prompt="card 4111 1111 1111 1111, db postgres://u:p@h/db, trade 1234567890123",
+            )
+        )
+        sent = json.loads(opener.seen.data)["messages"][1]["content"]  # type: ignore[attr-defined]
+        assert "4111" not in sent and "postgres://" not in sent
+        assert "1234567890123" in sent  # the control: not every long number is a card

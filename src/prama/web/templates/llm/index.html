@@ -1,0 +1,90 @@
+{# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{% extends "base.html" %}
+{% block title %}Models — Prama{% endblock %}
+{% block heading %}Models{% endblock %}
+{% block content %}
+<p class="text-muted small" style="max-width: 52rem">Models draft, explain and summarise; they never decide a
+  verdict. A <strong>provider</strong> is where a model runs. A <strong>profile</strong> maps a purpose to an ordered
+  route of provider and model, tried in turn. Every call is recorded below, as hashes, never text.
+  <a href="{{ url_for('help_topic', slug='roadmap-intelligence') }}">About the gateway</a>.</p>
+
+<h2 class="h6 mt-4">Providers</h2>
+<table class="table table-sm align-middle">
+  <thead><tr><th scope="col">Name</th><th scope="col">Kind</th><th scope="col">Hosting</th><th scope="col">Endpoint</th><th scope="col">Credential</th></tr></thead>
+  <tbody>
+  {% for p in providers %}
+    <tr><td>{{ p.name }}{% if not p.enabled %} <span class="badge text-bg-secondary">disabled</span>{% endif %}</td>
+      <td>{{ p.kind }}{% if p.dialect %} <span class="text-muted small">/ {{ p.dialect }}</span>{% endif %}</td>
+      <td><span class="badge {{ 'text-bg-success' if p.hosting == 'self_hosted' else 'text-bg-warning' }}">{{ p.hosting }}</span></td>
+      <td class="small"><code>{{ p.endpoint or '—' }}</code></td>
+      <td class="small">{{ 'reference set' if p.credential_ref else 'none' }}</td></tr>
+  {% else %}
+    <tr><td colspan="5" class="text-muted">No providers yet. Add a local one below, such as Ollama on http://localhost:11434.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<details class="mb-4"><summary class="btn btn-sm btn-outline-primary">Add a provider</summary>
+<form method="post" action="{{ url_for('models_provider_add') }}" class="row g-3 mt-1" style="max-width: 52rem">
+  <div class="col-md-4"><label class="form-label" for="p-name">Name</label><input class="form-control" id="p-name" name="name" required maxlength="64" placeholder="local"></div>
+  <div class="col-md-4"><label class="form-label" for="p-kind">Kind</label>
+    <select class="form-select" id="p-kind" name="kind">{% for k, desc in kinds.items() %}<option value="{{ k }}" title="{{ desc }}">{{ k }}</option>{% endfor %}</select></div>
+  <div class="col-md-4"><label class="form-label" for="p-hosting">Hosting</label>
+    <select class="form-select" id="p-hosting" name="hosting" required><option value="">choose…</option>{% for h in hostings %}<option value="{{ h }}">{{ h }}</option>{% endfor %}</select></div>
+  <div class="col-md-6"><label class="form-label" for="p-endpoint">Endpoint</label><input class="form-control" id="p-endpoint" name="endpoint" placeholder="http://localhost:11434"></div>
+  <div class="col-md-3"><label class="form-label" for="p-dialect">Server</label>
+    <select class="form-select" id="p-dialect" name="dialect"><option value="">—</option>{% for d in dialects %}<option value="{{ d }}">{{ d }}</option>{% endfor %}</select></div>
+  <div class="col-md-3"><label class="form-label" for="p-region">Jurisdiction</label><input class="form-control" id="p-region" name="region" placeholder="EU"></div>
+  <div class="col-md-8"><label class="form-label" for="p-cred">Credential reference <span class="text-muted small">(never the key itself)</span></label>
+    <input class="form-control" id="p-cred" name="credential_ref" placeholder="env://OPENAI_API_KEY"></div>
+  <div class="col-12"><button class="btn btn-primary" type="submit">Add provider</button></div>
+</form></details>
+
+<h2 class="h6">Profiles</h2>
+<table class="table table-sm align-middle">
+  <thead><tr><th scope="col">Purpose</th><th scope="col">Version</th><th scope="col">Route, tried in order</th></tr></thead>
+  <tbody>
+  {% for pr in profiles %}
+    <tr><td>{{ pr.purpose }}</td><td>v{{ pr.version }}</td>
+      <td class="small">{% for name, model in pr.route %}<code>{{ name }}:{{ model }}</code>{% if not loop.last %} → {% endif %}{% endfor %}
+        {% if pr.fallback_across_hosting %}<span class="badge text-bg-warning ms-1">may fall back to a less local model</span>{% endif %}</td></tr>
+  {% else %}
+    <tr><td colspan="3" class="text-muted">No profiles. Features that would use a model fall back to their deterministic path.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<details class="mb-4"><summary class="btn btn-sm btn-outline-primary">Set a profile</summary>
+<form method="post" action="{{ url_for('models_profile_set') }}" class="row g-3 mt-1" style="max-width: 40rem">
+  <div class="col-md-5"><label class="form-label" for="pr-purpose">Purpose</label><input class="form-control" id="pr-purpose" name="purpose" required placeholder="author"></div>
+  <div class="col-12"><label class="form-label" for="pr-route">Route, one <code>provider:model</code> per line</label>
+    <textarea class="form-control font-monospace" id="pr-route" name="route" rows="3" required placeholder="local:qwen2.5-coder:7b"></textarea></div>
+  <div class="col-12 form-check ms-2"><input class="form-check-input" type="checkbox" id="pr-across" name="fallback_across_hosting" value="1">
+    <label class="form-check-label" for="pr-across">Allow falling back to a less local model</label></div>
+  <div class="col-12"><button class="btn btn-primary" type="submit">Save as a new version</button></div>
+</form></details>
+
+<h2 class="h6">Try a prompt</h2>
+<form method="post" action="{{ url_for('models_try') }}" class="row g-2 mb-3" style="max-width: 52rem">
+  <div class="col-md-3"><label class="visually-hidden" for="t-purpose">Purpose</label><input class="form-control" id="t-purpose" name="purpose" required value="{{ asked_purpose or 'author' }}"></div>
+  <div class="col-md-7"><label class="visually-hidden" for="t-prompt">Prompt</label><input class="form-control" id="t-prompt" name="prompt" required value="{{ asked or '' }}" placeholder="Write a PQL control that trades.notional is never null"></div>
+  <div class="col-md-2"><button class="btn btn-outline-primary w-100" type="submit">Run</button></div>
+</form>
+{% if answer %}
+<div class="alert {{ 'alert-secondary' if answer.text else 'alert-warning' }}" role="status">
+  {% if answer.text %}<pre class="mb-1" style="white-space: pre-wrap">{{ answer.text }}</pre><span class="small text-muted">{{ answer.provider }} / {{ answer.model }}</span>
+  {% else %}No answer: {{ answer.incomplete }}{% endif %}
+</div>
+{% endif %}
+
+<h2 class="h6 mt-4">Recent calls</h2>
+<table class="table table-sm small">
+  <thead><tr><th scope="col">#</th><th scope="col">When</th><th scope="col">Surface</th><th scope="col">Purpose</th><th scope="col">Model</th><th scope="col">Hosting</th><th scope="col">Outcome</th><th scope="col">Latency</th></tr></thead>
+  <tbody>
+  {% for c in calls %}
+    <tr><td>{{ c.sequence }}</td><td>{{ c.started_at[:19] }}</td><td>{{ c.surface }}</td><td>{{ c.purpose }}</td><td><code>{{ c.model_requested or '—' }}</code></td>
+      <td>{{ c.hosting or '—' }}</td><td><span class="badge {{ 'text-bg-success' if c.outcome == 'ok' else 'text-bg-warning' }}">{{ c.outcome }}</span></td><td>{{ c.latency_ms }} ms</td></tr>
+  {% else %}
+    <tr><td colspan="8" class="text-muted">No model calls recorded yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

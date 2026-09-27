@@ -40,6 +40,7 @@ from typing import Any, ClassVar
 
 from prama.core import pjson
 from prama.core.errors import ValidationError
+from prama.llm.redact import redact
 from prama.security.egress import Gate, ResidencyRefused
 from prama.semantic.values import Sensitivity
 
@@ -223,7 +224,22 @@ class ModelProvider(abc.ABC):
         """
         self.permit(request)
         self.permit_residency(request)
-        return self.complete(request)
+        return self.complete(self.withhold(request))
+
+    @staticmethod
+    def withhold(request: Request) -> Request:
+        """The request with secrets and card numbers removed from its text.
+
+        Applied here, on the one path every provider shares, for the reason
+        residency is: a rule each caller must remember is a rule with a hole
+        in it. Prompts used to reach the provider unredacted; only answers
+        were checked (FR-CHT-013). The response then carries the fingerprint
+        of what was actually sent.
+        """
+        system, prompt = redact(request.system), redact(request.prompt)
+        if system == request.system and prompt == request.prompt:
+            return request
+        return dataclasses.replace(request, system=system, prompt=prompt)
 
     def permit_residency(self, request: Request) -> None:
         """Refuse a prompt whose subject may not travel to this provider.

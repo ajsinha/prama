@@ -18,7 +18,27 @@ Three questions are answered here, each with a design note behind it:
 
 ## As built
 
-**Nothing in Waves 12–17 is built yet.** What exists today, and what these waves build on:
+**Wave 12, as built so far (2026-09-27):**
+
+- **The three LLM defects** are fixed as Q-123:
+  - `grammar_enforced` is recorded only when the server really applies the grammar;
+  - hosting is required, and a vendor API cannot be declared self-hosted;
+  - prompts are redacted, including Luhn-valid card numbers.
+- **LLM gateway, phase 1:**
+  - **The five tables**, with every later-phase column declared now, since there are no
+    migrations.
+  - **Code:** `prama.llm.kinds` (the provider factory and offline mode), `prama.llm.gateway`
+    (routing, retry, fallback that never becomes less local, a hash-chained call record, and
+    `ProfileProvider`) and `prama.llm.wiring`.
+  - **Surfaces:** `prama llm provider|profile|ask|calls` and the **Models** page.
+  - **Guard:** an import-graph test that no verdict-producing package can reach `prama.llm`.
+- **Deferred, each to the phase that first needs it:**
+  - The transport-module extraction, multi-turn messages and JSON-schema validation go to
+    Wave 13, with the new wire formats.
+  - `ProfileProvider` is ready, but no production builder constructs the assistant or inducer
+    yet. The first will be the Wave 16 agents.
+
+Before Wave 12, what existed and what these waves build on:
 
 - **Built and tested:**
   - the LLM SPI and providers (`src/prama/llm/spi.py`, `src/prama/llm/providers.py`, with the

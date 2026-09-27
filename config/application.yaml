@@ -35,6 +35,10 @@ server:
   host: 127.0.0.1                    # bind address; 0.0.0.0 accepts on every interface
   port: 5900                        # the console and the API share this listener
 
+llm:
+  # Providers and profiles live in the database (Models page, `prama llm`).
+  offline: false                    # true: only self-hosted models on a local or private address
+
 web:
   enabled: true                     # serve the console alongside the API
 

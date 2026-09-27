@@ -85,6 +85,12 @@ SECTIONS: tuple[HelpSection, ...] = (
                 "bi-key",
             ),
             _g(
+                "models",
+                "Models",
+                "Local and remote LLMs, profiles, and the call ledger.",
+                "bi-cpu",
+            ),
+            _g(
                 "themes",
                 "Themes and display",
                 "Every theme, row density, and why colours are derived.",
