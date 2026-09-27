@@ -32,3 +32,20 @@ The **Code** page (linked from Lineage) does the same with an upload form.
 SQL files, in about twenty dialects. Every other kind of file (Python, PySpark, Airflow, SSIS,
 Informatica, COBOL, JCL, shell) is **inventoried and reported as not yet read**, so a run always
 says how much of the application it covered.
+
+## When a model helps
+
+If the estate has a model profile for the purpose **`lineage`**, files the readers could not
+read, or read with gaps, are offered to that model:
+
+```bash
+prama llm profile set lineage --route local:qwen2.5-coder:32b
+```
+
+Nothing it says is taken on trust. Each edge must quote the exact code it came from, at the lines
+it cites, and both column names must appear in the quote. Prama computes the edge's confidence
+(never above 0.85) and stores it as **inferred**, so it waits for a person on the Lineage page, as
+does any control proposed from it. The code is sent as data, not instructions, so a planted comment
+cannot direct the model. Calls go through the gateway, with its budget, residency rules, redaction
+and call ledger. A run reports how many edges the model offered and how many survived the checks.
+

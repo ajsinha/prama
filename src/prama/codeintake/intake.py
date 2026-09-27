@@ -13,6 +13,44 @@ from prama.codeintake.service import analyse
 from prama.core.ids import new_ulid
 
 
+async def _read(
+    uow: Any,
+    config: Any,
+    tenant_id: str,
+    source: Any,
+    snapshot: Any,
+    *,
+    dialect: str,
+    by: str | None,
+) -> Any:
+    """Analyse, with the model pass when the estate has a `lineage` profile."""
+    from prama.codeintake.model_lineage import PURPOSE
+    from prama.llm.wiring import gateway_for, persist
+
+    model = ledger = None
+    if await uow.llm.current(tenant_id, PURPOSE) is not None:
+        model, ledger = await gateway_for(
+            uow,
+            tenant_id,
+            surface="codeintake",
+            principal_id=by,
+            offline=config.get_bool("llm.offline", False),
+        )
+    try:
+        return await analyse(
+            uow,
+            tenant_id,
+            source,
+            snapshot,
+            dialect=dialect,
+            timeout=float(config.get_int("codeintake.timeout", 300)),
+            model=model,
+        )
+    finally:
+        if ledger is not None:
+            await persist(uow, tenant_id, ledger)
+
+
 def _quarantine(config: Any, name: str) -> Path:
     base = Path(config.get_str("codeintake.workdir", "data/code"))
     return base / f"{name}-{new_ulid()}"
@@ -30,14 +68,7 @@ async def receive_zip(
 ) -> Any:
     source = await uow.code.ensure_source(tenant_id, name, kind="zip", by=by)
     snapshot = archive.extract(path, _quarantine(config, name))
-    return await analyse(
-        uow,
-        tenant_id,
-        source,
-        snapshot,
-        dialect=dialect,
-        timeout=float(config.get_int("codeintake.timeout", 300)),
-    )
+    return await _read(uow, config, tenant_id, source, snapshot, dialect=dialect, by=by)
 
 
 async def receive_git(
@@ -71,11 +102,4 @@ async def receive_git(
         allowed_hosts=allowed,
         timeout=float(config.get_int("codeintake.timeout", 300)),
     )
-    return await analyse(
-        uow,
-        tenant_id,
-        source,
-        snapshot,
-        dialect=dialect,
-        timeout=float(config.get_int("codeintake.timeout", 300)),
-    )
+    return await _read(uow, config, tenant_id, source, snapshot, dialect=dialect, by=by)
