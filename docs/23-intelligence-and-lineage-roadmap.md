@@ -220,7 +220,9 @@ modern bank's data platform needs. It does not try to match Manta's breadth.
     canonical-request hash, the signing key and the signature all match.
   - OpenAI, the Hugging Face router or endpoints, and other OpenAI-shaped APIs use
     `openai_compatible` with hosted hosting. Anthropic was already native.
-  - Azure OpenAI's deployment paths and Vertex remain to do.
+  - Azure OpenAI (deployment path, `api-key`, pinned API version, `tenant` hosting) and Vertex
+    AI (OpenAI-compatible endpoint, access-token credential) are built as provider kinds
+    `azure_openai` and `vertex`.
 - **Not yet:** reconciliation proposals between hops (the design's first rule) wait for PQL's
   `RECONCILE`, which the language records as not yet implemented.
 - **Deferred, each to the phase that first needs it:**

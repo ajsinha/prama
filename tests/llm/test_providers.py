@@ -434,3 +434,52 @@ class TestBedrock:
 
         with pytest.raises(ValidationError, match="not self-hosted"):
             BedrockProvider(aws_region="eu-west-1", model="m", hosting=Hosting.SELF_HOSTED)
+
+
+# -- Azure OpenAI and Vertex -----------------------------------------------------
+
+_REPLY = {"choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}], "usage": {}}
+
+
+def test_azure_posts_to_the_deployment_with_an_api_key_header() -> None:
+    from prama.llm.providers import AzureOpenAiProvider
+
+    opener = canned(_REPLY)
+    provider = AzureOpenAiProvider(
+        endpoint="https://acme.openai.azure.com",
+        model="gpt-4o-risk",
+        api_key=SecretValue("k"),
+        opener=opener,
+        gate=permitting_gate(),
+    )
+    assert provider.complete(Request(system="s", prompt="p")).text == "ok"
+    seen = opener.seen  # type: ignore[attr-defined]
+    assert seen.full_url == (
+        "https://acme.openai.azure.com/openai/deployments/gpt-4o-risk/chat/completions"
+        "?api-version=2024-10-21"
+    )
+    assert seen.get_header("Api-key") == "k" and seen.get_header("Authorization") is None
+    assert provider.hosting is Hosting.TENANT
+
+
+def test_vertex_posts_to_its_openapi_endpoint_with_a_bearer_token() -> None:
+    from prama.llm.providers import VertexProvider
+
+    base = (
+        "https://europe-west4-aiplatform.googleapis.com/v1/projects/p/locations/"
+        "europe-west4/endpoints/openapi"
+    )
+    opener = canned(_REPLY)
+    provider = VertexProvider(
+        endpoint=base,
+        model="google/gemini-2.0-flash-001",
+        api_key=SecretValue("tok"),
+        opener=opener,
+        gate=permitting_gate(),
+    )
+    provider.complete(Request(system="s", prompt="p"))
+    seen = opener.seen  # type: ignore[attr-defined]
+    assert seen.full_url == f"{base}/chat/completions"
+    assert seen.get_header("Authorization") == "Bearer tok"
+    with pytest.raises(ValidationError, match="OpenAI-compatible endpoint"):
+        VertexProvider(endpoint="https://x.googleapis.com", model="m")
