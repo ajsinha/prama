@@ -203,6 +203,13 @@ SECTIONS: tuple[HelpSection, ...] = (
                 "docs/19-implementation-roadmap.md",
                 "bi-signpost-split",
             ),
+            _d(
+                "roadmap-intelligence",
+                "Intelligence and lineage roadmap",
+                "LLM gateway, lineage workbench, code-to-lineage, steward agents.",
+                "docs/23-intelligence-and-lineage-roadmap.md",
+                "bi-stars",
+            ),
         ),
     ),
 )

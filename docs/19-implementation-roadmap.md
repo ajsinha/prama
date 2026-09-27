@@ -613,7 +613,7 @@ it becomes a marketing promise; degrade visibly rather than silently.
 W8.1 reconciliation engine and matchers ✅ · W8.2 normalisation with as-of rate sources ✅ ·
 W8.3 break classification and workflow ✅ · W8.4 reconciliation certificate ✅ · W8.5 N-way and
 roll-forward ✅ · W8.6 entity resolution with active learning ✅ ·
-W8.7 lineage ingestion and graph store ✅ · W8.8 column-level SQL parsing ✅ ·
+W8.7 lineage ingestion and graph store ◑ (the in-memory graph, attenuation and blast radius are built and tested; nothing persists lineage — no table in either schema file — and no CLI, API route or console page constructs the graph outside tests) · W8.8 column-level SQL parsing ✅ ·
 W8.9 **legacy scanners (the docs/20 G2 gap)** ◑ (SQL dialects verified; ETL shapes configurable
 and explicitly unverified against a real export) · W8.10 incident correlation and lifecycle ✅ ·
 W8.11 RCA hypothesis ranking ✅ · W8.12 impact analysis ✅ · W8.13 scoring and
