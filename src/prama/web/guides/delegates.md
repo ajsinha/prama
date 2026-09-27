@@ -83,6 +83,28 @@ a delegate control only to an agent that has that delegate, at the pinned versio
 agent is reported as unable to run it, with the reason. The rows stay in the agent's zone, and
 only the counts and the verdict travel.
 
+## Large inputs
+
+Rows are read from the database in batches (`delegates.batch_rows`) and handed to `measure` as a
+lazy iterator, so a streaming delegate holds one row at a time. Loop over `rows` **once**. A
+second loop sees nothing, and the test kit fails a delegate that tries.
+
+## Testing it in your own CI
+
+```python
+from prama.delegates.testkit import Case, check_delegate
+
+
+def test_over_limit_conforms():
+    report = check_delegate(
+        "delegates/over_limit.py",
+        cases=[Case("one over", rows=[{"payment_id": 1, "amount": 9000}], violating=1)],
+    )
+    assert report.ok, report.render()
+```
+
+or `prama delegate check delegates/ --cases cases.json`, which exits 1 when anything fails.
+
 ## Trying one out
 
 ```bash

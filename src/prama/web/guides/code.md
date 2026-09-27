@@ -35,8 +35,10 @@ The **Code** page (linked from Lineage) does the same with an upload form.
 - **SSIS and Informatica exports.** Their edges are stored as *inferred* until a person confirms
   them.
 
-Every other kind of file (COBOL, JCL, shell, Scala, Java) is **inventoried and reported as not yet
-read**, so a run always says how much of the application it covered.
+Every other kind of file (Scala, Java, shell, and mainframe code, which Prama does not analyse) is
+**inventoried and reported as not read**, so a run always says how much of the application it
+covered. If a model profile for `lineage` exists, the model may propose edges for Scala, Java and
+shell, and a person confirms them.
 
 ## When a model helps
 

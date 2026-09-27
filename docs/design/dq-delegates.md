@@ -104,10 +104,37 @@ under the operator's own network namespaces or seccomp profile.
   calls, then judges with the shared threshold. Its residency policy decides what happens to the
   samples.
 
+## Streaming (large inputs)
+
+The engine's cursor is read in batches (`delegates.batch_rows`, via `fetchmany`; an executor
+exposes `execute.batches(sql, size)`). The delegate receives a **lazy iterator**.
+
+- **Sandboxed:** rows cross to the worker as JSON lines through a pipe. The pipe's fixed buffer
+  is the bound on memory: the cursor is not read faster than the delegate consumes.
+- **Row ceiling:** rows are counted while they stream. Past `delegates.max_rows`, the stream
+  stops and the run is refused. It is also refused afterwards if the delegate swallowed the stop,
+  because a truncated input must not be believed.
+- **Memory:** a delegate that calls `list(rows)` still works, using the memory it asked for,
+  within its own limits.
+- **Import integrity:** the worker imports exactly the bytes it hashed. A file whose SHA-256 no
+  longer matches the one taken at admission is refused.
+
+## The conformance kit (`prama.delegates.testkit`)
+
+Authors run this in their own CI, as `check_delegate(path, cases=[Case(...)])` in pytest or as
+`prama delegate check path --cases cases.json` (exit 1 on any failure). It checks:
+
+1. the pre-import scan;
+2. admission;
+3. that parameter defaults match their kinds;
+4. **one pass**: a one-shot iterator and a list give the same answer, because a delegate that
+   iterates twice sees nothing the second time once Prama streams to it;
+5. streaming N synthetic rows through the real, sandboxed host;
+6. the author's own cases (`scanned`, `violating`, `established`, and a subset of
+   observations).
+
 ## Not built yet
 
 - **Delegates uploaded through the console** (tier 2). This would need content-addressed storage,
   the same gate, and the proposal and approval queue.
-- **Arrow batch streaming** in place of row dictionaries, for very large inputs.
-- **A conformance kit** that a delegate author runs in their own CI.
-- **`CHECK CUSTOM SQL`** (`docs/07` §8), which remains unbuilt.
+- **Arrow record batches** in place of JSON-line row dictionaries, for speed on very wide tables.

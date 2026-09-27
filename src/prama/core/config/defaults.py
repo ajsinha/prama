@@ -76,6 +76,9 @@ DEFAULTS: dict[str, Any] = {
         "memory_mb": 2048,
         # A larger dataset is refused, never truncated.
         "max_rows": 5000000,
+        # Rows read from the engine's cursor at a time and streamed to the
+        # delegate, so a large table is never held whole.
+        "batch_rows": 10000,
     },
     "codeintake": {
         # Where received code is extracted while it is read; deleted after.

@@ -17,7 +17,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -110,6 +110,15 @@ def _duckdb(path: Path) -> tuple[Callable[[str], list[dict[str, Any]]], Callable
         names = [column[0] for column in cursor.description or ()]
         return [dict(zip(names, row, strict=True)) for row in cursor.fetchall()]
 
+    def batches(sql: str, size: int) -> Iterator[list[dict[str, Any]]]:
+        cursor = connection.execute(sql)
+        names = [column[0] for column in cursor.description or ()]
+        while chunk := cursor.fetchmany(size):
+            yield [dict(zip(names, row, strict=True)) for row in chunk]
+
+    # Offered beside the executor, not instead of it: a DQ delegate reads rows
+    # in batches so a large table is never held whole (prama.delegates.host).
+    setattr(execute, "batches", batches)  # noqa: B010
     return execute, connection.close
 
 
@@ -155,6 +164,12 @@ def _sqlite(path: Path) -> tuple[Callable[[str], list[dict[str, Any]]], Callable
     def execute(sql: str) -> list[dict[str, Any]]:
         return [dict(row) for row in connection.execute(sql).fetchall()]
 
+    def batches(sql: str, size: int) -> Iterator[list[dict[str, Any]]]:
+        cursor = connection.execute(sql)
+        while chunk := cursor.fetchmany(size):
+            yield [dict(row) for row in chunk]
+
+    setattr(execute, "batches", batches)  # noqa: B010
     return execute, connection.close
 
 

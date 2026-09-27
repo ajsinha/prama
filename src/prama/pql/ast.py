@@ -598,6 +598,34 @@ class DelegateAssertion(Assertion):
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
+class CustomSqlAssertion(Assertion):
+    """``CUSTOM SQL <triple-quoted SELECT> ENGINE duckdb COST high``.
+
+    The contained escape hatch (docs/07 §8). The SQL is checked at parse time
+    to be a single read-only query returning a ``violating_rows`` column, and
+    ``{{ dataset }}`` names the control's own table. It is marked non-portable:
+    it runs only on the engines it lists, and the reference interpreter cannot
+    check it, which is exactly why it is contained.
+    """
+
+    sql: str = ""
+    engines: tuple[str, ...] = ()
+    cost: str = ""
+
+    def render(self) -> str:
+        text = f'CUSTOM SQL """{self.sql}"""'
+        if self.engines:
+            text += f" ENGINE {', '.join(self.engines)}"
+        if self.cost:
+            text += f" COST {self.cost}"
+        return text
+
+    def describe(self) -> str:
+        where = f", on {', '.join(self.engines)} only" if self.engines else ""
+        return f"a hand-written SQL query finds no violations (non-portable{where})"
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
 class ReferenceAssertion(Assertion):
     """``a.x REFERENCES b.y`` — referential integrity across datasets."""
 

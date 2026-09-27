@@ -53,6 +53,7 @@ delegates:
   timeout: 120                      # CPU seconds per run
   memory_mb: 2048
   max_rows: 5000000                 # a larger dataset is refused, never truncated
+  batch_rows: 10000                 # rows per batch streamed from the cursor to the delegate
 
 codeintake:
   # Application code received as a ZIP or fetched from git. Never executed.

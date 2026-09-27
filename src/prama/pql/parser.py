@@ -233,6 +233,13 @@ class Parser:
             return self._references(self._require_subject(subject, token))
         if token.is_keyword("SATISFIES"):
             return self._satisfies()
+        if token.is_keyword("CUSTOM"):
+            if subject is not None:
+                raise self._error(
+                    "CUSTOM SQL checks a dataset, not one column",
+                    remedy='Write CHECK trades CUSTOM SQL """…""" and name columns in the SQL.',
+                )
+            return self._custom_sql()
         if token.is_keyword("USING"):
             if subject is not None:
                 raise self._error(
@@ -250,6 +257,51 @@ class Parser:
                 "HAS UNIQUE KEY (…), HAS ROW COUNT BETWEEN …, REFERENCES …, SATISFIES …, "
                 "USING DELEGATE '…'"
             ),
+        )
+
+    def _custom_sql(self) -> ast.CustomSqlAssertion:
+        """``CUSTOM SQL <triple-quoted query> [ENGINE a, b] [COST low|medium|high]``."""
+        from prama.pql.custom_sql import check_sql
+
+        start = self._expect_keyword("CUSTOM").position
+        self._expect_keyword("SQL")
+        token = self._peek
+        if token.kind is not TokenKind.STRING:
+            raise self._error(
+                "CUSTOM SQL must be followed by the query in quotes",
+                remedy='Put the query in triple quotes: CUSTOM SQL """SELECT … """.',
+            )
+        self._advance()
+        sql = str(token.value).strip()
+        problem = check_sql(sql)
+        if problem:
+            raise self._error(
+                f"this CUSTOM SQL cannot be accepted: {problem}",
+                remedy=(
+                    "A custom check is one read-only SELECT that returns a violating_rows "
+                    "column (and optionally scanned_rows), reading {{ dataset }} or other tables."
+                ),
+                token=token,
+            )
+        engines: list[str] = []
+        cost = ""
+        while True:
+            if self._match_keyword("ENGINE"):
+                engines.append(self._name("an engine name, as in duckdb").lower())
+                while self._peek.is_punctuation(","):
+                    self._advance()
+                    engines.append(self._name("an engine name").lower())
+            elif self._match_keyword("COST"):
+                cost = self._name("low, medium or high").lower()
+                if cost not in ("low", "medium", "high"):
+                    raise self._error(
+                        f"COST must be low, medium or high, not {cost}",
+                        remedy="COST says how expensive the query is to run: low, medium or high.",
+                    )
+            else:
+                break
+        return ast.CustomSqlAssertion(
+            sql=sql, engines=tuple(dict.fromkeys(engines)), cost=cost, position=start
         )
 
     def _delegate(self) -> ast.DelegateAssertion:

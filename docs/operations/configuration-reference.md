@@ -45,6 +45,7 @@ becomes `PRAMA_DATABASE__SQLITE__PATH`.
 | `delegates.timeout` | `120` | CPU seconds per run |
 | `delegates.memory_mb` | `2048` |  |
 | `delegates.max_rows` | `5000000` | a larger dataset is refused, never truncated |
+| `delegates.batch_rows` | `10000` | rows per batch streamed from the cursor to the delegate |
 | `codeintake.workdir` | `data/code` | extracted here while read; deleted after |
 | `codeintake.timeout` | `300` | seconds the sandboxed reader may take |
 | `codeintake.git.allowed_hosts` | *(empty)* | empty: any public host; or e.g. [git.bank.example] |

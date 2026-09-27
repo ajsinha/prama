@@ -153,6 +153,10 @@ KEYWORDS: frozenset[str] = frozenset(
         "NORMALISING",
         "USING",
         "DELEGATE",
+        "CUSTOM",
+        "SQL",
+        "ENGINE",
+        "COST",
         "FROM",
         "OFFSET",
         "CLASSIFY",
@@ -260,6 +264,8 @@ class Lexer:
         character = self.source[self._offset]
         if character == "'":
             return self._string()
+        if self.source.startswith('"""', self._offset):
+            return self._block_string()
         if character == '"':
             return self._quoted_identifier()
         if character == "/" and self._looks_like_regex():
@@ -326,6 +332,22 @@ class Lexer:
             )
         text = match.group(0)
         return self._emit(TokenKind.IDENTIFIER, text, value=text[1:-1].replace('""', '"'))
+
+    def _block_string(self) -> Token:
+        """Triple-quoted text, which may span lines: the body of a CUSTOM SQL check.
+
+        No escapes, because SQL has its own quoting and a second layer would be
+        one more way to get it subtly wrong. It ends at the next triple quote.
+        """
+        end = self.source.find('"""', self._offset + 3)
+        if end < 0:
+            raise self._error(
+                'a block of text is opened with """ and never closed',
+                remedy='Close it with """ on its own, after the SQL.',
+                length=3,
+            )
+        text = self.source[self._offset : end + 3]
+        return self._emit(TokenKind.STRING, text, value=text[3:-3])
 
     def _string(self) -> Token:
         start = self._offset

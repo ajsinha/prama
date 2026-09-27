@@ -23,7 +23,7 @@ import json
 import os
 import subprocess
 import sys
-from collections.abc import Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from typing import Any
 
 from prama.core.errors import ValidationError
@@ -71,6 +71,8 @@ class DelegateHost:
     #: A dataset larger than this is refused, not truncated: a truncated scan
     #: reported as the whole would be a pass nobody earned.
     max_rows: int = 5_000_000
+    #: Rows fetched from the engine's cursor at a time.
+    batch_rows: int = 10_000
 
     def columns(self, detail: dict[str, Any]) -> tuple[str, ...]:
         """The columns to fetch for a plan: the delegate's own `requires`, if installed here."""
@@ -80,6 +82,20 @@ class DelegateHost:
             return ()
 
     def measure_plan(self, plan: Any, rows: Sequence[dict[str, Any]]) -> DelegateResult:
+        """One delegate run over rows already in memory."""
+        return self.measure_stream(plan, [rows])
+
+    def measure_stream(
+        self, plan: Any, batches: Iterable[Sequence[dict[str, Any]]]
+    ) -> DelegateResult:
+        """One delegate run over rows arriving in batches, never all held at once.
+
+        The delegate receives a lazy iterator. Sandboxed, rows cross to the
+        worker as JSON lines through a pipe, whose fixed buffer is the byte
+        bound: the engine's cursor is not read faster than the delegate
+        consumes. A delegate that materialises its input (`list(rows)`) still
+        works, and uses the memory it asked for, inside its own limits.
+        """
         detail = plan.detail
         admitted = self.registry.get(
             str(detail.get("delegate", "")), version=str(detail.get("version", ""))
@@ -91,20 +107,18 @@ class DelegateHost:
                 remedy="Give the threshold as a number: AT MOST 0 ROWS.",
             )
         params = delegate.resolve(dict(detail.get("parameters") or {}))
-        if len(rows) > self.max_rows:
-            raise ValidationError(
-                f"{len(rows):,} rows exceed delegates.max_rows ({self.max_rows:,})",
-                remedy=(
-                    "Narrow the control with WHERE, or raise delegates.max_rows on this "
-                    "host. A delegate never sees a silently truncated dataset."
-                ),
-            )
-        payload = canonical(rows)
-        measurement = (
-            self._sandboxed(admitted, payload, params)
-            if self.sandbox
-            else delegate.measure(iter(payload), params)
-        )
+        counter = _Counter(self.max_rows)
+        if self.sandbox:
+            measurement = self._sandboxed(admitted, counter.lines(batches), params)
+        else:
+            measurement = delegate.measure(counter.rows(batches), params)
+        # Checked after the run as well as during it: a delegate that swallowed
+        # the stop and reported on a truncated input must not be believed.
+        counter.check()
+        return self._result(plan, admitted, measurement)
+
+    def _result(self, plan: Any, admitted: Admitted, measurement: Measurement) -> DelegateResult:
+        delegate = admitted.delegate
         problems = measurement.problems(unit=delegate.unit)
         clash = sorted(_RESERVED & set(measurement.observations))
         if clash:
@@ -138,44 +152,119 @@ class DelegateHost:
         )
 
     def _sandboxed(
-        self, admitted: Admitted, rows: list[dict[str, Any]], params: dict[str, Any]
+        self, admitted: Admitted, lines: Iterable[bytes], params: dict[str, Any]
     ) -> Measurement:
+        import tempfile
+
         from prama.codeintake.worker import limit_resources
 
-        request = json.dumps(
-            {"name": admitted.name, "origin": admitted.origin, "params": params, "rows": rows}
-        )
         cpu, memory = self.timeout_s, self.memory_mb << 20
 
         def limits() -> None:
             limit_resources(cpu_seconds=cpu, memory_bytes=memory)
 
-        try:
-            completed = subprocess.run(
+        header = {
+            "name": admitted.name,
+            "origin": admitted.origin,
+            "params": params,
+            "source_hash": admitted.source_hash,
+        }
+        with tempfile.TemporaryFile() as errors:
+            process = subprocess.Popen(
                 [sys.executable, "-m", "prama.delegates.worker"],
-                input=request.encode("utf-8"),
-                capture_output=True,
-                timeout=self.timeout_s + 5,
-                check=False,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=errors,
                 preexec_fn=limits if os.name == "posix" else None,
                 env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
             )
-        except subprocess.TimeoutExpired as exc:
-            raise ValidationError(
-                f"{admitted.name} ran longer than {self.timeout_s}s",
-                remedy="Narrow the control with WHERE, or raise delegates.timeout on this host.",
-            ) from exc
+            assert process.stdin is not None and process.stdout is not None
+            try:
+                process.stdin.write(json.dumps(header).encode("utf-8") + b"\n")
+                for chunk in lines:
+                    process.stdin.write(chunk)
+                process.stdin.close()
+            except BrokenPipeError:
+                pass  # the worker stopped reading: its answer says why
+            except BaseException:
+                process.kill()
+                process.wait()
+                raise
+            try:
+                output = process.stdout.read()
+                process.wait(timeout=self.timeout_s + 5)
+            except subprocess.TimeoutExpired as exc:
+                process.kill()
+                raise ValidationError(
+                    f"{admitted.name} ran longer than {self.timeout_s}s",
+                    remedy="Narrow the control with WHERE, or raise delegates.timeout here.",
+                ) from exc
+            errors.seek(0)
+            stderr = errors.read().decode("utf-8", "replace")[-400:]
         try:
-            answer = json.loads(completed.stdout.decode("utf-8") or "{}")
+            answer = json.loads(output.decode("utf-8") or "{}")
         except json.JSONDecodeError:
             answer = {}
-        if completed.returncode != 0 or "measurement" not in answer:
-            why = answer.get("error") or completed.stderr.decode("utf-8", "replace")[-400:]
+        if process.returncode != 0 or "measurement" not in answer:
+            why = answer.get("error") or stderr
             raise ValidationError(
-                f"{admitted.name} failed in its sandbox: {why.strip() or completed.returncode}",
+                f"{admitted.name} failed in its sandbox: {why.strip() or process.returncode}",
                 remedy="Run `prama delegate test` against sample rows to reproduce it.",
             )
         return Measurement.from_dict(answer["measurement"])
+
+
+class _Counter:
+    """Counts rows as they stream, and stops the stream past the ceiling."""
+
+    def __init__(self, ceiling: int) -> None:
+        self.ceiling = ceiling
+        self.seen = 0
+        self.exceeded = False
+
+    def _admit(self) -> bool:
+        self.seen += 1
+        if self.seen > self.ceiling:
+            self.exceeded = True
+        return not self.exceeded
+
+    def rows(self, batches: Iterable[Sequence[dict[str, Any]]]) -> Iterator[dict[str, Any]]:
+        for batch in batches:
+            for row in canonical(batch):
+                if not self._admit():
+                    return
+                yield row
+
+    def lines(self, batches: Iterable[Sequence[dict[str, Any]]]) -> Iterator[bytes]:
+        for batch in batches:
+            out = []
+            for row in batch:
+                if not self._admit():
+                    break
+                out.append(json.dumps(row, default=_jsonable).encode("utf-8"))
+            if out:
+                yield b"\n".join(out) + b"\n"
+            if self.exceeded:
+                return
+
+    def check(self) -> None:
+        if self.exceeded:
+            raise ValidationError(
+                f"more than {self.ceiling:,} rows exceed delegates.max_rows",
+                remedy=(
+                    "Narrow the control with WHERE, or raise delegates.max_rows on this "
+                    "host. A delegate never sees a silently truncated dataset."
+                ),
+            )
+
+
+def batches_of(execute: Any, sql: str, size: int) -> Iterable[Sequence[dict[str, Any]]]:
+    """Rows for *sql* in batches: the executor's own cursor batching if it has
+    one (`execute.batches`), otherwise its whole answer as one batch."""
+    batched = getattr(execute, "batches", None)
+    if callable(batched):
+        return batched(sql, size)  # type: ignore[no-any-return]
+    return [list(execute(sql))]
 
 
 def host_from_config(config: Any) -> DelegateHost:
@@ -188,4 +277,5 @@ def host_from_config(config: Any) -> DelegateHost:
         timeout_s=int(section.get("timeout", 120)),
         memory_mb=int(section.get("memory_mb", 2048)),
         max_rows=int(section.get("max_rows", 5_000_000)),
+        batch_rows=int(section.get("batch_rows", 10_000)),
     )

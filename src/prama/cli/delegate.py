@@ -126,23 +126,14 @@ class TestCommand(Command):
 
     def run(self, ctx: CommandContext) -> int:
         from prama.backend.execute import judge
+        from prama.delegates.testkit import control_for
         from prama.pql import parse_control
-        from prama.pql.ast import Literal, quote_dataset
 
-        literal_types = {
-            bool: "boolean",
-            int: "number",
-            float: "number",
-        }
-        rendered = []
+        params = {}
         for item in ctx.args.param:
             key, _, raw = item.partition("=")
-            value = _value(raw.strip())
-            kind = literal_types.get(type(value), "text")
-            rendered.append(f"{key.strip()} = {Literal(value=value, literal_type=kind).render()}")
-        source = f"CHECK {quote_dataset('rows')} USING DELEGATE '{ctx.args.delegate}'"
-        if rendered:
-            source += f" ({', '.join(rendered)})"
+            params[key.strip()] = _value(raw.strip())
+        source = control_for(ctx.args.delegate, params)
         from prama.ir.resolve import resolved
 
         plan = resolved(parse_control(source))
@@ -172,9 +163,39 @@ class TestCommand(Command):
         return EXIT_OK
 
 
+class CheckCommand(Command):
+    name = "check"
+    help = "conformance: everything Prama checks, plus your own cases (for CI)"
+
+    def configure(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("target", help="a delegate .py file or a directory of them")
+        parser.add_argument("--cases", default="", help="JSON list of cases with expectations")
+        parser.add_argument("--large", type=int, default=50_000, help="rows for the stream test")
+        parser.add_argument("--no-sandbox", action="store_true", help="run in-process")
+
+    def run(self, ctx: CommandContext) -> int:
+        from prama.delegates.testkit import Case, check_delegate
+
+        cases = []
+        if ctx.args.cases:
+            loaded = json.loads(Path(ctx.args.cases).read_text(encoding="utf-8"))
+            cases = [Case.from_dict(item) for item in loaded]
+        report = check_delegate(
+            ctx.args.target,
+            cases=cases,
+            sandbox=not ctx.args.no_sandbox,
+            large_rows=ctx.args.large,
+        )
+        if ctx.json_output:
+            ctx.emit_json(report.to_dict())
+        else:
+            ctx.emit(report.render())
+        return EXIT_OK if report.ok else EXIT_ERROR
+
+
 class DelegateCommand(CommandGroup):
     name = "delegate"
     help = "Python DQ checks: list, vet and try them"
 
     def commands(self) -> list[Command]:
-        return [ListCommand(), ScanCommand(), TestCommand()]
+        return [ListCommand(), ScanCommand(), TestCommand(), CheckCommand()]

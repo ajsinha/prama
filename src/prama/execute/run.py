@@ -335,12 +335,14 @@ class ControlRun:
                 version, run_id, started, f"could not be compiled: {exc}"
             )
 
-        try:
-            rows = list(self._execute(compiled.metric_query))
-        except Exception as exc:
-            return await self._record_error(
-                version, run_id, started, f"{type(exc).__name__}: {exc}"
-            )
+        rows: list[dict[str, Any]] = []
+        if plan.assertion_kind != "delegate":
+            try:
+                rows = list(self._execute(compiled.metric_query))
+            except Exception as exc:
+                return await self._record_error(
+                    version, run_id, started, f"{type(exc).__name__}: {exc}"
+                )
 
         # A segmented control returns one row per segment, and judging only the
         # first is judging one desk and reporting the trading floor. `rows[0]`
@@ -354,7 +356,9 @@ class ControlRun:
         delegate_samples: list[dict[str, Any]] | None = None
         if plan.assertion_kind == "delegate":
             try:
-                measured = await self._measure(plan, rows)
+                # Streamed: the rows are read from the cursor in batches while
+                # the delegate consumes them, never all held here.
+                measured = await self._measure(plan, compiled.metric_query)
             except Exception as exc:
                 return await self._record_error(version, run_id, started, f"delegate: {exc}")
             result = judge(plan, measured.metrics, engine=self._engine)
@@ -477,7 +481,7 @@ class ControlRun:
             return "", 0
         return await self._keep_samples(rows)
 
-    async def _measure(self, plan: Any, rows: list[dict[str, Any]]) -> Any:
+    async def _measure(self, plan: Any, query: str) -> Any:
         """A delegate's measurement, off the event loop: it may run a subprocess."""
         import asyncio
 
@@ -489,7 +493,12 @@ class ControlRun:
                 f"{plan.detail.get('delegate')!r}",
                 remedy="Configure `delegates:` for this host, or run it on an agent that has it.",
             )
-        return await asyncio.to_thread(self._delegates.measure_plan, plan, rows)
+        from prama.delegates.host import batches_of
+
+        host = self._delegates
+        return await asyncio.to_thread(
+            lambda: host.measure_stream(plan, batches_of(self._execute, query, host.batch_rows))
+        )
 
     async def _keep_samples(self, rows: Sequence[dict[str, Any]]) -> tuple[str, int]:
         if not rows:
