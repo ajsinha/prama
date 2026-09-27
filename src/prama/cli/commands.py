@@ -199,8 +199,10 @@ class ServeCommand(Command):
     help = "run the HTTP API"
 
     def configure(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--host", default="127.0.0.1", help="bind address")
-        parser.add_argument("--port", type=int, default=8080)
+        # Defaults are None so the configuration answers: `server.host` and
+        # `server.port` are the one place the listener is stated.
+        parser.add_argument("--host", default=None, help="bind address (server.host)")
+        parser.add_argument("--port", type=int, default=None, help="port (server.port, 5900)")
         parser.add_argument("--reload", action="store_true", help="reload on code change")
 
     def run(self, ctx: CommandContext) -> int:
@@ -216,11 +218,15 @@ class ServeCommand(Command):
 
         from prama.api import create_app
 
-        port = int(ctx.args.port)
+        if ctx.args.host is None:
+            ctx.args.host = ctx.config.get_str("server.host", "127.0.0.1")
+        port = int(
+            ctx.args.port if ctx.args.port is not None else ctx.config.get_int("server.port")
+        )
         if not 1 <= port <= 65535:
             raise ValidationError(
                 f"{port} is not a port number",
-                remedy="A TCP port is between 1 and 65535. 8080 is the default.",
+                remedy="A TCP port is between 1 and 65535. server.port (5900) is the default.",
                 context={"port": str(port)},
             )
 

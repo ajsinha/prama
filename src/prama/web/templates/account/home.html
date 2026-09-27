@@ -1,0 +1,30 @@
+{# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{% extends "base.html" %}
+{% block title %}My account — Prama{% endblock %}
+{% block heading %}My account{% endblock %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card"><div class="card-body">
+      <table class="table table-sm mb-0">
+        <tr><th scope="row">Username</th><td>{{ principal.username }}</td></tr>
+        <tr><th scope="row">Name</th><td>{{ principal.display_name }}</td></tr>
+        <tr><th scope="row">Email</th><td>{{ principal.email or '—' }}</td></tr>
+        <tr><th scope="row">Kind</th><td>{{ principal.kind }}</td></tr>
+        <tr><th scope="row">Last sign-in</th><td>{{ principal.last_login_at or '—' }}</td></tr>
+        <tr><th scope="row">Roles</th><td>{% for r in roles %}<span class="badge text-bg-secondary me-1">{{ r.name }}</span>{% else %}<span class="text-muted">none — ask an administrator</span>{% endfor %}</td></tr>
+        <tr><th scope="row">Active API keys</th><td>{{ key_count }}</td></tr>
+      </table>
+    </div></div>
+    <div class="mt-3 d-flex gap-2">
+      <a class="btn btn-primary" href="{{ url_for('account_password') }}"><i class="bi bi-shield-lock" aria-hidden="true"></i> Change password</a>
+      <a class="btn btn-outline-secondary" href="{{ url_for('account_keys') }}"><i class="bi bi-key" aria-hidden="true"></i> My API keys</a>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <h2 class="h6">What you may do</h2>
+    <p class="text-muted small">Derived from your roles on every request, so a role removed an hour ago is not still here.</p>
+    <ul class="small">{% for s in scopes %}<li><code>{{ s }}</code></li>{% else %}<li class="text-muted">nothing yet</li>{% endfor %}</ul>
+  </div>
+</div>
+{% endblock %}

@@ -157,7 +157,7 @@ def main(argv: list[str]) -> int:
     for path, text in documents.items():
         updated = text
         for marker, current in claims:
-            updated = marker.sub(lambda m: f"{m.group(1)}{current}{m.group(3)}", updated)
+            updated = marker.sub(lambda m, c=current: f"{m.group(1)}{c}{m.group(3)}", updated)
             for found in marker.finditer(text):
                 if found.group(2) != current:
                     stale.append(f"{path}: says {found.group(2)!r}, the truth is {current!r}")

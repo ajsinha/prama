@@ -1,0 +1,25 @@
+{# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{# One table for a person's keys and for the estate's, so they cannot drift. #}
+<table class="table table-sm align-middle">
+  <thead><tr><th scope="col">Prefix</th><th scope="col">Name</th>{% if owners %}<th scope="col">Owner</th>{% endif %}
+    <th scope="col">Scopes</th><th scope="col">Expires</th><th scope="col">Last used</th><th scope="col">State</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+  <tbody>
+  {% for k in keys %}
+    {% set expired = k.expires_at and k.expires_at < now %}
+    <tr>
+      <td><code>{{ k.key_prefix }}…</code></td>
+      <td>{{ k.name }}</td>
+      {% if owners %}<td>{{ owners.get(k.principal_id|string, '?') }}</td>{% endif %}
+      <td class="small">{% for s in k.scopes_json %}<code class="me-1">{{ s }}</code>{% endfor %}</td>
+      <td class="small">{{ k.expires_at.date() if k.expires_at else 'never' }}</td>
+      <td class="small">{{ k.last_used_at or '—' }}</td>
+      <td>{% if k.revoked_at %}<span class="badge text-bg-secondary">revoked</span>{% elif expired %}<span class="badge text-bg-warning">expired</span>{% else %}<span class="badge text-bg-success">active</span>{% endif %}</td>
+      <td>{% if not k.revoked_at %}
+        <form method="post" action="{{ url_for(revoke_endpoint, key_id=k.id) }}" class="d-inline">
+          <button class="btn btn-sm btn-outline-danger" type="submit">Revoke</button></form>{% endif %}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="8" class="text-muted">No keys.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>

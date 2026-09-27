@@ -709,7 +709,8 @@ configuration or the error taxonomy.
 | Done | Not done |
 |---|---|
 | Design tokens: the six-dimension palette, light/dark, comfortable/compact density, Unverified Grey reserved | The chart primitives — server-rendered SVG in Python, which doubles as the PDF renderer |
-| App shell: nav that marks where you are, skip link, live region, flash | Sign-in; the caller comes from `tenancy.default_tenant` until Wave 10 |
+| App shell: nav that marks where you are, skip link, live region, flash; **sign-in**, sessions revalidated on every request; a public landing page, help centre rendered from the corpus, About and Licence pages (adopted from Maya) | Single sign-on: `prama.security.oidc` verifies ID tokens, but no sign-in flow uses it yet — the console signs in by password |
+| **Accounts** — My account, change password, **scoped, expiring API keys** shown once and capped at the holder's own scopes; **People & roles** and **All API keys** for an administrator; a disabled person's keys stop working with their sessions | Custom roles and groups (four built-in roles only); MFA |
 | Estate map on Sigma/WebGL over graphology, with the same nodes in a keyboard-reachable table | Cytoscape drag-to-declare (W9.3) |
 | Dataset page naming the *control* each gap costs, not the null column | Attribute editing and relationship drawing |
 | Declaration list and form, organised around questions, approval requirement derived from `ApprovalPolicy` | Attribute-level suggestions — concepts, value domains, CDE marks |
@@ -721,20 +722,20 @@ configuration or the error taxonomy.
 | Relationships end to end: declare, confirm, reject; pick-then-pick on the map | Attribute-level relationship editing |
 | Charts as server-rendered SVG (`prama.report`), one renderer for screen and print | Wiring them into scorecards, which have no measurements to draw |
 | Contrast measured, not eyeballed; every derived colour legible on all three grounds — card, page, striped row | Keyboard-only walkthroughs and a screen-reader pass, which are judgement rather than a rule engine |
-| **`axe-core` in Chrome** over sixteen pages and five themes, WCAG 2.2 AA, with a counterfactual proving the audit can fail, **run in CI** on a runner with Chromium installed | Screen-reader testing, which needs a person with NVDA or VoiceOver |
+| **`axe-core` in Chrome** over sixteen pages and every theme (Maya's four included), WCAG 2.2 AA, with a counterfactual proving the audit can fail, **run in CI** on a runner with Chromium installed | Screen-reader testing, which needs a person with NVDA or VoiceOver |
 | Print artefacts: declaration pack, control pack and **attestation pack**, self-contained, coverage stated on every one | Batch export of a period's packs as one bundle |
 | `prama mcp` — the MCP server on the assistant's own registry, fenced and scanned | Streamable-HTTP transport; stdio only for now |
 | Proposal queue with accept and reject, `Unsatisfiable` first, rejections recorded so nothing is re-proposed | Batch approve; backtest and expected alert volume beside each proposal |
 | **The evidence ledger, persisted** — hash-chained, append-only, erasure without breaking the chain, verification on a screen | Retention tiering and WORM export wired to the persisted store |
-| **Controls, persisted** — bitemporal, idempotent by identity, everything derived from the PQL, suppression that needs an expiry and a reason | A scheduler that runs them; nothing executes on its own yet |
+| **Controls, persisted** — bitemporal, idempotent by identity, everything derived from the PQL, suppression that needs an expiry and a reason; `prama control run` executes the due set, honouring each schedule | An always-on scheduler inside `prama serve`; today something external (cron, CI) has to invoke the run |
 | Incidents, reconciliation and scorecards reading real evidence | Batch disposition across a whole incident queue |
 | **Sample drill-down** — the failing rows beside the count they are a sample of, with masked columns named and "never collected" told apart from "no longer held" | Re-querying the source for fresh rows, which needs the connector query path on the console |
 | **The break workbench, persisted** — breaks tracked across runs, ageing from first sighting, clearing inferred from absence, ordered by what needs a person rather than by size | The reconciliation certificate signed off from this screen |
 | **Attestation** — figures derived from the ledger, not typed; sealed with an HMAC over the content hash; append-only with supersession | An asymmetric signature, which would say something to a reader who does not hold the key |
 
-**The honest limit of this wave.** Controls are stored and evidence is stored, and *nothing runs
-them*. There is no scheduler wired to the persisted estate, so every screen above reads evidence
-that arrived some other way. What those screens will not do is render an empty list as a clean one,
+**The honest limit of this wave.** Controls are stored and evidence is stored, and nothing runs
+them *on its own*: `prama control run` executes the due set when invoked, but no long-running
+scheduler lives inside `prama serve`, so evidence arrives only when something external calls it. What those screens will not do is render an empty list as a clean one,
 which is the single most dangerous screen a data quality product can ship.
 
 **Evidence format 1.1.** The record now carries the control's dimensions and the tier it ran under.

@@ -188,7 +188,7 @@ class TestPaletteContrast:
 
 
 class TestEveryThemeIsLegible:
-    """The check that makes five themes safe to ship.
+    """The check that makes every theme safe to ship.
 
     A theme declares surfaces; every dimension colour is derived against them.
     So this is not a spot check of colours somebody chose — it is the assertion

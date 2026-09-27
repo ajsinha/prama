@@ -85,42 +85,6 @@
     --unverified-grey-text: #9AA3BD;
 }
 
-/* Harvard crimson — Harvard Crimson on warm paper. An academic, print-like register. */
-[data-theme="crimson"] {
-    --bg-body: #F7F4F4;
-    --bg-card: #FFFFFF;
-    --bg-header: linear-gradient(135deg, #6B1220 0%, #A51C30 55%, #6B1220 100%);
-    --text-primary: #1C1416;
-    --text-muted: #6E5C60;
-    --text-link: #8C1727;
-    --accent: #A51C30;
-    --border-color: #E7DDDF;
-
-    /* Marks: bars, rings, dots. 3:1 against this theme's card. */
-    --dim-accuracy: #00978C;
-    --dim-completeness: #289961;
-    --dim-consistency: #6B9230;
-    --dim-timeliness: #A7802A;
-    --dim-uniqueness: #C97132;
-    --dim-validity: #D9534F;
-    --dim-integrity: #2B3FA8;
-    --dim-conformity: #5A6480;
-
-    /* Words: dimension names, verdicts. 4.5:1 against the same. */
-    --dim-accuracy-text: #00786E;
-    --dim-completeness-text: #1F794D;
-    --dim-consistency-text: #557426;
-    --dim-timeliness-text: #846621;
-    --dim-uniqueness-text: #9E5928;
-    --dim-validity-text: #B64542;
-    --dim-integrity-text: #2B3FA8;
-    --dim-conformity-text: #5A6480;
-
-    /* Reserved for 'stale or not yet examined'. Nothing else may use it. */
-    --unverified-grey: #7F879F;
-    --unverified-grey-text: #636A7C;
-}
-
 /* BMO blue — BMO Blue on cool grey. A retail-banking register. */
 [data-theme="bmo"] {
     --bg-body: #F1F5F9;
@@ -148,6 +112,150 @@
     --dim-consistency-text: #557426;
     --dim-timeliness-text: #846621;
     --dim-uniqueness-text: #9E5928;
+    --dim-validity-text: #B64542;
+    --dim-integrity-text: #2B3FA8;
+    --dim-conformity-text: #5A6480;
+
+    /* Reserved for 'stale or not yet examined'. Nothing else may use it. */
+    --unverified-grey: #7F879F;
+    --unverified-grey-text: #636A7C;
+}
+
+/* Maya crimson — Maya's default: crimson over indigo on warm paper. */
+[data-theme="maya-crimson"] {
+    --bg-body: #F7F5F2;
+    --bg-card: #FFFFFF;
+    --bg-header: linear-gradient(135deg, #5C0E1B 0%, #A51C30 55%, #293352 100%);
+    --text-primary: #1A1A1A;
+    --text-muted: #636B76;
+    --text-link: #6E1120;
+    --accent: #A51C30;
+    --border-color: #E3DED7;
+
+    /* Marks: bars, rings, dots. 3:1 against this theme's card. */
+    --dim-accuracy: #00978C;
+    --dim-completeness: #289961;
+    --dim-consistency: #6C9431;
+    --dim-timeliness: #A9822A;
+    --dim-uniqueness: #C97132;
+    --dim-validity: #D9534F;
+    --dim-integrity: #2B3FA8;
+    --dim-conformity: #5A6480;
+
+    /* Words: dimension names, verdicts. 4.5:1 against the same. */
+    --dim-accuracy-text: #00776D;
+    --dim-completeness-text: #1F7A4D;
+    --dim-consistency-text: #557426;
+    --dim-timeliness-text: #846622;
+    --dim-uniqueness-text: #9F5928;
+    --dim-validity-text: #B64542;
+    --dim-integrity-text: #2B3FA8;
+    --dim-conformity-text: #5A6480;
+
+    /* Reserved for 'stale or not yet examined'. Nothing else may use it. */
+    --unverified-grey: #7F879F;
+    --unverified-grey-text: #636A7C;
+}
+
+/* Maya dark — Maya's night ground, with a rose accent. */
+[data-theme="maya-dark"] {
+    --bg-body: #151517;
+    --bg-card: #1F1F23;
+    --bg-header: linear-gradient(135deg, #2E0810 0%, #6E1120 55%, #1B2138 100%);
+    --text-primary: #ECECEF;
+    --text-muted: #8996A0;
+    --text-link: #E473AE;
+    --accent: #E473AE;
+    --border-color: #34343A;
+
+    /* Marks: bars, rings, dots. 3:1 against this theme's card. */
+    --dim-accuracy: #2AD4C5;
+    --dim-completeness: #4FD693;
+    --dim-consistency: #A8DB5F;
+    --dim-timeliness: #F2C65C;
+    --dim-uniqueness: #F29A5C;
+    --dim-validity: #EA726E;
+    --dim-integrity: #7D8FE0;
+    --dim-conformity: #9AA3BD;
+
+    /* Words: dimension names, verdicts. 4.5:1 against the same. */
+    --dim-accuracy-text: #2AD4C5;
+    --dim-completeness-text: #4FD693;
+    --dim-consistency-text: #A8DB5F;
+    --dim-timeliness-text: #F2C65C;
+    --dim-uniqueness-text: #F29A5C;
+    --dim-validity-text: #EA726E;
+    --dim-integrity-text: #7D8FE0;
+    --dim-conformity-text: #9AA3BD;
+
+    /* Reserved for 'stale or not yet examined'. Nothing else may use it. */
+    --unverified-grey: #9AA3BD;
+    --unverified-grey-text: #9AA3BD;
+}
+
+/* Maya blue — Maya's blue register on a cool ground. */
+[data-theme="maya-blue"] {
+    --bg-body: #F0F5FA;
+    --bg-card: #FFFFFF;
+    --bg-header: linear-gradient(135deg, #002654 0%, #0079C1 55%, #003168 100%);
+    --text-primary: #1E293B;
+    --text-muted: #536578;
+    --text-link: #003168;
+    --accent: #0079C1;
+    --border-color: #DCE4EE;
+
+    /* Marks: bars, rings, dots. 3:1 against this theme's card. */
+    --dim-accuracy: #00978C;
+    --dim-completeness: #279961;
+    --dim-consistency: #6B9230;
+    --dim-timeliness: #A7802A;
+    --dim-uniqueness: #C77031;
+    --dim-validity: #D9534F;
+    --dim-integrity: #2B3FA8;
+    --dim-conformity: #5A6480;
+
+    /* Words: dimension names, verdicts. 4.5:1 against the same. */
+    --dim-accuracy-text: #00786E;
+    --dim-completeness-text: #1F794D;
+    --dim-consistency-text: #557426;
+    --dim-timeliness-text: #846621;
+    --dim-uniqueness-text: #9E5928;
+    --dim-validity-text: #B64542;
+    --dim-integrity-text: #2B3FA8;
+    --dim-conformity-text: #5A6480;
+
+    /* Reserved for 'stale or not yet examined'. Nothing else may use it. */
+    --unverified-grey: #7F879F;
+    --unverified-grey-text: #636A7C;
+}
+
+/* Maya green — Maya's green register on warm paper. */
+[data-theme="maya-green"] {
+    --bg-body: #F7F5EF;
+    --bg-card: #FFFFFF;
+    --bg-header: linear-gradient(135deg, #00261A 0%, #006039 55%, #1C3A2E 100%);
+    --text-primary: #1A1A1A;
+    --text-muted: #5E6A64;
+    --text-link: #004D2E;
+    --accent: #006039;
+    --border-color: #E3DECF;
+
+    /* Marks: bars, rings, dots. 3:1 against this theme's card. */
+    --dim-accuracy: #00978C;
+    --dim-completeness: #289961;
+    --dim-consistency: #6B9230;
+    --dim-timeliness: #A9822A;
+    --dim-uniqueness: #C97132;
+    --dim-validity: #D9534F;
+    --dim-integrity: #2B3FA8;
+    --dim-conformity: #5A6480;
+
+    /* Words: dimension names, verdicts. 4.5:1 against the same. */
+    --dim-accuracy-text: #00786E;
+    --dim-completeness-text: #1F784C;
+    --dim-consistency-text: #557426;
+    --dim-timeliness-text: #846621;
+    --dim-uniqueness-text: #9F5928;
     --dim-validity-text: #B64542;
     --dim-integrity-text: #2B3FA8;
     --dim-conformity-text: #5A6480;

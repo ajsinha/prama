@@ -144,13 +144,13 @@ docker run --rm -v /srv/prama-data:/data \
 docker run --rm -v /srv/prama-data:/data -e PRAMA_SECURITY__SESSION_SECRET=... \
   prama:0.1.0 tenant create acme-bank --name "Acme Bank"
 
-docker run -d --name prama -p 8080:8080 -v /srv/prama-data:/data \
+docker run -d --name prama -p 5900:5900 -v /srv/prama-data:/data \
   -e PRAMA_SECURITY__SESSION_SECRET=... \
   -e PRAMA_TENANCY__DEFAULT_TENANT=01M2... \
   prama:0.1.0
 ```
 
-Then **http://localhost:8080/estate**.
+Then **http://localhost:5900/estate**.
 
 **It is not the production shape, and that is not a caveat to be worked
 around.** A control plane holding its own database inside its own container has

@@ -20,8 +20,11 @@ Two things, in one process:
 
 | | Where | Who it is for |
 |---|---|---|
-| **The console** | `http://127.0.0.1:8080/estate` | People — business owners, stewards, architects |
-| **The API** | `http://127.0.0.1:8080/api/v1` (docs at `/api/v1/docs`) | Programs |
+| **The front door** | `http://127.0.0.1:5900/` — landing page, `/help`, `/about` | Anybody, signed in or not |
+| **The console** | `http://127.0.0.1:5900/estate` | People — business owners, stewards, architects |
+| **The API** | `http://127.0.0.1:5900/api/v1` (docs at `/api/v1/docs`) | Programs |
+
+5900 is `server.port`; change it there (or pass `--port`), not in several places.
 
 They are one application deliberately, not two that share a database: a console
 and an API that could disagree about the estate would eventually disagree about
@@ -86,9 +89,9 @@ off once both exist.
 
   schema applied · estate acme-bank · 01M249QPWYQF653C699XYJWY65
 
-  Console  http://127.0.0.1:8080/estate
-  API      http://127.0.0.1:8080/api/v1
-  Docs     http://127.0.0.1:8080/api/v1/docs
+  Console  http://127.0.0.1:5900/estate
+  API      http://127.0.0.1:5900/api/v1
+  Docs     http://127.0.0.1:5900/api/v1/docs
 ```
 
 Open the console URL.
@@ -141,7 +144,11 @@ machine can read it. A provisioning script pipes it instead:
 printf '%s' "$PASSWORD" | prama principal create svc-loader --role steward
 ```
 
-Then sign in at `/sign-in`.
+Then sign in at `/sign-in`. The user menu (top right) then offers **My
+account**, **My API keys** (mint a scoped, expiring key for a program; it is
+shown once) and **Change password**. An `admin` also gets **People & roles**
+(`/admin/users`: add people, set roles, reset passwords, disable) and **All API
+keys** (`/admin/keys`). The help centre at `/help` explains each of these.
 
 ### Make the estate stick
 
@@ -173,7 +180,7 @@ ticket, the estate once, the server from a unit file.
 prama db init                                  # apply schema/<dialect>.sql, idempotent
 prama tenant create acme-bank --name "Acme Bank"
 # put the printed id in config/application.local.yaml, then:
-prama serve --host 0.0.0.0 --port 8080
+prama serve --host 0.0.0.0 --port 5900
 ```
 
 Useful neighbours:

@@ -5,11 +5,24 @@ set -euo pipefail
 
 staged() { git diff --cached --name-only --diff-filter=ACM; }
 
+# The venv's tools, found from the tree being committed and then from the main
+# checkout, so a worktree or a shell without the venv activated still lints
+# (after Maya's hook). A hook that silently skips lint because `ruff` was not
+# on PATH is a hook that passes everything.
+top="$(git rev-parse --show-toplevel)"
+main="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
+bin=""
+for candidate in "$top/.venv/bin" "$main/.venv/bin"; do
+  if [ -x "$candidate/python" ]; then bin="$candidate"; break; fi
+done
+py="python3"; ruff_cmd="ruff"
+if [ -n "$bin" ]; then py="$bin/python"; ruff_cmd="$bin/ruff"; fi
+
 # 1. Source-file length ceiling (1500 code lines, comments excluded).
 files=$(staged | grep -E '\.(py|rs|sql|sh)$' || true)
 if [ -n "$files" ]; then
   # shellcheck disable=SC2086
-  python3 scripts/check_file_length.py $files
+  "$py" scripts/check_file_length.py $files
 fi
 
 # 2. Secrets never enter a tracked config file. application.local.* is ignored
@@ -24,12 +37,15 @@ if [ -n "$tracked_cfg" ]; then
   fi
 fi
 
-# 3. Lint + format, if the toolchain is present.
-if command -v ruff >/dev/null 2>&1; then
-  py=$(staged | grep -E '\.py$' || true)
-  if [ -n "$py" ]; then
+# 3. The version is stated once (src/prama/version.py); every copy agrees.
+"$py" scripts/check_version_source.py
+
+# 4. Lint + format, if the toolchain is present.
+if command -v "$ruff_cmd" >/dev/null 2>&1; then
+  pyfiles=$(staged | grep -E '\.py$' || true)
+  if [ -n "$pyfiles" ]; then
     # shellcheck disable=SC2086
-    ruff check $py && ruff format --check $py
+    "$ruff_cmd" check $pyfiles && "$ruff_cmd" format --check $pyfiles
   fi
 fi
 exit 0

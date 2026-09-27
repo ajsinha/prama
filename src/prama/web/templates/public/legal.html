@@ -1,0 +1,16 @@
+{# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{% extends "base.html" %}
+{% block title %}Licence & legal notice — Prama{% endblock %}
+{% block heading %}Licence &amp; legal notice{% endblock %}
+{% block content %}
+<p class="text-muted">Prama is proprietary software. Copyright &copy; 2026 Ashutosh Sinha
+  &lt;ajsinha@gmail.com&gt;. All rights reserved.</p>
+{% for d in documents %}
+<h2 class="h6 mt-4">{{ d.name }}</h2>
+{% if d.text %}
+<pre class="small p-3 border rounded" style="white-space: pre-wrap">{{ d.text }}</pre>
+{% else %}
+<p class="text-muted">{{ d.name }} ships with the source distribution; it is not present on this host.</p>
+{% endif %}
+{% endfor %}
+{% endblock %}

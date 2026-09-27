@@ -17,67 +17,13 @@ from __future__ import annotations
 import argparse
 import asyncio
 import getpass
-import re
 import sys
 from typing import Any
 
 from prama.cli.base import EXIT_OK, Command, CommandContext, CommandGroup
 from prama.core.errors import ConflictError, ValidationError
-
-USERNAME = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$")
-
-#: The roles a fresh estate gets, and what each one may do.
-#:
-#: Four, not fourteen. A permission model nobody can hold in their head is one
-#: nobody audits, and the separation that actually matters in this product is
-#: between *proposing* a control and *approving* one — the rest is detail that
-#: a deployment can add for itself.
-BUILTIN_ROLES: dict[str, tuple[str, list[str]]] = {
-    "admin": (
-        "Everything, including creating other people.",
-        ["*"],
-    ),
-    "owner": (
-        "Declares datasets and approves controls. The business owner of an estate.",
-        [
-            "declaration:*",
-            "relationship:*",
-            "control:approve",
-            "control:read",
-            "attestation:sign",
-            # Signing a thing you cannot read is not a permission set anybody
-            # writes down on purpose. Without this the owner — the role that
-            # exists to attest — could sign an attestation and open neither the
-            # draft it was signing nor its own signed record. QA round 3, Q-67.
-            "attestation:read",
-            "evidence:read",
-            "report:read",
-        ],
-    ),
-    "steward": (
-        "Works incidents and breaks; proposes controls but does not approve them.",
-        [
-            "control:propose",
-            "control:read",
-            "incident:*",
-            "break:*",
-            "evidence:read",
-            "report:read",
-            "declaration:read",
-        ],
-    ),
-    "auditor": (
-        "Reads everything and changes nothing.",
-        [
-            "control:read",
-            "declaration:read",
-            "relationship:read",
-            "evidence:read",
-            "report:read",
-            "attestation:read",
-        ],
-    ),
-}
+from prama.security.accounts import BUILTIN_ROLES, USERNAME
+from prama.security.accounts import grant_roles as _grant
 
 
 def _read_password(confirm: bool = True) -> str:
@@ -339,31 +285,6 @@ class PrincipalRolesCommand(Command):
         ctx.emit("one level deep only: a model nobody can hold in their head is one")
         ctx.emit("nobody audits.")
         return EXIT_OK
-
-
-async def _grant(uow: Any, tenant: str, principal: Any, wanted: list[str]) -> list[str]:
-    """Grant roles, creating the built-in ones on first use.
-
-    Created lazily rather than at ``db init``: a role nobody holds is a row that
-    has to be explained, and an estate that never signs anybody in should not
-    carry four of them.
-    """
-    granted: list[str] = []
-    for name in wanted:
-        role = await uow.roles.by_name(tenant, name)
-        if role is None:
-            description, permissions = BUILTIN_ROLES[name]
-            role = uow.roles.create(
-                tenant_id=tenant,
-                name=name,
-                permissions=permissions,
-                description=description,
-                builtin=True,
-            )
-            await uow.flush()
-        await uow.roles.grant(str(principal.id), str(role.id))
-        granted.append(name)
-    return granted
 
 
 class PrincipalCommand(CommandGroup):

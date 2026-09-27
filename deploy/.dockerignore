@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE.
 # Keep the build context small and free of anything that could carry a secret.
 .git
 .venv

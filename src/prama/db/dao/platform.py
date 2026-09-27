@@ -291,6 +291,18 @@ class ApiKeyDao(TenantScopedDao[ApiKey]):
     async def by_prefix(self, prefix: str) -> ApiKey | None:
         return await self._one_or_none(select(ApiKey).where(ApiKey.key_prefix == prefix))
 
+    async def for_principal(self, tenant_id: str, principal_id: str) -> list[ApiKey]:
+        """Every key a principal holds, revoked ones included, newest first.
+
+        Revoked keys are listed rather than hidden: "which keys has this person
+        ever had" is the question an access review asks.
+        """
+        return await self._all(
+            select(ApiKey)
+            .where(ApiKey.tenant_id == tenant_id, ApiKey.principal_id == principal_id)
+            .order_by(ApiKey.created_at.desc())
+        )
+
     async def active_for_principal(self, principal_id: str) -> list[ApiKey]:
         return await self._all(
             select(ApiKey).where(ApiKey.principal_id == principal_id, ApiKey.revoked_at.is_(None))

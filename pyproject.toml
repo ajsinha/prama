@@ -26,6 +26,9 @@ dependencies = [
     "jinja2>=3.1",
     "itsdangerous>=2.2",
     "python-multipart>=0.0.9",
+    # The help centre renders the design corpus and the console guides from
+    # their Markdown sources, so the help and the documents cannot disagree.
+    "markdown>=3.6",
 ]
 
 [project.optional-dependencies]
@@ -94,6 +97,7 @@ where = ["src"]
     "templates/*.css",
 ]
 "prama.web" = [
+    "guides/*.md",
     "templates/*.html",
     "templates/**/*.html",
     "static/css/*.css",
@@ -164,7 +168,7 @@ warn_unreachable = true
 disallow_any_generics = false
 
 [[tool.mypy.overrides]]
-module = ["yaml", "orjson", "pyarrow", "pyarrow.*", "duckdb"]
+module = ["yaml", "orjson", "pyarrow", "pyarrow.*", "duckdb", "markdown"]
 ignore_missing_imports = true
 
 [tool.coverage.run]

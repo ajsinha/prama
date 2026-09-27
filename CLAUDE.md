@@ -95,15 +95,20 @@ engine decides. `tests/architecture/test_layering.py` guards this.
 
 ## Git drill
 
-Work lands on `develop`; `main` moves only at the end of a wave.
+Work lands on `develop`; `main` only ever receives `--no-ff` merges from it, at
+the end of a wave. The words are binding (adopted from Maya ADR-002; full
+procedure in `CONTRIBUTING.md`): **drill** = commit + push `develop`, merge into
+`main`, push `main`, fast-forward `develop`; **drill to develop** = the first
+half; **drill to main** = the second half. Do the merge from a detached worktree,
+never `git checkout main` in the live tree:
 
 ```
-# during a wave — freely
-git commit && git push origin develop
-
-# at the end of a wave — once
-git checkout main && git merge --no-ff develop && git push origin main
-git checkout develop && git merge main && git push origin develop
+git push origin develop
+git worktree add /tmp/mainwt main
+git -C /tmp/mainwt merge --no-ff develop -m "Merge <ids> into main: <summary>"
+git -C /tmp/mainwt push origin main
+git merge --ff-only main && git push origin develop
+git worktree remove /tmp/mainwt && git worktree prune
 ```
 
 Commit author for this repo is `ajsinha <ajsinha@gmail.com>` (set repo-locally; the machine has no
@@ -155,6 +160,7 @@ prama control functions                  # pushdown coverage: what runs on which
 prama control import schema.yml --from dbt   # and what did not come across
 prama tenant create acme-bank            # the estate; prints the id to configure
 prama principal create alice --admin     # somebody who can sign in (password prompted)
+prama serve                              # console + API on server.port (5900)
 prama db init                            # apply schema/<dialect>.sql idempotently
 prama db verify                          # fail loudly if the live schema has drifted
 prama pack list                          # what the banking pack ships
@@ -172,6 +178,7 @@ prama contract diff before.csv after.csv --key id   # what changed, not how many
 prama lsp catalogue --tenant acme --out cat.json   # the estate's schemas, for an editor
 prama lsp serve --catalogue cat.json     # PQL language server on stdio
 python scripts/check_file_length.py      # the 1500-line ceiling
+python3 scripts/check_version_source.py  # version.py is the one authority; copies agree
 python3 scripts/verify_evidence.py bundle/   # check evidence without importing Prama
 prama bundle seal ./offline --sign-with k.pem  # Ed25519 provenance for an air-gapped host
 pytest -q tests/web/test_axe.py           # axe-core in Chrome; needs pip install -e ".[audit]"

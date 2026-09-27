@@ -38,10 +38,15 @@ async def _declare(database: Database, tenant_id: str, **fields: object) -> str:
 
 
 class TestShell:
-    async def test_root_redirects_to_the_estate(self, ui: httpx.AsyncClient) -> None:
+    async def test_root_is_the_public_landing_page_without_a_session(
+        self, ui: httpx.AsyncClient
+    ) -> None:
+        """Adopted from Maya: somebody arriving without a session is told what
+        Prama is. With the single-tenant fallback, the way in is the console."""
         response = await ui.get("/")
-        assert response.status_code == 307
-        assert response.headers["location"] == "/estate"
+        assert response.status_code == 200
+        assert "lpNet" in response.text
+        assert 'href="/estate"' in response.text
 
     async def test_the_estate_page_renders(self, ui: httpx.AsyncClient) -> None:
         response = await ui.get("/estate")

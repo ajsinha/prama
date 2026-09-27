@@ -1,0 +1,36 @@
+{# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{% extends "base.html" %}
+{% block title %}My API keys — Prama{% endblock %}
+{% block heading %}My API keys{% endblock %}
+{% block content %}
+{% if issued %}
+{# Shown once, in this response only. It is not in the session, and it cannot be fetched again. #}
+<div class="alert alert-success" role="alert">
+  <p class="mb-1"><strong>{{ issued.name }}</strong> — copy this key now. It will not be shown again; only its prefix and a hash are kept.</p>
+  <pre class="mb-0 user-select-all"><code>{{ issued.plaintext }}</code></pre>
+</div>
+{% endif %}
+<p class="text-muted small">A program presents a key as <code>Authorization: Bearer &lt;key&gt;</code> to
+  <code>/api/v1</code>. A key can carry only scopes you already hold, and it expires.</p>
+{% set revoke_endpoint = 'account_key_revoke' %}{% set owners = None %}
+{% include "_key_table.html" %}
+
+<h2 class="h6 mt-4">Create a key</h2>
+{% if grantable %}
+<form method="post" action="{{ url_for('account_keys_post') }}" class="row g-3" style="max-width: 44rem">
+  <div class="col-md-8"><label class="form-label" for="name">Name</label>
+    <input class="form-control" id="name" name="name" required maxlength="128" placeholder="nightly-reconciliation"></div>
+  <div class="col-md-4"><label class="form-label" for="days">Expires in (days)</label>
+    <input class="form-control" id="days" name="days" type="number" min="1" max="{{ max_days }}" value="{{ default_days }}"></div>
+  <fieldset class="col-12"><legend class="form-label fs-6">Scopes</legend>
+    {% for s in grantable %}
+    <div class="form-check"><input class="form-check-input" type="checkbox" name="scopes" value="{{ s }}" id="sc-{{ loop.index }}">
+      <label class="form-check-label" for="sc-{{ loop.index }}"><code>{{ s }}</code> <span class="text-muted small">— {{ scope_notes[s] }}</span></label></div>
+    {% endfor %}
+  </fieldset>
+  <div class="col-12"><button class="btn btn-primary" type="submit">Create key</button></div>
+</form>
+{% else %}
+<p class="text-muted">You hold no scopes, so a key of yours could do nothing. Ask an administrator for a role.</p>
+{% endif %}
+{% endblock %}

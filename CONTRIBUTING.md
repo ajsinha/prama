@@ -181,14 +181,40 @@ export PRAMA_TEST_KAFKA_BOOTSTRAP=127.0.0.1:19092
 
 ## Git
 
-Work lands on `develop`. `main` moves at the end of a wave.
+Adopted from Maya's branch and release workflow (Maya ADR-002), which Prama
+already mostly followed; this makes it policy rather than habit.
+
+- **All work is committed on `develop`.** `main` receives only merges from
+  `develop`, never a direct commit.
+- **`main` is promoted to, deliberately.** It is not synced on a schedule, and
+  `main` sitting behind `develop` mid-wave is normal, not drift to close.
+- **Promotion requires** the gate green (`scripts/gate.sh`, or
+  `python3 scripts/sync_test_counts.py --write`, which refuses a red run), a
+  clean tree, and generated documents current (`generate_docs.py --check`).
+
+**The owner's shorthand is binding:**
+
+| Word | Means |
+|---|---|
+| *drill* | commit and push `develop`, merge `develop` into `main` with `--no-ff`, push `main`, fast-forward `develop` to `main`, push `develop` |
+| *drill to develop* | the first half only: commit and push `develop` |
+| *drill to main* | the second half only: merge, push `main`, fast-forward `develop` |
+
+The drill, from a detached worktree so the live tree never checks out `main`:
 
 ```bash
-git commit && git push origin develop            # freely, during a wave
-git checkout main && git merge --no-ff develop   # once, at the end
-git push origin main
-git checkout develop && git merge main && git push origin develop
+git push origin develop                                   # drill to develop
+git worktree add /tmp/mainwt main                         # drill to main ↓
+git -C /tmp/mainwt merge --no-ff develop -m "Merge <ids> into main: <summary>"
+git -C /tmp/mainwt push origin main
+git merge --ff-only main && git push origin develop
+git worktree remove /tmp/mainwt && git worktree prune
 ```
+
+Enable the hooks once per clone: `git config core.hooksPath .githooks`. The
+pre-commit hook runs the file-length ceiling, the tracked-secret check, the
+version single-source gate and ruff, using the repository's `.venv` even when
+it is not activated. Never pass `--no-verify`.
 
 **Push early.** An unpushed branch is one disk failure from gone, and a
 local-only commit is not safe either.
@@ -203,5 +229,19 @@ counterfactual that did not bite the first time, the assumption that turned out
 wrong. Those are the most valuable lines in the history, and they are the ones a
 summary would delete.
 
-Author is `ajsinha <ajsinha@gmail.com>`, set repo-locally. No attribution
-trailers; the hook refuses them.
+Sentence-style subjects that state the outcome, no Conventional-Commit
+prefixes, at most 100 characters (the hook enforces the limit).
+
+Author is `ajsinha <ajsinha@gmail.com>`, set repo-locally. **The developer is
+Ashutosh Sinha alone**: no `Co-Authored-By: Claude`, no `Claude-Session:`, no
+"Generated with Claude" — the hook refuses them, and they are dropped at the
+source rather than left for the hook to catch.
+
+### Licence notice
+
+Prama is proprietary (`LICENSE`, `NOTICE`). Every source file — Python,
+template, stylesheet, script, SQL, hook, deployment manifest, console guide —
+carries `Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights
+reserved.`, and every console page shows it in the footer with a link to
+`/legal`. `tests/architecture/test_proprietary_notice.py` fails the build on a
+file without it.

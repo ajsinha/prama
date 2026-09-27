@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}About — Prama{% endblock %}
+{% block heading %}About Prama{% endblock %}
+{% block content %}
+<div class="help-doc">
+  <p class="lead"><strong>Prama</strong> is a business-owned, evidence-first data quality control
+    plane. {{ app_tagline }}</p>
+
+  <p><em>pramā</em> (Sanskrit <span lang="sa">प्रमा</span>) means <em>valid knowledge: a cognition
+    that is both true and arrived at by a reliable means</em>. Its companion <em>pramāṇa</em> is the
+    instrument by which valid knowledge is obtained. Prama is that instrument for an organisation's
+    data: it does not decide what is true, it keeps the record of how anybody knows.</p>
+
+  <h2 class="h5 mt-4">What it holds to</h2>
+  <ul>
+    <li><strong>The business declares; the platform derives.</strong> Controls, scores and reports are
+      derived from declarations and evidence, never restated.</li>
+    <li><strong>Evidence, not assertion.</strong> Every verdict leaves a sealed, append-only record that
+      a verifier with no Prama installed can check.</li>
+    <li><strong>AI never adjudicates.</strong> Models draft, rank, explain and summarise. A deterministic,
+      versioned engine decides every pass or fail, and the build enforces it.</li>
+    <li><strong>Air-gap ready.</strong> Every asset is vendored; nothing is fetched at run time.</li>
+  </ul>
+
+  <h2 class="h5 mt-4">This installation</h2>
+  <table class="table table-sm w-auto">
+    <tr><th scope="row">Version</th><td>{{ app_version }}</td></tr>
+    <tr><th scope="row">API</th><td><a href="/api/v1/docs">/api/v1</a></td></tr>
+    <tr><th scope="row">Help</th><td><a href="{{ url_for('help_index') }}">Help centre</a></td></tr>
+  </table>
+
+  <p class="text-muted small mt-4">Copyright &copy; 2026 Ashutosh Sinha &lt;ajsinha@gmail.com&gt;.
+    All rights reserved.</p>
+</div>
+{% endblock %}

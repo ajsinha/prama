@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE.
 # The full gate, with the exit status of every step actually respected.
 #
 # Written because piping pytest into `tail` returns tail's status, so a
@@ -12,6 +13,7 @@ ruff check src tests scripts qa/regression-suite
 ruff format --check -q src tests scripts qa/regression-suite
 mypy src | tail -1
 python scripts/check_file_length.py
+python3 scripts/check_version_source.py
 # Documentation that is generated from the code must still match the code. A
 # reference edited by hand is a second source of truth, and it drifts in the
 # flattering direction.

@@ -1,0 +1,67 @@
+{# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{% extends "base.html" %}
+{% block title %}People &amp; roles — Prama{% endblock %}
+{% block heading %}People &amp; roles{% endblock %}
+{% block content %}
+<table class="table table-sm align-middle">
+  <thead><tr><th scope="col">Username</th><th scope="col">Name</th><th scope="col">Kind</th><th scope="col">Status</th>
+    <th scope="col">Last sign-in</th><th scope="col">Roles</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+  <tbody>
+  {% for row in rows %}{% set p = row.p %}
+  <tr>
+    <td>{{ p.username }}{% if p.id|string == me %} <span class="badge text-bg-info">you</span>{% endif %}</td>
+    <td>{{ p.display_name }}<div class="small text-muted">{{ p.email or '' }}</div></td>
+    <td>{{ p.kind }}</td>
+    <td><span class="badge {{ 'text-bg-success' if p.status == 'active' else 'text-bg-secondary' }}">{{ p.status }}</span></td>
+    <td class="small">{{ p.last_login_at or '—' }}</td>
+    <td>
+      <form method="post" action="{{ url_for('admin_user_roles', pid=p.id) }}" class="d-flex flex-wrap gap-2 align-items-center">
+        {% for name in builtin_roles %}
+        <div class="form-check form-check-inline m-0"><input class="form-check-input" type="checkbox" name="roles" value="{{ name }}"
+          id="r-{{ loop.index }}-{{ p.id }}" {% if name in row.roles %}checked{% endif %}>
+          <label class="form-check-label small" for="r-{{ loop.index }}-{{ p.id }}">{{ name }}</label></div>
+        {% endfor %}
+        <button class="btn btn-sm btn-outline-primary" type="submit">Save</button>
+      </form>
+    </td>
+    <td class="text-nowrap">
+      <form method="post" action="{{ url_for('admin_user_status', pid=p.id) }}" class="d-inline">
+        <input type="hidden" name="status" value="{{ 'disabled' if p.status == 'active' else 'active' }}">
+        <button class="btn btn-sm {{ 'btn-outline-danger' if p.status == 'active' else 'btn-outline-success' }}" type="submit"
+          {% if p.id|string == me %}disabled title="You cannot disable yourself"{% endif %}>{{ 'Disable' if p.status == 'active' else 'Enable' }}</button>
+      </form>
+      <details class="d-inline-block ms-1"><summary class="btn btn-sm btn-outline-secondary">Reset password</summary>
+        <form method="post" action="{{ url_for('admin_user_password', pid=p.id) }}" class="mt-2 d-flex gap-1">
+          <label class="visually-hidden" for="pw-{{ p.id }}">New password for {{ p.username }}</label>
+          <input class="form-control form-control-sm" id="pw-{{ p.id }}" name="password" type="password" required autocomplete="new-password">
+          <button class="btn btn-sm btn-primary" type="submit">Set</button>
+        </form>
+      </details>
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+<p class="text-muted small">Nobody is deleted: evidence and attestations name their actor. Disabling ends every session at once.</p>
+
+<h2 class="h6 mt-4">Add a person</h2>
+<form method="post" action="{{ url_for('admin_users_post') }}" class="row g-3" style="max-width: 52rem">
+  <div class="col-md-4"><label class="form-label" for="username">Username</label>
+    <input class="form-control" id="username" name="username" required maxlength="128" autocomplete="off"></div>
+  <div class="col-md-4"><label class="form-label" for="display_name">Name</label>
+    <input class="form-control" id="display_name" name="display_name" maxlength="255"></div>
+  <div class="col-md-4"><label class="form-label" for="email">Email</label>
+    <input class="form-control" id="email" name="email" type="email" maxlength="320"></div>
+  <div class="col-md-4"><label class="form-label" for="kind">Kind</label>
+    <select class="form-select" id="kind" name="kind"><option value="human">human</option><option value="service">service</option></select></div>
+  <div class="col-md-8"><label class="form-label" for="password">Initial password <span class="text-muted small">(optional for a service account)</span></label>
+    <input class="form-control" id="password" name="password" type="password" autocomplete="new-password"></div>
+  <fieldset class="col-12"><legend class="form-label fs-6">Roles</legend>
+    {% for name, (desc, perms) in builtin_roles.items() %}
+    <div class="form-check"><input class="form-check-input" type="checkbox" name="roles" value="{{ name }}" id="new-{{ name }}">
+      <label class="form-check-label" for="new-{{ name }}"><strong>{{ name }}</strong> <span class="text-muted small">— {{ desc }}</span></label></div>
+    {% endfor %}
+  </fieldset>
+  <div class="col-12"><button class="btn btn-primary" type="submit">Add person</button></div>
+</form>
+{% endblock %}

@@ -1,0 +1,127 @@
+/* The landing, help and about pages. Adopted from Maya's `lp2-*` styles and
+ * coloured only through Prama's theme tokens (themes.css), so the same markup
+ * is correct in every theme. The masthead gradient (--bg-header) is always
+ * dark, which is why text on it is --text-on-primary in every theme.
+ *
+ * Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
+ */
+
+.lp-hero { position: relative; overflow: hidden; display: flex; align-items: center;
+  justify-content: center; text-align: center; min-height: 540px; padding: 4.5rem 1.8rem 3.5rem;
+  background: radial-gradient(900px 420px at 50% 30%,
+    color-mix(in srgb, var(--accent) 12%, transparent), transparent 72%); }
+#lpNet { position: absolute; inset: 0; width: 100%; height: 100%; }
+.lp-hero-inner { position: relative; z-index: 1; max-width: 900px; }
+.lp-badge { display: inline-flex; align-items: center; gap: .5rem; padding: .38rem 1rem;
+  border-radius: 999px; margin-bottom: 1.6rem; font-size: 12.5px; color: var(--text-muted);
+  border: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-card) 78%, transparent); }
+.lp-badge i { font-size: .55rem; color: var(--dim-completeness); }
+.lp-title { font-size: clamp(2.1rem, 5vw, 3.7rem); font-weight: 800; line-height: 1.08;
+  letter-spacing: -.02em; color: var(--text-primary); margin-bottom: 1.3rem; text-wrap: balance; }
+.lp-gradient { background: linear-gradient(135deg, var(--accent), var(--text-link));
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.lp-sub { max-width: 690px; margin: 0 auto 2rem; font-size: 1.07rem; line-height: 1.65;
+  color: var(--text-muted); }
+.lp-actions { display: flex; flex-wrap: wrap; gap: .8rem; justify-content: center; }
+.lp-btn { display: inline-flex; align-items: center; gap: .5rem; padding: .78rem 1.7rem;
+  border-radius: 999px; font-weight: 700; font-size: .98rem; text-decoration: none;
+  transition: transform .2s ease, box-shadow .2s ease; }
+.lp-btn:hover { transform: translateY(-2px); }
+.lp-btn-primary, .lp-btn-primary:hover { color: var(--text-on-primary); background: var(--bg-header);
+  box-shadow: 0 6px 22px color-mix(in srgb, var(--accent) 30%, transparent); }
+.lp-btn-outline { color: var(--text-primary); border: 1.5px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-card) 70%, transparent); }
+.lp-btn-outline:hover { color: var(--text-link); border-color: var(--text-link); }
+
+.lp-body { max-width: 1240px; margin: 0 auto; padding: 0 1.8rem; }
+.lp-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;
+  padding: 2rem 0; text-align: center;
+  border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); }
+.lp-stats div { display: flex; flex-direction: column; gap: .2rem; }
+.lp-num { font-size: 2.4rem; font-weight: 800; letter-spacing: -.03em; line-height: 1;
+  font-variant-numeric: tabular-nums; color: var(--text-link); }
+.lp-label { font-size: 12.5px; color: var(--text-muted); }
+
+.lp-section { padding: 3.2rem 0 1rem; }
+.lp-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--text-link); margin-bottom: .6rem; }
+.lp-h2 { font-size: clamp(1.5rem, 3vw, 2.2rem); font-weight: 800; letter-spacing: -.015em;
+  color: var(--text-primary); margin-bottom: .8rem; text-wrap: balance; }
+.lp-desc { max-width: 640px; color: var(--text-muted); line-height: 1.65; margin-bottom: 2rem; }
+.lp-centre { text-align: center; margin-left: auto; margin-right: auto; }
+
+.lp-chain { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2.5rem;
+  align-items: center; }
+@media (max-width: 991.98px) { .lp-chain { grid-template-columns: 1fr; } }
+.lp-figure { margin: 0; color: var(--text-muted); }
+.lp-figure svg { width: 100%; max-width: 440px; height: auto; display: block; margin: 0 auto; }
+.lp-figure figcaption { font-size: 12.5px; text-align: center; margin-top: .4rem; }
+.lp-node rect { fill: var(--bg-card); stroke: var(--border-color); stroke-width: 1.2; }
+.lp-label text { fill: var(--text-primary); font-size: 13px; font-weight: 600; }
+.lp-aside text { fill: var(--text-muted); font-size: 11.5px; font-style: italic; }
+.lp-lit rect { stroke: var(--accent); }
+.lp-pulse circle { fill: var(--accent); }
+.lp-stamp text { fill: var(--text-link); font-size: 12px; font-style: italic; letter-spacing: .04em; }
+@media (prefers-reduced-motion: reduce) { .lp-motion { display: none; } }
+
+.lp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 1.1rem; }
+.lp-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px;
+  padding: 1.5rem 1.4rem; transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease; }
+.lp-card:hover { transform: translateY(-4px); border-color: var(--text-link);
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--accent) 14%, transparent); }
+.lp-card > i { display: inline-grid; place-items: center; width: 42px; height: 42px; border-radius: 10px;
+  font-size: 1.2rem; color: var(--text-link); margin-bottom: .9rem;
+  background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.lp-card h3 { font-size: 1.02rem; font-weight: 700; color: var(--text-primary); margin-bottom: .45rem; }
+.lp-card p { margin: 0; font-size: 13.8px; line-height: 1.6; color: var(--text-muted); }
+
+.lp-ways-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 1.6rem;
+  align-items: center; }
+@media (max-width: 991.98px) { .lp-ways-grid { grid-template-columns: 1fr; } }
+.lp-ways-list { display: grid; gap: .8rem; }
+.lp-way { display: flex; gap: .9rem; align-items: flex-start; padding: .9rem 1rem; border-radius: 12px;
+  background: var(--bg-card); border: 1px solid var(--border-color); }
+.lp-way i { font-size: 1.3rem; color: var(--text-link); line-height: 1.2; }
+.lp-way strong { display: block; color: var(--text-primary); }
+.lp-way span { font-size: 13px; color: var(--text-muted); }
+/* The code window takes the masthead's gradient, which is dark in every theme,
+   so its text is light in every theme too. */
+.lp-code { border-radius: 14px; overflow: hidden; background: var(--bg-header);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, .25); }
+.lp-code-bar { display: flex; align-items: center; gap: .4rem; padding: .6rem .9rem;
+  background: rgba(0, 0, 0, .25); }
+.lp-code-bar span { width: 10px; height: 10px; border-radius: 50%; background: rgba(255, 255, 255, .3); }
+.lp-code-bar em { margin-left: .6rem; font-style: normal; font-size: 12px; color: var(--text-on-primary); opacity: .8; }
+.lp-code pre { margin: 0; padding: 1.1rem 1.2rem; font-size: 12.8px; line-height: 1.7; background: transparent;
+  border: 0; color: var(--text-on-primary); white-space: pre; overflow-x: auto; }
+.lp-code .k { font-weight: 700; }
+.lp-code .s, .lp-code .f { opacity: .9; font-style: italic; }
+.lp-code .c { opacity: .78; }
+
+.lp-cta { margin-top: 3.4rem; padding: 3.4rem 1.8rem; text-align: center; color: var(--text-on-primary);
+  background: var(--bg-header); }
+.lp-cta h2 { font-size: clamp(1.6rem, 3.4vw, 2.4rem); font-weight: 800; font-style: italic; margin-bottom: .6rem; }
+.lp-cta p { opacity: .9; margin-bottom: 1.6rem; }
+.lp-btn-light, .lp-btn-light:hover { background: var(--text-on-primary); color: #14182E; }
+.lp-btn-ghost, .lp-btn-ghost:hover { color: var(--text-on-primary);
+  border: 1.5px solid color-mix(in srgb, var(--text-on-primary) 60%, transparent); }
+@media (prefers-reduced-motion: reduce) { .lp-btn, .lp-card { transition: none; } }
+
+/* Help centre. */
+.help-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: .9rem; }
+.help-card { display: flex; gap: .8rem; padding: 1rem 1.1rem; border-radius: 12px; text-decoration: none;
+  background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-primary); }
+.help-card:hover { border-color: var(--text-link); }
+.help-card i { font-size: 1.3rem; color: var(--text-link); }
+.help-card strong { display: block; }
+.help-card span { font-size: 13px; color: var(--text-muted); }
+.help-card[hidden] { display: none; }
+.help-doc { max-width: 900px; line-height: 1.65; }
+.help-doc img { max-width: 100%; height: auto; }
+.help-doc table { width: 100%; margin-bottom: 1rem; font-size: 14px; }
+.help-doc th, .help-doc td { border: 1px solid var(--border-color); padding: .35rem .55rem; vertical-align: top; }
+.help-doc pre { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px;
+  padding: .8rem 1rem; overflow-x: auto; }
+.help-toc { font-size: 13px; position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto; }
+.help-toc ul { padding-left: 1rem; }

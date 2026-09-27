@@ -127,7 +127,9 @@ uv venv --python 3.13 && uv sync --extra dev --extra serve
 python run_prama_web.py --init-secret --prepare
 ```
 
-Then open **http://127.0.0.1:8080/estate**.
+Then open **http://127.0.0.1:5900/** — the landing page, with the help centre
+at `/help` — or go straight to the console at `/estate`. The port is
+`server.port` in configuration.
 
 `uv sync` installs what `uv.lock` pins, so a fresh clone gets the set the gate
 last ran green on rather than whatever released this morning. It also *removes*
@@ -227,7 +229,7 @@ Five contributions, targeting **ACM JDIQ** with a **VLDB Industrial** companion 
 ## Status
 
 **Implemented.** Eleven waves are complete; two tasks stay open on infrastructure
-rather than code. The suite is at <!--tests-->5,182 passing, 96 skipped<!--/tests-->,
+rather than code. The suite is at <!--tests-->5,218 passing, 118 skipped<!--/tests-->,
 derived from a green run by `scripts/sync_test_counts.py` rather than typed — a
 count in prose rots the first time somebody adds a test.
 

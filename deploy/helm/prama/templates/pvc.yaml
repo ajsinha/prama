@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE.
 {{- include "prama.validate" . -}}
 {{- if and (eq .Values.database.dialect "sqlite") .Values.persistence.enabled (not .Values.persistence.existingClaim) }}
 apiVersion: v1

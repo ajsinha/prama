@@ -78,6 +78,13 @@ NAVIGATION: tuple[NavItem, ...] = (
 )
 
 
+#: The navigation on the public pages, after Maya's `_nav_public.html`.
+PUBLIC_NAVIGATION: tuple[tuple[str, str, str, str], ...] = (
+    ("Help", "help_index", "/help", "bi-question-circle"),
+    ("About", "about", "/about", "bi-info-circle"),
+)
+
+
 def url_for(request: Request, name: str, **params: Any) -> str:
     """Resolve a route name to a URL, with Flask's semantics.
 
@@ -163,11 +170,24 @@ def render(request: Request, template: str, status_code: int = 200, **context: A
             for item in NAVIGATION
         ],
     )
+    context.setdefault("public_nav", False)
+    context.setdefault(
+        "public_links",
+        [
+            {
+                "label": label,
+                "href": url_for(request, endpoint),
+                "icon": icon,
+                "active": path == prefix or path.startswith(prefix + "/"),
+            }
+            for label, endpoint, prefix, icon in PUBLIC_NAVIGATION
+        ],
+    )
     context.setdefault("theme", chosen_theme(request))
     context.setdefault("density", _preference(request, "prama_density", ("comfortable", "compact")))
     context.setdefault(
         "themes",
-        [{"name": theme.name, "label": theme.label, "note": theme.note} for theme in THEMES],
+        [{"name": t.name, "label": t.label, "note": t.note, "header": t.header} for t in THEMES],
     )
     context.setdefault("app_version", VERSION)
     context.setdefault("app_tagline", PRODUCT_TAGLINE)
@@ -183,6 +203,9 @@ def render(request: Request, template: str, status_code: int = 200, **context: A
         {
             "username": session.get("username", ""),
             "display_name": session.get("display_name", ""),
+            # For the menu only. Every admin page is guarded by its own scope
+            # check; hiding a link is courtesy, not control.
+            "is_admin": bool({"admin", "*"} & set(session.get("scopes", []))),
         }
         if session.get("principal_id")
         else None,
@@ -270,7 +293,7 @@ def install_globals() -> None:
     templates.env.globals["app_version"] = VERSION
     # The switcher needs to know which Bootstrap base each theme sits on, and
     # it is one mapping rather than a rule the JavaScript re-derives — a second
-    # opinion about whether "crimson" is a light theme would show up as one
+    # opinion about whether "maya-crimson" is a light theme would show up as one
     # unreadable dropdown.
     templates.env.globals["theme_bases"] = BASES
     templates.env.globals["app_tagline"] = PRODUCT_TAGLINE

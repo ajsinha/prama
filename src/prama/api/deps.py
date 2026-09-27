@@ -119,6 +119,12 @@ async def get_caller(
         raise refusal
     if record.expires_at is not None and record.expires_at <= utc_now():
         raise refusal
+    # A key acts as its principal, so it is no more usable than they are.
+    # Disabling somebody used to end their console sessions and leave every
+    # key they had minted working — offboarding that stopped at the browser.
+    holder = await uow.principals.get(record.principal_id)
+    if holder is None or holder.status != "active":
+        raise refusal
 
     tenant_context.set(record.tenant_id)
     return CallerIdentity(

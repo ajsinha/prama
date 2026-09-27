@@ -47,6 +47,13 @@ DEFAULTS: dict[str, Any] = {
         # unauthenticated request is then refused rather than guessed at.
         "default_tenant": "",
     },
+    "server": {
+        # The console and the API share one listener. 5900 is Prama's port;
+        # `prama serve`, `run_prama_web.py`, the image and the chart all read
+        # it from here rather than restating it.
+        "host": "127.0.0.1",
+        "port": 5900,
+    },
     "web": {
         "enabled": True,
         "preview": {

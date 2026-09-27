@@ -21,6 +21,7 @@ provable quality conclusions — through a console, a Git repo, or a conversatio
 | **building on it** | [03 Semantic Layer](03-business-semantic-layer.md) and [07 PQL](07-rule-language-spec.md) |
 | **auditing it** | [13 §6.2a](13-security-governance-compliance.md) and `scripts/verify_evidence.py`, which checks evidence without Prama |
 | **asking what is done** | [19 Implementation Roadmap](19-implementation-roadmap.md) — the authority, marker by marker |
+| **asking what is left** | [Remaining work](remaining-work.md) — the open items, ordered; the roadmap stays the authority |
 
 **Every design document opens with an "As built" section** saying what of it
 exists, what does not, and what is built but has never met the real thing. The
