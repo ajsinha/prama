@@ -491,18 +491,35 @@ Design: `docs/design/dq-delegates.md`.
 ## 8. Escape hatches, contained
 
 ```pql
-CHECK CUSTOM SQL """
-  SELECT COUNT(*) AS violating_rows
+CHECK trades CUSTOM SQL """
+  SELECT COUNT(*) FILTER (WHERE settlement_date < trade_date) AS violating_rows,
+         COUNT(*) AS scanned_rows
   FROM {{ dataset }}
-  WHERE settlement_date < trade_date
-""" ASSERT violating_rows = 0
-  ENGINE snowflake, databricks           -- explicitly declares portability limits
+"""
+  ENGINE duckdb, postgres                -- explicitly declares portability limits
   COST high
+  SEVERITY major
 ```
-Custom SQL is: read-only (enforced by parse-level rejection of DDL/DML), parameterised, resource-
-limited, required to return a declared metric shape, tagged with the engines it is valid for, and
-marked in the UI as non-portable. Custom Python/UDF checks are supported in the Spark and Arrow
-backends under the same contract, in a sandbox with no network access.
+
+As built (`prama.pql.custom_sql`):
+
+- **Read-only, enforced at parse time on the syntax tree.**
+  - Exactly one statement, whose root is a query.
+  - No writing or session construct anywhere, including inside a CTE: INSERT, UPDATE, DELETE,
+    MERGE, CREATE, DROP, ALTER, TRUNCATE, GRANT, COPY, SET, SELECT INTO, transactions, and
+    anything the parser cannot classify.
+  - A write keyword inside a string literal is only text.
+- **A declared metric shape.** The query must return `violating_rows`, and may return
+  `scanned_rows`, which a rate threshold needs.
+- **Parameterised.** `{{ dataset }}` becomes the control's table, quoted for the engine.
+- **Engine-tagged.** Compiling for an engine that is not listed is refused, and
+  `ENGINE postgres` means PostgreSQL.
+- **Judged like any other control.** The ordinary threshold clauses (`BELOW 1%`,
+  `AT MOST 5 ROWS`) apply; there is no separate `ASSERT` clause.
+- **Standalone.** It takes no `WHERE` or `FOR EACH`, because the condition belongs in the query.
+  It is not fused into shared scans, and its description says it is non-portable.
+
+Python checks go through delegates (§7a.6), not through this hatch.
 
 ---
 

@@ -148,9 +148,33 @@ Three questions are answered here, each with a design note behind it:
   - Every `sql=` string literal is read by the SQL parser, with `produced_by` set to
     `dag-file:task_id`. A `.sql` file reference is left to the file's own reading.
   - Templated SQL, SQL built at run time, and `EXEC`/`CALL` of a procedure are named gaps.
-- **Still to do in Wave 14:**
-  - COBOL/JCL;
-  - templates and evaluation governance.
+- **Still to do in Wave 14:** templates and evaluation governance.
+
+**Lineage scope (decided 2026-09-27).** Prama adopts the parts of Manta's capability a
+modern bank's data platform needs. It does not try to match Manta's breadth.
+
+- **In scope, built:**
+  - SQL in about twenty dialects, including stored procedures in T-SQL, PL/SQL and DB2 SQL PL;
+  - dbt manifests;
+  - OpenLineage events;
+  - PySpark and pandas jobs;
+  - Airflow DAGs;
+  - SSIS and Informatica PowerCenter exports, stored as *inferred* until verified against real
+    exports.
+- **In scope, to build:**
+  - re-analysing only what a new commit changed;
+  - warehouse query history (Snowflake access history, BigQuery jobs, Databricks Unity Catalog
+    lineage), once live connectors exist;
+  - one BI layer, Power BI;
+  - Tableau, only if a design partner asks.
+- **Out of scope:**
+  - mainframe code of any kind (COBOL, JCL, copybooks);
+  - DataStage, Talend, Ab Initio and SAS;
+  - Cognos and MicroStrategy.
+
+  Such files are still counted in a run's inventory and reported as *not read*, so coverage is
+  never overstated. Scala, Java and shell are not parsed; the checked model pass may propose
+  edges for them, which a person confirms.
 
 **Wave 15, as built so far:**
 
@@ -356,7 +380,7 @@ are relative (S/M/L/XL).
 | Delivers | UI | Gate |
 |---|---|---|
 | **Safe intake** (P1): ZIP upload or git URL plus ref, with credentials from the secrets layer. Refused: zip-slip, bombs and symlinks; git hooks, submodules, `file://` and private addresses. Uploaded code is never executed and parsing runs in a separate resource-limited process. | **Code sources** page: upload or connect, caps and refusal reasons | A hostile-archive corpus is refused with named reasons and nothing is written outside quarantine. A repo whose hooks write a marker leaves no marker. |
-| **Deterministic lineage** (P2): a detector chain covering SQL, stored procedures, dbt, PySpark and pandas (Python syntax trees, parse only), Airflow, Informatica, SSIS, DataStage and Talend, COBOL/JCL and shell; the E4 scanners live here; the gold fixture `bankco-etl` | **Analysis runs** page, and the gap report (what could not be resolved, and why) | Parsers alone reach precision ≥ 0.98 and recall ≥ 0.75, and **recall plus reported gaps covers 100%**: nothing is missed silently. |
+| **Deterministic lineage** (P2): a detector chain covering SQL, stored procedures, dbt, PySpark and pandas (Python syntax trees, parse only), Airflow, Informatica and SSIS (mainframe, DataStage and Talend are out of scope: see the lineage scope above); the E4 scanners live here; the gold fixture `bankco-etl` | **Analysis runs** page, and the gap report (what could not be resolved, and why) | Parsers alone reach precision ≥ 0.98 and recall ≥ 0.75, and **recall plus reported gaps covers 100%**: nothing is missed silently. |
 | **LLM phase 3:** sealed write-only credentials under the CMK; versioned prompt templates with approval; an eval harness that gates activation; replay | Credentials (write-only), templates, evaluations | A template change cannot go live without passing its eval set. Replay reproduces a recorded call. |
 
 ### Wave 15 — Model-assisted lineage, lineage-driven proposals, clouds · L

@@ -83,6 +83,14 @@ class Lowerer:
     def control(self, control: ast.Control, *, source: str = "") -> ControlPlan:
         self._residuals = []
         predicate, kind, detail = self._assertion(control.assertion)
+        if kind == "custom_sql" and (control.where is not None or control.segmentation):
+            raise ValidationError(
+                "a CUSTOM SQL check takes no WHERE or FOR EACH",
+                remedy=(
+                    "Put the condition or the grouping in the query itself. Prama cannot "
+                    "add a filter to SQL it did not write without risking what it means."
+                ),
+            )
         if kind == "delegate" and control.segmentation is not None:
             raise ValidationError(
                 "a delegate control cannot be segmented with FOR EACH",
@@ -180,6 +188,14 @@ class Lowerer:
                     "target_dataset": assertion.target_dataset,
                     "target_column": assertion.target_column,
                 },
+            )
+        if isinstance(assertion, ast.CustomSqlAssertion):
+            # The query is the plan's meaning, so it is part of the plan id: two
+            # custom checks that differ by one character are two controls.
+            return (
+                None,
+                "custom_sql",
+                {"sql": assertion.sql, "engines": list(assertion.engines), "cost": assertion.cost},
             )
         if isinstance(assertion, ast.DelegateAssertion):
             # The delegate's name, pinned version and parameters are the plan's
@@ -465,8 +481,9 @@ class Lowerer:
         if kind == "row_count":
             # The row count *is* the metric; there is no per-row violation.
             return (scanned,)
-        if kind == "delegate":
-            # Both measured by the delegate, not by SQL. Declared so the
+        if kind in ("delegate", "custom_sql"):
+            # Both measured outside the compiler: by the delegate, or by the
+            # author's own query. Declared so the
             # threshold names a metric the plan emits (`unanswerable`).
             return (scanned, Metric(name=VIOLATING, aggregate=MetricAggregate.SUM))
         if kind == "functional_dependency":

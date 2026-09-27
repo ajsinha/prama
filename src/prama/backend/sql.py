@@ -125,7 +125,32 @@ class SqlCompiler:
         with self._scope(qualifier):
             if plan.assertion_kind == "delegate":
                 return self._rows(plan, source, columns)
+            if plan.assertion_kind == "custom_sql":
+                return self._custom(plan, source)
             return self._compile(plan, source)
+
+    def _custom(self, plan: ControlPlan, source: str) -> CompiledControl:
+        """The author's own query, on an engine it names, with its table filled in."""
+        from prama.pql.custom_sql import with_dataset
+
+        engines = [str(e) for e in plan.detail.get("engines") or []]
+        aliases = {"postgres": "postgresql", "pg": "postgresql"}
+        if engines and self.dialect.name not in {aliases.get(e, e) for e in engines}:
+            raise PqlUnsupportedError(
+                f"this CUSTOM SQL is declared for {', '.join(engines)}, not {self.dialect.name}",
+                remedy=(
+                    "Run it on an engine it lists, or add this engine to its ENGINE clause "
+                    "once somebody has checked the SQL means the same thing there."
+                ),
+                context={"dialect": self.dialect.name, "engines": engines},
+            )
+        return CompiledControl(
+            plan_id=plan.plan_id,
+            dialect=self.dialect.name,
+            metric_query=with_dataset(str(plan.detail.get("sql", "")), source),
+            metric_names=("violating_rows", "scanned_rows"),
+            parameters=tuple(sorted(plan.parameters())),
+        )
 
     def _rows(self, plan: ControlPlan, source: str, columns: tuple[str, ...]) -> CompiledControl:
         """A delegate's query: the rows it reads, not a metric.

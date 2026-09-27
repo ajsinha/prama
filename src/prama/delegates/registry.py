@@ -21,6 +21,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import importlib.util
 import inspect
 import sys
@@ -44,6 +45,10 @@ class Admitted:
     delegate: DqDelegate
     origin: str
     implementation_hash: str
+    #: SHA-256 of the whole file it came from, when it came from a file. The
+    #: sandbox refuses to import a file whose bytes no longer match, so a file
+    #: edited between admission and a run cannot run unvetted.
+    source_hash: str = ""
 
     @property
     def name(self) -> str:
@@ -131,7 +136,7 @@ class DelegateRegistry:
         #: Refusals, kept so `prama delegate list` can say why one is missing.
         self.refused: dict[str, str] = {}
 
-    def admit(self, delegate: DqDelegate, *, origin: str = "") -> Admitted:
+    def admit(self, delegate: DqDelegate, *, origin: str = "", source_hash: str = "") -> Admitted:
         from prama.classify.plugins import forbidden_imports, implementation_hash
 
         banned = forbidden_imports(delegate)
@@ -151,7 +156,7 @@ class DelegateRegistry:
                 f"two delegates are called {delegate.name}",
                 remedy="Rename one, or disable the other in delegates.disabled.",
             )
-        admitted = Admitted(delegate, origin, implementation_hash(delegate))
+        admitted = Admitted(delegate, origin, implementation_hash(delegate), source_hash)
         self._admitted[delegate.name] = admitted
         _log.info(
             "admitted delegate %s@%s from %s (%s)",
@@ -194,16 +199,18 @@ class DelegateRegistry:
 
     # -- loading ------------------------------------------------------------
 
-    def _try(self, delegate: DqDelegate, origin: str) -> None:
+    def _try(self, delegate: DqDelegate, origin: str, source_hash: str = "") -> None:
         try:
-            self.admit(delegate, origin=origin)
+            self.admit(delegate, origin=origin, source_hash=source_hash)
         except Exception as exc:
             # Loud, and the others still load: one bad delegate must not take an
             # estate's delegates down with it.
             self.refused[getattr(delegate, "name", "") or origin] = str(exc)
             _log.error("refused delegate from %s: %s", origin, exc)
 
-    def load_paths(self, paths: Iterable[str], *, disabled: Iterable[str] = ()) -> None:
+    def load_paths(
+        self, paths: Iterable[str], *, disabled: Iterable[str] = (), only: str = ""
+    ) -> None:
         from prama.classify.plugins import scan_source
 
         off = {d.strip() for d in disabled}
@@ -214,8 +221,9 @@ class DelegateRegistry:
                 self.refused[str(root)] = "not a directory"
                 _log.error("delegates.paths: %s is not a directory", root)
             for path in files:
-                if path.name.startswith("_"):
+                if path.name.startswith("_") or (only and path.name != only):
                     continue
+                digest = hashlib.sha256(path.read_bytes()).hexdigest()
                 banned = scan_source(str(path))
                 if banned:
                     listed = "; ".join(f"{m} — {why}" for m, why in sorted(set(banned)))
@@ -242,7 +250,7 @@ class DelegateRegistry:
                         and not inspect.isabstract(cls)
                         and cls.name not in off
                     ):
-                        self._try(cls(), f"path:{path}")
+                        self._try(cls(), f"path:{path}", digest)
 
     def load_entry_points(self, *, disabled: Iterable[str] = ()) -> None:
         from importlib.metadata import entry_points

@@ -132,7 +132,11 @@ class Agent:
         started = self._clock.now()
         plan = _plan_stub(assignment)
         try:
-            rows = self._executor(assignment.metric_query)
+            # A delegate's rows are streamed to it below, in batches, rather
+            # than fetched whole here.
+            rows = (
+                [] if plan.assertion_kind == "delegate" else self._executor(assignment.metric_query)
+            )
         except Exception as exc:  # a source that will not answer is a finding
             record = self._error_record(assignment, started, f"{type(exc).__name__}: {exc}")
             return AgentOutcome(
@@ -145,7 +149,12 @@ class Agent:
             try:
                 if self._delegates is None:
                     raise ValueError("this agent has no delegates configured")
-                measured = self._delegates.measure_plan(plan, rows)
+                from prama.delegates.host import batches_of
+
+                measured = self._delegates.measure_stream(
+                    plan,
+                    batches_of(self._executor, assignment.metric_query, self._delegates.batch_rows),
+                )
             except Exception as exc:  # a delegate that cannot answer is a finding
                 record = self._error_record(assignment, started, f"delegate: {exc}")
                 return AgentOutcome(

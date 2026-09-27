@@ -171,7 +171,8 @@ Two dependencies recur throughout.
   2. SSIS `.dtsx` and PowerCenter XML, verified on real anonymised exports from two design
      partners.
   3. One BI layer, Power BI (`.pbit`/TMDL), because Tier-2 banks run Microsoft.
-  4. COBOL copybook field-to-field mapping as a Journey-step enrichment, not a scanner.
+  4. ~~COBOL copybook field-to-field mapping~~: dropped. Mainframe is out of scope (docs/23,
+     "Lineage scope").
 - **Dependencies.** E1. A code-to-lineage harness: a corpus of real procedures with hand-labelled
   edges, and precision/recall per construct published with `prama bench`.
 - **UI.** The scan results view: per-unit coverage, and click-through to the source line behind

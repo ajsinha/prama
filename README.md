@@ -229,7 +229,7 @@ Five contributions, targeting **ACM JDIQ** with a **VLDB Industrial** companion 
 ## Status
 
 **Implemented.** Eleven waves are complete; two tasks stay open on infrastructure
-rather than code. The suite is at <!--tests-->5,826 passing, 118 skipped<!--/tests-->,
+rather than code. The suite is at <!--tests-->5,852 passing, 118 skipped<!--/tests-->,
 derived from a green run by `scripts/sync_test_counts.py` rather than typed — a
 count in prose rots the first time somebody adds a test.
 

@@ -326,10 +326,19 @@ Python DQ checks: list, vet and try them
 
 | Subcommand | What it does |
 |---|---|
+| `prama delegate check` | conformance: everything Prama checks, plus your own cases (for CI) |
 | `prama delegate list` | the delegates this host admitted, and those it refused |
 | `prama delegate scan` | vet delegate files without importing them |
 | `prama delegate test` | run one delegate over rows from a file, exactly as a control would |
 
+**`prama delegate check`**
+
+| Argument | Meaning |
+|---|---|
+| `target` **required** | a delegate .py file or a directory of them |
+| `--cases` | JSON list of cases with expectations |
+| `--large` | rows for the stream test |
+| `--no-sandbox` | run in-process |
 **`prama delegate list`**
 
 | Argument | Meaning |
