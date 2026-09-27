@@ -117,7 +117,7 @@ neither exists:
 ### 2 · Remaining triage batches
 
 Language stack — done: `C4 C6 C7 C8 C11 C12 C13 C15 C18 C19`.
-**Left: `C2 C5 C9 C14 C16 C17 C20 C23`.** (`C1` → Q-117 and `C22` → Q-118, 2026-09-27.)
+**Left: `C2 C5 C14 C16 C17`.** (2026-09-27: `C1` → Q-117, `C22` → Q-118, `C23` → Q-119, `C9` → Q-120, `C20` → Q-121.)
 
 Pick up with:
 

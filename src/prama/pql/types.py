@@ -339,8 +339,8 @@ class TypeChecker:
         assertion = control.assertion
         if isinstance(assertion, ast.PredicateAssertion):
             findings.extend(self._check_predicate(assertion, schema))
-        if control.where is not None:
-            findings.extend(self._check_expression(control.where, schema))
+        for condition in _conditions_of(control):
+            findings.extend(self._check_expression(condition, schema))
         return findings
 
     def _check_predicate(
@@ -583,14 +583,31 @@ def check_calls(node: ast.Expression) -> list[tuple[str, str, str]]:
     return problems
 
 
-def _expressions_of(control: ast.Control) -> list[ast.Expression]:
-    """Everywhere in a control an expression can hide."""
+def _conditions_of(control: ast.Control) -> list[ast.Expression]:
+    """Every boolean condition a control carries: `WHERE`, a `SATISFIES`
+    condition, and a segment's `HAVING`.
+
+    The one list both the type checker and the function checker derive from.
+    Each used to keep its own, and neither was complete: `SATISFIES` was never
+    type-checked and `HAVING` never function-checked (QA C23).
+    """
     found: list[ast.Expression] = []
     if control.where is not None:
         found.append(control.where)
-    assertion = control.assertion
-    for attribute in ("subject", "argument", "upper", "condition"):
-        value = getattr(assertion, attribute, None)
+    condition = getattr(control.assertion, "condition", None)
+    if isinstance(condition, ast.Expression):
+        found.append(condition)
+    if control.segmentation is not None and control.segmentation.having is not None:
+        found.append(control.segmentation.having)
+    return found
+
+
+def _expressions_of(control: ast.Control) -> list[ast.Expression]:
+    """Everywhere in a control an expression can hide: every condition, and a
+    predicate's operands."""
+    found = _conditions_of(control)
+    for attribute in ("subject", "argument", "upper"):
+        value = getattr(control.assertion, attribute, None)
         if isinstance(value, ast.Expression):
             found.append(value)
     return found

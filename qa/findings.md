@@ -2498,3 +2498,55 @@ of 0.001234567 is `0.1234567%` rather than what `* 100` gives in binary. As
 the triage warned, the round trip is tested at seven digits, not only on `5`:
 `:g` is invisible below a million, so a small-value test would pass for the
 wrong reason. `5` is kept as the control.
+
+## Q-119 — two hand-kept lists of where a condition lives, neither complete
+
+**Where** `src/prama/pql/types.py`: `_type_check`, `_expressions_of`.
+**From** `PQL-241` (P1), `PQL-242`; triage batch language-stack `C23`.
+
+Type checking covered `WHERE` only, so a `SATISFIES` condition, the surface
+an Excel formula lands on, was never type-checked. Function checking missed
+`HAVING`, so `HAVING NONSENSE(b) > 1` passed. Both now derive from
+`_conditions_of`, one list of every boolean condition a control carries. The
+regression's control is that the same type mistake in `WHERE` is still caught.
+
+## Q-120 — the compiler remembered the last table it compiled
+
+**Where** `src/prama/backend/sql.py::SqlCompiler`, `src/prama/backend/fuse.py::_empty_group`.
+**From** `BE-034`, `BE-037`; triage batch language-stack `C9`.
+
+`self._source` was set by one call and read by the next:
+- With a scan limit, the correlated subquery was qualified by the whole
+  `(SELECT … LIMIT n)` text, which is a syntax error on every engine. The
+  limited scan is now aliased `prama_scan`, and the outer column names the
+  alias. The PostgreSQL case needed this regardless, because PostgreSQL
+  requires an alias on a derived table.
+- A filter compiled by the fuser inherited whatever table was compiled last.
+  The source is now scoped to one call and restored afterwards, and the
+  fuser passes its own table.
+
+The regression runs the scan-limited referential control on SQLite and
+counts the orphan.
+
+## Q-121 — deep input was a RecursionError, reachable over HTTP
+
+**Where** `pql/parser.py`, `ir/lower.py`, `ir/model.py`, `pql/ast.py`, `backend/dialect.py`.
+**From** `PQL-175`, `PQL-176`, `PQL-177`; triage batch language-stack `C20`.
+
+- Parentheses: nesting is bounded at `MAX_NESTING` (64), with a located
+  refusal.
+- A thousand-term OR: lowering, rendering and the IR walkers each recursed
+  once per term. The IR walkers now iterate over `Expr.walk`, and rendering
+  walks a same-operator run iteratively.
+- AND/OR chains longer than `FLAT_CHAIN` (64) lower to one n-ary node.
+  **Only long ones.** Flattening every chain would change the plan id of
+  every existing control with three ANDs, and plan ids are sealed into
+  evidence.
+- A 500-column key: the same flattening for the null test. **The remaining
+  limit is SQLite's own**: expression depth 1000, and a key column costs
+  three levels. SQLite now refuses keys over 240 columns while compiling,
+  saying why, instead of failing at run time. DuckDB and PostgreSQL run the
+  key.
+
+The tests use 1,000 terms and 500 columns, not 100: Python's default limit is
+1,000 frames, so a small case passes whether or not the walk is recursive.

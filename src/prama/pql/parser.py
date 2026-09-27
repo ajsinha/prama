@@ -77,6 +77,12 @@ COMPARISON_LEVEL = 2
 NOT_LEVEL = 2
 
 
+#: The deepest expression nesting the parser accepts. Far beyond anything a
+#: person writes, and far enough below Python's recursion limit to refuse
+#: cleanly.
+MAX_NESTING = 64
+
+
 class Parser:
     """One PQL source text to a :class:`~prama.pql.ast.Program`."""
 
@@ -87,6 +93,10 @@ class Parser:
         #: True while parsing a selector's condition, where IS begins the
         #: assertion rather than continuing the condition.
         self._in_selector = False
+        #: How deeply expressions are nested: parentheses, call arguments,
+        #: chained NOTs. Bounded, so a pathological input is a located refusal
+        #: rather than a `RecursionError` from an HTTP endpoint (QA C20).
+        self._nesting = 0
 
     # -- entry points ------------------------------------------------------
 
@@ -718,6 +728,24 @@ class Parser:
     # -- expressions -------------------------------------------------------
 
     def _expression(self, level: int = 0) -> ast.Expression:
+        if level == 0 or (level == NOT_LEVEL and self._peek.is_keyword("NOT")):
+            self._nesting += 1
+            try:
+                if self._nesting > MAX_NESTING:
+                    raise self._error(
+                        f"this expression is nested more than {MAX_NESTING} levels deep",
+                        remedy=(
+                            "Flatten it: a condition this deep is almost certainly "
+                            "generated, and the generator can emit IN (…) or AND/OR "
+                            "chains instead of nesting."
+                        ),
+                    )
+                return self._expression_at(level)
+            finally:
+                self._nesting -= 1
+        return self._expression_at(level)
+
+    def _expression_at(self, level: int) -> ast.Expression:
         if level >= len(PRECEDENCE):
             return self._unary()
         if level == NOT_LEVEL and self._peek.is_keyword("NOT"):
