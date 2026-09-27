@@ -132,3 +132,32 @@ class AgtMemory(UlidPrimaryKey, Base):
         UniqueConstraint("steward_id", "kind", "mkey", name="uq_agt_memory_key"),
         CheckConstraint("kind IN ('episodic', 'note')", name="ck_agt_memory_kind"),
     )
+
+
+class CurSuggestion(UlidPrimaryKey, Base):
+    """A model's draft for a declaration's field, waiting for a person."""
+
+    __tablename__ = "cur_suggestion"
+
+    tenant_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False
+    )
+    object_kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    object_id: Mapped[str] = mapped_column(String(26), nullable=False)
+    object_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    field: Mapped[str] = mapped_column(String(64), nullable=False)
+    suggested: Mapped[str] = mapped_column(Text, nullable=False)
+    model: Mapped[str] = mapped_column(String(128), nullable=False, default="")
+    request_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    steward_id: Mapped[str | None] = mapped_column(String(26), nullable=True)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="open")
+    decided_by: Mapped[str | None] = mapped_column(String(26), nullable=True)
+    decided_at: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[str] = mapped_column(String(32), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "state IN ('open', 'accepted', 'rejected', 'stale')", name="ck_cur_suggestion_state"
+        ),
+        Index("ix_cur_suggestion_open", "tenant_id", "state"),
+    )

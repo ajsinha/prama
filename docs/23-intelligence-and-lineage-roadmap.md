@@ -199,7 +199,13 @@ Three questions are answered here, each with a design note behind it:
 - **Approval gates.** A goal with `approve_before_run` parks each task until a person grants it
   (it then runs) or denies it (it fails). Remote agents ask with `/ask`. The console shows open
   approvals. An approval covers the agent's action, never a control.
-- **Still to do in Wave 16:** E8, the curation assistants (glossary and description drafting).
+- **E8, curation assistants (description drafting).** A steward goal, `curation.describe`,
+  drafts a description for each dataset that has none, through the gateway under the purpose
+  `curate`. Drafts land in `cur_suggestion` and appear on the Agents page. Accepting one amends
+  the dataset with the accepting person as its author; the model is named only in the amendment's
+  reason. A draft for a gap that has since been filled becomes `stale` and is not applied.
+  `src/prama/curation/suggestions.py` makes no model call. Glossary drafting waits for the
+  glossary entity (E5).
 
 Before Wave 12, what existed and what these waves build on:
 

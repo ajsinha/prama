@@ -1474,3 +1474,28 @@ CREATE TABLE IF NOT EXISTS agt_memory (
     CONSTRAINT uq_agt_memory_key UNIQUE (steward_id, kind, mkey),
     CONSTRAINT ck_agt_memory_kind CHECK (kind IN ('episodic', 'note'))
 );
+
+-- ===========================================================================
+-- CURATION SUGGESTIONS  (Wave 16, E8)
+-- ===========================================================================
+-- Text a model drafted for a declaration (a missing description), waiting for
+-- a person. Accepting amends the declaration as that person; the model is
+-- named in the reason and here, never as the author.
+CREATE TABLE IF NOT EXISTS cur_suggestion (
+    id            VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id     VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    object_kind   VARCHAR(32)   NOT NULL,
+    object_id     VARCHAR(26)   NOT NULL,
+    object_name   VARCHAR(255)  NOT NULL DEFAULT '',
+    field         VARCHAR(64)   NOT NULL,
+    suggested     TEXT          NOT NULL,
+    model         VARCHAR(128)  NOT NULL DEFAULT '',
+    request_fingerprint VARCHAR(64),
+    steward_id    VARCHAR(26),
+    state         VARCHAR(16)   NOT NULL DEFAULT 'open',
+    decided_by    VARCHAR(26),
+    decided_at    VARCHAR(32),
+    created_at    VARCHAR(32)   NOT NULL,
+    CONSTRAINT ck_cur_suggestion_state CHECK (state IN ('open', 'accepted', 'rejected', 'stale'))
+);
+CREATE INDEX IF NOT EXISTS ix_cur_suggestion_open ON cur_suggestion (tenant_id, state);

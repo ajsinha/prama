@@ -67,7 +67,14 @@ from prama.db.models.semantic_graph import (
     SemRelationship,
     SemRelationshipVersion,
 )
-from prama.db.models.steward import AgtApproval, AgtGoal, AgtMemory, AgtSteward, AgtTask
+from prama.db.models.steward import (
+    AgtApproval,
+    AgtGoal,
+    AgtMemory,
+    AgtSteward,
+    AgtTask,
+    CurSuggestion,
+)
 
 __all__ = [
     "AgtApproval",
@@ -86,6 +93,7 @@ __all__ = [
     "CtlControl",
     "CtlControlVersion",
     "CtlRejection",
+    "CurSuggestion",
     "EvRecord",
     "EvRun",
     "EvSample",
