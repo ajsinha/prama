@@ -29,6 +29,16 @@ class BudgetExhausted(PramaError):
     code = "LLM.BUDGET_EXHAUSTED"
 
 
+class BudgetBusy(BudgetExhausted):
+    """Another server held the budget lease for longer than a request should wait."""
+
+    code = "LLM.BUDGET_BUSY"
+
+
+#: How long a request waits for the tenant's budget lease before giving up.
+LEASE_WAIT_SECONDS = 5.0
+
+
 def cost_micros(price: Any, input_tokens: int, output_tokens: int) -> int:
     """Micro-units for a call at *price* (micro-units per million tokens). Rounded up."""
     if price is None:
@@ -113,6 +123,94 @@ def refusal(tenant_id: str, purpose: str, request: Any, caller: Any, detail: str
         api_key_id=getattr(caller, "api_key_id", None),
         outcome_detail=detail[:1000],
     )
+
+
+def _scopes(principal_id: str | None, api_key_id: str | None, profile_id: str | None) -> list[str]:
+    scopes = ["tenant:"]
+    for kind, value in (
+        ("principal", principal_id),
+        ("api_key", api_key_id),
+        ("profile", profile_id),
+    ):
+        if value:
+            scopes.append(f"{kind}:{value}")
+    return scopes
+
+
+async def admit(
+    database: Any,
+    tenant_id: str,
+    purpose: str,
+    request: Any,
+    *,
+    principal_id: str | None,
+    api_key_id: str | None,
+    holder: str,
+) -> tuple[list[str], str | None]:
+    """Check the budgets and reserve this call's estimate, fleet-wide.
+
+    Under the tenant's budget lease and in a transaction of its own, so the
+    reservation is visible to every other server before this call is made:
+    two servers cannot each spend the last of a budget. Returns the warnings
+    and the reservation to release when the call ends.
+    """
+    import asyncio
+
+    leases = database.lease_provider()
+    resource = f"llm-budget:{tenant_id}"
+    deadline = asyncio.get_running_loop().time() + LEASE_WAIT_SECONDS
+    lease = await leases.acquire(resource, holder, 30.0)
+    while lease is None:
+        if asyncio.get_running_loop().time() > deadline:
+            raise BudgetBusy(
+                "the model budget is being checked by another request",
+                remedy="Retry in a moment.",
+                context={"tenant": tenant_id},
+            )
+        await asyncio.sleep(0.05)
+        lease = await leases.acquire(resource, holder, 30.0)
+    try:
+        async with database.unit_of_work() as uow:
+            current = await uow.llm.current(tenant_id, purpose)
+            profile_id = current[0].id if current else None
+            warnings = await check(
+                uow,
+                tenant_id,
+                principal_id=principal_id,
+                api_key_id=api_key_id,
+                profile_id=profile_id,
+            )
+            if not await uow.llm.budgets(tenant_id):
+                return warnings, None  # nothing to protect, nothing to reserve
+            estimate_tokens = (len(request.system) + len(request.prompt)) // 4 + request.max_tokens
+            micros = 0
+            if current and current[1].routes:
+                first = current[1].routes[0]
+                price = await uow.llm.price_for(tenant_id, first.provider_id, first.model, _now())
+                micros = cost_micros(
+                    price, estimate_tokens - request.max_tokens, request.max_tokens
+                )
+            reservation = await uow.llm.reserve(
+                tenant_id,
+                _scopes(principal_id, api_key_id, profile_id),
+                micros=micros,
+                tokens=estimate_tokens,
+                seconds=120,
+            )
+            return warnings, str(reservation.id)
+    finally:
+        await leases.release(lease)
+
+
+async def release(database: Any, tenant_id: str, reservation_id: str | None) -> None:
+    if reservation_id is None:
+        return
+    async with database.unit_of_work() as uow:
+        await uow.llm.release_reservation(tenant_id, reservation_id)
+
+
+def _now() -> str:
+    return datetime.now(UTC).isoformat(timespec="milliseconds")
 
 
 async def costed(uow: Any, record: CallRecord) -> CallRecord:

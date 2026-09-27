@@ -98,3 +98,19 @@ async def test_the_route_needs_llm_use(
     ):
         reply = await http.post("/llm/chat", json={"purpose": "author", "prompt": "p"})
         assert reply.status_code == 403
+
+
+async def test_a_reservation_counts_as_spend_until_released(
+    started_database: Database, tenant_id: str
+) -> None:
+    """The fleet-wide half: another server's call in flight is visible spend."""
+    await _configure(started_database, tenant_id, ["a"])
+    async with started_database.unit_of_work() as uow:
+        await uow.llm.set_budget(tenant_id, scope_kind="tenant", limit_tokens=5000)
+        before = await uow.llm.spend(tenant_id, "2000-01-01")
+        held = await uow.llm.reserve(tenant_id, ["tenant:"], micros=10, tokens=4000, seconds=60)
+        during = await uow.llm.spend(tenant_id, "2000-01-01")
+        await uow.llm.release_reservation(tenant_id, held.id)
+        after = await uow.llm.spend(tenant_id, "2000-01-01")
+    assert during == (before[0] + 10, before[1] + 4000)
+    assert after == before  # the control: released, it no longer counts

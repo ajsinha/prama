@@ -89,15 +89,17 @@ async def chat(body: ChatIn, caller: LlmUser, uow: Uow, request: Request) -> Cha
             status_code=422, detail=f"unknown sensitivity {body.sensitivity!r}"
         ) from exc
 
-    current = await uow.llm.current(caller.tenant_id, body.purpose)
     question = ModelRequest(system=body.system, prompt=body.prompt, sensitivity=sensitivity)
+    database = request.app.state.database
     try:
-        warnings = await budget.check(
-            uow,
+        warnings, reservation = await budget.admit(
+            database,
             caller.tenant_id,
+            body.purpose,
+            question,
             principal_id=caller.principal_id,
             api_key_id=caller.api_key_id,
-            profile_id=current[0].id if current else None,
+            holder=caller.api_key_id or caller.principal_id or "console",
         )
     except budget.BudgetExhausted as exc:
         # Recorded, then answered, rather than raised: raising rolls the unit
@@ -124,7 +126,14 @@ async def chat(body: ChatIn, caller: LlmUser, uow: Uow, request: Request) -> Cha
         # slow model does not stall every other request this server is serving.
         response = await asyncio.to_thread(gateway.run, body.purpose, question)
     finally:
-        await persist(uow, caller.tenant_id, ledger)
+        # The record and the release in one short transaction of their own:
+        # the reservation was written outside the request's transaction so
+        # other servers could see it, and releasing it from there while the
+        # request held a write would deadlock a single-writer engine.
+        async with database.unit_of_work() as own:
+            await persist(own, caller.tenant_id, ledger)
+            if reservation is not None:
+                await own.llm.release_reservation(caller.tenant_id, reservation)
     return ChatOut(
         text=response.text,
         model=response.model,
