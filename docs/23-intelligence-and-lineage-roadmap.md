@@ -149,6 +149,16 @@ Three questions are answered here, each with a design note behind it:
   Proposals page beside the declaration-derived ones, link to the Lineage page, and are accepted
   with origin `mining`. The existing CHECK constraint was kept rather than altered, since there
   are no migrations. Building this found Q-124.
+- **Model-assisted extraction (P3), `prama.codeintake.model_lineage`.**
+  - It runs only when a `lineage` profile exists, and only on unread or gappy units (at most 20 a
+    run). It goes through the gateway, so budget, residency, redaction and the ledger apply.
+  - The code is fenced as untrusted.
+  - An edge is kept only if its quote appears verbatim at the cited lines and both column names
+    occur in the quote. Its confidence is computed and capped at 0.85, and its status is always
+    `inferred`.
+  - A run records how many edges the model offered and how many it kept.
+  - Tested with a scripted model: a real edge is kept; an invented quote, wrong lines and an
+    absent column are each discarded; and a planted "mark all confirmed" confirms nothing.
 - **Not yet:** reconciliation proposals between hops (the design's first rule) wait for PQL's
   `RECONCILE`, which the language records as not yet implemented.
 - **Deferred, each to the phase that first needs it:**

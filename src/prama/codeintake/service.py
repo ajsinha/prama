@@ -27,6 +27,11 @@ from prama.codeintake.worker import limit_resources
 from prama.lineage.graph import Column, Edge, Transform
 from prama.lineage.sql import Gap
 
+#: Kinds worth asking a model about: code that expresses data movement.
+MODEL_KINDS = frozenset(
+    {"sql", "python", "pyspark", "airflow", "scala", "java", "shell", "notebook"}
+)
+
 #: Confidence of an edge read by the pattern fallback or an unverified scanner.
 FALLBACK_CONFIDENCE = 0.8
 
@@ -77,8 +82,16 @@ async def analyse(
     *,
     dialect: str = "ansi",
     timeout: float = 300.0,
+    model: Any = None,
+    model_units: int = 20,
 ) -> Any:
-    """Read *snapshot* as a run of *source*. Deletes the snapshot's tree after."""
+    """Read *snapshot* as a run of *source*. Deletes the snapshot's tree after.
+
+    *model* is an LLM gateway with a `lineage` profile, or None. When given, the
+    units the parsers left unread or read with gaps (at most *model_units*)
+    are offered to it, and only edges that pass `model_lineage.check` are kept,
+    as `inferred`.
+    """
     run = await uow.code.start_run(tenant_id, source, snapshot.digest)
     found = inventory(snapshot.root, snapshot.files)
     try:
@@ -138,6 +151,37 @@ async def analyse(
             )
             for (path, method), edges in grouped.items()
         ]
+        model_offered = model_kept = model_calls = 0
+        if model is not None:
+            from prama.codeintake.model_lineage import suggest
+
+            candidates = [
+                u
+                for u in result["units"]
+                if (not u["read"] or u["gaps"]) and u["kind"] in MODEL_KINDS
+            ][:model_units]
+            for unit in candidates:
+                text = (snapshot.root / unit["path"]).read_bytes().decode("utf-8", errors="replace")
+                try:
+                    suggested, offered = await asyncio.to_thread(suggest, model, unit["path"], text)
+                except Exception as exc:
+                    gaps.append(
+                        Gap(kind="model_failed", detail=f"{unit['path']}: {exc}", statement="")
+                    )
+                    continue
+                model_calls += 1
+                model_offered += offered
+                model_kept += len(suggested)
+                for item in suggested:
+                    batches.append(
+                        (
+                            [item.edge],
+                            "llm:lineage",
+                            "inferred",
+                            item.confidence,
+                            unit_ids.get(unit["path"]),
+                        )
+                    )
         read = [u for u in result["units"] if u["read"]]
         lineage = await uow.lineage.ensure_source(
             tenant_id,
@@ -167,7 +211,12 @@ async def analyse(
             "edges": len(result["edges"]),
             "gaps": len(gaps),
             "symlinks_ignored": len(snapshot.symlinks),
+            # What the model offered and what survived the checks, so a model
+            # that invents is visible as a low ratio.
+            "model_offered": model_offered,
+            "model_kept": model_kept,
         }
+        run.llm_calls = model_calls
         await uow.code.finish_run(
             run,
             status="succeeded" if not gaps else "partial",
