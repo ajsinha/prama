@@ -31,6 +31,7 @@ from prama.llm.providers import (
     AnthropicProvider,
     AzureOpenAiProvider,
     BedrockProvider,
+    MockProvider,
     NullProvider,
     OpenAiCompatibleProvider,
     ScriptedProvider,
@@ -48,6 +49,7 @@ KINDS: dict[str, str] = {
     "azure_openai": "Azure OpenAI: a deployment in your Azure tenant (model = deployment name)",
     "vertex": "Google Vertex AI's OpenAI-compatible endpoint (credential = access token)",
     "scripted": "fixed answers, for demonstrations and tests",
+    "mock": "a placeholder that answers with nothing; what Prama uses when no LLM is configured",
     "none": "no model: every feature falls back to its deterministic path",
 }
 
@@ -167,6 +169,8 @@ def build(
             region=spec.region,
             **extra,
         )
+    if spec.kind == "mock":
+        return MockProvider()
     if spec.kind == "scripted":
         return ScriptedProvider(list(spec.settings.get("answers", [])))
     return NullProvider()

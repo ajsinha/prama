@@ -20,6 +20,13 @@ prama llm provider add vendor --kind anthropic --hosting hosted \
     --credential-ref env://ANTHROPIC_API_KEY
 ```
 
+- **No model configured? The mock.** When a purpose has no profile, Prama routes it to a built-in
+  **mock** model. The mock always answers with **nothing**, plus a note saying that no LLM is
+  configured. This is deliberate: a placeholder that produced words would be stored or shown as
+  if it were a real answer. Every model-assisted extra quietly does not appear. Deterministic
+  controls, verdicts and evidence never depend on a model, so they are unaffected. Each call is
+  still recorded in the call ledger as `mock`. You can also name the mock explicitly with
+  `--kind mock`.
 - **Amazon Bedrock**: `--kind bedrock --hosting tenant` with the AWS region in the provider's
   settings (`aws_region`) and a credential reference resolving to
   `ACCESS_KEY_ID:SECRET_ACCESS_KEY[:SESSION_TOKEN]`. Requests are signed with SigV4, checked against

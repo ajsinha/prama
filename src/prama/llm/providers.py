@@ -38,6 +38,40 @@ from prama.secrets.value import SecretValue
 from prama.security.egress import Gate
 
 
+class MockProvider(ModelProvider):
+    """The placeholder model Prama uses when no LLM is configured for a purpose.
+
+    It answers every request with **no text**, and says why in `incomplete`.
+    That is deliberate: a placeholder that returned words would be stored as a
+    description, offered as lineage or shown as advice, and nobody could tell
+    it from a real answer. With no text, every feature takes the path it
+    already has for "no answer": the deterministic controls run unchanged and
+    the model-assisted extras simply do not appear. The call is still recorded
+    in the ledger, as `mock`, so "why did the assistant say nothing?" has an
+    answer.
+    """
+
+    name: ClassVar[str] = "mock"
+    hosting: ClassVar[Hosting] = Hosting.SELF_HOSTED
+
+    def __init__(self, purpose: str = "") -> None:
+        self.purpose = purpose
+
+    def complete(self, request: Request) -> Response:
+        what = f" for {self.purpose!r}" if self.purpose else ""
+        return Response(
+            text="",
+            model="mock",
+            provider=self.name,
+            request_fingerprint=request.fingerprint,
+            incomplete=(
+                f"no LLM is configured{what}, so the mock model answered with nothing. "
+                "Add a provider and a profile on the Models page to use a real model; "
+                "everything that does not need one works as it is"
+            ),
+        )
+
+
 class NullProvider(ModelProvider):
     """No model at all, declining politely.
 
