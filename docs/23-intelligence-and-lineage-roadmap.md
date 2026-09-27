@@ -159,6 +159,13 @@ Three questions are answered here, each with a design note behind it:
   - A run records how many edges the model offered and how many it kept.
   - Tested with a scripted model: a real edge is kept; an invented quote, wrong lines and an
     absent column are each discarded; and a planted "mark all confirmed" confirms nothing.
+- **Cloud providers (LLM phase 4).**
+  - **Amazon Bedrock** (`kind: bedrock`, the Converse API). SigV4 is written in the standard
+    library (`prama.llm.sigv4`) and verified against AWS's published worked example: the
+    canonical-request hash, the signing key and the signature all match.
+  - OpenAI, the Hugging Face router or endpoints, and other OpenAI-shaped APIs use
+    `openai_compatible` with hosted hosting. Anthropic was already native.
+  - Azure OpenAI's deployment paths and Vertex remain to do.
 - **Not yet:** reconciliation proposals between hops (the design's first rule) wait for PQL's
   `RECONCILE`, which the language records as not yet implemented.
 - **Deferred, each to the phase that first needs it:**
