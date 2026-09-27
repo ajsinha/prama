@@ -15,6 +15,40 @@
 {% block content %}
 <section class="lp-hero">
   <div class="lp-hero-inner">
+    {# The mark, animated: a broken beam of unverified data enters the prism and
+       leaves resolved into the quality dimensions. CSS only; the resting frame is
+       the complete figure, so it reads without motion or script. #}
+    <div class="lp-prism" aria-hidden="false">
+      <svg viewBox="0 0 640 176" role="img" aria-label="Raw data enters the Pramana prism and leaves as six proven quality dimensions">
+        <defs>
+          <linearGradient id="lp-prism-edge" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="var(--accent)"/><stop offset="1" stop-color="var(--text-link)"/>
+          </linearGradient>
+        </defs>
+        <line class="lp-prism-raw" x1="24" y1="100" x2="238" y2="100"/>
+        <text class="lp-prism-caption" x="24" y="88">unverified data</text>
+        <path class="lp-prism-glass" d="M262 20 L318 152 L206 152 Z"/>
+        <line class="lp-prism-inner" x1="240" y1="100" x2="294" y2="100"/>
+      <line class="lp-ray" style="--ray: var(--dim-completeness, #00B3A4); --i: 0" x1="296" y1="100" x2="470" y2="34"/>
+      <line class="lp-ray-pulse" style="--ray: var(--dim-completeness, #00B3A4); --i: 0" x1="296" y1="100" x2="470" y2="34"/>
+      <line class="lp-ray" style="--ray: var(--dim-validity, #2FB673); --i: 1" x1="296" y1="100" x2="470" y2="58"/>
+      <line class="lp-ray-pulse" style="--ray: var(--dim-validity, #2FB673); --i: 1" x1="296" y1="100" x2="470" y2="58"/>
+      <line class="lp-ray" style="--ray: var(--dim-uniqueness, #8CBF3F); --i: 2" x1="296" y1="100" x2="470" y2="82"/>
+      <line class="lp-ray-pulse" style="--ray: var(--dim-uniqueness, #8CBF3F); --i: 2" x1="296" y1="100" x2="470" y2="82"/>
+      <line class="lp-ray" style="--ray: var(--dim-consistency, #E8B33A); --i: 3" x1="296" y1="100" x2="470" y2="106"/>
+      <line class="lp-ray-pulse" style="--ray: var(--dim-consistency, #E8B33A); --i: 3" x1="296" y1="100" x2="470" y2="106"/>
+      <line class="lp-ray" style="--ray: var(--dim-accuracy, #E8823A); --i: 4" x1="296" y1="100" x2="470" y2="130"/>
+      <line class="lp-ray-pulse" style="--ray: var(--dim-accuracy, #E8823A); --i: 4" x1="296" y1="100" x2="470" y2="130"/>
+      <line class="lp-ray" style="--ray: var(--dim-timeliness, #D9534F); --i: 5" x1="296" y1="100" x2="470" y2="154"/>
+      <line class="lp-ray-pulse" style="--ray: var(--dim-timeliness, #D9534F); --i: 5" x1="296" y1="100" x2="470" y2="154"/>
+      <text class="lp-prism-label" style="--i: 0" x="480" y="38">completeness</text>
+      <text class="lp-prism-label" style="--i: 1" x="480" y="62">validity</text>
+      <text class="lp-prism-label" style="--i: 2" x="480" y="86">uniqueness</text>
+      <text class="lp-prism-label" style="--i: 3" x="480" y="110">consistency</text>
+      <text class="lp-prism-label" style="--i: 4" x="480" y="134">accuracy</text>
+      <text class="lp-prism-label" style="--i: 5" x="480" y="158">timeliness</text>
+      </svg>
+    </div>
     <div class="lp-badge"><i class="bi bi-circle-fill" aria-hidden="true"></i>
       {{ app_tagline }} · version {{ app_version }}</div>
     <h1 class="lp-title">Data quality the business declares,<br>
