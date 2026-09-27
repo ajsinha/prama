@@ -52,6 +52,23 @@ Three questions are answered here, each with a design note behind it:
   - It is off unless `scheduler.enabled`, `scheduler.against` and a default tenant are set.
   - The Schedule page shows the recent ticks and has a "run a tick now" button.
 - **Wave 12 is complete.**
+
+**Wave 13, as built so far:**
+
+- **E3, the change gate.** `prama lineage impact --diff before.sql after.sql` finds the columns
+  whose feeding changed and follows them through the estate's lineage. It names the controls
+  and attestations on every affected dataset and exits 3 if any is at risk. `/api/v1/lineage/impact`
+  answers the same question over the API. Filter dependents are listed as affected, not waived
+  (a dropped column breaks every query filtering on it). This departs from the design note on
+  purpose.
+- **E2, ingestion.**
+  - `POST /api/v1/lineage/openlineage` (`relationship:write`) stores a RunEvent's column-lineage
+    facet. There is one source per job, so an event never closes another job's edges, and a
+    replay is idempotent.
+  - `prama lineage ingest-dbt manifest.json` reads compiled models through the SQL parser. An
+    uncompiled model is a gap; Prama never renders a project's Jinja.
+  - Warehouse access-history readers (Snowflake, Databricks, BigQuery) wait on those connectors
+    meeting a live account (remaining-work §4).
 - **Deferred, each to the phase that first needs it:**
   - The transport-module extraction, multi-turn messages and JSON-schema validation go to
     Wave 13, with the new wire formats.

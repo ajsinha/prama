@@ -133,3 +133,50 @@ class TestErrorHandling:
     def test_a_prama_error_becomes_a_clean_exit_code(self, tmp_path: Path) -> None:
         code, _ = run(["--config", str(tmp_path / "absent.yaml"), "config", "show"])
         assert code == EXIT_ERROR
+
+
+def test_lineage_impact_diff_exits_zero_when_nothing_is_at_risk(tmp_path, sqlite_config) -> None:  # type: ignore[no-untyped-def]
+    """The CLI half of the change gate: a diff with nothing controlled is exit 0."""
+    import asyncio
+
+    from prama.cli import main
+    from prama.db import Database
+
+    before, after = tmp_path / "b.sql", tmp_path / "a.sql"
+    before.write_text("INSERT INTO stg.a (amt) SELECT t.notional FROM raw.trades t")
+    after.write_text("INSERT INTO stg.a (amt) SELECT t.qty FROM raw.trades t")
+    database = Database.from_config(sqlite_config)
+    database.initialise(applied_by="test")
+
+    async def tenant() -> str:
+        await database.start()
+        async with database.unit_of_work() as uow:
+            row = uow.tenants.create(slug="acme", display_name="Acme")
+            await uow.flush()
+            identifier = str(row.id)
+        await database.stop()
+        return identifier
+
+    tid = asyncio.run(tenant())
+    config = tmp_path / "c.yaml"
+    config.write_text(
+        "database: {dialect: sqlite, sqlite: {path: "
+        + sqlite_config.get_str("database.sqlite.path")
+        + "}, schema_dir: "
+        + sqlite_config.get_str("database.schema_dir")
+        + "}\n"
+    )
+    code = main(
+        [
+            "--config",
+            str(config),
+            "lineage",
+            "impact",
+            "--diff",
+            str(before),
+            str(after),
+            "--tenant",
+            tid,
+        ]
+    )
+    assert code == 0

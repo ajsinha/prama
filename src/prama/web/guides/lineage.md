@@ -16,6 +16,25 @@ SQL is read with a real parser that understands about twenty dialects. It follow
 CTEs and subqueries to the table it came from. A statement the parser cannot read is handled by a
 simpler pattern reader, and its edges are marked **inferred** for a person to check.
 
+## Lineage you already have
+
+```bash
+prama lineage ingest-dbt target/manifest.json --source jaffle_shop   # after `dbt compile`
+```
+
+Orchestrators that emit **OpenLineage** (Airflow, Spark, Marquez) can send events straight to
+`POST /api/v1/lineage/openlineage` with an API key holding `relationship:write`. Each job's column
+lineage is stored as its own source, and replaying an event changes nothing.
+
+## Will this change break anything?
+
+```bash
+prama lineage impact --diff old/load_stg.sql new/load_stg.sql
+```
+
+Lists what the change reaches, and the controls and attestations on it. It exits 3 when any is at
+risk, so a CI pipeline can stop the change.
+
 ## How an edge is known
 
 | Status | Meaning |
