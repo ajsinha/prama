@@ -68,6 +68,11 @@ def _number(value: Any) -> Decimal | None:
     return None
 
 
+#: The public name, for the reference interpreter's operators: one arithmetic
+#: model for the whole language (QA C1).
+exact_number = _number
+
+
 def _strict_number(value: Any) -> Any:
     number = _number(value)
     return UNSET if number is None else number

@@ -319,3 +319,59 @@ class TestAnErasureIsItselfTamperEvident:
         result = run_verifier(str(self.erased_bundle(tmp_path)))
         assert "links to the one before it" in result.stdout
         assert result.returncode == 0
+
+
+class TestTheTwoVerifiersAgree:
+    """QA C4 (`EVD-006`, `EVD-014`, `EVD-144`): the verifier that needs no Prama
+    and Prama's own must reach the same answer, or "checkable without Prama"
+    is a claim about one of them only."""
+
+    @staticmethod
+    def _bundle(tmp_path: Path, dataset: str) -> Path:
+        ledger = Ledger()
+        ledger.append(
+            EvidenceRecord(
+                plan_id="ir:sha256:" + "a" * 64,
+                control_id="ctl-1",
+                dataset=dataset,
+                binding="pg://RISK.POSITIONS",
+                engine="postgresql",
+                snapshot=SnapshotRef(kind="lsn", identifier="0/1", exact=True),
+                verdict="pass",
+                metrics={"scanned_rows": 10.0, "violating_rows": 0.0},
+                started_at="2026-04-02T06:31:00Z",
+                finished_at="2026-04-02T06:31:02Z",
+                duration_ms=10,
+                tenant_id="tenant-a",
+            )
+        )
+        bundle = Archivist().bundle(ledger.records(), tenant_id="tenant-a")
+        out = tmp_path / "bundle"
+        out.mkdir()
+        for name, content in bundle.files().items():
+            (out / name).write_text(content, encoding="utf-8")
+        return out
+
+    @staticmethod
+    def _prama_says(bundle: Path) -> bool:
+        from prama.evidence.ledger import verify
+
+        lines = (bundle / "evidence.ndjson").read_text(encoding="utf-8").splitlines()
+        return not verify(json.loads(line) for line in lines if line.strip()).breaches
+
+    def test_a_non_ascii_record_verifies_in_both(self, tmp_path: Path) -> None:
+        bundle = self._bundle(tmp_path, "münchen.positionen")
+        assert self._prama_says(bundle)
+        result = run_verifier(str(bundle))
+        assert result.returncode == 0, result.stdout
+
+    def test_an_added_field_is_a_breach_in_both(self, tmp_path: Path) -> None:
+        bundle = self._bundle(tmp_path, "positions_eod")
+        assert self._prama_says(bundle)  # the control: untouched, both pass
+        assert run_verifier(str(bundle)).returncode == 0
+        path = bundle / "evidence.ndjson"
+        record = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
+        record["note"] = "approved by treasury"
+        path.write_text(json.dumps(record, sort_keys=True, separators=(",", ":")), encoding="utf-8")
+        assert not self._prama_says(bundle)
+        assert run_verifier(str(bundle)).returncode == 1

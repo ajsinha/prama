@@ -19,9 +19,24 @@ from __future__ import annotations
 
 import dataclasses
 import enum
+from decimal import Decimal
 from typing import Any, Final
 
 from prama.pql.errors import Position
+
+
+def exact(value: Any, *, scale: int = 1) -> str:
+    """A number as text that re-reads as the same number.
+
+    Replaces `:g`, which keeps six significant figures: `1234567` rendered as
+    `1.23457e+06` and re-read as 1234570 (QA C22). *scale* is exact too, so a
+    rate of 0.001234567 is 0.1234567%, not whatever `* 100` in binary gives.
+    """
+    number = Decimal(repr(value)) if isinstance(value, float) else Decimal(value)
+    number *= scale
+    if number == number.to_integral_value():
+        return str(int(number))
+    return format(number.normalize(), "f")
 
 
 class Severity(enum.Enum):
@@ -200,7 +215,7 @@ class Literal(Expression):
         if self.literal_type == "null":
             return "NULL"
         if self.literal_type == "percentage":
-            return f"{self.value * 100:g}%"
+            return f"{exact(self.value, scale=100)}%"
         if self.literal_type == "boolean":
             return "TRUE" if self.value else "FALSE"
         if self.literal_type == "pattern":
@@ -658,25 +673,25 @@ class Threshold(Node):
 
     def render(self) -> str:
         if self.unit == "rows":
-            return f"AT MOST {self.value:g} ROWS"
+            return f"AT MOST {exact(self.value)} ROWS"
         if self.unit in ("rate", "percent"):
-            return f"BELOW {self.value * 100:g}%"
+            return f"BELOW {exact(self.value, scale=100)}%"
         if self.unit == "amount":
-            return f"WITHIN {self.value:g} {self.currency}".rstrip()
-        return f"WITHIN {self.value:g} SIGMA"
+            return f"WITHIN {exact(self.value)} {self.currency}".rstrip()
+        return f"WITHIN {exact(self.value)} SIGMA"
 
     def describe(self) -> str:
         if self.unit == "rows":
             return (
                 "no violations are allowed"
                 if self.value == 0
-                else f"up to {self.value:g} violating rows are tolerated"
+                else f"up to {exact(self.value)} violating rows are tolerated"
             )
         if self.unit in ("rate", "percent"):
-            return f"up to {self.value * 100:g}% of rows may violate it"
+            return f"up to {exact(self.value, scale=100)}% of rows may violate it"
         if self.unit == "amount":
-            return f"differences up to {self.value:g} {self.currency} are tolerated".rstrip()
-        return f"a departure beyond {self.value:g} standard deviations is a failure"
+            return f"differences up to {exact(self.value)} {self.currency} are tolerated".rstrip()
+        return f"a departure beyond {exact(self.value)} standard deviations is a failure"
 
     @property
     def is_strict(self) -> bool:

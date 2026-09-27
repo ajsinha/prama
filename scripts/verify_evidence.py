@@ -51,7 +51,12 @@ def canonical(payload: dict) -> bytes:
     as forged.
     """
     body = {k: v for k, v in payload.items() if k not in NOT_CONTENT}
-    return json.dumps(body, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    # UTF-8, not \uXXXX escapes: Prama writes `münchen.positionen` as its
+    # UTF-8 bytes, and escaping it here made every non-ASCII record read as
+    # altered (QA C4, EVD-006).
+    return json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode(
+        "utf-8"
+    )
 
 
 def sha256_hex(data: bytes) -> str:

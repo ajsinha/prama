@@ -238,7 +238,22 @@ def verify(payloads: Iterable[dict[str, Any]]) -> Verification:
             # the hash the content had, which is what keeps the chain whole.
             erased += 1
         stored_content = str(payload.get("content_hash", ""))
-        if record.content_hash != stored_content:
+        # A field this record's version does not define is an alteration.
+        # `from_dict` keeps only the fields it knows, so rehashing the rebuilt
+        # record could not see `"note": "approved by treasury"` added to a
+        # stored record, while the independent verifier, which hashes what it
+        # finds, could (QA C4, EVD-014).
+        unknown = sorted(set(payload) - set(record.to_dict()))
+        if unknown:
+            breaches.append(
+                Breach(
+                    "content",
+                    sequence,
+                    f"the record carries field(s) its version does not define: "
+                    f"{', '.join(unknown)}; this record has been altered",
+                )
+            )
+        elif record.content_hash != stored_content:
             breaches.append(
                 Breach(
                     "content",

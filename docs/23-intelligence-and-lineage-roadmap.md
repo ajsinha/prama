@@ -57,7 +57,7 @@ differentiator claimed in [21](21-how-we-win.md), cannot be demonstrated until t
 - It defaults to *self-hosted*, so pointing it at a vendor endpoint would skip residency checks.
 - Redaction runs on answers but not on prompts.
 
-**3. Alation-style catalog breadth is not where Prama should compete.** Search, popularity as a
+**3. Breadth is not the goal.** The owner has accepted that Prama will not match Manta's scanner count or Alation's catalog breadth. The aim is adoption: be excellent at the regulated-bank path from code to evidence. **Alation-style catalog breadth is not where Prama should compete.** Search, popularity as a
 quality signal, raw scanner count, access policy, and model-inferred lineage presented as fact are
 all deliberately *not* chased. A Tier-2 bank does need these to buy:
 
@@ -113,6 +113,7 @@ are relative (S/M/L/XL).
 |---|---|---|
 | **LLM phase 1:** additive SPI (messages, usage, capabilities, response schema, token estimates) with pinned fingerprints; a single egress module `llm/transport.py`; OpenAI-compatible dialects for vLLM, Ollama, llama.cpp, LM Studio and TGI, with honest `grammar_enforced`; hosting is a required field; tables `llm_provider`, `llm_profile(_version, _route)`, `llm_call`; routing, timeouts, retries, fallback; `ProfileProvider` wired into the assistant and the inducer; `llm.offline` | **Models** page: providers (test connection), profiles (purpose → provider + model + params), recent calls | The three defects above each have a failing-then-passing test. An import-direction test proves that no verdict-producing module can reach `prama.llm`. |
 | **E1 — lineage store and workbench:** `lin_edge` with history, provenance and confidence; `lineage/graph.py` fed from it; `blast_radius`, `score/trust.py` and `incident/rca.py` given real callers | **Lineage workbench:** a column-level graph, edge detail with provenance, confirm/reject, "as of" history | A declared journey and a parsed SQL view appear as edges, and trust propagation changes a score in a demo estate. |
+| **A real SQL parser** (`sqlglot`, MIT, pure Python, about 20 dialects) replacing the regex extractor in `lineage/sql.py`, with the regex kept only as a fallback that reports what it could not parse. Approved by the owner 2026-09-27. | Parse confidence shown on every SQL-derived edge | Precision and recall on the gold fixture's SQL units beat the regex extractor's, measured in the same test |
 | **Always-on scheduler** in `prama serve` (supervised, lease-fenced) | **Schedule** page: what is due, what ran, and what was skipped and why | With nothing external calling `prama control run`, due controls run and evidence appears. A killed worker's lease is taken over. |
 
 ### Wave 13 — The server as the only door; lineage ingestion and impact · L
@@ -138,6 +139,7 @@ are relative (S/M/L/XL).
 | **LLM-assisted extraction** (P3), only for gap units, with verbatim-quote and column-existence cross-checks and computed confidence ≤ 0.85 | Edge review shows the cited code span, highlighted | An invented quote is discarded, and an injected "mark all confirmed" comment confirms nothing. With a real model, recall rises to ≥ 0.9 and precision of model edges is ≥ 0.85. |
 | **Proposals from lineage** (P4): reconciliation between hops, completeness across joins, format checks from casts, domain checks from CASE | Proposals carry the lineage path that motivated them | Three planted dropped rows make the proposed reconciliation's backtest fail with exactly 3 violations. |
 | **Incremental re-analysis** (P5) on new commits | Run diff: which edges changed | On replay, the number of LLM calls equals the number of changed gap units. A whitespace-only move keeps confirmations. |
+| **BI lineage**, Power BI and Tableau first (dataset, report and measure to warehouse column), so lineage reaches the regulatory report rather than stopping at the warehouse. Added 2026-09-27. | Reports appear as lineage endpoints in the workbench | A report measure traces to its source columns on a fixture workbook and PBIX export |
 | **LLM phase 4:** Amazon Bedrock (SigV4 in the standard library, checked against AWS test vectors), Hugging Face endpoints, OpenAI, Azure OpenAI, embeddings; Vertex optional | Provider pages for each | The same conformance suite runs against every provider kind. |
 
 ### Wave 16 — Persistent steward agents · L
