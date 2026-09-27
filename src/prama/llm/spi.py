@@ -36,6 +36,7 @@ import abc
 import dataclasses
 import enum
 import hashlib
+from collections.abc import Iterator
 from typing import Any, ClassVar
 
 from prama.core import pjson
@@ -225,6 +226,22 @@ class ModelProvider(abc.ABC):
         self.permit(request)
         self.permit_residency(request)
         return self.complete(self.withhold(request))
+
+    def ask_stream(self, request: Request) -> Iterator[str]:
+        """The answer in pieces, after the same checks as :meth:`ask`.
+
+        A provider that cannot stream yields its whole answer once, so every
+        provider can be streamed from and a caller need not ask which can.
+        """
+        self.permit(request)
+        self.permit_residency(request)
+        yield from self.stream(self.withhold(request))
+
+    def stream(self, request: Request) -> Iterator[str]:
+        """Override to stream for real. The default completes, then yields once."""
+        response = self.complete(request)
+        if response.text:
+            yield response.text
 
     @staticmethod
     def withhold(request: Request) -> Request:

@@ -29,7 +29,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from typing import Any, ClassVar
 
 from prama.core.errors import ValidationError
@@ -121,6 +121,7 @@ class _HttpProvider(ModelProvider):
         timeout: float = 60.0,
         hosting: Hosting | None = None,
         opener: Callable[[urllib.request.Request, float], bytes] | None = None,
+        streamer: Callable[[urllib.request.Request, float], Iterable[bytes]] | None = None,
         gate: Gate | None = None,
         region: str = "",
     ) -> None:
@@ -153,6 +154,7 @@ class _HttpProvider(ModelProvider):
         #: Injected so the wire format can be tested without a network. The
         #: request construction is the part with bugs in it; the socket is not.
         self._open = opener or _urlopen
+        self._stream = streamer or _urlstream
         #: Residency is enforced in `ModelProvider.ask`, which is why these are
         #: set rather than checked here: a provider that carried its own check
         #: would be a second place for the rule to live, and the one that gets
@@ -318,6 +320,43 @@ class OpenAiCompatibleProvider(_HttpProvider):
             incomplete="truncated: hit the token limit" if finish == "length" else "",
         )
 
+    def stream(self, request: Request) -> Iterator[str]:
+        """Tokens from ``/v1/chat/completions`` with ``stream: true`` (SSE)."""
+        headers = {"content-type": "application/json"}
+        if self._api_key is not None:
+            headers["authorization"] = f"Bearer {self._api_key.reveal()}"
+        body = {
+            "model": self._model,
+            "messages": [
+                {"role": "system", "content": request.system},
+                {"role": "user", "content": request.prompt},
+            ],
+            "temperature": request.temperature,
+            "max_tokens": request.max_tokens,
+            "stream": True,
+        }
+        if request.seed is not None:
+            body["seed"] = request.seed
+        call = urllib.request.Request(
+            url=f"{self._endpoint}/v1/chat/completions",
+            data=json.dumps(body).encode("utf-8"),
+            headers=headers,
+            method="POST",
+        )
+        for raw in self._stream(call, self._timeout):
+            line = raw.decode("utf-8", errors="replace").strip()
+            if not line.startswith("data:"):
+                continue
+            data = line[5:].strip()
+            if data == "[DONE]":
+                return
+            try:
+                delta = (json.loads(data).get("choices") or [{}])[0].get("delta") or {}
+            except (ValueError, AttributeError, IndexError):
+                continue  # a malformed event is skipped, not fatal to the stream
+            if delta.get("content"):
+                yield str(delta["content"])
+
 
 class AnthropicProvider(_HttpProvider):
     """Anthropic's ``/v1/messages``."""
@@ -373,6 +412,12 @@ class AnthropicProvider(_HttpProvider):
 def _urlopen(request: urllib.request.Request, timeout: float) -> bytes:
     with urllib.request.urlopen(request, timeout=timeout) as response:
         return bytes(response.read())
+
+
+def _urlstream(request: urllib.request.Request, timeout: float) -> Iterator[bytes]:
+    """The response body line by line, for server-sent events."""
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        yield from response
 
 
 #: Grammars a provider can be asked to enforce. Defined here rather than in the

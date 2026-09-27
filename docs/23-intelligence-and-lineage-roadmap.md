@@ -88,7 +88,17 @@ Three questions are answered here, each with a design note behind it:
   tenant, fingerprint, provider, model and profile version. It is consulted **after** the
   candidate's policy checks, so it is never an oracle for a request that would now be refused
   (tested with a planted entry). Hits are recorded as `served_from: cache`.
-- **Still to do in phase 2:** SSE streaming and stored payloads.
+- **Streaming.**
+  - `ModelProvider.ask_stream` applies the same checks as `ask`. A provider that cannot stream
+    yields its answer once.
+  - The OpenAI-compatible provider streams server-sent events token by token, skipping
+    keep-alives and malformed events.
+  - `LlmGateway.run_stream` picks the first candidate the policy allows, before the first token,
+    with no mid-answer fallback.
+  - `POST /api/v1/llm/chat/stream` serves `text/event-stream`, pulling from a worker thread so a
+    slow client slows the model. The call is recorded when the stream ends.
+- **Moved to Wave 14:** stored payloads (`llm_payload`), with the template and evaluation
+  governance that decides what may be kept.
 - **Deferred, each to the phase that first needs it:**
   - The transport-module extraction, multi-turn messages and JSON-schema validation go to
     Wave 13, with the new wire formats.
