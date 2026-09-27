@@ -77,12 +77,21 @@ class Agent:
         snapshotter: Snapshotter | None = None,
         clock: Clock | None = None,
         version: str = "",
+        delegates: Any = None,
     ) -> None:
         self.agent_id = agent_id
         self._key = key
         self._executor = executor
         self._boundary = Boundary(residency)
         self._capabilities = capabilities or AgentCapabilities()
+        #: A `prama.delegates.host.DelegateHost` built from this agent's own
+        #: configuration (`host_from_config`). What it admitted is what the
+        #: agent advertises, so the coordinator only sends it work it can run.
+        self._delegates = delegates
+        if delegates is not None and not self._capabilities.delegates:
+            self._capabilities = dataclasses.replace(
+                self._capabilities, delegates=delegates.registry.pinned()
+            )
         # `if None`, not `or`: a Spool defines __len__, so an empty one is
         # falsy and `or` would discard the durable spool the caller configured
         # — the agent would buffer to memory and lose everything on restart.
@@ -130,8 +139,24 @@ class Agent:
                 assignment=assignment, record=self._spool.add(record), error=str(exc)
             )
 
-        result = self._judge(assignment, plan, rows)
-        samples = self._collect_samples(assignment)
+        extra: dict[str, str] = {}
+        note = ""
+        if plan.assertion_kind == "delegate":
+            try:
+                if self._delegates is None:
+                    raise ValueError("this agent has no delegates configured")
+                measured = self._delegates.measure_plan(plan, rows)
+            except Exception as exc:  # a delegate that cannot answer is a finding
+                record = self._error_record(assignment, started, f"delegate: {exc}")
+                return AgentOutcome(
+                    assignment=assignment, record=self._spool.add(record), error=str(exc)
+                )
+            result = judge(plan, measured.metrics, engine=assignment.engine)
+            samples = measured.samples if result.verdict.value != "pass" else []
+            extra, note = measured.parameters, measured.note
+        else:
+            result = self._judge(assignment, plan, rows)
+            samples = self._collect_samples(assignment)
         redaction = self._boundary.apply(samples)
         digest = ""
         if samples:
@@ -150,7 +175,8 @@ class Agent:
             dataset=assignment.dataset,
             binding=assignment.binding,
             snapshot=self._snapshot(assignment),
-            parameters=dict(assignment.parameters),
+            parameters={**assignment.parameters, **extra},
+            detail=note,
             engine=assignment.engine,
             verdict=result.verdict.value,
             metrics=dict(result.metrics),

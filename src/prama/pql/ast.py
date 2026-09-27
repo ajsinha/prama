@@ -565,6 +565,39 @@ class RowCountAssertion(Assertion):
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
+class DelegateAssertion(Assertion):
+    """``USING DELEGATE 'acme.settlement_cycle' (market = 'US')`` — a registered check.
+
+    A delegate is Python a bank wrote, registered under a name, vetted before it
+    is imported, and hashed into the evidence of every run. It *measures*: it
+    returns how many rows (or findings) it scanned and how many violate. The
+    threshold, the verdict and the evidence stay here, in the deterministic
+    engine, exactly as for every other assertion (``prama.delegates``).
+
+    The name may pin a version, ``'acme.settlement_cycle@2'``; a host whose
+    installed delegate is another version refuses rather than running it.
+    """
+
+    delegate: str = ""
+    parameters: tuple[tuple[str, Literal], ...] = ()
+
+    def render(self) -> str:
+        text = f"USING DELEGATE {Literal(value=self.delegate).render()}"
+        if self.parameters:
+            text += " (" + ", ".join(f"{k} = {v.render()}" for k, v in self.parameters) + ")"
+        return text
+
+    def describe(self) -> str:
+        said = f"the registered check {self.delegate} finds no violations"
+        if self.parameters:
+            said += " (" + ", ".join(f"{k} {v.render()}" for k, v in self.parameters) + ")"
+        return said
+
+    def arguments(self) -> dict[str, Any]:
+        return {name: literal.value for name, literal in self.parameters}
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
 class ReferenceAssertion(Assertion):
     """``a.x REFERENCES b.y`` — referential integrity across datasets."""
 

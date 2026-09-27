@@ -349,6 +349,15 @@ class ControlCompileCommand(Command):
                 ctx.emit(f"-- {group.describe()}")
                 ctx.emit(fuser.fuse(group, table=group.dataset).sql)
                 ctx.emit("")
+            for plan in plans:
+                if plan.assertion_kind == "delegate":
+                    ctx.emit(f"-- {plan.description} (a delegate: rows fetched, counted in Python)")
+                    ctx.emit(
+                        SqlCompiler(ctx.args.dialect)
+                        .compile(plan, table=plan.scope.dataset)
+                        .metric_query
+                    )
+                    ctx.emit("")
             return EXIT_OK
         compiler = SqlCompiler(ctx.args.dialect)
         refused = 0
@@ -551,6 +560,8 @@ class ControlRunCommand(Command):
                 code="CLI.NO_TENANT",
                 remedy="Pass --tenant, or set tenancy.default_tenant.",
             )
+        from prama.delegates.host import host_from_config
+
         execute, close = executor_for(ctx.args.against, ctx.args.dialect)
         database = Database.from_config(ctx.config)
 
@@ -566,6 +577,7 @@ class ControlRunCommand(Command):
                         engine=ctx.args.dialect,
                         triggered_by="schedule" if ctx.args.due_only else "manual",
                         respect_schedule=ctx.args.due_only,
+                        delegates=host_from_config(ctx.config),
                     ).execute_all()
             finally:
                 await database.stop()

@@ -60,6 +60,23 @@ DEFAULTS: dict[str, Any] = {
         "enabled": True,
         "interval": "60s",
     },
+    "delegates": {
+        # DQ delegates: Python checks named from PQL (`USING DELEGATE 'x'`).
+        # The server and every agent read their own copy of this section, so
+        # each host runs exactly the delegates it is given.
+        "enabled": True,
+        # Directories of delegate files, vetted before import.
+        "paths": [],
+        # Also load distributions advertising the `prama.delegates` entry point.
+        "entry_points": True,
+        "disabled": [],
+        # Run each delegate in a resource-limited subprocess.
+        "sandbox": True,
+        "timeout": 120,
+        "memory_mb": 2048,
+        # A larger dataset is refused, never truncated.
+        "max_rows": 5000000,
+    },
     "codeintake": {
         # Where received code is extracted while it is read; deleted after.
         "workdir": "data/code",

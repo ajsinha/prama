@@ -62,6 +62,36 @@ class Assignment:
     due_at: datetime | None = None
     priority: str = "normal"
 
+    @classmethod
+    def for_plan(
+        cls,
+        plan: Any,
+        engine: str,
+        *,
+        table: str = "",
+        columns: tuple[str, ...] = (),
+        control_id: str = "",
+    ) -> Assignment:
+        """The assignment for *plan*, compiled here, by the control plane.
+
+        For a delegate plan the query fetches rows, not metrics; *columns* are
+        the delegate's declared columns when the control plane knows them,
+        otherwise every column is fetched inside the agent's zone.
+        """
+        from prama.backend import compile_for
+
+        compiled = compile_for(plan, engine, table=table or plan.scope.dataset, columns=columns)
+        return cls(
+            plan_id=plan.plan_id,
+            dataset=plan.scope.dataset,
+            binding=plan.scope.binding or plan.scope.dataset,
+            engine=engine,
+            metric_query=compiled.metric_query,
+            metric_names=compiled.metric_names,
+            sample_query=compiled.sample_query,
+            plan={**plan.to_dict(), "control_id": control_id},
+        )
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "plan_id": self.plan_id,

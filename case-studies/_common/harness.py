@@ -16,7 +16,6 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import dataclasses
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -89,6 +88,8 @@ class Source:
     #: controls on other sources are counted as not-reached rather than
     #: producing a table-not-found error each.
     datasets: set[str]
+    #: The DQ delegates this pass may run (a `prama.delegates` host).
+    delegates: Any = None
 
 
 class Harness:
@@ -136,8 +137,10 @@ class Harness:
                 uow, self.tenant_id, datasets, author="alice", approver="bob"
             )
         for dataset in datasets:
-            say(f"  {dataset.name:<30} tier {dataset.criticality}  "
-                f"{len(dataset.attributes)} attribute(s)")
+            say(
+                f"  {dataset.name:<30} tier {dataset.criticality}  "
+                f"{len(dataset.attributes)} attribute(s)"
+            )
             say(f"    one row is: {dataset.grain_statement}")
 
     async def derive_and_accept(self) -> None:
@@ -151,9 +154,7 @@ class Harness:
             for slug, dataset_id in self.dataset_ids.items():
                 version = await uow.datasets.require_current(dataset_id, tenant_id=self.tenant_id)
                 attributes = await uow.attributes.for_dataset(dataset_id, tenant_id=self.tenant_id)
-                generation = generator.generate(
-                    dataset_declaration_of(version, attributes)
-                )
+                generation = generator.generate(dataset_declaration_of(version, attributes))
                 for derived in generation.controls:
                     entity, _ = await uow.controls.declare(
                         tenant_id=self.tenant_id,
@@ -179,8 +180,12 @@ class Harness:
                     self.unsatisfiable.append(
                         {"dataset": slug, "rule": item.rule, "reason": item.reason}
                     )
-                say(f"  {slug:<30} {len(generation.controls):>3} control(s)"
-                    f"{'  ' + str(len(generation.unsatisfiable)) + ' unsatisfiable' if generation.unsatisfiable else ''}")
+                unsatisfiable = (
+                    f"  {len(generation.unsatisfiable)} unsatisfiable"
+                    if generation.unsatisfiable
+                    else ""
+                )
+                say(f"  {slug:<30} {len(generation.controls):>3} control(s){unsatisfiable}")
 
         say()
         say(f"  {self.accepted} control(s) accepted and now running.")
@@ -290,6 +295,7 @@ class Harness:
                     engine=source.engine,
                     triggered_by="manual",
                     datasets=source.datasets,
+                    delegates=source.delegates,
                 ).execute_all()
             reports.append(report)
             say(f"  {source.name} ({source.engine})")
@@ -319,8 +325,10 @@ class Harness:
         say()
         say("  FOUND")
         for record in sorted(failing, key=lambda r: (r.dataset, r.control_id)):
-            say(f"    fail  {record.dataset:<22} {_finding(record.metrics):<28}"
-                f"[{', '.join(record.dimensions) or 'unclassified'}]")
+            say(
+                f"    fail  {record.dataset:<22} {_finding(record.metrics):<28}"
+                f"[{', '.join(record.dimensions) or 'unclassified'}]"
+            )
         if indeterminate:
             say()
             say("  NOT ESTABLISHED — a pass could not be reported, for one of two reasons.")
@@ -345,10 +353,14 @@ class Harness:
                 say(f"    !     {record.dataset:<24} {record.detail[:90]}")
 
         say()
-        say(f"  {len(passing)} passing · {len(failing)} failing · "
-            f"{len(indeterminate)} not established · {len(errored)} could not run")
-        say(f"  Evidence chain: {verification.records} record(s), "
-            f"{'verified' if verification.is_intact else 'BROKEN'}")
+        say(
+            f"  {len(passing)} passing · {len(failing)} failing · "
+            f"{len(indeterminate)} not established · {len(errored)} could not run"
+        )
+        say(
+            f"  Evidence chain: {verification.records} record(s), "
+            f"{'verified' if verification.is_intact else 'BROKEN'}"
+        )
         say(f"  Merkle root: {verification.merkle_root}")
         if self.comparisons:
             say()
@@ -384,9 +396,7 @@ class Harness:
         say(f"  http://127.0.0.1:{port}/reports       the packs that leave the building")
         say()
         say("  Ctrl-C to stop.")
-        uvicorn.run(
-            create_app(self.config), host="127.0.0.1", port=port, log_level="warning"
-        )
+        uvicorn.run(create_app(self.config), host="127.0.0.1", port=port, log_level="warning")
 
 
 def banner(title: str, subtitle: str) -> None:

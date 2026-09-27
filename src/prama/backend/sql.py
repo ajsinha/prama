@@ -99,7 +99,12 @@ class SqlCompiler:
     # -- entry point -------------------------------------------------------
 
     def compile(
-        self, plan: ControlPlan, *, table: str = "", scan_limit: int = 0
+        self,
+        plan: ControlPlan,
+        *,
+        table: str = "",
+        scan_limit: int = 0,
+        columns: tuple[str, ...] = (),
     ) -> CompiledControl:
         self._check_capabilities(plan)
         source = self.dialect.qualify(table or plan.scope.binding or plan.scope.dataset)
@@ -118,7 +123,29 @@ class SqlCompiler:
         else:
             qualifier = source
         with self._scope(qualifier):
+            if plan.assertion_kind == "delegate":
+                return self._rows(plan, source, columns)
             return self._compile(plan, source)
+
+    def _rows(self, plan: ControlPlan, source: str, columns: tuple[str, ...]) -> CompiledControl:
+        """A delegate's query: the rows it reads, not a metric.
+
+        The delegate computes the counts, so the engine's job is to fetch the
+        columns it declared, filtered by the control's WHERE, and nothing else.
+        With no declared columns (the delegate is installed only on the agent
+        that will run it) every column is fetched, inside that agent's zone.
+        """
+        where = self._where(plan)
+        projection = ", ".join(self.dialect.quote(c) for c in columns) if columns else "*"
+        query = f"SELECT {projection}\nFROM {source}"
+        if where:
+            query += f"\nWHERE {where}"
+        return CompiledControl(
+            plan_id=plan.plan_id,
+            dialect=self.dialect.name,
+            metric_query=query,
+            parameters=tuple(sorted(plan.parameters())),
+        )
 
     def _compile(self, plan: ControlPlan, source: str) -> CompiledControl:
         where = self._where(plan)
@@ -509,9 +536,14 @@ def _no_zero(divisor: str) -> str:
 
 
 def compile_for(
-    plan: ControlPlan, target: str, *, table: str = "", scan_limit: int = 0
+    plan: ControlPlan,
+    target: str,
+    *,
+    table: str = "",
+    scan_limit: int = 0,
+    columns: tuple[str, ...] = (),
 ) -> CompiledControl:
-    return SqlCompiler(target).compile(plan, table=table, scan_limit=scan_limit)
+    return SqlCompiler(target).compile(plan, table=table, scan_limit=scan_limit, columns=columns)
 
 
 #: Aggregates. Rendered by the metric path rather than the catalogue, because

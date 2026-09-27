@@ -41,6 +41,19 @@ agents:
   enabled: true
   interval: 60s                     # how often due goals are checked
 
+delegates:
+  # DQ delegates: Python checks a control names with USING DELEGATE '<name>'.
+  # Each host (this server, every remote agent) runs only what its own copy
+  # of this section admits. See docs/design/dq-delegates.md.
+  enabled: true
+  paths: []                         # directories of delegate .py files, vetted before import
+  entry_points: true                # also load the prama.delegates entry point
+  disabled: []                      # names to refuse even if installed
+  sandbox: true                     # run in a resource-limited subprocess
+  timeout: 120                      # CPU seconds per run
+  memory_mb: 2048
+  max_rows: 5000000                 # a larger dataset is refused, never truncated
+
 codeintake:
   # Application code received as a ZIP or fetched from git. Never executed.
   workdir: data/code                # extracted here while read; deleted after

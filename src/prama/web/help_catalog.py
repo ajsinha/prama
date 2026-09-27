@@ -91,6 +91,12 @@ SECTIONS: tuple[HelpSection, ...] = (
                 "bi-robot",
             ),
             _g(
+                "delegates",
+                "DQ delegates",
+                "Your own Python checks, named from PQL and judged by Prama.",
+                "bi-braces",
+            ),
+            _g(
                 "code",
                 "Application code",
                 "Send a ZIP or a git location; Prama reads its lineage and never runs it.",

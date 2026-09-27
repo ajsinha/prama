@@ -68,7 +68,9 @@ class Scheduler:
         interval: float = 60.0,
         holder: str = "prama",
         executor_for: Callable[[str, str], tuple[Any, Callable[[], None]]] | None = None,
+        delegates: Any = None,
     ) -> None:
+        self._delegates = delegates
         self._database = database
         self.tenants = tuple(tenants)
         self.against = against
@@ -104,6 +106,7 @@ class Scheduler:
                             engine=self.dialect,
                             triggered_by="schedule",
                             respect_schedule=True,
+                            delegates=self._delegates,
                         ).execute_all()
                     executed += report.executed
                     verdicts.update(report.verdicts)
@@ -147,4 +150,11 @@ def from_config(config: Any, database: Any) -> Scheduler | None:
         dialect=config.get_str("scheduler.dialect", "duckdb"),
         interval=float(config.get_duration("scheduler.interval", 60.0)),
         holder=config.get_str("app.instance_id", "prama"),
+        delegates=_delegates(config),
     )
+
+
+def _delegates(config: Any) -> Any:
+    from prama.delegates.host import host_from_config
+
+    return host_from_config(config)

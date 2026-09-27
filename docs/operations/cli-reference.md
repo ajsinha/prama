@@ -30,6 +30,7 @@ need different people.
 | [`prama contract`](#prama-contract) | data contracts: import, export, diff, and gate a build on them |
 | [`prama control`](#prama-control) | read, check, explain, compile and import controls |
 | [`prama db`](#prama-db) | database schema operations (Prama has no migrations) |
+| [`prama delegate`](#prama-delegate) | Python DQ checks: list, vet and try them |
 | [`prama estate`](#prama-estate) | export, diff and score the declared estate |
 | [`prama lineage`](#prama-lineage) | column lineage: scan SQL, show edges, impact, gaps |
 | [`prama llm`](#prama-llm) | model providers, profiles and the call ledger |
@@ -318,6 +319,35 @@ database schema operations (Prama has no migrations)
 | `prama db init` | apply the authoritative schema file (idempotent; never alters) |
 | `prama db verify` | compare the live database with the schema file; report drift, never repair it |
 
+
+## `prama delegate`
+
+Python DQ checks: list, vet and try them
+
+| Subcommand | What it does |
+|---|---|
+| `prama delegate list` | the delegates this host admitted, and those it refused |
+| `prama delegate scan` | vet delegate files without importing them |
+| `prama delegate test` | run one delegate over rows from a file, exactly as a control would |
+
+**`prama delegate list`**
+
+| Argument | Meaning |
+|---|---|
+| `--path` | a directory of delegate files, in addition to delegates.paths |
+**`prama delegate scan`**
+
+| Argument | Meaning |
+|---|---|
+| `target` **required** | a .py file or a directory of them |
+**`prama delegate test`**
+
+| Argument | Meaning |
+|---|---|
+| `delegate` **required** | its registered name, optionally @version |
+| `--rows` **required** | a JSON list of objects, or a CSV |
+| `--param` | name=value, repeatable |
+| `--path` | a directory of delegate files, in addition to delegates.paths |
 
 ## `prama estate`
 

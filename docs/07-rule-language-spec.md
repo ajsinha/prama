@@ -462,6 +462,30 @@ A Python check is a **residual over rows a screen has already narrowed**, never 
 Python predicate over a billion rows is not viable, and making that structural rather than
 advisory is what keeps the design honest.
 
+### 7a.6 Delegates: dataset-level checks in Python, named not inlined
+
+The same reasoning, applied to a whole dataset rather than one value. A **delegate** is a
+registered `DqDelegate` class, and PQL names it:
+
+```pql
+CHECK trade_blotter USING DELEGATE 'acme.settlement_cycle@1' (us_cycle = 1, eu_cycle = 2)
+  WHERE status = 'booked'
+  BELOW 0.1%
+```
+
+- **Arguments.** Parameters are literals (text, number, `TRUE`/`FALSE`) and are part of the plan
+  id. The optional `@version` pin is enforced where the delegate runs.
+- **What the delegate does.** It *measures*: rows (or findings) scanned and violating, plus named
+  observations.
+- **What PQL does.** The threshold and the verdict stay in the shared judging code.
+- **What delegates share with validators:** the pre-import source scan, the determinism probes,
+  and the source hash, which is recorded on every evidence record rather than in the plan id,
+  because the delegate may exist only on the agent beside the data.
+- **Restrictions.** A delegate control cannot be segmented with `FOR EACH`, and a
+  findings-counting delegate cannot take a rate threshold.
+
+Design: `docs/design/dq-delegates.md`.
+
 ---
 
 ## 8. Escape hatches, contained
