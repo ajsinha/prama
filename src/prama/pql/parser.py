@@ -106,7 +106,7 @@ class Parser:
         while not self._at_end:
             if self._peek.is_keyword("SUITE"):
                 suites.append(self._suite())
-            elif self._peek.is_keyword("CHECK"):
+            elif self._peek.is_keyword("CHECK", "RECONCILE"):
                 controls.append(self._control())
             else:
                 raise self._error(
@@ -146,6 +146,8 @@ class Parser:
         return ast.Suite(name=name, controls=tuple(controls), position=start)
 
     def _control(self) -> ast.Control:
+        if self._peek.is_keyword("RECONCILE"):
+            return self._reconcile()
         start = self._expect_keyword("CHECK").position
         selector = self._selector()
         if selector is not None:
@@ -159,6 +161,73 @@ class Parser:
         assertion = self._assertion(target, subject)
         control = ast.Control(target=target, assertion=assertion, position=start)
         return self._modifiers(control)
+
+    def _reconcile(self) -> ast.Control:
+        """``RECONCILE a AGAINST b ON (k, x = y) COMPARING amt [= other]
+        [WITHIN n [CCY] [OR p%]] [OFFSET BY n DAY[S]]``, then ordinary modifiers."""
+        start = self._expect_keyword("RECONCILE").position
+        left = self._name("the dataset to reconcile")
+        self._expect_keyword("AGAINST")
+        right = self._name("the dataset it must agree with")
+        self._expect_keyword("ON")
+        self._expect_punctuation("(")
+        keys: list[tuple[str, str]] = []
+        while True:
+            mine = self._name("a key column")
+            theirs = mine
+            if self._peek.kind is TokenKind.OPERATOR and self._peek.text == "=":
+                self._advance()
+                theirs = self._name(f"the column {right} calls {mine}")
+            keys.append((mine, theirs))
+            if not self._peek.is_punctuation(","):
+                break
+            self._advance()
+        self._expect_punctuation(")")
+        self._expect_keyword("COMPARING")
+        amount = self._name("the amount column to compare")
+        other = amount
+        if self._peek.kind is TokenKind.OPERATOR and self._peek.text == "=":
+            self._advance()
+            other = self._name(f"the column {right} calls {amount}")
+        absolute = currency = relative = ""
+        if self._match_keyword("WITHIN"):
+            while True:
+                text = self._number_token("a tolerance, as in 1.00 EUR or 0.01%").text
+                if text.endswith("%"):
+                    relative = text[:-1]
+                else:
+                    absolute = text
+                    if self._peek.kind is TokenKind.IDENTIFIER and len(self._peek.text) == 3:
+                        currency = self._advance().upper
+                if not self._match_keyword("OR"):
+                    break
+        currency_column = target_currency = rates = ""
+        if self._match_keyword("NORMALISING"):
+            currency_column = self._name("the column holding each row's currency")
+            self._expect_keyword("TO")
+            target_currency = self._text("the currency to compare in, as in 'USD'").upper()
+            self._expect_keyword("USING")
+            self._expect_keyword("RATES")
+            rates = self._name("the rates dataset (columns currency, rate)")
+        offset = 0
+        if self._match_keyword("OFFSET"):
+            self._expect_keyword("BY")
+            offset = self._integer("a number of days")
+            self._expect_keyword_of("DAY", "DAYS")
+        assertion = ast.ReconcileAssertion(
+            against=right,
+            keys=tuple(keys),
+            amount=(amount, other),
+            absolute=absolute,
+            currency=currency,
+            relative=relative,
+            offset_days=offset,
+            currency_column=currency_column,
+            target_currency=target_currency,
+            rates=rates,
+            position=start,
+        )
+        return self._modifiers(ast.Control(target=left, assertion=assertion, position=start))
 
     def _selector(self) -> ast.Selector | None:
         """``EVERY ATTRIBUTE WHERE …`` or ``CONCEPT Instrument.ISIN``.

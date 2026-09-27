@@ -9,6 +9,12 @@ Two deterministic rules, each stated so its proposal explains itself:
 * **A key must come from its source** (`lineage_referential`). A key column
   copied across a hop gets a `REFERENCES` check back to where it came from:
   every value in the copy must exist in the source.
+* **A copied amount must still agree** (`lineage_reconcile`). When a dataset
+  copies both its key columns and an amount from one source, row for row, the
+  two should reconcile: `RECONCILE copy AGAINST source ON (keys) COMPARING
+  amount`. Only for copies at the same grain; an aggregated amount is not
+  proposed, because comparing a total with its detail rows would find breaks
+  that are not there.
 
 Proposals from an `inferred` edge are held until a person confirms the edge;
 a proposal built on a guessed edge would propose a guessed control. Nothing
@@ -35,6 +41,11 @@ _KEY = re.compile(r"(^id$|_id$|_key$|_code$|^code$|_ref$)", re.IGNORECASE)
 
 #: Transforms that leave a value essentially itself.
 _CARRIED = ("identity", "rename")
+
+#: Column names that hold an amount worth reconciling.
+_AMOUNT = re.compile(
+    r"(amount|amt|notional|balance|exposure|value|price|qty|quantity|total|pnl|mtm)", re.I
+)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -120,4 +131,54 @@ def propose(edges: Iterable[Any], controls: Iterable[Any]) -> list[LineagePropos
                     sentence=f"Every {target} is copied from {source}, so each must exist there.",
                     deferred_because=held,
                 )
+    out.update(_reconciliations(edges))
     return sorted(out.values(), key=lambda p: (p.dataset, p.rule, p.identity))
+
+
+def _reconciliations(edges: Iterable[Any]) -> dict[str, LineageProposal]:
+    by_pair: dict[tuple[str, str], list[Any]] = {}
+    for edge in edges:
+        if edge.transform in _CARRIED and edge.source_dataset != edge.target_dataset:
+            by_pair.setdefault((edge.source_dataset, edge.target_dataset), []).append(edge)
+    out: dict[str, LineageProposal] = {}
+    for (source, target), carried in sorted(by_pair.items()):
+        keys = sorted(
+            {(e.target_column, e.source_column) for e in carried if _KEY.search(e.target_column)}
+        )
+        amounts = sorted(
+            {
+                (e.target_column, e.source_column)
+                for e in carried
+                if _AMOUNT.search(e.target_column) and not _KEY.search(e.target_column)
+            }
+        )
+        if not keys or not amounts:
+            continue
+        held = (
+            "a lineage edge it rests on is inferred; confirm it on the Lineage page first"
+            if any(e.status == "inferred" for e in carried)
+            else ""
+        )
+        on = ", ".join(t if t == s else f"{t} = {s}" for t, s in keys)
+        for mine, theirs in amounts:
+            compared = mine if mine == theirs else f"{mine} = {theirs}"
+            pql = _checked(
+                f"RECONCILE {quote_dataset(target)} AGAINST {quote_dataset(source)} "
+                f"ON ({on}) COMPARING {compared} "
+                f"BECAUSE 'lineage: {target} copies {mine} and its keys from {source}'"
+            )
+            if pql is None:
+                continue
+            key = _identity("reconcile", source, target, mine)
+            out[key] = LineageProposal(
+                identity=key,
+                rule="lineage_reconcile",
+                dataset=target,
+                pql=pql,
+                sentence=(
+                    f"{target} copies {mine} and its key from {source} row for row, so the "
+                    f"two should agree on it; a difference is a break."
+                ),
+                deferred_because=held,
+            )
+    return out

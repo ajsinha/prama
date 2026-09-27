@@ -153,6 +153,7 @@ KEYWORDS: frozenset[str] = frozenset(
         "NORMALISING",
         "USING",
         "DELEGATE",
+        "RATES",
         "CUSTOM",
         "SQL",
         "ENGINE",

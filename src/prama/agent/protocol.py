@@ -55,6 +55,9 @@ class Assignment:
     metric_query: str
     metric_names: tuple[str, ...] = ()
     sample_query: str = ""
+    #: For a reconciliation: the rows of the dataset it is reconciled against.
+    counterpart_query: str = ""
+    rates_query: str = ""
     parameters: dict[str, str] = dataclasses.field(default_factory=dict)
     #: The plan, so the agent can judge the metrics with the same threshold the
     #: control plane would have used, and so the evidence names it.
@@ -89,6 +92,8 @@ class Assignment:
             metric_query=compiled.metric_query,
             metric_names=compiled.metric_names,
             sample_query=compiled.sample_query,
+            counterpart_query=compiled.counterpart_query,
+            rates_query=compiled.rates_query,
             plan={**plan.to_dict(), "control_id": control_id},
         )
 
@@ -101,6 +106,8 @@ class Assignment:
             "metric_query": self.metric_query,
             "metric_names": list(self.metric_names),
             "sample_query": self.sample_query,
+            "counterpart_query": self.counterpart_query,
+            "rates_query": self.rates_query,
             "parameters": self.parameters,
             "plan": self.plan,
             "due_at": self.due_at.isoformat() if self.due_at else None,

@@ -54,6 +54,10 @@ class CompiledControl:
     #: query applies a screen — a necessary condition — and the rows that pass
     #: still have to be checked exactly before a pass may be reported.
     residual_validators: tuple[tuple[str, str], ...] = ()
+    #: For a reconciliation, the rows of the dataset it is reconciled against,
+    #: and the rates that normalise its currencies.
+    counterpart_query: str = ""
+    rates_query: str = ""
 
     @property
     def is_complete(self) -> bool:
@@ -127,7 +131,34 @@ class SqlCompiler:
                 return self._rows(plan, source, columns)
             if plan.assertion_kind == "custom_sql":
                 return self._custom(plan, source)
+            if plan.assertion_kind == "reconcile":
+                return self._reconcile(plan, source)
             return self._compile(plan, source)
+
+    def _reconcile(self, plan: ControlPlan, source: str) -> CompiledControl:
+        """Two row fetches: each side's key and amount. The engine does the rest."""
+        keys = [list(k) for k in plan.detail.get("keys") or []]
+        amount = list(plan.detail.get("amount") or ["", ""])
+
+        def fetch(columns: list[str], table: str) -> str:
+            unique = list(dict.fromkeys(columns))
+            return f"SELECT {', '.join(self.dialect.quote(c) for c in unique)}\nFROM {table}"
+
+        currency = (
+            [str(plan.detail["currency_column"])] if plan.detail.get("currency_column") else []
+        )
+        rates = str(plan.detail.get("rates") or "")
+        return CompiledControl(
+            plan_id=plan.plan_id,
+            dialect=self.dialect.name,
+            rates_query=f"SELECT *\nFROM {self.dialect.qualify(rates)}" if rates else "",
+            metric_query=fetch([k[0] for k in keys] + [amount[0]] + currency, source),
+            counterpart_query=fetch(
+                [k[1] for k in keys] + [amount[1]],
+                self.dialect.qualify(str(plan.detail.get("against", ""))),
+            ),
+            parameters=tuple(sorted(plan.parameters())),
+        )
 
     def _custom(self, plan: ControlPlan, source: str) -> CompiledControl:
         """The author's own query, on an engine it names, with its table filled in."""

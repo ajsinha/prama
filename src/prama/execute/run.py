@@ -357,7 +357,19 @@ class ControlRun:
         # restores exactly the averaging segmentation exists to avoid.
         extra: dict[str, str] = {}
         delegate_samples: list[dict[str, Any]] | None = None
-        if plan.assertion_kind == "delegate":
+        note = ""
+        if plan.assertion_kind == "reconcile":
+            try:
+                recon_metrics, recon = await self._reconcile(plan, compiled, rows, started)
+            except Exception as exc:
+                return await self._record_error(version, run_id, started, f"reconciliation: {exc}")
+            result = judge(plan, recon_metrics, engine=self._engine)
+            metrics = dict(result.metrics)
+            delegate_samples = [b.to_dict() for b in recon.population.needs_a_person][
+                : plan.evidence.max_samples
+            ]
+            note = recon.headline()
+        elif plan.assertion_kind == "delegate":
             try:
                 # Streamed: the rows are read from the cursor in batches while
                 # the delegate consumes them, never all held here.
@@ -384,7 +396,7 @@ class ControlRun:
             # supporting it was missing the number it was based on.
             metrics = dict(result.metrics)
         verdict = result.verdict.value
-        detail = measured.note if plan.assertion_kind == "delegate" else ""
+        detail = measured.note if plan.assertion_kind == "delegate" else note
 
         if not compiled.is_complete:
             residuals = ", ".join(
@@ -502,6 +514,23 @@ class ControlRun:
         return await asyncio.to_thread(
             lambda: host.measure_stream(plan, batches_of(self._execute, query, host.batch_rows))
         )
+
+    async def _reconcile(
+        self, plan: Any, compiled: Any, left: list[dict[str, Any]], started: Any
+    ) -> tuple[dict[str, float], Any]:
+        """Both sides through the reconciliation engine; the breaks into the workbench."""
+        from prama.recon.pql import measure
+
+        right = list(self._execute(compiled.counterpart_query))
+        rates = list(self._execute(compiled.rates_query)) if compiled.rates_query else None
+        metrics, recon = measure(plan, left, right, business_date=started.date(), rates=rates)
+        await self._uow.breaks.observe(
+            recon.population.breaks,
+            tenant_id=self._tenant,
+            definition=recon.definition.name,
+            when=started.isoformat(),
+        )
+        return metrics, recon
 
     async def _keep_samples(self, rows: Sequence[dict[str, Any]]) -> tuple[str, int]:
         if not rows:

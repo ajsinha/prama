@@ -83,6 +83,14 @@ class Lowerer:
     def control(self, control: ast.Control, *, source: str = "") -> ControlPlan:
         self._residuals = []
         predicate, kind, detail = self._assertion(control.assertion)
+        if kind == "reconcile" and (control.where is not None or control.segmentation):
+            raise ValidationError(
+                "a RECONCILE takes no WHERE or FOR EACH yet",
+                remedy=(
+                    "Reconcile views that already hold the rows to compare. A filter on one "
+                    "side only would make the other side's rows look missing."
+                ),
+            )
         if kind == "custom_sql" and (control.where is not None or control.segmentation):
             raise ValidationError(
                 "a CUSTOM SQL check takes no WHERE or FOR EACH",
@@ -187,6 +195,23 @@ class Lowerer:
                     "column": assertion.column.name,
                     "target_dataset": assertion.target_dataset,
                     "target_column": assertion.target_column,
+                },
+            )
+        if isinstance(assertion, ast.ReconcileAssertion):
+            return (
+                None,
+                "reconcile",
+                {
+                    "against": assertion.against,
+                    "keys": [list(k) for k in assertion.keys],
+                    "amount": list(assertion.amount),
+                    "absolute": assertion.absolute,
+                    "currency": assertion.currency,
+                    "relative": assertion.relative,
+                    "offset_days": assertion.offset_days,
+                    "currency_column": assertion.currency_column,
+                    "target_currency": assertion.target_currency,
+                    "rates": assertion.rates,
                 },
             )
         if isinstance(assertion, ast.CustomSqlAssertion):
@@ -481,7 +506,7 @@ class Lowerer:
         if kind == "row_count":
             # The row count *is* the metric; there is no per-row violation.
             return (scanned,)
-        if kind in ("delegate", "custom_sql"):
+        if kind in ("delegate", "custom_sql", "reconcile"):
             # Both measured outside the compiler: by the delegate, or by the
             # author's own query. Declared so the
             # threshold names a metric the plan emits (`unanswerable`).

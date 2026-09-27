@@ -145,7 +145,29 @@ class Agent:
 
         extra: dict[str, str] = {}
         note = ""
-        if plan.assertion_kind == "delegate":
+        if plan.assertion_kind == "reconcile":
+            from prama.recon.pql import measure
+
+            try:
+                recon_metrics, recon = measure(
+                    plan,
+                    rows,
+                    self._executor(assignment.counterpart_query),
+                    business_date=started.date(),
+                    rates=self._executor(assignment.rates_query)
+                    if assignment.rates_query
+                    else None,
+                )
+            except Exception as exc:  # a reconciliation that cannot run is a finding
+                record = self._error_record(assignment, started, f"reconciliation: {exc}")
+                return AgentOutcome(
+                    assignment=assignment, record=self._spool.add(record), error=str(exc)
+                )
+            result = judge(plan, recon_metrics, engine=assignment.engine)
+            # The breaks carry keys and amounts: samples, subject to residency.
+            samples = [b.to_dict() for b in recon.population.needs_a_person][:50]
+            note = recon.headline()
+        elif plan.assertion_kind == "delegate":
             try:
                 if self._delegates is None:
                     raise ValueError("this agent has no delegates configured")

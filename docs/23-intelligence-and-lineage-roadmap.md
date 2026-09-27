@@ -236,8 +236,14 @@ modern bank's data platform needs. It does not try to match Manta's breadth.
   - Azure OpenAI (deployment path, `api-key`, pinned API version, `tenant` hosting) and Vertex
     AI (OpenAI-compatible endpoint, access-token credential) are built as provider kinds
     `azure_openai` and `vertex`.
-- **Not yet:** reconciliation proposals between hops (the design's first rule) wait for PQL's
-  `RECONCILE`, which the language records as not yet implemented.
+- **Reconciliation proposals, built** with PQL's `RECONCILE` (`recon/pql.py`, rule
+  `lineage_reconcile`). A dataset that copies its keys and an amount from one source, at the
+  same grain, is proposed as a reconciliation against that source. Aggregated amounts are not
+  proposed. `RECONCILE` runs on the existing reconciliation engine: it is judged on breaks that
+  need a person, its breaks go to the workbench, and it runs on the control plane or on an agent.
+  `NORMALISING <ccy> TO 'USD' USING RATES <dataset>` converts currencies first. Γ now proposes
+  declared reconciliations as runnable PQL for review, rather than as a specification that
+  nothing runs.
 - **Deferred, each to the phase that first needs it:**
   - The transport-module extraction, multi-turn messages and JSON-schema validation go to
     Wave 13, with the new wire formats.

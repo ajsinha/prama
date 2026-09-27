@@ -144,6 +144,52 @@ class ComparisonSpec:
         parts.append(f"AS {self.kind.value.upper()}")
         return " ".join(parts)
 
+    def to_pql(self) -> str | None:
+        """The runnable `RECONCILE` this comparison is, or None when PQL cannot say it.
+
+        A reconciliation or a value parity on one amount, with no filter and an
+        offset in days, is exactly what `RECONCILE` expresses, and then it runs
+        like any other control: engine, threshold, evidence, break workbench.
+        The other kinds (row-count parity, aggregate parity, roll-forward, …)
+        stay specifications until PQL has a form for them.
+        """
+        from prama.pql.ast import quote_dataset
+        from prama.semantic.relationships import OffsetUnit
+
+        if self.kind not in (ComparisonKind.RECONCILIATION, ComparisonKind.VALUE_PARITY):
+            return None
+        if len(self.compare) != 1 or self.filter_expression or not self.match_keys:
+            return None
+        days = 0
+        if self.offset is not None and not self.offset.is_zero:
+            if self.offset.unit not in (OffsetUnit.BUSINESS_DAYS, OffsetUnit.CALENDAR_DAYS):
+                return None
+            days = int(self.offset.amount)
+        keys = ", ".join(
+            k.left if (k.right or k.left) == k.left else f"{k.left} = {k.right}"
+            for k in self.match_keys
+        )
+        # A compared attribute may be named differently on each side, written
+        # "left = right" like a match key: positions' market_value against the
+        # ledger's balance_usd.
+        mine, _, theirs = (part.strip() for part in self.compare[0].partition("="))
+        compared = f"{mine} = {theirs}" if theirs and theirs != mine else mine
+        text = (
+            f"RECONCILE {quote_dataset(self.left)} AGAINST {quote_dataset(self.right)} "
+            f"ON ({keys}) COMPARING {compared}"
+        )
+        bounds = []
+        if self.tolerance is not None and self.tolerance.absolute is not None:
+            currency = f" {self.tolerance.currency}" if self.tolerance.currency else ""
+            bounds.append(f"{self.tolerance.absolute}{currency}")
+        if self.tolerance is not None and self.tolerance.relative is not None:
+            bounds.append(f"{(self.tolerance.relative * 100).normalize():f}%")
+        if bounds:
+            text += " WITHIN " + " OR ".join(bounds)
+        if days:
+            text += f" OFFSET BY {days} DAY{'S' if days != 1 else ''}"
+        return text + f" SEVERITY {self.severity.value}"
+
     def describe(self) -> str:
         """The check as a sentence, for somebody who will approve it."""
         keys = " and ".join(k.render() for k in self.match_keys)

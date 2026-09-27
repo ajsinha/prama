@@ -43,9 +43,12 @@ def from_comparison(spec: ComparisonSpec, *, backtest: Backtest | None = None) -
     should not have to learn a second screen because the check happens to span
     two datasets — the question they are answering is the same one.
     """
+    # Runnable PQL when the comparison has a PQL form (RECONCILE), so accepting
+    # the proposal makes a control that runs; otherwise the specification.
+    runnable = spec.to_pql()
     return Proposal(
         identity=spec.identity,
-        content=spec.render(),
+        content=runnable or spec.render(),
         content_hash=spec.content_hash,
         provenance=spec.provenance,
         description=spec.describe(),

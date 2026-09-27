@@ -21,9 +21,9 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-from typing import Any
 import sys
 from pathlib import Path
+from typing import Any
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
@@ -51,10 +51,27 @@ WAREHOUSE = [
         grain=("isin",),
         criticality=2,
         attributes=(
-            Attribute("isin", "The ISO 6166 identifier.", semantic_type="isin", mandatory=True, is_cde=True),
+            Attribute(
+                "isin",
+                "The ISO 6166 identifier.",
+                semantic_type="isin",
+                mandatory=True,
+                is_cde=True,
+            ),
             Attribute("name", "The instrument's legal name.", mandatory=True),
-            Attribute("asset_class", "What kind.", codelist=("EQUITY", "GOVT_BOND", "CORP_BOND"), mandatory=True),
-            Attribute("currency", "Denomination.", semantic_type="currency", codelist=CURRENCIES, mandatory=True),
+            Attribute(
+                "asset_class",
+                "What kind.",
+                codelist=("EQUITY", "GOVT_BOND", "CORP_BOND"),
+                mandatory=True,
+            ),
+            Attribute(
+                "currency",
+                "Denomination.",
+                semantic_type="currency",
+                codelist=CURRENCIES,
+                mandatory=True,
+            ),
             Attribute("primary_venue", "Where it trades.", semantic_type="mic"),
         ),
     ),
@@ -66,10 +83,20 @@ WAREHOUSE = [
         criticality=1,
         obligations=("EMIR",),
         attributes=(
-            Attribute("lei", "The ISO 17442 identifier.", semantic_type="lei", mandatory=True, is_cde=True),
+            Attribute(
+                "lei", "The ISO 17442 identifier.", semantic_type="lei", mandatory=True, is_cde=True
+            ),
             Attribute("legal_name", "Registered name.", mandatory=True),
-            Attribute("jurisdiction", "Where incorporated.", codelist=("DE", "US", "FR", "CH", "GB", "NL", "JP")),
-            Attribute("credit_rating", "Internal rating.", codelist=("AAA", "AA+", "AA", "AA-", "A+", "A", "A-")),
+            Attribute(
+                "jurisdiction",
+                "Where incorporated.",
+                codelist=("DE", "US", "FR", "CH", "GB", "NL", "JP"),
+            ),
+            Attribute(
+                "credit_rating",
+                "Internal rating.",
+                codelist=("AAA", "AA+", "AA", "AA-", "A+", "A", "A-"),
+            ),
         ),
     ),
     Dataset(
@@ -80,9 +107,13 @@ WAREHOUSE = [
         criticality=1,
         attributes=(
             Attribute("book", "The trading book.", mandatory=True),
-            Attribute("posting_date", "The accounting date.", semantic_type="iso_date", mandatory=True),
+            Attribute(
+                "posting_date", "The accounting date.", semantic_type="iso_date", mandatory=True
+            ),
             Attribute("currency", "Always USD.", codelist=("USD",), mandatory=True),
-            Attribute("balance_usd", "The balance in USD.", unit="currency", mandatory=True, is_cde=True),
+            Attribute(
+                "balance_usd", "The balance in USD.", unit="currency", mandatory=True, is_cde=True
+            ),
         ),
     ),
 ]
@@ -100,15 +131,38 @@ LANDING = [
         attributes=(
             Attribute("trade_id", "The trade's identifier.", mandatory=True, is_cde=True),
             Attribute("book", "The trading book.", mandatory=True),
-            Attribute("isin", "The instrument traded.", semantic_type="isin", mandatory=True, is_cde=True),
-            Attribute("counterparty_lei", "Who we faced.", semantic_type="lei", mandatory=True, is_cde=True),
+            Attribute(
+                "isin", "The instrument traded.", semantic_type="isin", mandatory=True, is_cde=True
+            ),
+            Attribute(
+                "counterparty_lei",
+                "Who we faced.",
+                semantic_type="lei",
+                mandatory=True,
+                is_cde=True,
+            ),
             Attribute("side", "Which way.", codelist=("BUY", "SELL"), mandatory=True),
-            Attribute("quantity", "Units traded.", minimum=0.0, maximum=100_000_000.0, mandatory=True),
-            Attribute("price", "Execution price.", minimum=0.0, maximum=1_000_000.0, mandatory=True),
-            Attribute("notional", "Quantity times price.", unit="currency",
-                      currency_attribute="currency", mandatory=True, is_cde=True),
-            Attribute("currency", "The notional's currency.", semantic_type="currency",
-                      codelist=CURRENCIES, mandatory=True),
+            Attribute(
+                "quantity", "Units traded.", minimum=0.0, maximum=100_000_000.0, mandatory=True
+            ),
+            Attribute(
+                "price", "Execution price.", minimum=0.0, maximum=1_000_000.0, mandatory=True
+            ),
+            Attribute(
+                "notional",
+                "Quantity times price.",
+                unit="currency",
+                currency_attribute="currency",
+                mandatory=True,
+                is_cde=True,
+            ),
+            Attribute(
+                "currency",
+                "The notional's currency.",
+                semantic_type="currency",
+                codelist=CURRENCIES,
+                mandatory=True,
+            ),
             Attribute("trade_date", "Execution date.", semantic_type="iso_date", mandatory=True),
             Attribute("settlement_date", "Settlement date.", semantic_type="iso_date"),
             Attribute("venue", "Where it executed.", semantic_type="mic"),
@@ -126,19 +180,32 @@ LANDING = [
         obligations=("FRTB",),
         attributes=(
             Attribute("book", "The trading book.", mandatory=True),
-            Attribute("isin", "The instrument held.", semantic_type="isin", mandatory=True, is_cde=True),
+            Attribute(
+                "isin", "The instrument held.", semantic_type="isin", mandatory=True, is_cde=True
+            ),
             Attribute("as_of_date", "The business date.", semantic_type="iso_date", mandatory=True),
             Attribute("quantity", "Net units held."),
-            Attribute("market_value", "Value in its own currency.", unit="currency",
-                      currency_attribute="currency", mandatory=True, is_cde=True),
-            Attribute("currency", "The value's currency.", semantic_type="currency",
-                      codelist=CURRENCIES, mandatory=True),
+            Attribute(
+                "market_value",
+                "Value in its own currency.",
+                unit="currency",
+                currency_attribute="currency",
+                mandatory=True,
+                is_cde=True,
+            ),
+            Attribute(
+                "currency",
+                "The value's currency.",
+                semantic_type="currency",
+                codelist=CURRENCIES,
+                mandatory=True,
+            ),
         ),
     ),
 ]
 
 
-def relationships(ids: dict[str, str]) -> list[RelationshipDeclaration]:
+def relationships(ids: dict[str, str]) -> list[RelationshipDeclaration]:  # noqa: ARG001
     """What is true *between* the datasets.
 
     Written against the physical names because that is what a control has to
@@ -174,7 +241,8 @@ def relationships(ids: dict[str, str]) -> list[RelationshipDeclaration]:
             from_dataset_id="position_feed",
             to_dataset_id="general_ledger",
             match_keys=(MatchKey(left="book", right="book"),),
-            compare=("market_value",),
+            # The ledger states the same amount as balance_usd, one row per book.
+            compare=("market_value = balance_usd",),
             cardinality=Cardinality.MANY_TO_ONE,
             tolerance=Tolerance(absolute=1.0, currency="USD", relative=0.0001),
             description="Positions must agree with the book of record, within a dollar.",
@@ -182,7 +250,35 @@ def relationships(ids: dict[str, str]) -> list[RelationshipDeclaration]:
     ]
 
 
-async def main(serve: bool, port: int) -> Any:
+#: The reconciliation, as the finance controller completes Γ's proposal: the
+#: positions are in their instruments' currencies and the ledger is in USD, so
+#: amounts are normalised with the treasury's rates before they are compared.
+RECONCILIATION = (
+    "RECONCILE position_feed AGAINST general_ledger ON (book) "
+    "COMPARING market_value = balance_usd WITHIN 1 USD OR 0.01% "
+    "NORMALISING currency TO 'USD' USING RATES fx_rates "
+    "SEVERITY critical DIMENSION consistency "
+    "BECAUSE 'positions must agree with the book of record, within a dollar'"
+)
+
+
+async def _reconciliation(harness: Harness) -> None:
+    async with harness.database.unit_of_work() as uow:
+        entity, _ = await uow.controls.declare(
+            tenant_id=harness.tenant_id,
+            identity="reconcile:positions-ledger",
+            pql=RECONCILIATION,
+            rule="authored.reconcile",
+            criticality=1,
+            schedule="06:30",
+            authored_by="alice",
+        )
+        await uow.controls.activate(str(entity.id), tenant_id=harness.tenant_id, approved_by="bob")
+        harness.accepted += 1
+    say("  authored: " + RECONCILIATION[:96] + "…")
+
+
+async def main(serve: bool, port: int) -> Any:  # noqa: ARG001
     workspace = HERE / "workspace"
     banner(
         "Case study 3 — a mixed estate",
@@ -190,7 +286,7 @@ async def main(serve: bool, port: int) -> Any:
     )
 
     stage(1, "Build both sources", "Masters and ledger in SQLite; extracts as CSV and Parquet.")
-    warehouse, landing, catalogue, planted, counts = build(workspace)
+    warehouse, _landing, catalogue, planted, counts = build(workspace)
     for name, count in counts.items():
         say(f"  {name:<34} {count:>8,} rows")
     say()
@@ -208,6 +304,7 @@ async def main(serve: bool, port: int) -> Any:
         await harness.declare(WAREHOUSE + LANDING)
         await harness.relate(relationships(harness.dataset_ids))
         await harness.derive_and_accept()
+        await _reconciliation(harness)
 
         warehouse_execute, warehouse_close = executor_for(warehouse, "sqlite")
         landing_execute, landing_close = executor_for(catalogue, "duckdb")

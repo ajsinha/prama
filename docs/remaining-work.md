@@ -90,8 +90,10 @@ Ordered by what I would take first. Each item says why it matters.
 
 ## 7. Intelligence roadmap (docs/23), still open
 
-- **Wave 15:** reconciliation proposals from lineage, which need `RECONCILE` in PQL. Tableau
-  lineage only if a design partner asks.
+- **Wave 15:** Tableau lineage, only if a design partner asks.
+- **PQL:** `CLASSIFY` rules on `RECONCILE` (the engine's built-in classification is used today),
+  a `WHERE` on reconciliations, and PQL forms for row-count, aggregate and roll-forward parity,
+  which are still specifications.
 - **Wave 17:**
   - E5: glossary terms, and importing glossaries and lineage from Manta, Alation and Collibra;
   - E6: search, steward queues and comments;

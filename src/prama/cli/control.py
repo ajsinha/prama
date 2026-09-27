@@ -350,12 +350,12 @@ class ControlCompileCommand(Command):
                 ctx.emit(fuser.fuse(group, table=group.dataset).sql)
                 ctx.emit("")
             for plan in plans:
-                if plan.assertion_kind in ("delegate", "custom_sql"):
-                    how = (
-                        "a delegate: rows fetched, counted in Python"
-                        if plan.assertion_kind == "delegate"
-                        else "custom SQL: runs as written, not fused"
-                    )
+                if plan.assertion_kind in ("delegate", "custom_sql", "reconcile"):
+                    how = {
+                        "delegate": "a delegate: rows fetched, counted in Python",
+                        "custom_sql": "custom SQL: runs as written, not fused",
+                        "reconcile": "a reconciliation: both sides fetched, matched by the engine",
+                    }[plan.assertion_kind]
                     ctx.emit(f"-- {plan.description} ({how})")
                     ctx.emit(
                         SqlCompiler(ctx.args.dialect)
