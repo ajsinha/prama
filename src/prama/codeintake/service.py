@@ -32,7 +32,13 @@ FALLBACK_CONFIDENCE = 0.8
 
 #: Methods whose edges are deterministic and verified: stored as `parsed`.
 PARSED_METHODS = frozenset(
-    {"code:sqlglot", "code:tsql_procedure", "code:plsql_procedure", "code:db2_procedure"}
+    {
+        "code:sqlglot",
+        "code:tsql_procedure",
+        "code:plsql_procedure",
+        "code:db2_procedure",
+        "code:pyspark_ast",
+    }
 )
 
 
