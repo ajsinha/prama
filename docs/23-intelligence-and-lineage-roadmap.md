@@ -79,9 +79,12 @@ Three questions are answered here, each with a design note behind it:
     against spend derived from the ledger. A refusal is HTTP 429, and is itself recorded as
     `refused_budget`.
   - The Models page shows this month's spend and sets budgets and prices.
-- **Still to do in phase 2:**
-  - the fleet-wide budget reservation under a lease (the check is per-server today);
-  - SSE streaming, the response cache, stored payloads and the pattern redactors (email, IBAN).
+- **Fleet-wide reservation.** The check and an estimate reservation happen under the tenant's
+  budget lease, in a committed transaction of their own, so other servers see an in-flight
+  call's spend. The reservation is released with the call record.
+- **Pattern redactors.** IBANs (withheld only when the mod-97 check passes) and email
+  addresses join secrets and card numbers.
+- **Still to do in phase 2:** SSE streaming, the response cache and stored payloads.
 - **Deferred, each to the phase that first needs it:**
   - The transport-module extraction, multi-turn messages and JSON-schema validation go to
     Wave 13, with the new wire formats.

@@ -346,3 +346,19 @@ class TestTheThreeDefects:
         sent = json.loads(opener.seen.data)["messages"][1]["content"]  # type: ignore[attr-defined]
         assert "4111" not in sent and "postgres://" not in sent
         assert "1234567890123" in sent  # the control: not every long number is a card
+
+
+class TestPatternRedaction:
+    def test_a_valid_iban_is_withheld_and_a_lookalike_is_not(self) -> None:
+        from prama.llm.redact import redact
+
+        # GB82 WEST 1234 5698 7654 32 is the ISO 13616 example, and valid.
+        out = redact("pay GB82 WEST 1234 5698 7654 32 today; ref GB00 WEST 1234 5698 7654 32")
+        assert "GB82 WEST" not in out and "[an IBAN withheld]" in out
+        assert "GB00 WEST 1234 5698 7654 32" in out  # the control: bad check digits survive
+
+    def test_an_email_address_is_withheld(self) -> None:
+        from prama.llm.redact import redact
+
+        out = redact("ask ada.lovelace@bank.example about trades.notional")
+        assert "ada.lovelace" not in out and "trades.notional" in out

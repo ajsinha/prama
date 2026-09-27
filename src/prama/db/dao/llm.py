@@ -26,6 +26,7 @@ from prama.db.models.llm import (
     LlmProfileRoute,
     LlmProfileVersion,
     LlmProvider,
+    LlmReservation,
 )
 from prama.llm.gateway import GENESIS, CallRecord, seal
 
@@ -343,7 +344,43 @@ class LlmDao(Dao[LlmProvider]):
         if column is not None:
             statement = statement.where(column == scope_id)
         micros, tokens = (await self._session.execute(statement)).one()
+        # Plus what calls in flight have reserved, so a fleet of servers sees
+        # each other's spend before it lands in the ledger.
+        live = await self._session.execute(
+            select(LlmReservation).where(
+                LlmReservation.tenant_id == tenant_id, LlmReservation.expires_at > _now()
+            )
+        )
+        key = f"{scope_kind}:{scope_id}"
+        for reservation in live.scalars():
+            if key in reservation.scopes_json:
+                micros += reservation.reserved_micros
+                tokens += reservation.reserved_tokens
         return int(micros), int(tokens)
+
+    async def reserve(
+        self, tenant_id: str, scopes: list[str], *, micros: int, tokens: int, seconds: float
+    ) -> LlmReservation:
+        from datetime import UTC, datetime, timedelta
+
+        row = LlmReservation(
+            tenant_id=tenant_id,
+            scopes_json=scopes,
+            reserved_micros=micros,
+            reserved_tokens=tokens,
+            expires_at=(datetime.now(UTC) + timedelta(seconds=seconds)).isoformat(
+                timespec="milliseconds"
+            ),
+        )
+        self._session.add(row)
+        await self._session.flush()
+        return row
+
+    async def release_reservation(self, tenant_id: str, reservation_id: str) -> None:
+        row = await self._session.get(LlmReservation, reservation_id)
+        if row is not None and row.tenant_id == tenant_id:
+            await self._session.delete(row)
+            await self._session.flush()
 
     # -- helpers for the other tables --------------------------------------
 

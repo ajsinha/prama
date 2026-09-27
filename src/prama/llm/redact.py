@@ -42,9 +42,32 @@ def _card(match: re.Match[str]) -> str:
     return "[a card number withheld]" if _luhn(digits) else match.group(0)
 
 
+#: An IBAN: two letters, two check digits, up to 30 alphanumerics, optionally
+#: grouped in fours. Withheld only when the ISO 13616 mod-97 check passes.
+_IBAN = re.compile(r"\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,4})?\b")
+
+#: An email address. Personal data in most prompts that would carry one.
+_EMAIL = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
+
+
+def _iban_valid(candidate: str) -> bool:
+    compact = candidate.replace(" ", "")
+    if not 15 <= len(compact) <= 34:
+        return False
+    rotated = compact[4:] + compact[:4]
+    digits = "".join(str(int(ch, 36)) for ch in rotated)
+    return int(digits) % 97 == 1
+
+
+def _iban(match: re.Match[str]) -> str:
+    return "[an IBAN withheld]" if _iban_valid(match.group(0)) else match.group(0)
+
+
 def redact(text: str) -> str:
     """Remove anything that must not leave, leaving a marker that it was there."""
     result = text
     for pattern, kind in SECRET_SHAPES:
         result = re.sub(pattern, f"[{kind} withheld]", result, flags=re.IGNORECASE)
-    return _CARD.sub(_card, result)
+    result = _CARD.sub(_card, result)
+    result = _IBAN.sub(_iban, result)
+    return _EMAIL.sub("[an email address withheld]", result)
