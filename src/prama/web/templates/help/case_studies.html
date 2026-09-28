@@ -1,0 +1,33 @@
+{# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{% extends "base.html" %}
+{% block title %}Case studies — Prama help{% endblock %}
+{% block breadcrumb %}
+<nav aria-label="Breadcrumb"><ol class="breadcrumb small">
+  <li class="breadcrumb-item"><a href="{{ url_for('help_index') }}">Help</a></li>
+  <li class="breadcrumb-item active" aria-current="page">Case studies</li>
+</ol></nav>
+{% endblock %}
+{% block content %}
+<h1 class="h4">Case studies</h1>
+<p class="text-muted" style="max-width: 60rem">Prama run end to end on fabricated banking data, each study chosen for a different thing it
+  makes Prama do. Every planted defect is declared before Prama looks, and each study prints what it planted against what it
+  found, including what it did <strong>not</strong> find. Open one for what it builds, how to run it, and the numbers from a real run.</p>
+{% if studies %}
+<div class="row g-3">
+  {% for s in studies %}
+  <div class="col-md-6 col-xl-4">
+    <a class="card h-100 text-decoration-none" href="{{ url_for('help_case_study', slug=s.slug) }}"><div class="card-body">
+      <div class="d-flex align-items-center gap-2 mb-2"><span class="badge rounded-pill text-bg-primary">{{ s.num }}</span>
+        <h2 class="h6 mb-0 text-body">{{ s.title }}</h2></div>
+      <p class="small text-muted mb-1">{{ s.uses }}</p>
+      <p class="small text-body mb-2">{{ s.about }}</p>
+      <span class="small">Read the study <i class="bi bi-arrow-right" aria-hidden="true"></i></span></div></a>
+  </div>
+  {% endfor %}
+</div>
+<p class="small text-muted mt-3">Run any of them from the repository: <code>cd case-studies/&lt;folder&gt; &amp;&amp; python run.py</code>.
+  They write into the application's database, under a tenant of their own.</p>
+{% else %}
+<p class="text-muted">This installation does not carry the case studies; they are in the <code>case-studies/</code> folder of the source repository.</p>
+{% endif %}
+{% endblock %}

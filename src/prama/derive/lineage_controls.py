@@ -137,7 +137,12 @@ def propose(edges: Iterable[Any], controls: Iterable[Any]) -> list[LineagePropos
 
 def _reconciliations(edges: Iterable[Any]) -> dict[str, LineageProposal]:
     by_pair: dict[tuple[str, str], list[Any]] = {}
+    filtered: dict[tuple[str, str], set[str]] = {}
     for edge in edges:
+        if edge.transform == "filter":
+            filtered.setdefault((edge.source_dataset, edge.target_dataset), set()).add(
+                edge.source_column
+            )
         if edge.transform in _CARRIED and edge.source_dataset != edge.target_dataset:
             by_pair.setdefault((edge.source_dataset, edge.target_dataset), []).append(edge)
     out: dict[str, LineageProposal] = {}
@@ -159,12 +164,22 @@ def _reconciliations(edges: Iterable[Any]) -> dict[str, LineageProposal]:
             if any(e.status == "inferred" for e in carried)
             else ""
         )
+        if not held and (source, target) in filtered:
+            # The copy keeps only some rows, and RECONCILE takes no WHERE yet:
+            # every row filtered out would be reported as a break.
+            held = (
+                f"{target} keeps only the rows of {source} that pass a filter on "
+                f"{', '.join(sorted(filtered[(source, target)]))}; a reconciliation would "
+                "report every filtered row as missing"
+            )
         on = ", ".join(t if t == s else f"{t} = {s}" for t, s in keys)
         for mine, theirs in amounts:
             compared = mine if mine == theirs else f"{mine} = {theirs}"
+            # A copy is exact: the tolerance is zero, stated, because a
+            # reconciliation with no bound at all cannot run.
             pql = _checked(
                 f"RECONCILE {quote_dataset(target)} AGAINST {quote_dataset(source)} "
-                f"ON ({on}) COMPARING {compared} "
+                f"ON ({on}) COMPARING {compared} WITHIN 0 "
                 f"BECAUSE 'lineage: {target} copies {mine} and its keys from {source}'"
             )
             if pql is None:

@@ -340,7 +340,9 @@ async def correlation(uow: Any, tenant_id: str) -> dict[str, Any]:
                     concept_property=a.concept_property_id or "",
                     terms=tuple(sorted(t for t in terms if t)),
                     semantic_type=a.semantic_type or "",
-                    is_key=a.name in keys,
+                    # A key, or a column declared unique: either identifies the
+                    # dataset's entities, and so owns the meaning it carries.
+                    is_key=a.name in keys or values.get(a.attribute_id, {}).get("unique") is True,
                     is_cde=bool(a.is_cde),
                     sensitivity=a.sensitivity,
                     metadata=values.get(a.attribute_id, {}),

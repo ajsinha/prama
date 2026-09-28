@@ -107,11 +107,13 @@ async def test_metadata_proposes_its_rules_and_retracts_them_when_changed(
             (await service.resolve(uow, tenant_id, "trades.account_id"))[1].attribute_id,
         )
     assert offered == {
-        "CHECK trades.account_id IS NOT NULL",
-        "CHECK trades.ccy IN ('USD', 'EUR')",
-        "CHECK trades HAS UNIQUE KEY (trade_id)",
+        "CHECK trades.account_id IS NOT NULL DIMENSION completeness",
+        "CHECK trades.ccy IN ('USD', 'EUR') DIMENSION validity",
+        "CHECK trades HAS UNIQUE KEY (trade_id) DIMENSION uniqueness",
     }
-    assert "CHECK trades.account_id IS NOT NULL" not in after  # "no" implies nothing
+    assert (
+        "CHECK trades.account_id IS NOT NULL DIMENSION completeness" not in after
+    )  # "no" implies nothing
     assert [h.valid_to is None for h in history] == [False, True]  # kept, not overwritten
 
 

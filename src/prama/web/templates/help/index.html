@@ -15,6 +15,25 @@
          data-help-search autocomplete="off">
 </div>
 
+{% if studies %}
+<section class="mb-4" aria-labelledby="studies-h">
+  <div class="d-flex align-items-baseline gap-3 mb-2">
+    <h2 class="h5 mb-0" id="studies-h"><i class="bi bi-journal-code" aria-hidden="true"></i> Case studies</h2>
+    <a class="small" href="{{ url_for('help_case_studies') }}">All {{ studies | length }} <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+  </div>
+  <div class="row g-3">
+    {% for s in studies %}
+    <div class="col-md-6 col-xl-4">
+      <a class="card h-100 text-decoration-none" href="{{ url_for('help_case_study', slug=s.slug) }}"><div class="card-body py-2">
+        <div class="d-flex align-items-center gap-2"><span class="badge rounded-pill text-bg-primary">{{ s.num }}</span>
+          <span class="fw-semibold text-body">{{ s.title }}</span></div>
+        <p class="small text-muted mb-0 mt-1">{{ s.about }}</p></div></a>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
 {% for section in sections %}
 <section class="mb-4" data-help-section>
   <h2 class="h5 mb-3">{{ section.title }}</h2>

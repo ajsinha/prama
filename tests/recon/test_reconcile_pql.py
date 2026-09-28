@@ -125,6 +125,16 @@ def test_lineage_proposes_a_reconciliation_for_a_copy_at_the_same_grain() -> Non
     control = parse_control(proposal.pql)
     assert control.target == "mart.positions" and control.assertion.against == "stg.trades"
     assert proposal.deferred_because == ""
+    # It must run, not merely parse: without a stated bound the engine refuses it.
+    from prama.recon.pql import definition_of
+
+    assert definition_of(resolved(control)).tolerance.absolute == 0
+    # A filtered copy is held: every row the filter drops would be a break.
+    status = types.SimpleNamespace(
+        **{**vars(_edge("stg.trades.status", "mart.positions.*")), "transform": "filter"}
+    )
+    (held,) = [p for p in propose([*edges, status], []) if p.rule == "lineage_reconcile"]
+    assert "filter on status" in held.deferred_because
     # The counterfactual: an aggregated amount is not a same-grain copy.
     aggregated = [edges[0], types.SimpleNamespace(**{**vars(edges[1]), "transform": "aggregated"})]
     assert not [p for p in propose(aggregated, []) if p.rule == "lineage_reconcile"]
