@@ -320,7 +320,10 @@ SLIDES: list[dict[str, Any]] = [
             ["Validity", "CHECK trades.notional >= 0 SEVERITY critical DIMENSION validity"],
             ["Uniqueness", "CHECK trades HAS UNIQUE KEY (trade_id)"],
             ["Referential", "CHECK trades.account_id REFERENCES accounts.account_id"],
-            ["Freshness", "CHECK trades IS FRESH WITHIN 4 HOURS OF '06:30' CALENDAR 'TARGET2'"],
+            [
+                "Freshness",
+                "CHECK trades.loaded_at IS FRESH WITHIN 4 HOURS OF '06:30' CALENDAR 'TARGET2'",
+            ],
             [
                 "Reconciliation",
                 "RECONCILE subledger AGAINST general_ledger ON (account, posting_date) "
@@ -389,7 +392,7 @@ SLIDES: list[dict[str, Any]] = [
             "head": "DQ delegates, in Python",
             "items": [
                 "A class behind the DqDelegate interface, named from PQL",
-                "Run in a separate worker process, streamed in batches",
+                "Sandboxed: clean environment, audit hook, network namespace where allowed",
                 "Uploaded through the console with checks and an approval step",
                 "A test kit for the author's own CI; remote agents run them beside the data",
             ],

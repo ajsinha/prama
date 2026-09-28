@@ -34,7 +34,7 @@ from prama.agent.capability import AgentCapabilities
 from prama.agent.protocol import Assignment, Hello, Receipt, Refusal, Report, Response
 from prama.agent.residency import Boundary, ResidencyPolicy
 from prama.agent.spool import Gap, Spool
-from prama.backend.execute import judge, judge_segments
+from prama.backend.execute import as_number, judge, judge_segments
 from prama.core.clock import Clock, SystemClock
 from prama.core.log import get_logger
 from prama.evidence.record import EvidenceRecord, SnapshotRef
@@ -226,7 +226,7 @@ class Agent:
             segmented = [
                 (
                     "|".join(str(row[c]) for c in plan.scope.segment_by),
-                    {n: float(row[n]) for n in names if row.get(n) is not None},
+                    {n: v for n in names if (v := as_number(row.get(n))) is not None},
                 )
                 for row in rows
             ]
@@ -234,7 +234,7 @@ class Agent:
         first = rows[0] if rows else {}
         return judge(
             plan,
-            {n: float(first[n]) for n in names if first.get(n) is not None},
+            {n: v for n in names if (v := as_number(first.get(n))) is not None},
             engine=assignment.engine,
         )
 

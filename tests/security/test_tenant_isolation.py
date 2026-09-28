@@ -737,6 +737,15 @@ async def _one_of_everything(uow: Any, tenant: str) -> None:
     # Left unfinished on purpose: `EvidenceRunDao.unfinished` is about a run
     # that died, and a fixture that only ever finishes runs cannot reach it.
     await uow.evidence_runs.start(tenant_id=tenant, triggered_by="test", engine="reference")
+    await uow.anchors.record(
+        tenant_id=tenant,
+        sequence=0,
+        digest="cd" * 32,
+        kind="rfc3161",
+        authority="https://tsa.test/tsr",
+        status="anchored",
+        requested_at="2026-09-28T06:00:00Z",
+    )
     await uow.flush()
 
 

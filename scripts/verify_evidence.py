@@ -15,8 +15,15 @@ a bundle that verifies. Chain integrity answers "has this been altered since it
 was written", not "was it right when it was written". Anyone presenting a green
 result as the second thing is overstating it.
 
-    usage:  python3 verify_evidence.py <bundle-directory>
+    usage:  python3 verify_evidence.py <bundle-directory> [--tsa-ca ca.pem [--tsa-cert tsa.pem]]
             python3 verify_evidence.py manifest.json evidence.ndjson
+
+Anchors. If the bundle carries ``anchors.json`` (receipts from a time-stamp
+authority for the chain head at a position), each is checked against the
+records: the record at that position must have the hash the token binds. A
+chain rebuilt after it was anchored verifies on its own and fails here. The
+authority's signature on the token is checked by ``openssl ts -verify`` when
+its CA certificate is given (``--tsa-ca``), and said to be unchecked when not.
 
     exit 0  every check passed
     exit 1  at least one check failed
@@ -28,12 +35,17 @@ Licensed for use by auditors and their clients in verifying Prama evidence.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
+import shutil
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 USAGE = """usage:  python3 verify_evidence.py <bundle-directory>
+            [--tsa-ca ca.pem [--tsa-cert tsa.pem]]
         python3 verify_evidence.py manifest.json evidence.ndjson"""
 
 GENESIS = "0" * 64
@@ -284,6 +296,125 @@ def verify_manifest(
     )
 
 
+def _der(data: bytes, at: int) -> tuple[int, int, int]:
+    """(tag, content start, content end) of the DER element at *at*."""
+    tag, first = data[at], data[at + 1]
+    at += 2
+    if first >= 0x80:
+        count = first & 0x7F
+        size, at = int.from_bytes(data[at : at + count], "big"), at + count
+    else:
+        size = first
+    return tag, at, at + size
+
+
+def _items(data: bytes, start: int, end: int) -> list[tuple[int, int, int]]:
+    out = []
+    while start < end:
+        item = _der(data, start)
+        out.append(item)
+        start = item[2]
+    return out
+
+
+def token_imprint(token: bytes) -> tuple[str, str]:
+    """(the digest an RFC 3161 token binds, the authority's time), from its DER.
+
+    ContentInfo -> SignedData -> encapContentInfo -> TSTInfo -> messageImprint.
+    """
+    _, s, e = _der(token, 0)
+    signed = _items(token, s, e)[1]
+    _, s, e = _der(token, signed[1])
+    encap = _items(token, s, e)[2]
+    content = _items(token, encap[1], encap[2])[1]
+    _, s, e = _der(token, content[1])
+    info = token[s:e]
+    _, s, e = _der(info, 0)
+    fields = _items(info, s, e)
+    imprint = _items(info, fields[2][1], fields[2][2])[1]
+    when = info[fields[4][1] : fields[4][2]].decode("ascii")
+    return info[imprint[1] : imprint[2]].hex(), when
+
+
+def verify_anchors(
+    anchors: list[dict],
+    records: list[dict],
+    report: Report,
+    ca: Path | None,
+    cert: Path | None,
+) -> None:
+    """Each receipt against the record at its position, and its signature if possible."""
+    by_sequence = {r.get("sequence"): r for r in records}
+    for receipt in anchors:
+        sequence, digest = receipt.get("sequence"), receipt.get("digest", "")
+        record = by_sequence.get(sequence)
+        report.record(
+            f"anchor at sequence {sequence} names the record there",
+            record is not None and record.get("record_hash") == digest,
+            ""
+            if record is not None and record.get("record_hash") == digest
+            else (
+                "The record at this position has a different hash from the one the witness "
+                "saw: the chain was rewritten after it was anchored."
+                if record is not None
+                else "No record at this position in the bundle."
+            ),
+        )
+        try:
+            token = base64.b64decode(receipt.get("token", ""))
+            bound, when = token_imprint(token)
+        except (ValueError, IndexError, UnicodeDecodeError) as exc:
+            report.record(f"anchor at sequence {sequence}: the token can be read", False, str(exc))
+            continue
+        report.record(
+            f"anchor at sequence {sequence}: the token binds that hash (witnessed {when})",
+            bound == digest,
+            "" if bound == digest else f"the token binds {bound[:16]}…, not {digest[:16]}…",
+        )
+        if ca is None:
+            continue
+        openssl = shutil.which("openssl")
+        if openssl is None:
+            report.record("the authority's signature was checked", False, "openssl not found")
+            continue
+        with tempfile.NamedTemporaryFile(suffix=".tst") as handle:
+            handle.write(token)
+            handle.flush()
+            command = [
+                openssl,
+                "ts",
+                "-verify",
+                "-digest",
+                digest,
+                "-token_in",
+                "-in",
+                handle.name,
+                "-CAfile",
+                str(ca),
+            ]
+            if cert is not None:
+                command += ["-untrusted", str(cert)]
+            result = subprocess.run(command, capture_output=True, text=True, check=False)
+        report.record(
+            f"anchor at sequence {sequence}: the authority's signature verifies (openssl)",
+            result.returncode == 0,
+            "" if result.returncode == 0 else (result.stderr or result.stdout).strip()[-400:],
+        )
+
+
+def _options(argv: list[str]) -> tuple[list[str], Path | None, Path | None]:
+    rest, ca, cert = [], None, None
+    items = iter(argv)
+    for item in items:
+        if item == "--tsa-ca":
+            ca = Path(next(items, ""))
+        elif item == "--tsa-cert":
+            cert = Path(next(items, ""))
+        else:
+            rest.append(item)
+    return rest, ca, cert
+
+
 def locate(argv: list[str]) -> tuple[Path, Path]:
     if len(argv) == 1:
         directory = Path(argv[0])
@@ -296,6 +427,7 @@ def locate(argv: list[str]) -> tuple[Path, Path]:
 
 
 def main(argv: list[str]) -> int:
+    argv, ca, cert = _options(argv)
     try:
         manifest_path, evidence_path = locate(argv)
         for path in (manifest_path, evidence_path):
@@ -304,6 +436,10 @@ def main(argv: list[str]) -> int:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         payload = evidence_path.read_text(encoding="utf-8")
         records = read_records(evidence_path)
+        anchors_path = manifest_path.parent / "anchors.json"
+        anchors = (
+            json.loads(anchors_path.read_text(encoding="utf-8")) if anchors_path.is_file() else []
+        )
     except Unreadable as exc:
         print(exc, file=sys.stderr)
         return 2
@@ -327,9 +463,19 @@ def main(argv: list[str]) -> int:
 
     hashes = verify_chain(records, report)
     verify_manifest(manifest, records, payload, hashes, report)
+    verify_anchors(anchors, records, report, ca, cert)
 
     print(report.render())
     print()
+    if not anchors:
+        print("No anchor receipts: the chain is consistent with itself, but nothing outside")
+        print("the system that wrote it witnessed it. A chain rebuilt from scratch would")
+        print("verify exactly like this one.")
+        print()
+    elif ca is None:
+        print(f"{len(anchors)} anchor receipt(s) bind the chain; the authority's signature was")
+        print("not checked. Pass --tsa-ca with the authority's CA certificate to check it.")
+        print()
     if report.ok:
         print("Every check passed.")
         print()

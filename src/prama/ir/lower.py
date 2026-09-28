@@ -514,6 +514,20 @@ class Lowerer:
         if kind == "row_count":
             # The row count *is* the metric; there is no per-row violation.
             return (scanned,)
+        if kind == "freshness":
+            # The newest arrival, on the column that records it. With no
+            # column there is nothing to measure, and `unanswerable` says so.
+            column = str(detail.get("column") or "")
+            if not column:
+                return (scanned,)
+            return (
+                scanned,
+                Metric(
+                    name="latest_at",
+                    aggregate=MetricAggregate.MAX,
+                    expression=Expr.column(column),
+                ),
+            )
         if kind in ("delegate", "custom_sql", "reconcile"):
             # Both measured outside the compiler: by the delegate, or by the
             # author's own query. Declared so the

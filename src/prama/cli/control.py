@@ -574,7 +574,7 @@ class ControlRunCommand(Command):
             await database.start()
             try:
                 async with database.unit_of_work() as uow:
-                    return await ControlRun(
+                    report = await ControlRun(
                         uow,
                         tenant,
                         execute=execute,
@@ -584,6 +584,11 @@ class ControlRunCommand(Command):
                         respect_schedule=ctx.args.due_only,
                         delegates=host_from_config(ctx.config),
                     ).execute_all()
+                # After the run has committed, in a unit of work of its own.
+                from prama.evidence.anchor import anchor_after_run
+
+                await anchor_after_run(database, tenant, ctx.config)
+                return report
             finally:
                 await database.stop()
                 close()

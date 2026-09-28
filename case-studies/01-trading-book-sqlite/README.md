@@ -60,7 +60,7 @@ Then the console at `http://127.0.0.1:8801`.
 | 6 | Instrument not in the security master | 23 | ❌ needs a declared relationship |
 | 7 | Settlement date before trade date | 4 | ❌ nothing was declared about the two |
 | 8 | Ledger adjusted without a position move | 1 | ❌ needs a reconciliation |
-| 9 | FX rate three weeks stale | 1 | ⚠️ freshness could not be judged |
+| 9 | FX rate three weeks stale | 1 | ⚠️ no arrival column declared, so nothing to measure |
 
 Four of nine caught outright. The other five are the interesting ones.
 
@@ -100,28 +100,33 @@ and the difference matters:
 - **The ledger break** needs a reconciliation, which again comes from a
   relationship. Case study 3 declares it.
 
-### ⚠️ Freshness that cannot judge
+### ⚠️ Freshness with nothing to measure
 
-The declared rhythm ("arrives by 06:30") generates a freshness control, and on a
-plain SQLite table it compiles to a row count — which cannot decide whether
-anything is late. It comes back `indeterminate` with no metric to judge, and the
-report says so under **(b)**.
+Each dataset declares when it arrives ("by 06:30") but not which column records the arrival.
+A plain table keeps its rows, not when they were loaded, so there is nothing to measure. Prama
+does not generate a freshness control that could never be red. It prints the reason instead,
+six times, once per dataset:
 
-That is a real limitation of running a freshness control against a table with no
-arrival timestamp. Case study 2 uses feeds, where arrival is observable.
+```
+! fx_rates: fx_rates declares when it arrives but not which column records the arrival, so
+  there is nothing to measure freshness on
+```
+
+Declaring the rhythm's arrival column (a load timestamp) makes it measurable. The newest
+arrival is then judged against the due time on the declared business calendar. Case study 2
+judges arrival on its feeds.
 
 ## What the run prints at the end
 
 ```
-44 passing · 5 failing · 16 not established · 0 could not run
-Evidence chain: 65 record(s), verified
+44 passing · 5 failing · 10 not established · 0 could not run
+Evidence chain: 59 record(s), verified
 Merkle root: …
 ```
 
-Sixteen "not established" is a lot, and it is the honest number: ten are
-two-stage semantic types (ISIN, LEI, ISO dates) and six are freshness controls
-with nothing to judge. Every one of them is a column Prama will not certify, and
-every one is visible.
+Ten "not established" is the honest number: they are two-stage semantic types (ISIN, LEI,
+ISO dates) whose SQL is a screen, not the exact test. Every one of them is a column Prama will
+not certify, and every one is visible.
 
 ## What to look at in the console
 

@@ -377,7 +377,17 @@ deserves the same scepticism as a test's green.
 
 ---
 
-### Q-64 · `IS FRESH` has no execution strategy at all — open, and larger than PQL-083
+### Q-64 · `IS FRESH` has no execution strategy at all — **closed 2026-09-28**
+
+> **Closed.** Freshness is measured on the column that records arrival: `CHECK t.loaded_at IS
+> FRESH WITHIN 30 MINUTES OF '06:30' CALENDAR 'TARGET2'` lowers to `MAX(loaded_at)`, the
+> judge finds the cycle due on the business calendar, and the verdict is PASS or FAIL. The
+> instant of evaluation is recorded as a metric, so a replay reaches the same verdict. A
+> rhythm names its arrival column (`Rhythm.arrival_column`). A rhythm without one generates
+> no freshness control and reports why, instead of one that could never be red. The strict
+> xfail in `tests/derive/test_generator.py` passed and was removed. The executed verdicts
+> are in `tests/backend/test_freshness.py`. Found on the way: `CHECK t.col IS FRESH` rendered
+> as `CHECK t IS FRESH`, dropping the column; fixed.
 
 `PQL-083` recorded that a freshness plan carries no `violating_rows` metric, so
 every freshness control is permanently indeterminate. Looking for the fix found

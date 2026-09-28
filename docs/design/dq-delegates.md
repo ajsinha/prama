@@ -86,9 +86,30 @@ core dumps, via `prama.codeintake.worker.limit_resources`. It re-scans a path de
 importing it, because the file may have changed since admission. The request goes in on stdin and
 the answer comes out on stdout.
 
-**What the sandbox does not do.** It does not isolate the network at the OS level. Network access
-is refused by the source scan. A deployment that needs kernel-level isolation should run agents
-under the operator's own network namespaces or seccomp profile.
+**Isolation, in layers** (`prama.delegates.host.isolation_in_force` names what applied, and the
+evidence records it as `delegate_isolation`):
+
+- **Clean environment.** The worker gets an allowlist (`LANG`, `PATH`, a private `HOME` and `TMPDIR`,
+  and `PYTHONPATH` when set). It does not inherit the server's environment, so DSNs and API keys are not
+  there to read.
+- **Network namespace.** Where the host allows unprivileged user namespaces (probed once), the worker
+  runs under `unshare --net --map-root-user`: a network stack with nothing in it.
+- **Audit hook** (PEP 578, `worker.seal`). Installed before the delegate is imported and not removable.
+  It refuses socket, subprocess, `exec`, `fork`, `posix_spawn`, `ctypes` and `sys.addaudithook` events.
+  This is an in-process check, not a boundary against native code already loaded.
+- **One deadline over both pipes.** The host multiplexes the worker's stdin and stdout with
+  `selectors` under a single deadline. Before this, the deadline covered only the reply, so a delegate
+  that slept (using no CPU, so the CPU limit never fired) held the host for ever.
+- **The admission scan** now also refuses `import builtins`, interpreter-internals attributes
+  (`__self__`, `__subclasses__`, `__globals__`, …) and `getattr` with a computed name.
+  `getattr(len.__self__, "__imp" + "ort__")` had been admitted.
+
+`tests/delegates/test_sandbox.py` exercises each layer with a delegate that passes admission and
+misbehaves only when a control asks it to.
+
+**Trust boundary.** Delegates the operator installs (configured `paths`, entry points) are imported
+and probed in the server's own process at admission: the trust given to any installed package.
+Uploads, the untrusted route, are vetted in a subprocess and never imported by the host.
 
 ## Remote agents
 

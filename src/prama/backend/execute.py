@@ -12,6 +12,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import dataclasses
+from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 
 from prama.ir.model import ControlPlan, Verdict
@@ -86,9 +87,50 @@ class SegmentResult:
         return {"key": self.key, "verdict": self.verdict.value, "metrics": self.metrics}
 
 
-def judge(plan: ControlPlan, metrics: dict[str, float], *, engine: str = "") -> ControlResult:
-    """Apply a plan's threshold to metrics one engine computed."""
-    enriched = _derive(plan, dict(metrics))
+def as_number(value: Any) -> float | None:
+    """An engine's answer as a number, or ``None`` if it is not one.
+
+    Counts come back as numbers. ``MAX(loaded_at)`` comes back as a datetime,
+    a date or ISO-8601 text, depending on the engine and the column's type, and
+    a metric must be a number to be recorded and judged. An instant becomes
+    epoch seconds; one with no zone is taken as UTC, which is how Prama stores
+    time and how most load timestamps are written.
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int | float):
+        return float(value)
+    if isinstance(value, datetime):
+        return (value if value.tzinfo else value.replace(tzinfo=UTC)).timestamp()
+    if isinstance(value, date):
+        return datetime.combine(value, time(), tzinfo=UTC).timestamp()
+    if isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value.strip())
+        except ValueError:
+            return None
+        return (parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)).timestamp()
+    return None
+
+
+def judge(
+    plan: ControlPlan,
+    metrics: dict[str, float],
+    *,
+    engine: str = "",
+    now: datetime | None = None,
+) -> ControlResult:
+    """Apply a plan's threshold to metrics one engine computed.
+
+    A freshness verdict depends on when it is taken, so the instant is recorded
+    as the ``evaluated_at`` metric, taken from *now* (or the clock) only when
+    the metrics do not already carry one. A replay of the evidence therefore
+    judges at the instant the original run did, and reaches the same verdict.
+    """
+    metrics = dict(metrics)
+    if plan.assertion_kind == "freshness" and "evaluated_at" not in metrics:
+        metrics["evaluated_at"] = (now or datetime.now(UTC)).timestamp()
+    enriched = _derive(plan, metrics)
     return ControlResult(
         plan_id=plan.plan_id,
         verdict=_verdict(plan, enriched),
@@ -104,6 +146,8 @@ def _derive(plan: ControlPlan, metrics: dict[str, float]) -> dict[str, float]:
     counts and the count of offending rows follows. Deriving it here rather
     than asking each engine for it keeps one definition instead of three.
     """
+    if plan.assertion_kind == "freshness":
+        return _freshness(plan, metrics)
     if plan.assertion_kind == "functional_dependency":
         determinants = metrics.get("distinct_determinants")
         pairs = metrics.get("distinct_pairs")
@@ -138,13 +182,18 @@ def judge_segments(
     rows: list[tuple[str, dict[str, float]]],
     *,
     engine: str = "",
+    now: datetime | None = None,
 ) -> ControlResult:
     """Judge each segment, then the control as a whole.
 
     The control fails if any segment does. Aggregating the segments back into
     one number and judging that would restore exactly the averaging the
-    segmentation was written to avoid.
+    segmentation was written to avoid. Every segment of a freshness control is
+    judged at the same instant, which is recorded on each.
     """
+    if plan.assertion_kind == "freshness":
+        instant = (now or datetime.now(UTC)).timestamp()
+        rows = [(key, {"evaluated_at": instant, **values}) for key, values in rows]
     segments = tuple(
         SegmentResult(
             key=key,
@@ -156,7 +205,12 @@ def judge_segments(
     totals: dict[str, float] = {}
     for segment in segments:
         for name, value in segment.metrics.items():
-            totals[name] = totals.get(name, 0.0) + float(value)
+            if name.endswith("_at"):
+                # An instant, not a count: the total of two timestamps is no
+                # time at all. The latest stands for the control.
+                totals[name] = max(totals.get(name, float(value)), float(value))
+            else:
+                totals[name] = totals.get(name, 0.0) + float(value)
     # A fail anywhere fails the control; an indeterminate *anywhere* makes the
     # control indeterminate. This used to require every segment to be
     # indeterminate before saying so, so two partitions that ran cleanly and
@@ -194,6 +248,10 @@ VERDICT_METRICS: dict[str, frozenset[str]] = {
     "row_count": frozenset({"scanned_rows"}),
     "functional_dependency": frozenset({"distinct_determinants", "distinct_pairs", "scanned_rows"}),
     "unique_key": frozenset({"scanned_rows", "distinct_keys"}),
+    # The newest arrival. Without the column that records it there is nothing
+    # to measure, which is Q-64: a generated freshness control that emitted no
+    # metric and could never be red.
+    "freshness": frozenset({"scanned_rows", "latest_at"}),
 }
 
 
@@ -236,7 +294,68 @@ def unanswerable(plan: ControlPlan) -> str:
     return ""
 
 
+def _freshness(plan: ControlPlan, metrics: dict[str, float]) -> dict[str, float]:
+    """When the newest data was due, and whether it arrived in time.
+
+    With a due time, the cycle judged is the most recent business day whose
+    deadline (due time plus tolerance, on the plan's calendar) has passed at
+    ``evaluated_at``. Data for it counts if it arrived after the *previous*
+    business day's deadline, so a run at 05:00 judges yesterday's cycle and a
+    run at 10:00 today's. Without a due time, the newest row must be no older
+    than the tolerance.
+
+    Measured on the newest arrival alone, so one reading is ambiguous: a very
+    late delivery for the previous cycle looks like an early one for this
+    cycle. What it cannot miss is the failure that matters, nothing new since
+    the last deadline.
+    """
+    now = metrics.get("evaluated_at")
+    latest = metrics.get("latest_at")
+    if now is None:
+        return metrics
+    detail = plan.detail
+    tolerance = timedelta(minutes=int(detail.get("tolerance_minutes") or 0))
+    moment = datetime.fromtimestamp(now, UTC)
+    due = str(detail.get("due_time") or "")
+    if due:
+        from prama.core.calendars import default_calendars
+        from prama.packs import install_shipped
+
+        # Idempotent. The app and the CLI install the packs at start; an agent
+        # or a library caller may not have, and TARGET2 lives in a pack.
+        install_shipped()
+
+        calendar = default_calendars().get(str(detail.get("calendar") or "") or None)
+        at = time(int(due[:2]), int(due[3:5]))
+        cycle = calendar.business_date_of(moment)
+        deadline = calendar.expected_at(cycle, at) + tolerance
+        if deadline > moment:
+            cycle = calendar.previous_business_day(cycle)
+            deadline = calendar.expected_at(cycle, at) + tolerance
+        opened = calendar.expected_at(calendar.previous_business_day(cycle), at) + tolerance
+        metrics["due_at"] = deadline.timestamp()
+    else:
+        opened = moment - tolerance
+    metrics["window_opened_at"] = opened.timestamp()
+    if latest is not None:
+        metrics["violating_rows"] = 0.0 if latest >= opened.timestamp() else 1.0
+        metrics["age_seconds"] = max(0.0, now - latest)
+    return metrics
+
+
+def _freshness_verdict(metrics: dict[str, float]) -> Verdict:
+    if "evaluated_at" not in metrics:
+        return Verdict.INDETERMINATE
+    if metrics.get("scanned_rows") == 0:
+        return Verdict.FAIL  # nothing has arrived at all
+    if "violating_rows" not in metrics:
+        return Verdict.INDETERMINATE  # rows, but none says when it arrived
+    return Verdict.PASS if metrics["violating_rows"] == 0 else Verdict.FAIL
+
+
 def _verdict(plan: ControlPlan, metrics: dict[str, float]) -> Verdict:
+    if plan.assertion_kind == "freshness":
+        return _freshness_verdict(metrics)
     if plan.assertion_kind == "row_count":
         return _row_count_verdict(plan, metrics)
     if plan.assertion_kind == "functional_dependency":

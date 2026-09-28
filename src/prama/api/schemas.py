@@ -53,6 +53,10 @@ class RhythmIn(PramaModel):
         default_factory=list,
         description="Declared causes of legitimate variation, e.g. month_end.",
     )
+    arrival_column: str | None = Field(
+        default=None,
+        description="The load or ingestion timestamp column freshness is measured on.",
+    )
 
 
 class DatasetIn(PramaModel):

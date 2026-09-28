@@ -227,11 +227,12 @@ def build(workspace: Path) -> tuple[Path, DefectLog, dict[str, int]]:
         dimension="timeliness",
         detectable=False,
         caveat=(
-            "The declared rhythm generates a freshness control, and on a plain table "
-            "it compiles to a row count — which cannot decide whether anything is "
-            "late. It is reported as 'not established' rather than as a pass, which "
-            "is the honest outcome and not a detection. A freshness control needs an "
-            "arrival timestamp or a feed, which is what case study 2 has."
+            "The declared rhythm says when fx_rates arrives but names no column that "
+            "records arrival, so no freshness control is generated, and Prama says why "
+            "rather than emit one that could never be red. One pair's stale rate is a "
+            "per-row question in any case: the table as a whole did arrive. Declaring "
+            "an arrival column makes the rhythm measurable; case study 2 judges arrival "
+            "on its feeds."
         ),
     )
 

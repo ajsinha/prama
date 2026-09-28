@@ -23,7 +23,7 @@ from collections.abc import Callable
 from typing import Any
 
 from prama.backend.corpus import CASES, Case
-from prama.backend.execute import ControlResult, judge, judge_segments
+from prama.backend.execute import ControlResult, as_number, judge, judge_segments
 from prama.backend.sql import SqlCompiler
 from prama.ir.lower import Lowerer
 from prama.ir.model import ControlPlan
@@ -152,7 +152,7 @@ class ConformanceRun:
             segmented = [
                 (
                     "|".join(str(row[c]) for c in plan.scope.segment_by),
-                    {n: float(row[n]) for n in names if row.get(n) is not None},
+                    {n: v for n in names if (v := as_number(row.get(n))) is not None},
                 )
                 for row in rows
             ]
@@ -160,7 +160,7 @@ class ConformanceRun:
         first = rows[0] if rows else {}
         return judge(
             plan,
-            {n: float(first[n]) for n in names if first.get(n) is not None},
+            {n: v for n in names if (v := as_number(first.get(n))) is not None},
             engine=engine,
         )
 

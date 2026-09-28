@@ -35,6 +35,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from prama.backend import compile_for, judge, judge_segments
+from prama.backend.execute import as_number
 from prama.classify.validators import ValidatorRegistry, default_registry
 from prama.core.clock import Clock, SystemClock
 from prama.core.errors import PramaError
@@ -382,12 +383,15 @@ class ControlRun:
             delegate_samples = measured.samples
         elif plan.scope.segment_by and len(rows) > 1:
             result = judge_segments(
-                plan, _segments_from(rows, plan.scope.segment_by), engine=self._engine
+                plan,
+                _segments_from(rows, plan.scope.segment_by),
+                engine=self._engine,
+                now=started,
             )
             metrics = dict(result.metrics)
         else:
             metrics = _metrics_from(rows)
-            result = judge(plan, metrics, engine=self._engine)
+            result = judge(plan, metrics, engine=self._engine, now=started)
             # The *derived* metrics, not the raw ones. `judge` enriches a copy,
             # so `violating_rows` for a uniqueness or functional-dependency
             # control — which no engine returns and Prama computes from the two
@@ -585,9 +589,9 @@ def _segments_from(
     for row in rows:
         key = " / ".join(str(row.get(column, "")) for column in segment_by)
         numbers = {
-            str(name): float(value)
+            str(name): number
             for name, value in row.items()
-            if isinstance(value, (int, float)) and not isinstance(value, bool)
+            if (number := as_number(value)) is not None
         }
         pairs.append((key or "(unlabelled)", numbers))
     return pairs
@@ -603,9 +607,9 @@ def _metrics_from(rows: Sequence[dict[str, Any]]) -> dict[str, float]:
     if not rows:
         return {}
     return {
-        str(key): float(value)
+        str(key): number
         for key, value in rows[0].items()
-        if isinstance(value, (int, float)) and not isinstance(value, bool)
+        if (number := as_number(value)) is not None
     }
 
 

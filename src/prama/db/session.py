@@ -26,6 +26,7 @@ from prama.db.engine import EngineFactory
 
 if TYPE_CHECKING:
     from prama.db.dao import (
+        AnchorDao,
         ApiKeyDao,
         AttestationDao,
         AttributeDao,
@@ -343,6 +344,12 @@ class UnitOfWork:
         from prama.db.dao import SampleDao
 
         return self._dao("samples", SampleDao)  # type: ignore[no-any-return]
+
+    @property
+    def anchors(self) -> AnchorDao:
+        from prama.db.dao import AnchorDao
+
+        return self._dao("anchors", AnchorDao)  # type: ignore[no-any-return]
 
     # -- transaction boundary ---------------------------------------------
 

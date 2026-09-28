@@ -49,16 +49,16 @@ SLIDES: list[dict[str, Any]] = [
         "steps": [
             ("Hash chain", "Each record commits to the one before it."),
             ("Merkle root", "One digest summarises a whole run's evidence."),
-            ("Sealed bundle", "Manifest and SBOM, HMAC-sealed; optionally Ed25519-signed."),
+            ("Anchored", "After each run, the head is time-stamped by an RFC 3161 authority."),
             ("Offline verifier", "A standalone script re-derives all of it, importing nothing."),
         ],
         "items": [
             "python3 scripts/verify_evidence.py bundle/ runs on an auditor's machine with "
             "only the standard library. It does not import Prama.",
-            "prama bundle verify exits 3 when a bundle must not be installed: a failure an "
-            "automated pipeline cannot mistake for success.",
-            "Every case study ends by printing its evidence chain as verified, with the "
-            "Merkle root.",
+            "A chain rebuilt by whoever holds the key verifies on its own, and fails against "
+            "its anchor: the signature is checked with openssl ts -verify.",
+            "Exported bundles are HMAC-sealed, optionally Ed25519-signed; prama bundle verify "
+            "exits 3 when one must not be installed.",
         ],
     },
     {

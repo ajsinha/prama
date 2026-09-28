@@ -63,6 +63,16 @@ codeintake:
   git:
     allowed_hosts: []               # empty: any public host; or e.g. [git.bank.example]
 
+evidence:
+  anchor:
+    # A witness outside Prama for the evidence chain head, after each run. A
+    # chain rebuilt by somebody with write access verifies on its own; it does
+    # not agree with a receipt it cannot forge. What leaves is a 32-byte digest.
+    kind: none                      # none | rfc3161
+    url: ""                         # the time-stamp authority, e.g. https://freetsa.org/tsr
+    region: ""                      # where it is, for the residency gate
+    timeout: 30                     # seconds
+
 scheduler:
   # Runs due controls inside `prama serve`, one server per tick (a database
   # lease). Off by default; turning it on needs a source and a default tenant.

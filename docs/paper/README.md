@@ -12,7 +12,7 @@
 # The Paper
 
 **Data Quality as Justified Belief: Derived Controls, Deterministic Verdicts, and Evidence that
-Verifies Without Its Author.** Ashutosh Sinha, 2026. 40 pages.
+Verifies Without Its Author.** Ashutosh Sinha, 2026. 41 pages.
 
 The thesis: a data quality claim is a belief, and it is worth acting on only when it is justified. That
 becomes three constraints — a control derives from a declaration, a verdict comes from a deterministic
@@ -35,7 +35,7 @@ false-alarm budgets.
 Every formal claim carries a marker: **Runs** names a test as `tests/path::test_name`; **In part**
 says what is weaker in the code than on the page; **Not executed** marks mathematics the code does
 not check; **Not in Prama** marks what is not built. Section 12 is a claims register: of seventy-two
-rows, **47 run, 12 run in part, 5 are stated without being executed, and 8 are not built**.
+rows, **50 run, 11 run in part, 5 are stated without being executed, and 6 are not built**.
 
 Every number is either from a run of the repository or from an assertion in a named test, and the
 paper says which. The case-study table, the benchmark table and the calibration grid were produced by

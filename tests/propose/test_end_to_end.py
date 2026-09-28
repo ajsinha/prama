@@ -54,6 +54,7 @@ def positions() -> DatasetDeclaration:
         rhythm=Rhythm(
             frequency=Frequency.DAILY,
             arrival_by="06:30",
+            arrival_column="loaded_at",
             calendar="TARGET2",
             lateness_tolerance_seconds=900,
             expected_volume_min=10_000,
@@ -61,6 +62,7 @@ def positions() -> DatasetDeclaration:
         ),
         attributes=(
             AttributeDeclaration(name="account_id", optionality=Optionality.MANDATORY),
+            AttributeDeclaration(name="loaded_at"),
             AttributeDeclaration(name="business_date", optionality=Optionality.MANDATORY),
             AttributeDeclaration(
                 name="counterparty_lei",
@@ -194,6 +196,7 @@ def test_editing_the_declaration_offers_a_revision_rather_than_a_duplicate() -> 
         rhythm=Rhythm(
             frequency=Frequency.DAILY,
             arrival_by="07:15",
+            arrival_column="loaded_at",
             calendar="TARGET2",
             expected_volume_min=10_000,
             expected_volume_max=90_000,

@@ -69,8 +69,11 @@ class Scheduler:
         holder: str = "prama",
         executor_for: Callable[[str, str], tuple[Any, Callable[[], None]]] | None = None,
         delegates: Any = None,
+        config: Any = None,
     ) -> None:
         self._delegates = delegates
+        #: For the evidence anchor, which runs after each tenant's run commits.
+        self._config = config
         self._database = database
         self.tenants = tuple(tenants)
         self.against = against
@@ -108,6 +111,10 @@ class Scheduler:
                             respect_schedule=True,
                             delegates=self._delegates,
                         ).execute_all()
+                    if self._config is not None:
+                        from prama.evidence.anchor import anchor_after_run
+
+                        await anchor_after_run(self._database, tenant, self._config)
                     executed += report.executed
                     verdicts.update(report.verdicts)
             finally:
@@ -151,6 +158,7 @@ def from_config(config: Any, database: Any) -> Scheduler | None:
         interval=float(config.get_duration("scheduler.interval", 60.0)),
         holder=config.get_str("app.instance_id", "prama"),
         delegates=_delegates(config),
+        config=config,
     )
 
 

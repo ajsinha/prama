@@ -34,7 +34,7 @@ from collections.abc import Callable, Iterable, Mapping
 from decimal import Decimal
 from typing import Any
 
-from prama.backend.execute import ControlResult, judge, judge_segments
+from prama.backend.execute import ControlResult, as_number, judge, judge_segments
 from prama.classify.validators import REGISTRY as VALIDATORS
 from prama.ir.model import ControlPlan, Expr, Metric, MetricAggregate
 from prama.pql.errors import PqlUnsupportedError
@@ -249,7 +249,9 @@ class ReferenceEvaluator:
                 ),
             )
         values = [self.evaluate(expression, row) for row in rows] if expression is not None else []
-        numbers = [float(v) for v in values if isinstance(v, int | float)]
+        # Through `as_number`, as the SQL side's answers are: the newest of a
+        # column of load timestamps is an instant, and it is compared as one.
+        numbers = [n for v in values if (n := as_number(v)) is not None]
         if not numbers:
             return None
         return _EXACT[aggregate](numbers)

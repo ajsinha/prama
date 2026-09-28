@@ -154,13 +154,28 @@ HAS NULL RATE BELOW p
 ### 4.2 Dataset-level assertions
 ```pql
 CHECK positions_eod HAS ROW COUNT BETWEEN 900000 AND 1200000
-CHECK positions_eod IS FRESH WITHIN 4 HOURS OF '06:30' CALENDAR 'TARGET2'
+CHECK positions_eod.loaded_at IS FRESH WITHIN 4 HOURS OF '06:30' CALENDAR 'TARGET2'
 CHECK positions_eod HAS UNIQUE KEY (account_id, instrument_id, as_of_date)
 CHECK positions_eod CONFORMS TO SCHEMA OF CONTRACT 'positions@3.1.0'
 CHECK positions_eod HAS NO DUPLICATE ROWS
 CHECK positions_eod HAS PARTITIONS FOR EVERY BUSINESS DAY SINCE '2024-01-01'
 CHECK positions_feed MATCHES TRAILER RECORD COUNT
 ```
+
+**Freshness, as built.** `IS FRESH` is measured on the column that records arrival (a load or
+ingestion timestamp), written as the subject: `CHECK t.loaded_at IS FRESH …`.
+
+- **What is measured.** The newest value, `MAX(loaded_at)`.
+- **With a due time.** The cycle judged is the most recent business day whose deadline (due
+  time plus the tolerance, on the calendar) has passed. It passes if data arrived after the
+  previous business day's deadline.
+- **Without a due time.** The newest row must be no older than the tolerance.
+- **Replay.** The instant of evaluation is recorded as a metric, so a replay reaches the same
+  verdict.
+- **What fails, and what is not established.** An empty table fails. Rows with no timestamp are
+  `indeterminate`.
+- **Without a column.** `CHECK t IS FRESH` has nothing to measure. A declared rhythm without an
+  arrival column generates no freshness control; it says why instead.
 
 ### 4.3 Multi-column / relational
 ```pql
@@ -580,7 +595,8 @@ themselves versioned so that a control executed in March replays identically in 
 
 > *"Daily Positions EOD. Owner: Head of Market Risk Data. Tier 1. One row per account per
 > instrument per business day. Arrives by 06:30 on TARGET2 business days. Volume tracks trading
-> days, 3× at month-end. `notional_amount` is a CDE for FRTB, in trade currency.
+> days, 3× at month-end; `loaded_at` records when each row arrived. `notional_amount` is a CDE
+> for FRTB, in trade currency.
 > It reconciles with the General Ledger on (account, cost centre) in EUR to within €1, one day in
 > arrears. It derives from the Murex trade store."*
 
@@ -592,7 +608,7 @@ SUITE positions_eod_core {
     SEVERITY critical DIMENSION uniqueness
     BECAUSE "Declared grain: one row per account per instrument per business day"
 
-  CHECK positions_eod IS FRESH WITHIN 0 MINUTES OF '06:30' CALENDAR 'TARGET2'
+  CHECK positions_eod.loaded_at IS FRESH WITHIN 0 MINUTES OF '06:30' CALENDAR 'TARGET2'
     SEVERITY major DIMENSION timeliness BECAUSE "Declared arrival window"
 
   MONITOR row_count ON positions_eod

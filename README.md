@@ -244,7 +244,7 @@ Five contributions, targeting **ACM JDIQ** with a **VLDB Industrial** companion 
 are complete, apart from two tasks that are open on infrastructure rather than code. So is most of
 the intelligence roadmap in [docs/23](docs/23-intelligence-and-lineage-roadmap.md): the LLM gateway
 and the lineage workbench, code-to-lineage, steward agents, and DQ delegates. What is left is in
-[docs/remaining-work.md](docs/remaining-work.md). The suite is at <!--tests-->5,970 passing, 118 skipped<!--/tests-->,
+[docs/remaining-work.md](docs/remaining-work.md). The suite is at <!--tests-->6,043 passing, 118 skipped<!--/tests-->,
 derived from a green run by `scripts/sync_test_counts.py` rather than typed — a
 count in prose rots the first time somebody adds a test.
 
@@ -277,7 +277,8 @@ against.
 What that covers: the semantic layer and declaration model; PQL, its typed
 engine-neutral IR, and a conformance suite that runs the same control on DuckDB,
 SQLite and PostgreSQL and requires them to agree; a hash-chained evidence ledger
-with deterministic replay and a verifier that imports nothing of ours;
+with deterministic replay, a verifier that imports nothing of ours, and each run's chain
+head anchored with an RFC 3161 time-stamp authority when configured;
 declaration-derived controls, mining and induction; monitoring and calibration;
 the console; a banking pack with six financial message formats, a
 seventeen-concept ontology and twenty regulatory obligations; seven of the eight
@@ -305,10 +306,15 @@ The intelligence layer adds these pieces:
 - **Usage signals** from warehouse query history rank the work as "most used, least controlled". They never change a quality score.
 - **Discussion and steward queues.** Comment threads with @mentions sit on datasets, attributes, controls and terms, and each person has a queue of everything waiting on them.
 - **A business glossary**, imported from Alation or Collibra, with its terms bound to concepts, datasets and attributes. Lineage can also be imported from Manta or Alation, and is kept beside Prama's own parse, with any disagreements shown.
-- **Controls proposed from lineage.**
+- **Controls proposed from lineage,** including a check at every join that each driving row finds its match.
+- **Freshness measured on arrival.** A rhythm names its load-timestamp column, and freshness is judged against the due time on the business calendar.
 - **Steward agents** that read and propose, and never approve.
-- **DQ delegates.** These are Python checks named from PQL, vetted before import, run in a
-  sandbox, streamed large inputs, and uploaded through the console with four-eyes approval.
+- **DQ delegates.** These are Python checks named from PQL:
+  - vetted before import;
+  - run in a sandbox: clean environment, an audit hook refusing sockets and processes, and a
+    network namespace where the host allows one;
+  - streamed large inputs;
+  - uploaded through the console with four-eyes approval.
 - **`CHECK CUSTOM SQL`**, a read-only escape hatch.
 
 Mainframe code (COBOL, JCL) is deliberately out of scope.
