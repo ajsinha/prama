@@ -108,6 +108,7 @@ class SemDatasetVersion(UlidPrimaryKey, Versioned, Base):
     slug: Mapped[str] = mapped_column(String(128), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     purpose: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    business_context: Mapped[str] = mapped_column(Text, nullable=False, default="")
     domain_id: Mapped[str | None] = mapped_column(String(26), nullable=True)
     shape: Mapped[str] = mapped_column(String(32), nullable=False, default="unbound")
     owner_id: Mapped[str | None] = mapped_column(String(26), nullable=True)
@@ -211,6 +212,7 @@ class SemAttributeVersion(UlidPrimaryKey, Versioned, Base):
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     ordinal: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     definition: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    business_context: Mapped[str] = mapped_column(Text, nullable=False, default="")
     interpretation: Mapped[str] = mapped_column(Text, nullable=False, default="")
 
     semantic_type: Mapped[str | None] = mapped_column(String(64), nullable=True)

@@ -24,6 +24,7 @@ class DatasetService(SemanticService):
         name: str,
         description: str = "",
         purpose: str = "",
+        business_context: str = "",
         domain_id: str | None = None,
         owner_id: str | None = None,
         criticality: int = 4,
@@ -59,6 +60,7 @@ class DatasetService(SemanticService):
             slug=slug,
             description=description,
             purpose=purpose,
+            business_context=business_context,
             domain_id=domain_id,
             owner_id=owner_id,
             criticality=criticality,
@@ -157,6 +159,39 @@ class DatasetService(SemanticService):
             action="dataset.corrected",
             object_kind="dataset",
             object_id=dataset_id,
+            actor_id=authored_by,
+            detail={"reason": reason, "fields": sorted(changes)},
+        )
+        return version
+
+    async def amend_attribute(
+        self,
+        *,
+        tenant_id: str,
+        attribute_id: str,
+        reason: str,
+        authored_by: str | None = None,
+        effective_from: datetime | None = None,
+        **changes: Any,
+    ) -> Any:
+        """An attribute's meaning changed: its definition, business context, CDE mark."""
+        if not reason.strip():
+            raise ValidationError(
+                "an amendment must say why",
+                remedy="State what changed. An unexplained change to a declaration is a finding.",
+            )
+        version = await self._uow.attributes.amend(
+            attribute_id,
+            tenant_id=tenant_id,
+            effective_from=effective_from,
+            provenance=Provenance(authored_by=authored_by, reason=reason),
+            **changes,
+        )
+        self._audit(
+            tenant_id=tenant_id,
+            action="attribute.amended",
+            object_kind="attribute",
+            object_id=attribute_id,
             actor_id=authored_by,
             detail={"reason": reason, "fields": sorted(changes)},
         )

@@ -67,7 +67,7 @@ NAVIGATION: tuple[NavItem, ...] = (
     NavItem("Estate", "estate_map", "/estate", "bi-diagram-3"),
     NavItem("Declarations", "declaration_list", "/declarations", "bi-journal-text"),
     NavItem("Relationships", "relationship_list", "/relationships", "bi-share"),
-    NavItem("Glossary", "glossary", "/glossary", "bi-book-half"),
+    NavItem("Metadata", "metadata", "/metadata", "bi-tags"),
     NavItem("Lineage", "lineage", "/lineage", "bi-bezier2"),
     NavItem("Controls", "control_list", "/controls", "bi-shield-check"),
     NavItem("Proposals", "proposal_queue", "/proposals", "bi-lightbulb"),
@@ -287,6 +287,7 @@ def install_globals() -> None:
     # place a percentage is formatted, so no screen can round a real defect
     # away by using the wrong one.
     templates.env.filters["rate"] = _rate
+    templates.env.filters["fromjson"] = _fromjson
 
     templates.env.globals["csp_nonce"] = _csp_nonce
 
@@ -299,3 +300,13 @@ def install_globals() -> None:
     # unreadable dropdown.
     templates.env.globals["theme_bases"] = BASES
     templates.env.globals["app_tagline"] = PRODUCT_TAGLINE
+
+
+def _fromjson(text: str) -> Any:
+    """A stored JSON column, for a template to iterate (metadata choices)."""
+    import json
+
+    try:
+        return json.loads(text or "null")
+    except ValueError:
+        return None

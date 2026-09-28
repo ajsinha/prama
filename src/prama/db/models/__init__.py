@@ -36,6 +36,7 @@ from prama.db.models.llm import (
     LlmReservation,
 )
 from prama.db.models.llm_governance import LlmEvalRun, LlmPayload, LlmTemplate, LlmTemplateVersion
+from prama.db.models.metadata import MdField, MdTemplate, MdValue
 from prama.db.models.platform import (
     ApiKey,
     AuditEvent,
@@ -121,6 +122,9 @@ __all__ = [
     "LlmReservation",
     "LlmTemplate",
     "LlmTemplateVersion",
+    "MdField",
+    "MdTemplate",
+    "MdValue",
     "ModelMixin",
     "Principal",
     "PrincipalRole",

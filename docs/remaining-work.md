@@ -95,7 +95,12 @@ Ordered by what I would take first. Each item says why it matters.
   a `WHERE` on reconciliations, and PQL forms for row-count, aggregate and roll-forward parity,
   which are still specifications.
 - **Wave 17:**
-  - E6: search, steward queues and comments;
+  - metadata correlation: relationships from shared concepts, terms, value overlap and query
+    co-access, with cross-dataset consistency findings (metadata templates and business context
+    are built);
+  - AI over business context: embedding search and "find data of interest" (keyword search is
+    built);
+  - E6: steward queues and comments (search is built for metadata);
   - E7: usage signals;
   - E9: write-back verified against live catalogs, which needs live catalogs.
 - **Delegates:** Arrow record batches in place of JSON lines.

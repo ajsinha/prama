@@ -55,6 +55,7 @@ if TYPE_CHECKING:
     from prama.db.dao.lineage import LineageDao
     from prama.db.dao.llm import LlmDao
     from prama.db.dao.llm_governance import LlmGovernanceDao
+    from prama.db.dao.metadata import MetadataDao
     from prama.db.dao.steward import StewardDao
 
 _log = get_logger(__name__)
@@ -155,6 +156,12 @@ class UnitOfWork:
         from prama.db.dao import AuditDao
 
         return self._dao("audit", AuditDao)  # type: ignore[no-any-return]
+
+    @property
+    def metadata(self) -> MetadataDao:
+        from prama.db.dao.metadata import MetadataDao
+
+        return self._dao("metadata", MetadataDao)  # type: ignore[no-any-return]
 
     @property
     def glossary(self) -> GlossaryDao:

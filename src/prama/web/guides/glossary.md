@@ -2,7 +2,7 @@
 
 # The business glossary
 
-The **Glossary** page (main navigation) lists the terms your business uses: what each one means,
+The **Glossary** page (user menu, or from Metadata) lists the terms your business uses: what each one means,
 what else it is called, who stewards it, and what it names in the estate.
 
 ## Bringing in the glossary you already have

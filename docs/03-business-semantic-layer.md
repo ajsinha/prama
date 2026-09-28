@@ -251,6 +251,27 @@ journeys → datasets → relationships, with quality state rendered directly on
 
 ---
 
+## 2a. Business context and bank-defined metadata
+
+Two additions complete the declaration, both as built:
+
+- **Business context.** A free-text account of what a dataset or an attribute means to the
+  business, in its owner's words: who uses it, for what, and what to watch out for. It is a
+  column of the declaration itself (`business_context` on `sem_dataset_version` and
+  `sem_attribute_version`), so it is versioned and amended like every other declared fact. It is
+  the text that search by meaning reads today, and that an assistant will read to find data of
+  interest.
+- **Metadata templates.** Each bank defines its own typed fields for datasets or attributes:
+  source system, retention class, golden source, allowed values and so on (`md_template`,
+  `md_field`, `md_value`). A field can carry rule templates, so the metadata a person sets
+  proposes the controls it implies. `mandatory = yes` proposes `IS NOT NULL`, and a dataset's
+  `key` proposes `HAS UNIQUE KEY`. This is the same principle as the rest of this document:
+  controls derive from what the business says, and a person accepts them.
+
+The next step builds on both: correlating datasets through shared concepts, glossary terms,
+value overlap and query co-access, and reporting where the same business meaning is held
+inconsistently in two places.
+
 ## 3. Progressive formalisation — the adoption contract
 
 The model above could be a two-year modelling project. It must never be. The design rule:

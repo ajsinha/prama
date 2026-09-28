@@ -91,6 +91,12 @@ SECTIONS: tuple[HelpSection, ...] = (
                 "bi-robot",
             ),
             _g(
+                "metadata",
+                "Metadata and business context",
+                "Your own fields, the business meaning, and rules that grow from metadata.",
+                "bi-tags",
+            ),
+            _g(
                 "glossary",
                 "Business glossary",
                 "Terms, their meanings, what they name; imported from Alation or Collibra.",

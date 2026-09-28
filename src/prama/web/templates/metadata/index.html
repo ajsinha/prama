@@ -1,0 +1,49 @@
+{# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{% extends "base.html" %}
+{% block title %}Metadata — Prama{% endblock %}
+{% block heading %}Metadata{% endblock %}
+{% block content %}
+<p class="text-muted small" style="max-width: 60rem">Describe each dataset and attribute: its <strong>business context</strong>
+  (what it means, in the owner's words), your own <strong>metadata fields</strong>, and its <strong>rules</strong>.
+  Business terms live in the <a href="{{ url_for('glossary') }}">Glossary</a>. A metadata field can carry a rule, so setting "mandatory" on a column proposes its check. Nothing runs until a person accepts it.</p>
+
+<form class="row g-2 mb-3" method="get" action="{{ url_for('metadata') }}" style="max-width: 40rem">
+  <div class="col-9"><label class="visually-hidden" for="m-q">Find data</label>
+    <input class="form-control form-control-sm" id="m-q" name="q" value="{{ q }}" placeholder="Find data by meaning: settlement date, counterparty LEI…"></div>
+  <div class="col-3"><button class="btn btn-sm btn-primary w-100" type="submit">Find</button></div>
+</form>
+{% if q %}
+<ul class="small mb-4">{% for h in hits %}
+  <li><span class="badge text-bg-light border">{{ h.kind }}</span>
+    {% if h.slug %}<a href="{{ url_for('metadata_dataset', slug=h.slug) }}">{{ h.name }}</a>{% else %}{{ h.name }}{% endif %}
+    <span class="text-muted">— {{ (h.context or '')[:160] }}</span></li>
+{% else %}<li class="text-muted">Nothing mentions “{{ q }}” yet. Business context is what this searches; add some.</li>{% endfor %}</ul>
+{% endif %}
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <h2 class="h6">Datasets</h2>
+    <ul class="small">{% for d in datasets %}<li><a href="{{ url_for('metadata_dataset', slug=d.slug) }}">{{ d.name }}</a>
+      <span class="text-muted">{{ d.shape }}{% if d.business_context %} · has business context{% endif %}</span></li>
+    {% else %}<li class="text-muted">Declare a dataset first (Declarations).</li>{% endfor %}</ul>
+  </div>
+  <div class="col-lg-6">
+    <h2 class="h6">Templates</h2>
+    {% for t in templates %}<div class="small mb-2"><strong>{{ t.row.name }}</strong> <span class="text-muted">for {{ t.row.applies_to }}s</span>
+      <div>{% for f in t.fields %}<span class="badge text-bg-light border">{{ f.name }} · {{ f.kind }}{% if f.rules_json != '[]' %} · rule{% endif %}</span> {% endfor %}</div></div>
+    {% else %}<p class="small text-muted">No templates yet.</p>{% endfor %}
+    <form method="post" action="{{ url_for('metadata_template') }}" class="d-flex flex-wrap gap-2 mb-2">
+      {% for s in starters %}<button class="btn btn-sm btn-outline-secondary" name="starter" value="{{ s }}" type="submit">Install {{ s }}</button>{% endfor %}
+    </form>
+    <form method="post" action="{{ url_for('metadata_template') }}">
+      <label class="form-label small" for="m-yaml">Your own template (YAML)</label>
+      <textarea class="form-control form-control-sm font-monospace" id="m-yaml" name="yaml_text" rows="7" placeholder="name: finance
+applies_to: attribute
+fields:
+  - name: report_line
+    kind: text"></textarea>
+      <button class="btn btn-sm btn-primary mt-2" type="submit">Save template</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
