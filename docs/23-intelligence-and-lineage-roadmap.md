@@ -334,6 +334,20 @@ Modules named in the design notes that do not exist yet are marked `(planned)` t
 - **Also added:** the mock LLM provider. When no model is configured, the gateway uses a
   placeholder that answers with nothing.
 
+**Wave 17, E6 (comments and steward queues), as built** (`cm_comment`,
+`semantic/services/collaboration.py`):
+
+- **Threads** on datasets, attributes, controls, terms and incidents, with `@mentions` that must
+  name a real person. A reply reopens a resolved thread, and every write is audited.
+- **My queue** is read from where things already live, not copied:
+  - mentions, and open threads on datasets a person owns or stewards;
+  - failing controls and metadata inconsistencies on those datasets;
+  - curation suggestions for them;
+  - for approvers, rules and uploads that someone else proposed.
+- **Surfaces:** the Discussion section on each dataset's Metadata page, My queue,
+  `prama comment`, `prama queue`, `/api/v1/comments` and `/api/v1/queue`.
+- **Search** is the metadata search built earlier.
+
 **Wave 17, metadata and business context, as built** (`semantic/metadata.py`,
 `semantic/services/metadata.py`, `md_template`, `md_field`, `md_value`):
 

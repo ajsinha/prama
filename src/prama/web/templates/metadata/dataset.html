@@ -69,4 +69,32 @@
     {% if d.proposals %}<a class="btn btn-sm btn-outline-secondary" href="{{ url_for('proposal_queue') }}">Review them in Proposals</a>{% endif %}
   </div>
 </div>
+
+<section class="mt-4" aria-labelledby="talk-h">
+  <h2 class="h6" id="talk-h">Discussion</h2>
+  {% for t in conversation %}
+  <div class="border rounded p-2 mb-2 small">
+    <div><span class="badge text-bg-light border">{{ t.root.object_ref }}</span> <span class="badge text-bg-{{ 'secondary' if t.root.state == 'resolved' else 'info' }}">{{ t.root.state }}</span> {{ t.root.body }} <span class="text-muted">· {{ t.root.created_at[:16] }}</span></div>
+    {% for r in t.replies %}<div class="ms-3 mt-1">↳ {{ r.body }} <span class="text-muted">· {{ r.created_at[:16] }}</span></div>{% endfor %}
+    <form method="post" action="{{ url_for('comment_post') }}" class="d-flex gap-2 mt-1">
+      <input type="hidden" name="parent_id" value="{{ t.root.id }}"><input type="hidden" name="back" value="{{ url_for('metadata_dataset', slug=d.slug) }}">
+      <label class="visually-hidden" for="reply-{{ t.root.id }}">Reply</label>
+      <input class="form-control form-control-sm" id="reply-{{ t.root.id }}" name="body" placeholder="Reply; @username to mention">
+      <button class="btn btn-sm btn-outline-secondary" type="submit">Reply</button>
+    </form>
+    {% if t.root.state == 'open' %}<form method="post" action="{{ url_for('comment_resolve', root_id=t.root.id) }}"><input type="hidden" name="back" value="{{ url_for('metadata_dataset', slug=d.slug) }}"><button class="btn btn-link btn-sm p-0" type="submit">Resolve</button></form>{% endif %}
+  </div>
+  {% else %}<p class="small text-muted">No discussion yet.</p>{% endfor %}
+  <form method="post" action="{{ url_for('comment_post') }}" class="row g-2 small">
+    <input type="hidden" name="back" value="{{ url_for('metadata_dataset', slug=d.slug) }}">
+    <div class="col-md-4"><label class="visually-hidden" for="c-on">About</label>
+      <select class="form-select form-select-sm" id="c-on" name="object_ref">
+        <option value="{{ d.slug }}">{{ d.dataset }} (the dataset)</option>
+        {% for a in d.attributes %}<option value="{{ d.slug }}.{{ a.name }}">{{ a.name }}</option>{% endfor %}</select></div>
+    <input type="hidden" name="object_kind" value="dataset">
+    <div class="col-md-6"><label class="visually-hidden" for="c-body">Comment</label>
+      <input class="form-control form-control-sm" id="c-body" name="body" placeholder="Ask or note something; @username to mention"></div>
+    <div class="col-md-2"><button class="btn btn-sm btn-primary w-100" type="submit">Comment</button></div>
+  </form>
+</section>
 {% endblock %}

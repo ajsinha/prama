@@ -44,6 +44,7 @@ BUILTIN_ROLES: dict[str, tuple[str, list[str]]] = {
             "evidence:read",
             "report:read",
             "llm:use",
+            "comment:write",
         ],
     ),
     "steward": (
@@ -59,6 +60,8 @@ BUILTIN_ROLES: dict[str, tuple[str, list[str]]] = {
             # Drafting and explaining through the model gateway; a model's
             # output is a proposal, never a verdict (CON-007).
             "llm:use",
+            # Asking and answering questions on the objects they work.
+            "comment:write",
         ],
     ),
     "auditor": (

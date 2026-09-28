@@ -202,6 +202,7 @@ RelationshipWriter = scoped("relationship:write")
 LlmUser = scoped("llm:use")
 AgentWorker = scoped("agent:work")
 ControlReader = scoped("control:read")
+Commenter = scoped("comment:write")
 Uow = Annotated[UnitOfWork, Depends(get_uow)]
 Config = Annotated[Configuration, Depends(get_config)]
 Db = Annotated[Database, Depends(get_database)]

@@ -116,7 +116,16 @@ class MetadataRoutes(UiRoutes):
                 for template in await uow.metadata.templates(caller.tenant_id, applies_to=kind)
                 for row in await uow.metadata.fields(template.id)
             ]
-        return render(request, "metadata/dataset.html", d=described, fields=fields)
+        from prama.semantic.services.collaboration import threads
+
+        conversation = await threads(uow, caller.tenant_id, "dataset", described["slug"])
+        for attribute in described["attributes"]:
+            conversation += await threads(
+                uow, caller.tenant_id, "attribute", f"{described['slug']}.{attribute['name']}"
+            )
+        return render(
+            request, "metadata/dataset.html", d=described, fields=fields, conversation=conversation
+        )
 
     async def context(
         self,

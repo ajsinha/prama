@@ -50,6 +50,7 @@ if TYPE_CHECKING:
         TenantDao,
     )
     from prama.db.dao.code import CodeDao
+    from prama.db.dao.comment import CommentDao
     from prama.db.dao.delegate import DelegateUploadDao
     from prama.db.dao.glossary import GlossaryDao
     from prama.db.dao.lineage import LineageDao
@@ -156,6 +157,12 @@ class UnitOfWork:
         from prama.db.dao import AuditDao
 
         return self._dao("audit", AuditDao)  # type: ignore[no-any-return]
+
+    @property
+    def comments(self) -> CommentDao:
+        from prama.db.dao.comment import CommentDao
+
+        return self._dao("comments", CommentDao)  # type: ignore[no-any-return]
 
     @property
     def metadata(self) -> MetadataDao:

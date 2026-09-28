@@ -20,6 +20,7 @@ from prama.db.models.base import (
     UlidPrimaryKey,
 )
 from prama.db.models.code import CodeAnalysisRun, CodeSource, CodeUnit
+from prama.db.models.comment import CmComment
 from prama.db.models.control import CtlControl, CtlControlVersion, CtlRejection
 from prama.db.models.delegate import DqDelegateUpload
 from prama.db.models.evidence import EvRecord, EvRun, EvSample
@@ -90,6 +91,7 @@ __all__ = [
     "AttAttestation",
     "AuditEvent",
     "Base",
+    "CmComment",
     "CodeAnalysisRun",
     "CodeSource",
     "CodeUnit",

@@ -25,6 +25,7 @@ from prama.api.errors import (
 )
 from prama.api.routes import (
     agents,
+    collaboration,
     delegates,
     estate,
     graph,
@@ -169,6 +170,7 @@ def create_app(config: Configuration | None = None, *, database: Database | None
     app.include_router(agents.router, prefix=API_PREFIX)
     app.include_router(delegates.router, prefix=API_PREFIX)
     app.include_router(metadata.router, prefix=API_PREFIX)
+    app.include_router(collaboration.router, prefix=API_PREFIX)
 
     # The console is mounted onto the same application rather than run beside
     # it, so the two cannot disagree about the database, the configuration or

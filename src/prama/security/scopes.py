@@ -51,6 +51,7 @@ SCOPES: dict[str, str] = {
     "attestation:sign": "sign an attestation",
     "agent:work": "claim, report on and ask approval for steward agent tasks",
     "llm:use": "send prompts to a model through the gateway (budgeted, audited)",
+    "comment:write": "comment on governed objects, mention colleagues, resolve threads",
     "admin": "manage principals, roles and API keys",
 }
 

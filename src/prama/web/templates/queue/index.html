@@ -1,0 +1,34 @@
+{# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{% extends "base.html" %}
+{% block title %}My queue — Prama{% endblock %}
+{% block heading %}My queue{% endblock %}
+{% block content %}
+{% if not q %}<p class="text-muted">Sign in to see what is waiting on you.</p>{% else %}
+<p class="text-muted small">{{ q.total }} item(s). Your datasets (as owner or steward): {{ q.datasets | join(', ') or 'none yet — ask for ownership on the Declarations page' }}.</p>
+{% macro section(title, items, empty) %}
+<h2 class="h6 mt-3">{{ title }} <span class="badge text-bg-secondary">{{ items | length }}</span></h2>
+{% if not items %}<p class="small text-muted">{{ empty }}</p>{% endif %}
+{{ caller(items) }}
+{% endmacro %}
+{% call(items) section("Mentions", q.mentions, "Nobody has mentioned you.") %}
+<ul class="small">{% for t in items %}<li><span class="badge text-bg-light border">{{ t.object }}</span> {{ t.body[:180] }} <span class="text-muted">({{ t.replies }} repl{{ 'y' if t.replies == 1 else 'ies' }})</span>
+  <form class="d-inline" method="post" action="{{ url_for('comment_resolve', root_id=t.id) }}"><button class="btn btn-link btn-sm p-0 ms-2" type="submit">Resolve</button></form></li>{% endfor %}</ul>
+{% endcall %}
+{% call(items) section("Open threads on your datasets", q.threads, "None open.") %}
+<ul class="small">{% for t in items %}<li><span class="badge text-bg-light border">{{ t.object }}</span> {{ t.body[:180] }}</li>{% endfor %}</ul>
+{% endcall %}
+{% call(items) section("Failing on your datasets", q.failing, "Nothing is failing.") %}
+<ul class="small">{% for f in items %}<li><span class="badge text-bg-danger">{{ f.verdict }}</span> {{ f.dataset }} · <code>{{ f.control_id }}</code> {{ f.detail[:120] }}</li>{% endfor %}</ul>
+{% endcall %}
+{% call(items) section("Held inconsistently", q.inconsistent, "No inconsistencies touch your datasets.") %}
+<ul class="small">{% for f in items %}<li><span class="badge text-bg-warning">{{ f.aspect }}</span> {{ f.meaning }}: {{ f.detail }}</li>{% endfor %}</ul>
+{% endcall %}
+{% call(items) section("Suggestions to decide", q.suggestions, "No drafts waiting.") %}
+<ul class="small">{% for s in items %}<li>{{ s.object }} · {{ s.field }}: {{ s.text[:160] }} <a href="{{ url_for('agents') }}">decide</a></li>{% endfor %}</ul>
+{% endcall %}
+{% call(items) section("Approvals you could give", q.approvals, "Nothing waiting for an approver.") %}
+<ul class="small">{% for a in items %}<li><span class="badge text-bg-light border">{{ a.kind }}</span> {{ a.what }}
+  {% if a.kind == 'delegate' %}<a href="{{ url_for('delegates') }}">review</a>{% else %}<a href="{{ url_for('control_list') }}">review</a>{% endif %}</li>{% endfor %}</ul>
+{% endcall %}
+{% endif %}
+{% endblock %}

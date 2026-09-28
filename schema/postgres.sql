@@ -1690,3 +1690,29 @@ CREATE TABLE IF NOT EXISTS md_value (
     CONSTRAINT ck_md_value_kind CHECK (object_kind IN ('dataset', 'attribute'))
 );
 CREATE INDEX IF NOT EXISTS ix_md_value_object ON md_value (tenant_id, object_kind, object_ref);
+
+-- ===========================================================================
+-- COMMENTS  (Wave 17, E6)
+-- ===========================================================================
+-- Threads on governed objects, with @mentions. A root comment (parent_id NULL)
+-- carries the thread's state; replies carry parent_id. Every write is also an
+-- audit event.
+CREATE TABLE IF NOT EXISTS cm_comment (
+    id            VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id     VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    object_kind   VARCHAR(16)   NOT NULL,
+    object_ref    VARCHAR(512)  NOT NULL,
+    parent_id     VARCHAR(26)   REFERENCES cm_comment (id) ON DELETE CASCADE,
+    author_id     VARCHAR(26)   NOT NULL,
+    body          TEXT          NOT NULL,
+    mentions_json TEXT          NOT NULL DEFAULT '[]',
+    state         VARCHAR(16)   NOT NULL DEFAULT 'open',
+    resolved_by   VARCHAR(26),
+    resolved_at   VARCHAR(32),
+    created_at    VARCHAR(32)   NOT NULL,
+    CONSTRAINT ck_cm_comment_kind CHECK (object_kind IN
+        ('dataset', 'attribute', 'control', 'term', 'incident')),
+    CONSTRAINT ck_cm_comment_state CHECK (state IN ('open', 'resolved'))
+);
+CREATE INDEX IF NOT EXISTS ix_cm_comment_object ON cm_comment (tenant_id, object_kind, object_ref);
+CREATE INDEX IF NOT EXISTS ix_cm_comment_open ON cm_comment (tenant_id, state);
