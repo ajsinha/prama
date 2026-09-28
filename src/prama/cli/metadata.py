@@ -143,6 +143,31 @@ class FindCommand(Command):
         return EXIT_OK
 
 
+class AskCommand(Command):
+    name = "ask"
+    help = "find data of interest in plain words (a model ranks, if one is configured)"
+
+    def configure(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("question")
+        _tenant_flag(parser)
+
+    def run(self, ctx: CommandContext) -> int:
+        from prama.semantic.services.finding import find_data
+
+        answer: dict[str, Any] = _with_uow(
+            ctx, lambda uow, t: find_data(uow, t, ctx.args.question, config=ctx.config)
+        )
+        if ctx.json_output:
+            ctx.emit_json(answer)
+            return EXIT_OK
+        ctx.emit(f"ranked by {answer['ranked_by']}")
+        for m in answer["matches"]:
+            ctx.emit(f"{m['kind']:<9} {m['name']}  {m['why'] or (m['context'] or '')[:90]}")
+        if not answer["matches"]:
+            ctx.emit("Nothing found. Business context is what this reads.")
+        return EXIT_OK
+
+
 class CorrelateCommand(Command):
     name = "correlate"
     help = "attributes that mean the same thing across datasets, and where they disagree"
@@ -187,5 +212,6 @@ class MetadataCommand(CommandGroup):
             ContextCommand(),
             ShowCommand(),
             FindCommand(),
+            AskCommand(),
             CorrelateCommand(),
         ]

@@ -65,7 +65,7 @@ class MetadataRoutes(UiRoutes):
             request,
             "metadata/index.html",
             q=q,
-            hits=await service.search(uow, caller.tenant_id, q) if q.strip() else [],
+            hits=await _find(request, uow, caller, q) if q.strip() else {},
             templates=templates,
             starters=sorted(STARTER),
             datasets=await uow.datasets.list_current(caller.tenant_id, limit=5000),
@@ -191,3 +191,15 @@ class MetadataRoutes(UiRoutes):
             slug=slug,
             flash_message="Rule proposed; another person approves it on Controls.",
         )
+
+
+async def _find(request: Request, uow: Any, caller: Any, q: str) -> dict[str, Any]:
+    from prama.semantic.services.finding import find_data
+
+    return await find_data(
+        uow,
+        caller.tenant_id,
+        q,
+        config=request.app.state.config,
+        principal_id=caller.principal_id or None,
+    )

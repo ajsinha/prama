@@ -97,7 +97,7 @@ Ordered by what I would take first. Each item says why it matters.
 - **Wave 17:**
   - correlation from data-side signals: value overlap and query co-access fed into the built,
     metadata-based correlation;
-  - AI over business context: embedding search and "find data of interest" (keyword search is
+  - embedding retrieval for "find data of interest" (keyword retrieval with model ranking is
     built);
   - E6: steward queues and comments (search is built for metadata);
   - E7: usage signals;

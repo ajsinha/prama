@@ -234,7 +234,9 @@ async def proposals(uow: Any, tenant_id: str, *, dataset_id: str = "") -> list[d
     return out
 
 
-async def search(uow: Any, tenant_id: str, text: str, *, limit: int = 30) -> list[dict[str, Any]]:
+async def search(
+    uow: Any, tenant_id: str, text: str, *, limit: int = 30, any_word: bool = False
+) -> list[dict[str, Any]]:
     """Datasets and attributes whose name, description, business context, definition
     or metadata mention every word of *text*. Keyword matching today; the same
     function is where an embedding search goes, over the same texts."""
@@ -248,7 +250,10 @@ async def search(uow: Any, tenant_id: str, text: str, *, limit: int = 30) -> lis
 
     def score(parts: list[str]) -> int:
         blob = " ".join(parts).lower()
-        return sum(blob.count(w) for w in words) if all(w in blob for w in words) else 0
+        present = [w for w in words if w in blob]
+        if not present or (not any_word and len(present) < len(words)):
+            return 0
+        return len(present) * 10 + sum(blob.count(w) for w in present)
 
     for version in await uow.datasets.list_current(tenant_id, limit=5000):
         found = score(
@@ -290,7 +295,7 @@ async def search(uow: Any, tenant_id: str, text: str, *, limit: int = 30) -> lis
                 )
     for term in await uow.glossary.search(tenant_id, words[0]):
         blob = " ".join([term.name, term.definition, term.synonyms_json]).lower()
-        if all(w in blob for w in words):
+        if any_word or all(w in blob for w in words):
             hits.append(
                 (1, {"kind": "term", "name": term.name, "slug": "", "context": term.definition})
             )
