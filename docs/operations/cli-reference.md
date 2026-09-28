@@ -37,6 +37,7 @@ need different people.
 | [`prama llm`](#prama-llm) | model providers, profiles and the call ledger |
 | [`prama lsp`](#prama-lsp) | language server for PQL, for an editor outside the console |
 | [`prama mcp`](#prama-mcp) | expose Prama to an MCP client |
+| [`prama metadata`](#prama-metadata) | metadata and business context on datasets and attributes |
 | [`prama pack`](#prama-pack) | what a domain pack ships, and what it does not claim |
 | [`prama principal`](#prama-principal) | the people who sign in |
 | [`prama serve`](#prama-serve) | run the HTTP API |
@@ -592,6 +593,50 @@ expose Prama to an MCP client
 | Argument | Meaning |
 |---|---|
 | `--tenant` | the estate to expose; defaults to tenancy.default_tenant |
+
+## `prama metadata`
+
+metadata and business context on datasets and attributes
+
+| Subcommand | What it does |
+|---|---|
+| `prama metadata context` | record the business context of a dataset or dataset.attribute |
+| `prama metadata find` | find datasets and attributes by meaning (business context, definitions, metadata) |
+| `prama metadata set` | set metadata on a dataset or dataset.attribute: field=value … |
+| `prama metadata show` | a dataset's context, metadata, attributes, rules and implied rules |
+| `prama metadata template` | metadata templates |
+
+**`prama metadata context`**
+
+| Argument | Meaning |
+|---|---|
+| `target` **required** |  |
+| `--text` **required** |  |
+| `--tenant` | slug or id; defaults to the configured one |
+**`prama metadata find`**
+
+| Argument | Meaning |
+|---|---|
+| `text` **required** |  |
+| `--tenant` | slug or id; defaults to the configured one |
+**`prama metadata set`**
+
+| Argument | Meaning |
+|---|---|
+| `target` **required** | dataset slug, or dataset.attribute |
+| `pairs` **required** | field=value (empty value clears) |
+| `--tenant` | slug or id; defaults to the configured one |
+**`prama metadata show`**
+
+| Argument | Meaning |
+|---|---|
+| `dataset` **required** |  |
+| `--tenant` | slug or id; defaults to the configured one |
+**`prama metadata template`**
+
+| Argument | Meaning |
+|---|---|
+| `template_command` |  One of: install, add. |
 
 ## `prama pack`
 

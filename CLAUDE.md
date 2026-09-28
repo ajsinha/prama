@@ -29,6 +29,12 @@ There are exactly two schema files — `schema/sqlite.sql` and `schema/postgres.
 the authority. `prama.db` **applies** them idempotently and **verifies** the live database against
 them. A live schema that has drifted is a loud failure, never a silent migration.
 
+**Change a table by editing its `CREATE TABLE`, never with `ALTER`.** When a model needs a new
+fact, put the column in the table that owns it (in both files), not in a side table invented to
+avoid touching it. An existing database is then recreated with `prama db init` on a fresh file.
+The schema files are the gold standard, and a workaround that preserves an old database at the
+cost of a worse schema is the wrong trade.
+
 Both files describe the same logical schema — in fact they are **byte-identical apart from their
 headers**, and `tests/db/test_schema.py` fails if they ever are not.
 
@@ -172,6 +178,8 @@ prama lineage impact raw.trades.notional     # what a defect in this column reac
 prama lineage history snowflake rows.json    # lineage from warehouse query history (--query prints the export)
 prama lineage import export.json --from manta   # or alation; kept beside Prama's parse
 prama glossary import terms.json --from alation # or collibra; lists what it dropped
+prama metadata set trades.account_id mandatory=yes   # metadata; rules it implies go to Proposals
+prama metadata find "settlement currency"   # find data by business context and metadata
 prama delegate list                      # Python DQ delegates admitted here (delegates: in config)
 prama delegate test acme.x --rows s.csv  # run one exactly as a control would, sandboxed
 prama db init                            # apply schema/<dialect>.sql idempotently

@@ -334,6 +334,23 @@ Modules named in the design notes that do not exist yet are marked `(planned)` t
 - **Also added:** the mock LLM provider. When no model is configured, the gateway uses a
   placeholder that answers with nothing.
 
+**Wave 17, metadata and business context, as built** (`semantic/metadata.py`,
+`semantic/services/metadata.py`, `md_template`, `md_field`, `md_value`):
+
+- **Business context** is a declared fact. It is a column on `sem_dataset_version` and
+  `sem_attribute_version`, versioned with the rest of the declaration, and set by amendment.
+- **Metadata templates** hold typed, bank-defined fields for datasets or attributes. Values are
+  checked by kind and versioned by closing the previous row.
+- **Rules grow from metadata.** A field's rule templates render values as typed literals, so
+  metadata cannot inject PQL. They are offered on the Proposals page, and a person accepts them.
+- **Hand-written rules** on the dataset page are recorded as proposed and approved by another
+  person.
+- **Search by meaning** covers business context, definitions, metadata values and the glossary.
+  It uses keywords today; the same function is where embedding search will go.
+- **Surfaces:** the Metadata pages, `prama metadata`, and `/api/v1/metadata`.
+- **Next:** correlating datasets through shared concepts, terms, value overlap and query
+  co-access, with cross-dataset consistency findings, all offered as proposals.
+
 **Wave 17, E5 (glossary and catalog imports), as built:**
 
 - **The glossary.** `gl_term` and `gl_binding` bind terms to concepts, datasets and

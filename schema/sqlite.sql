@@ -299,6 +299,9 @@ CREATE TABLE IF NOT EXISTS sem_dataset (
 );
 CREATE INDEX IF NOT EXISTS ix_sem_dataset_tenant ON sem_dataset (tenant_id);
 
+-- business_context (here and on sem_attribute_version): what the thing means
+-- to the business, in the owner's words; the text an assistant reads to find
+-- data of interest. Versioned with the rest of the declaration.
 CREATE TABLE IF NOT EXISTS sem_dataset_version (
     id                    VARCHAR(26)   NOT NULL PRIMARY KEY,
     dataset_id            VARCHAR(26)   NOT NULL REFERENCES sem_dataset (id) ON DELETE CASCADE,
@@ -315,6 +318,7 @@ CREATE TABLE IF NOT EXISTS sem_dataset_version (
     slug                  VARCHAR(128)  NOT NULL,
     description           TEXT          NOT NULL DEFAULT '',
     purpose               TEXT          NOT NULL DEFAULT '',
+    business_context      TEXT          NOT NULL DEFAULT '',
     domain_id             VARCHAR(26),
     shape                 VARCHAR(32)   NOT NULL DEFAULT 'unbound',
     owner_id              VARCHAR(26),
@@ -376,6 +380,7 @@ CREATE TABLE IF NOT EXISTS sem_attribute_version (
     name                   VARCHAR(128)  NOT NULL,
     ordinal                INTEGER       NOT NULL DEFAULT 0,
     definition             TEXT          NOT NULL DEFAULT '',
+    business_context       TEXT          NOT NULL DEFAULT '',
     interpretation         TEXT          NOT NULL DEFAULT '',
     semantic_type          VARCHAR(64),
     unit                   VARCHAR(32),
@@ -1634,3 +1639,54 @@ CREATE TABLE IF NOT EXISTS gl_binding (
     CONSTRAINT ck_gl_binding_how CHECK (how IN ('person', 'name_match', 'imported'))
 );
 CREATE INDEX IF NOT EXISTS ix_gl_binding_object ON gl_binding (tenant_id, object_kind, object_ref);
+
+-- ===========================================================================
+-- METADATA: templates and values  (Wave 17)
+-- ===========================================================================
+-- Each bank defines its own metadata: templates of typed fields for datasets
+-- or attributes. A field may carry rule templates, so metadata becomes DQ
+-- controls (proposed, then approved). Values are versioned by closing the
+-- previous row (valid_to), never by overwriting it. Business context is not
+-- here: it is a declared fact, on sem_dataset_version and sem_attribute_version.
+CREATE TABLE IF NOT EXISTS md_template (
+    id           VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id    VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    name         VARCHAR(128)  NOT NULL,
+    applies_to   VARCHAR(16)   NOT NULL,
+    description  TEXT          NOT NULL DEFAULT '',
+    status       VARCHAR(16)   NOT NULL DEFAULT 'active',
+    created_at   VARCHAR(32)   NOT NULL,
+    updated_at   VARCHAR(32)   NOT NULL,
+    CONSTRAINT uq_md_template_name UNIQUE (tenant_id, name),
+    CONSTRAINT ck_md_template_applies CHECK (applies_to IN ('dataset', 'attribute')),
+    CONSTRAINT ck_md_template_status CHECK (status IN ('active', 'retired'))
+);
+CREATE TABLE IF NOT EXISTS md_field (
+    id           VARCHAR(26)   NOT NULL PRIMARY KEY,
+    template_id  VARCHAR(26)   NOT NULL REFERENCES md_template (id) ON DELETE CASCADE,
+    name         VARCHAR(64)   NOT NULL,
+    label        VARCHAR(255)  NOT NULL DEFAULT '',
+    kind         VARCHAR(16)   NOT NULL,
+    choices_json TEXT          NOT NULL DEFAULT '[]',
+    required     INTEGER       NOT NULL DEFAULT 0,
+    help         TEXT          NOT NULL DEFAULT '',
+    position     INTEGER       NOT NULL DEFAULT 0,
+    rules_json   TEXT          NOT NULL DEFAULT '[]',
+    CONSTRAINT uq_md_field_name UNIQUE (template_id, name),
+    CONSTRAINT ck_md_field_kind CHECK (kind IN
+        ('text', 'longtext', 'number', 'flag', 'choice', 'list', 'day', 'columns')),
+    CONSTRAINT ck_md_field_required CHECK (required IN (0, 1))
+);
+CREATE TABLE IF NOT EXISTS md_value (
+    id           VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id    VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    field_id     VARCHAR(26)   NOT NULL REFERENCES md_field (id) ON DELETE CASCADE,
+    object_kind  VARCHAR(16)   NOT NULL,
+    object_ref   VARCHAR(26)   NOT NULL,
+    value_json   TEXT          NOT NULL,
+    valid_from   VARCHAR(32)   NOT NULL,
+    valid_to     VARCHAR(32),
+    recorded_by  VARCHAR(26),
+    CONSTRAINT ck_md_value_kind CHECK (object_kind IN ('dataset', 'attribute'))
+);
+CREATE INDEX IF NOT EXISTS ix_md_value_object ON md_value (tenant_id, object_kind, object_ref);

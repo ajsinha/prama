@@ -170,6 +170,26 @@ class ProposalRoutes(UiRoutes):
                     "amends": False,
                 }
             )
+        # Proposals the estate's metadata implies: a field that carries a rule
+        # ("mandatory", "allowed values", "key") offers its check once a value
+        # is set. A rule that renders to PQL that does not parse is shown as
+        # unsatisfiable, not dropped.
+        from prama.semantic.services.metadata import proposals as from_metadata
+
+        criticality = {v.dataset_id: v.criticality for v in versions}
+        for implied in await from_metadata(uow, caller.tenant_id, dataset_id=dataset_id or ""):
+            if "error" in implied:
+                unsatisfiable.append(
+                    {
+                        "dataset": implied["dataset"],
+                        "dataset_id": "",
+                        "rule": "metadata",
+                        "declared": implied["pql"],
+                        "reason": implied["error"],
+                    }
+                )
+                continue
+            proposals.append({**implied, "criticality": criticality.get(implied["dataset_id"], 3)})
         # Tier 1 first, then by rule so a systematically bad rule is visible as
         # a block rather than scattered through the list.
         proposals.sort(key=lambda p: (p["criticality"], p["rule"], p["dataset"]))

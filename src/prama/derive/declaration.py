@@ -40,6 +40,8 @@ class AttributeDeclaration:
     name: str
     #: What the value is.
     definition: str = ""
+    #: What the attribute means to the business, in the owner's words.
+    business_context: str = ""
     #: How to read it — sign conventions, inclusions, the calculation basis.
     #: Almost every cross-team disagreement about a number is an interpretation
     #: disagreement, and this is the only field it can be written in.
@@ -87,6 +89,7 @@ class AttributeDeclaration:
         return {
             "name": self.name,
             "definition": self.definition,
+            "business_context": self.business_context,
             "interpretation": self.interpretation,
             "semantic_type": self.semantic_type,
             "unit": self.unit,
@@ -117,6 +120,7 @@ class AttributeDeclaration:
         return cls(
             name=row["name"],
             definition=row.get("definition") or "",
+            business_context=row.get("business_context") or "",
             interpretation=row.get("interpretation") or "",
             semantic_type=row.get("semantic_type") or "",
             unit=row.get("unit") or "",
@@ -146,6 +150,8 @@ class DatasetDeclaration:
     slug: str = ""
     description: str = ""
     purpose: str = ""
+    #: What the dataset means to the business, in the owner's words.
+    business_context: str = ""
     #: table, feed, stream, report … A feed's controls are not a table's.
     shape: str = "unbound"
     domain_id: str = ""
@@ -224,6 +230,7 @@ class DatasetDeclaration:
             "slug": self.slug,
             "description": self.description,
             "purpose": self.purpose,
+            "business_context": self.business_context,
             "shape": self.shape,
             "domain_id": self.domain_id,
             "owner_id": self.owner_id,
@@ -261,6 +268,7 @@ class DatasetDeclaration:
             slug=row.get("slug") or "",
             description=row.get("description") or "",
             purpose=row.get("purpose") or "",
+            business_context=row.get("business_context") or "",
             shape=row.get("shape") or "unbound",
             domain_id=row.get("domain_id") or "",
             owner_id=row.get("owner_id") or "",

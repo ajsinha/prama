@@ -1,0 +1,72 @@
+{# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{% extends "base.html" %}
+{% block title %}{{ d.dataset }} — Metadata — Prama{% endblock %}
+{% block heading %}{{ d.dataset }}{% endblock %}
+{% macro field_inputs(target, values, rows, key) %}
+<form method="post" action="{{ url_for('metadata_values', slug=d.slug) }}" class="row g-2 small">
+  <input type="hidden" name="target" value="{{ target }}">
+  {% for f in rows %}
+  <div class="col-md-4"><label class="form-label mb-0" for="{{ key }}-{{ f.name }}">{{ f.label or f.name }} <span class="text-muted">({{ f.kind }})</span></label>
+    {% set v = values.get(f.name) %}
+    {% if f.kind == 'flag' %}
+      <select class="form-select form-select-sm" id="{{ key }}-{{ f.name }}" name="field_{{ f.name }}"><option value=""></option>
+        <option value="yes" {% if v is sameas true %}selected{% endif %}>yes</option><option value="no" {% if v is sameas false %}selected{% endif %}>no</option></select>
+    {% elif f.kind == 'choice' %}
+      <select class="form-select form-select-sm" id="{{ key }}-{{ f.name }}" name="field_{{ f.name }}"><option value=""></option>
+        {% for c in (f.choices_json | fromjson) %}<option {% if v == c %}selected{% endif %}>{{ c }}</option>{% endfor %}</select>
+    {% else %}
+      <input class="form-control form-control-sm" id="{{ key }}-{{ f.name }}" name="field_{{ f.name }}" value="{{ v | join(', ') if v is iterable and v is not string else (v if v is not none else '') }}">
+    {% endif %}</div>
+  {% else %}<p class="text-muted">No {{ 'attribute' if '.' in target else 'dataset' }} template yet (Metadata → Templates).</p>{% endfor %}
+  {% if rows %}<div class="col-12"><button class="btn btn-sm btn-outline-primary" type="submit">Save metadata</button></div>{% endif %}
+</form>
+{% endmacro %}
+{% block content %}
+<p class="small text-muted mb-3"><a href="{{ url_for('metadata') }}">Metadata</a> · {{ d.description }}</p>
+
+<section class="border rounded p-3 mb-3" aria-labelledby="ctx-h">
+  <h2 class="h6" id="ctx-h">Business context</h2>
+  <form method="post" action="{{ url_for('metadata_context', slug=d.slug) }}">
+    <input type="hidden" name="target" value="{{ d.slug }}">
+    <label class="visually-hidden" for="ctx">Business context</label>
+    <textarea class="form-control form-control-sm" id="ctx" name="text" rows="4" placeholder="What this dataset means to the business, who uses it and for what, what to watch out for.">{{ d.business_context }}</textarea>
+    <button class="btn btn-sm btn-outline-primary mt-2" type="submit">Save context</button> <span class="small text-muted">Saved as an amendment: every earlier version is kept.</span>
+  </form>
+  <h3 class="h6 mt-3">Dataset metadata</h3>
+  {{ field_inputs(d.slug, d.metadata, fields['dataset'], 'ds') }}
+</section>
+
+<h2 class="h6">Attributes</h2>
+{% for a in d.attributes %}
+<details class="border rounded p-2 mb-2">
+  <summary class="small"><strong>{{ a.name }}</strong> <span class="text-muted">{{ a.definition }}</span>
+    {% for k, v in a.metadata.items() %}<span class="badge text-bg-light border">{{ k }}: {{ v }}</span> {% endfor %}</summary>
+  <form method="post" action="{{ url_for('metadata_context', slug=d.slug) }}" class="mt-2">
+    <input type="hidden" name="target" value="{{ d.slug }}.{{ a.name }}">
+    <label class="visually-hidden" for="ctx-{{ a.name }}">Business context of {{ a.name }}</label>
+    <textarea class="form-control form-control-sm" id="ctx-{{ a.name }}" name="text" rows="2" placeholder="What {{ a.name }} means to the business">{{ a.business_context }}</textarea>
+    <button class="btn btn-sm btn-outline-primary mt-1" type="submit">Save context</button>
+  </form>
+  <div class="mt-2">{{ field_inputs(d.slug ~ '.' ~ a.name, a.metadata, fields['attribute'], 'a-' ~ a.name) }}</div>
+</details>
+{% else %}<p class="small text-muted">No attributes declared.</p>{% endfor %}
+
+<div class="row g-4 mt-1">
+  <div class="col-lg-6">
+    <h2 class="h6">Rules on this dataset</h2>
+    <ul class="small">{% for r in d.rules %}<li><span class="badge text-bg-{{ 'success' if r.status == 'active' else 'secondary' }}">{{ r.status }}</span> <code>{{ r.pql.splitlines()[0][:110] }}</code></li>
+    {% else %}<li class="text-muted">None yet.</li>{% endfor %}</ul>
+    <form method="post" action="{{ url_for('metadata_rule', slug=d.slug) }}">
+      <label class="form-label small" for="rule">Write a rule (PQL), on the dataset or any attribute</label>
+      <textarea class="form-control form-control-sm font-monospace" id="rule" name="pql" rows="3" placeholder="CHECK {{ d.slug }}.column IS NOT NULL SEVERITY major"></textarea>
+      <button class="btn btn-sm btn-primary mt-2" type="submit">Propose rule</button> <span class="small text-muted">Another person approves it before it runs.</span>
+    </form>
+  </div>
+  <div class="col-lg-6">
+    <h2 class="h6">Rules its metadata implies</h2>
+    <ul class="small">{% for p in d.proposals %}{% if p.pql %}<li><code>{{ p.pql }}</code><div class="text-muted">{{ p.sentence or p.error }}</div></li>{% endif %}
+    {% else %}<li class="text-muted">Nothing yet. Set a field that carries a rule, such as mandatory or key.</li>{% endfor %}</ul>
+    {% if d.proposals %}<a class="btn btn-sm btn-outline-secondary" href="{{ url_for('proposal_queue') }}">Review them in Proposals</a>{% endif %}
+  </div>
+</div>
+{% endblock %}

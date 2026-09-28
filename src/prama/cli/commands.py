@@ -27,6 +27,7 @@ from prama.cli.lineage import LineageCommand
 from prama.cli.llm import LlmCommand
 from prama.cli.lsp import LspCommand
 from prama.cli.mcp import McpCommand
+from prama.cli.metadata import MetadataCommand
 from prama.cli.pack import PackCommand
 from prama.cli.principal import PrincipalCommand
 from prama.cli.tenant import TenantCommand
@@ -321,6 +322,7 @@ def all_commands() -> list[Command]:
         LlmCommand(),
         DelegateCommand(),
         GlossaryCommand(),
+        MetadataCommand(),
         LineageCommand(),
         CodeCommand(),
         ServeCommand(),

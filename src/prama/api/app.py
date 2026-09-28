@@ -23,7 +23,17 @@ from prama.api.errors import (
     unexpected_error_handler,
     validation_error_handler,
 )
-from prama.api.routes import agents, delegates, estate, graph, lineage, llm, meta, semantic
+from prama.api.routes import (
+    agents,
+    delegates,
+    estate,
+    graph,
+    lineage,
+    llm,
+    meta,
+    metadata,
+    semantic,
+)
 from prama.core.config import Configuration, load_configuration
 from prama.core.errors import PramaError
 from prama.core.log import LoggingConfigurator, get_logger
@@ -158,6 +168,7 @@ def create_app(config: Configuration | None = None, *, database: Database | None
     app.include_router(llm.router, prefix=API_PREFIX)
     app.include_router(agents.router, prefix=API_PREFIX)
     app.include_router(delegates.router, prefix=API_PREFIX)
+    app.include_router(metadata.router, prefix=API_PREFIX)
 
     # The console is mounted onto the same application rather than run beside
     # it, so the two cannot disagree about the database, the configuration or
