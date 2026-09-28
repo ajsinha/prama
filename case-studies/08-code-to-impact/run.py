@@ -5,8 +5,10 @@ A risk team's ETL repository (two SQL scripts and a Power BI model) is handed
 to Prama's code intake. Nothing in it is executed: it is parsed, and the
 parse becomes column lineage. Two controls are written on the raw feed; the
 lineage carries them downstream as proposals, a reviewer accepts them, and
-they all run. Two defects planted in the raw feed are then traced, through
-the lineage, to the dashboard measure a risk committee reads.
+they all run: carried controls, keys checked against their sources, a filtered
+reconciliation, and a check at the FX join. Two defects planted in the raw
+feed are then traced, through the lineage, to the dashboard measure a risk
+committee reads.
 
 Usage:
     python run.py                 build, run, and serve the console on :8808
@@ -273,7 +275,8 @@ def _vanished(warehouse: Path) -> None:
         f"  {int(lost['n'])} staged trade(s), {lost['amount'] or 0:,.0f} in notional, have no FX "
         "rate and are missing from mart.positions."
     )
-    say("  No row errors and no count changes at the mart: only the raw column's control saw it.")
+    say("  No row error and no null at the mart. The join key's lineage proposed the check")
+    say("  that catches it where it happens: every staged currency must have a rate.")
 
 
 async def main(serve: bool) -> Any:

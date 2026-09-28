@@ -163,12 +163,15 @@ class Parser:
         return self._modifiers(control)
 
     def _reconcile(self) -> ast.Control:
-        """``RECONCILE a AGAINST b ON (k, x = y) COMPARING amt [= other]
-        [WITHIN n [CCY] [OR p%]] [OFFSET BY n DAY[S]]``, then ordinary modifiers."""
+        """``RECONCILE a [WHERE p] AGAINST b [WHERE q] ON (k, x = y) COMPARING amt
+        [= other] [WITHIN n [CCY] [OR p%]] [OFFSET BY n DAY[S]]``, then ordinary
+        modifiers. Each WHERE filters the dataset it follows."""
         start = self._expect_keyword("RECONCILE").position
         left = self._name("the dataset to reconcile")
+        left_filter = self._expression() if self._match_keyword("WHERE") else None
         self._expect_keyword("AGAINST")
         right = self._name("the dataset it must agree with")
+        right_filter = self._expression() if self._match_keyword("WHERE") else None
         self._expect_keyword("ON")
         self._expect_punctuation("(")
         keys: list[tuple[str, str]] = []
@@ -225,6 +228,8 @@ class Parser:
             currency_column=currency_column,
             target_currency=target_currency,
             rates=rates,
+            where=left_filter,
+            against_where=right_filter,
             position=start,
         )
         return self._modifiers(ast.Control(target=left, assertion=assertion, position=start))

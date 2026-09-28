@@ -256,7 +256,7 @@ SLIDES: list[dict[str, Any]] = [
             ["5", "DQ delegates", "Python checks, local and on a remote agent"],
             ["6", "Month-end close", "5 breaks; 9 without the timing offset"],
             ["7", "Governance from metadata", "4 of 4 found, with no rule written by hand"],
-            ["8", "From code to impact", "12 edges; the defect traced to the dashboard"],
+            ["8", "From code to impact", "Both defects traced; the FX join catches 3"],
         ],
         "col_w": [0.3, 1.9, 2.6],
         "note": "Each study writes to the application's own database under a fresh tenant, "

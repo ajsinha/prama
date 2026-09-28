@@ -147,8 +147,8 @@ the same gate as relationship-derived controls.
 |---|---|
 | IDENTITY/RENAME hop `A.x → B.x`, full-row copy job | **Reconciliation**: `ComparisonSpec` between A and B on the inferred key, row count + sum of numeric measures, tolerance 0 |
 | AGGREGATED hop `sum(A.amt) group by k → B.total` | **Aggregate reconciliation**: `SUM(A.amt) BY k` equals `B.total` within declared tolerance |
-| FILTER on hop | Population control: `count(B) = count(A where <predicate>)` — predicate copied from the excerpt, only if L0 parsed it |
-| JOIN_KEY inner join | **Completeness across join**: orphan-rate of A.k not in C.k (rows silently dropped), and uniqueness of C.k (fan-out) |
+| FILTER on hop | Population control: `count(B) = count(A where <predicate>)` — predicate copied from the excerpt, only if L0 parsed it. *Built as:* the copy's reconciliation carries the predicate to the source side (`RECONCILE B AGAINST A WHERE <predicate>`), when the filter edge holds a condition over one table |
+| JOIN_KEY inner join | **Completeness across join**: orphan-rate of A.k not in C.k (rows silently dropped), and uniqueness of C.k (fan-out). *Built:* the orphan half, as `lineage_join` (`CHECK A.k REFERENCES C.k`), for inner and left joins read by the SQL reader. *Not built:* the fan-out half. Each equality of a multi-column join is recorded separately, so a uniqueness check on one column of a composite key would be wrong. |
 | RENAME with `CAST/CONVERT/TO_DATE` | **Type/format**: target column conforms to the cast target type; source values parseable (backtest shows would-be failures) |
 | DERIVED `CASE`/`COALESCE` | Domain control on target: value set ⊆ CASE branch literals; not-null if COALESCE default is a literal |
 | Source feeding many targets (high blast radius) | Raise criticality in `utility.Context` for existing proposals on that source |

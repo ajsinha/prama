@@ -122,7 +122,8 @@ monitor        = "MONITOR" metric_expr "ON" target { monitor_modifier } ;
 monitor_modifier = "BASELINE" baseline_spec | "SEASONALITY" season_spec
                | "SENSITIVITY" sensitivity_spec | "BUDGET" budget_spec | modifier ;
 
-reconciliation = "RECONCILE" dataset_ref "AGAINST" dataset_ref
+reconciliation = "RECONCILE" dataset_ref [ "WHERE" expression ]
+                 "AGAINST" dataset_ref [ "WHERE" expression ]
                  "ON" match_spec { recon_modifier } ;
 recon_modifier = "COMPARING" attribute_list | "NORMALISING" normalisation_list
                | "WITHIN" tolerance | "OFFSET" interval | "CLASSIFY" break_rules | modifier ;
@@ -207,7 +208,8 @@ terms — an alert budget or an FDR level — never as an opaque "medium". See
 **As built:**
 
 ```pql
-RECONCILE a AGAINST b ON (key, x = y) COMPARING amount [= other]
+RECONCILE a [WHERE condition] AGAINST b [WHERE condition]
+  ON (key, x = y) COMPARING amount [= other]
   [WITHIN n [CCY] [OR p%]]
   [NORMALISING ccy_col TO 'USD' USING RATES rates_dataset]
   [OFFSET BY n DAY[S]]
@@ -223,8 +225,12 @@ such as `AT MOST n ROWS`).
 - **Where breaks go.** They land in the break workbench.
 - **The rates dataset** has the columns `currency`, `rate` (to the target currency) and,
   optionally, `as_of`.
-- **Not built yet:** `CLASSIFY` rules (the engine's own classification applies), a `WHERE` on
-  one side, and rates `FROM` a named provider.
+- **Filters.** Each side's `WHERE` follows the dataset it filters, for example
+  `RECONCILE stg.trades AGAINST raw.trades WHERE status = 'BOOKED'`. A single `WHERE` after the
+  whole statement is refused: it would filter one side only, and every row it dropped would look
+  missing on the other. Lineage proposes the source-side filter when a copy is filtered.
+- **Not built yet:** `CLASSIFY` rules (the engine's own classification applies), and rates
+  `FROM` a named provider.
 
 The full form, as designed:
 

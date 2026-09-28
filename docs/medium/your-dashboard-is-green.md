@@ -302,7 +302,7 @@ says so. If your ledger rounds per entry, declare that. Do not assume it away.
 
 ---
 
-## 6. Lineage read from code, and what it cannot see
+## 6. Lineage read from code, including the joins
 
 Hand-drawn lineage is out of date by the time the workshop ends. Prama reads lineage from the
 code that moves the data:
@@ -329,7 +329,7 @@ aggregation dilutes it.
 
 ![From code to impact](img/07-blast-radius.png)
 
-In case study 8, two SQL scripts and a Power BI model yield 12 parsed column edges. A defect in
+In case study 8, two SQL scripts and a Power BI model yield 14 parsed column edges. A defect in
 `raw.trades.notional_amt` reaches the dashboard's *Total Exposure* measure four hops later, at
 12% strength.
 
@@ -340,27 +340,53 @@ for the source should hold for the copy. So lineage proposes:
 
 - the source column's control, **propagated** to the copy;
 - a **referential** check that every copied key exists at its source;
-- a **reconciliation** between the copy and its source.
+- a **reconciliation** between the copy and its source, over the same rows.
 
-Each proposal is held while the edge it rests on is only inferred.
+Each proposal is held while the edge it rests on is only inferred. If the copy is filtered, the
+filter edge carries its condition, and the reconciliation applies it to the source side:
+
+```pql
+RECONCILE "stg.trades" AGAINST "raw.trades" WHERE status = 'BOOKED'
+  ON (account_id = acct, trade_id = id) COMPARING notional = notional_amt WITHIN 0
+```
 
 **Building the case study found two bugs in exactly this feature.** The proposed reconciliation
 had no tolerance, and the engine (rightly) refuses to run a reconciliation with no stated
 bound. And the staging SQL keeps only booked trades, so reconciling it against the raw feed
 reported all 118 cancelled trades as breaks. Both are fixed. A copy is now reconciled exactly
-(`WITHIN 0`), and a reconciliation across a filtered copy is held, with the reason. Each fix has
-a test that fails on the old code.
+(`WITHIN 0`). `RECONCILE` gained a filter on each side, so a filtered copy is compared against
+the same rows of its source. Each fix has a test that fails on the old code.
 
-### And the honest limit
+### Design idea: a join decides which rows exist
 
 The same study plants four trades with currency `'usd'` in lower case. Three of them are staged.
 The mart joins FX rates on currency, finds no rate for `'usd'`, and drops those trades. There is
 no error and no NULL. **605,000,000 of notional simply leaves the exposure.**
 
-Column lineage follows values, and a join key is not a value. So the blast radius stops at
-staging. What catches the defect is the control on the raw column, which finds 4 rows, and its
-propagated copy on staging, which finds 3. That is the design: **lineage carries a control
-downstream; it does not replace the control at the source.**
+Value lineage cannot see this, because a join key is not a value: the currency is never copied
+into the mart. The first version of the study said exactly that: the blast radius stopped at
+staging, and only the control on the raw column caught the defect.
+
+The fix was not a better value edge but a different kind of node:
+
+- **The reader records joins.** Each equality in a join's `ON` clause becomes a join-key edge
+  from each side's key into the view's *rows* (`mart.positions.*`), read through any CTE to the
+  real table.
+- **The blast radius treats rows as a population.** A change in which rows exist reaches every
+  column computed over them, so the currency defect now reaches the dashboard, and the path
+  names the rows as what it passed through.
+- **Every join proposes a check that each driving row finds its match:**
+
+```pql
+CHECK "stg.trades".ccy REFERENCES "ref.fx_rates".ccy DIMENSION integrity
+```
+
+Rerun, that check fails on 3 of 1,882 staged trades: the defect is caught where it happens, not
+only where it entered. Building this also turned up a latent bug. sqlglot 30 keeps a `WITH`
+clause under a different key, so Prama had been finding no CTEs at all.
+
+The principle still holds: **lineage carries a control downstream; it does not replace the
+control at the source.** Now it carries it across a join too.
 
 ---
 
@@ -533,7 +559,7 @@ tenant each time.
 | Feeds in CSV, Parquet and JSON Lines | 9 negative amounts and 5 unknown statuses found |
 | Month-end close | 5 breaks; 9 without the timing offset |
 | Governance from metadata | 4 of 4 found, with no rule written by hand |
-| From code to impact | 12 edges; the defect traced to the dashboard |
+| From code to impact | both defects traced to the dashboard; the FX join catches 3 of 1,882 |
 
 **A benchmark that reports bounds and ablations, not a league table.** `prama bench run --seed
 42` plants 28 defects across six families, from structural to semantic, and reports bounds and
@@ -561,8 +587,8 @@ blind spot does not appear in an aggregate F1 at all.
 - a document names a module that does not exist.
 
 **A paper that audits itself.** The accompanying research paper marks every formal claim with
-the test that carries it. Its claims register counts **45 claims that run, 11 that run in part,
-9 that are not built, and 5 stated but not executed**. The negative results are in the body, not
+the test that carries it. Its claims register counts **47 claims that run, 12 that run in part,
+8 that are not built, and 5 stated but not executed**. The negative results are in the body, not
 an appendix.
 
 ---
@@ -603,7 +629,7 @@ know.
 
 ---
 
-*Prama is proprietary software by Ashutosh Sinha. The design corpus, a 39-page paper
+*Prama is proprietary software by Ashutosh Sinha. The design corpus, a 40-page paper
 (**Data Quality as Justified Belief: Derived Controls, Deterministic Verdicts, and Evidence
 that Verifies Without Its Author**) and a 45-slide deck accompany the code. Figures in this
 article come from the test suite, `prama bench run --seed 42`, and the case studies' own runs.*

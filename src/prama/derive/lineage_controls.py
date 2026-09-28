@@ -14,7 +14,15 @@ Two deterministic rules, each stated so its proposal explains itself:
   two should reconcile: `RECONCILE copy AGAINST source ON (keys) COMPARING
   amount`. Only for copies at the same grain; an aggregated amount is not
   proposed, because comparing a total with its detail rows would find breaks
-  that are not there.
+  that are not there. Where the copy is filtered, the same filter is applied
+  to the source (`AGAINST source WHERE …`), so the rows it dropped are not
+  reported as missing; a filter that cannot be carried over holds the proposal.
+* **Every row must find its match** (`lineage_join`). Where a dataset is built
+  by joining another on a key, a row whose key has no match is dropped by an
+  inner join, or arrives with nothing joined to it by a left join, and in
+  neither case does anything fail. So the driving side's key gets a
+  `REFERENCES` check against the side it is joined to: the defect case study 8
+  found only at its source, now caught where it happens.
 
 Proposals from an `inferred` edge are held until a person confirms the edge;
 a proposal built on a guessed edge would propose a guessed control. Nothing
@@ -72,6 +80,7 @@ def _checked(pql: str) -> str | None:
 
 def propose(edges: Iterable[Any], controls: Iterable[Any]) -> list[LineageProposal]:
     """Proposals from lineage *edges* (stored rows) and the estate's live *controls*."""
+    edges = list(edges)  # read by three rules
     by_dataset: dict[str, list[Any]] = {}
     for control in controls:
         by_dataset.setdefault(control.dataset, []).append(control)
@@ -132,17 +141,16 @@ def propose(edges: Iterable[Any], controls: Iterable[Any]) -> list[LineagePropos
                     deferred_because=held,
                 )
     out.update(_reconciliations(edges))
+    out.update(_joins(edges))
     return sorted(out.values(), key=lambda p: (p.dataset, p.rule, p.identity))
 
 
 def _reconciliations(edges: Iterable[Any]) -> dict[str, LineageProposal]:
     by_pair: dict[tuple[str, str], list[Any]] = {}
-    filtered: dict[tuple[str, str], set[str]] = {}
+    filtered: dict[tuple[str, str], list[Any]] = {}
     for edge in edges:
         if edge.transform == "filter":
-            filtered.setdefault((edge.source_dataset, edge.target_dataset), set()).add(
-                edge.source_column
-            )
+            filtered.setdefault((edge.source_dataset, edge.target_dataset), []).append(edge)
         if edge.transform in _CARRIED and edge.source_dataset != edge.target_dataset:
             by_pair.setdefault((edge.source_dataset, edge.target_dataset), []).append(edge)
     out: dict[str, LineageProposal] = {}
@@ -164,24 +172,41 @@ def _reconciliations(edges: Iterable[Any]) -> dict[str, LineageProposal]:
             if any(e.status == "inferred" for e in carried)
             else ""
         )
-        if not held and (source, target) in filtered:
-            # The copy keeps only some rows, and RECONCILE takes no WHERE yet:
-            # every row filtered out would be reported as a break.
+        # The copy keeps only the source rows that pass its filter. The same
+        # filter goes on the source side, or every row it dropped would be
+        # reported as missing. Only a condition the parser could carry over
+        # (one table, one condition) can be applied; anything else is held.
+        against_where = ""
+        filters = filtered.get((source, target), [])
+        conditions = {str(e.expression)[len("WHERE ") :] for e in filters}
+        unmovable = [e for e in filters if not str(e.expression).startswith("WHERE ")]
+        if not held and filters and (unmovable or len(conditions) != 1):
             held = (
                 f"{target} keeps only the rows of {source} that pass a filter on "
-                f"{', '.join(sorted(filtered[(source, target)]))}; a reconciliation would "
-                "report every filtered row as missing"
+                f"{', '.join(sorted({e.source_column for e in filters}))}, and the condition "
+                "could not be carried over; a reconciliation would report every filtered "
+                "row as missing"
             )
+        elif filters:
+            against_where = f" WHERE {next(iter(conditions))}"
         on = ", ".join(t if t == s else f"{t} = {s}" for t, s in keys)
         for mine, theirs in amounts:
             compared = mine if mine == theirs else f"{mine} = {theirs}"
             # A copy is exact: the tolerance is zero, stated, because a
             # reconciliation with no bound at all cannot run.
-            pql = _checked(
-                f"RECONCILE {quote_dataset(target)} AGAINST {quote_dataset(source)} "
-                f"ON ({on}) COMPARING {compared} WITHIN 0 "
-                f"BECAUSE 'lineage: {target} copies {mine} and its keys from {source}'"
-            )
+            reason = f"BECAUSE 'lineage: {target} copies {mine} and its keys from {source}'"
+            head = f"RECONCILE {quote_dataset(target)} AGAINST {quote_dataset(source)}"
+            tail = f" ON ({on}) COMPARING {compared} WITHIN 0 {reason}"
+            pql = _checked(head + against_where + tail) if against_where else None
+            deferred = held
+            if pql is None:
+                if against_where and not held:
+                    deferred = (
+                        f"{target} keeps only the rows of {source} where "
+                        f"{against_where[7:]}, which PQL cannot state; a reconciliation "
+                        "would report every filtered row as missing"
+                    )
+                pql = _checked(head + tail)
             if pql is None:
                 continue
             key = _identity("reconcile", source, target, mine)
@@ -194,6 +219,56 @@ def _reconciliations(edges: Iterable[Any]) -> dict[str, LineageProposal]:
                     f"{target} copies {mine} and its key from {source} row for row, so the "
                     f"two should agree on it; a difference is a break."
                 ),
-                deferred_because=held,
+                deferred_because=deferred,
             )
+    return out
+
+
+#: ``<kind> join: <dataset>.<column> = <dataset>.<column>``, as
+#: `prama.lineage.parsed` writes it on a join-key edge.
+_PAIRING = re.compile(r"^(?P<kind>inner|left) join: (?P<driving>\S+) = (?P<looked_up>\S+)$")
+
+
+def _joins(edges: Iterable[Any]) -> dict[str, LineageProposal]:
+    """A REFERENCES check wherever a dataset is built by joining on a key."""
+    by_join: dict[tuple[str, str], list[Any]] = {}
+    for edge in edges:
+        if edge.transform == "join_key" and _PAIRING.match(str(edge.expression)):
+            by_join.setdefault((edge.target_dataset, str(edge.expression)), []).append(edge)
+    out: dict[str, LineageProposal] = {}
+    for (target, expression), found in sorted(by_join.items()):
+        match = _PAIRING.match(expression)
+        assert match is not None  # filtered above
+        kind = match["kind"]
+        driving, _, key = match["driving"].rpartition(".")
+        looked_up, _, theirs = match["looked_up"].rpartition(".")
+        effect = (
+            f"is dropped from {target}"
+            if kind == "inner"
+            else f"reaches {target} with nothing joined to it"
+        )
+        pql = _checked(
+            f"CHECK {quote_dataset(driving)}.{key} REFERENCES "
+            f"{quote_dataset(looked_up)}.{theirs} DIMENSION integrity "
+            f"BECAUSE 'lineage: {target} {kind}-joins {driving} to {looked_up} on {key}; a "
+            f"row with no match {effect}, and nothing fails'"
+        )
+        if pql is None:
+            continue
+        identity = _identity("join", f"{driving}.{key}", f"{looked_up}.{theirs}")
+        out[identity] = LineageProposal(
+            identity=identity,
+            rule="lineage_join",
+            dataset=driving,
+            pql=pql,
+            sentence=(
+                f"{target} {kind}-joins {driving} to {looked_up} on {key}. A {driving} row "
+                f"whose {key} has no match in {looked_up} {effect}, silently."
+            ),
+            deferred_because=(
+                "a lineage edge it rests on is inferred; confirm it on the Lineage page first"
+                if any(e.status == "inferred" for e in found)
+                else ""
+            ),
+        )
     return out

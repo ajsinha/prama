@@ -223,20 +223,29 @@ class Scope(IrNode):
     #: Parameter name holding the run's business date, if the scope is dated.
     as_of: str = ""
     window: str = ""
+    #: A reconciliation's filter on the dataset it is compared against (the
+    #: ``WHERE`` after ``AGAINST b``). Its columns are that dataset's, so it is
+    #: not in `columns()`, which lists this dataset's.
+    counterpart_filter: Expr | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        out: dict[str, Any] = {
             "dataset": self.dataset,
             "binding": self.binding,
             "filter": self.filter.to_dict() if self.filter else None,
             "segment_by": list(self.segment_by),
             "temporal": {"as_of": self.as_of, "window": self.window},
         }
+        # Only when present, so every plan without one keeps the id it had.
+        if self.counterpart_filter is not None:
+            out["counterpart_filter"] = self.counterpart_filter.to_dict()
+        return out
 
     @property
     def requires(self) -> frozenset[str]:
-        base = self.filter.requires if self.filter else frozenset()
-        return base | (frozenset({"pushdown.filter"}) if self.filter else frozenset())
+        filters = [f for f in (self.filter, self.counterpart_filter) if f is not None]
+        base: frozenset[str] = frozenset().union(*(f.requires for f in filters))
+        return base | (frozenset({"pushdown.filter"}) if filters else frozenset())
 
     def columns(self) -> frozenset[str]:
         return (self.filter.columns() if self.filter else frozenset()) | frozenset(self.segment_by)
