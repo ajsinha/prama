@@ -1,0 +1,1909 @@
+\documentclass[11pt,a4paper]{article}
+
+% ---------------------------------------------------------------------------
+% Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
+% Proprietary and confidential. No licence is granted except by separate
+% written agreement. See LICENSE and NOTICE at the root of the repository.
+% ---------------------------------------------------------------------------
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1.05in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathtools}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{enumitem}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage[most]{tcolorbox}
+\usepackage{xurl}
+\usepackage{aliascnt}
+\usepackage[hidelinks,breaklinks]{hyperref}
+\usepackage{cleveref}
+\usepackage[htt]{hyphenat}
+% Module paths and test names are long unbroken \texttt runs. Let them break after
+% an underscore, a slash, a dot or a colon rather than run into the margin.
+\let\oldunderscore\_
+\renewcommand{\_}{\oldunderscore\allowbreak}
+\emergencystretch=3em
+
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+% Every environment shares the theorem counter, through an alias, so that cleveref
+% names each by its own kind ("Proposition 3.5") rather than by the shared counter.
+\newcommand{\sharedtheorem}[3]{%
+  \newaliascnt{#1}{theorem}%
+  \newtheorem{#1}[#1]{#2}%
+  \aliascntresetthe{#1}%
+  \crefname{#1}{#2}{#3}\Crefname{#1}{#2}{#3}}
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\crefname{theorem}{Theorem}{Theorems}\Crefname{theorem}{Theorem}{Theorems}
+\sharedtheorem{proposition}{Proposition}{Propositions}
+\sharedtheorem{lemma}{Lemma}{Lemmas}
+\sharedtheorem{corollary}{Corollary}{Corollaries}
+\theoremstyle{definition}
+\sharedtheorem{definition}{Definition}{Definitions}
+\sharedtheorem{example}{Example}{Examples}
+\sharedtheorem{observation}{Observation}{Observations}
+\theoremstyle{remark}
+\sharedtheorem{remark}{Remark}{Remarks}
+
+\newcommand{\ie}{\emph{i.e.}\ }
+\newcommand{\eg}{\emph{e.g.}\ }
+\newcommand{\defn}[1]{\emph{#1}}
+\newcommand{\PASS}{\textsf{pass}}
+\newcommand{\FAIL}{\textsf{fail}}
+\newcommand{\IND}{\textsf{indeterminate}}
+\newcommand{\ERR}{\textsf{error}}
+\newcommand{\SKIP}{\textsf{skipped}}
+\newcommand{\Gam}{\Gamma}
+\newcommand{\Dec}{\mathcal{D}}
+\newcommand{\Ctl}{\mathcal{C}}
+\newcommand{\Ver}{\mathsf{V}}
+\newcommand{\hash}{\mathsf{H}}
+\newcommand{\pql}[1]{\texttt{#1}}
+
+% ---- expository environments ---------------------------------------------
+\definecolor{plainbg}{RGB}{246,246,244}
+\definecolor{plainbar}{RGB}{120,120,130}
+\definecolor{exbg}{RGB}{247,244,239}
+\definecolor{exbar}{RGB}{150,120,70}
+
+\newtcolorbox{plain}{
+  enhanced, breakable, sharp corners, boxrule=0pt, frame hidden,
+  colback=plainbg, borderline west={2pt}{0pt}{plainbar},
+  left=10pt, right=8pt, top=6pt, bottom=6pt,
+  before skip=8pt, after skip=8pt,
+  fontupper=\small
+}
+\newtcolorbox{worked}[1][]{
+  enhanced, breakable, sharp corners, boxrule=0pt, frame hidden,
+  colback=exbg, borderline west={2pt}{0pt}{exbar},
+  left=10pt, right=8pt, top=6pt, bottom=6pt,
+  before skip=8pt, after skip=8pt,
+  fontupper=\small, #1
+}
+\newcommand{\pt}{\textbf{In plain terms.}\ }
+\newcommand{\wk}[1]{\textbf{Worked example: #1}\par\smallskip}
+
+% ---- where a claim is enforced --------------------------------------------
+% The argument of this paper is that a quality claim must be justified, and that a
+% claim nobody checks is not. A paper is a set of claims, so the same standard
+% applies to it: every formal claim below carries a marker saying what carries it
+% in the implementation, and the markers that say "nothing" are the ones that
+% matter.
+\newcommand{\runs}[1]{\par\smallskip\noindent{\footnotesize\raggedright\textsf{Runs:}
+  \texttt{#1}\par}\smallskip}
+\newcommand{\stated}[1]{\par\smallskip\noindent{\footnotesize\raggedright\textsf{Not
+  executed:} #1\par}\smallskip}
+\newcommand{\runsprose}[1]{\par\smallskip\noindent{\footnotesize\raggedright\textsf{Runs:}
+  #1\par}\smallskip}
+\newcommand{\absent}[1]{\par\smallskip\noindent{\footnotesize\raggedright\textsf{Not in
+  \textsc{Prama}:} #1\par}\smallskip}
+\newcommand{\partly}[1]{\par\smallskip\noindent{\footnotesize\raggedright\textsf{In part:}
+  #1\par}\smallskip}
+
+\hypersetup{pdftitle={Data Quality as Justified Belief},
+  pdfauthor={Ashutosh Sinha},
+  pdfsubject={Derived controls, deterministic verdicts and evidence that verifies without its author},
+  pdfkeywords={data quality, semantic layer, rule languages, reconciliation, lineage,
+    evidence ledgers, hash chains, conformal prediction, false discovery rate}}
+
+\title{\bfseries Data Quality as Justified Belief\\[6pt]
+{\large Derived Controls, Deterministic Verdicts,\\
+and Evidence that Verifies Without Its Author}}
+
+\author{Ashutosh Sinha\\[2pt]
+{\normalsize\itshape Independent Researcher}\\[2pt]
+{\normalsize\ttfamily ajsinha@gmail.com}}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{center}
+\footnotesize Copyright (c) 2026 Ashutosh Sinha. All rights reserved. Proprietary and confidential.
+\end{center}
+
+\begin{abstract}
+\noindent
+A statement that a dataset is ``of good quality'' is a belief about data. An organisation acts on the
+belief --- it files a regulatory return, closes its books, prices a portfolio --- and is later asked why it
+held it. The tools sold to answer that question run on three things that are each typed in by somebody: the
+controls (a person writes the SQL), the verdicts (a threshold, and increasingly a model, decides), and the
+record (a log that the system producing it also verifies). Each is a place where a belief can be held for
+no good reason while looking as though it has one.
+
+We take the classical epistemological requirement --- that knowledge be both true and \emph{justified} --- and
+turn it into three engineering constraints. \emph{A control must derive from a declaration}: an owner states,
+in business terms, what a dataset's grain is, what values an attribute may take, and how datasets relate,
+and a deterministic, total, provenance-carrying map $\Gam$ produces the controls. What no declaration
+covers is named by a coverage measure rather than hidden by a percentage of columns touched. \emph{A verdict
+must come from a deterministic engine}: controls are written once in a rule language (PQL), lowered to one
+engine-neutral intermediate representation, compiled to three SQL engines and checked against an
+independent reference interpreter; the verdict set is larger than $\{\PASS,\FAIL\}$ because a SQL screen
+that finds nothing has established a lower bound, not a pass; and no code path lets a model's output decide
+a verdict. \emph{Evidence must verify without trusting its author}: every judgement is appended to a
+hash-chained ledger with a Merkle root, and a verifier written against the standard library alone,
+importing nothing from the system, reaches the same conclusion.
+
+On that base we give formal accounts of reconciliation with tolerances and timing offsets, of column
+lineage read from code (parsed, never executed) and the controls it can and cannot justify, of trust
+propagation as a choice of combining operations (only one of which is, strictly, a semiring), and of
+false-alarm budgets as conformal $p$-values with
+false-discovery-rate selection. Every formal claim is marked with what carries it in \textsc{Prama}, the
+system the author built to this account: a named test, prose, or nothing. The markers are not uniformly
+favourable. Two results are negative and are reported in the body: a column-level lineage graph cannot
+see a defect that acts through a join predicate, and the labelled defect benchmark does not yet score
+\textsc{Prama} itself. \Cref{sec:register} counts what runs.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+% =============================================================================
+\section{Introduction}\label{sec:intro}
+
+\subsection{The domain}
+
+A large bank holds its authoritative data in several hundred places: warehouses, operational databases,
+files landed nightly by counterparties, message streams, and the general ledger. Some of that data feeds a
+regulatory return whose errors are fined by the million \cite{ateam2024}; some feeds a risk number that a
+board relies on; some feeds the month-end close. The Basel Committee's principles for risk data aggregation
+\cite{bcbs239} ask a bank to show that such data is accurate, complete and timely, and --- the part that is
+expensive --- to \emph{show} it, to a supervisor, after the fact.
+
+The tooling market for this problem is large and fragmented \cite{gartner2025adq,datakitchen2026}. Rule
+frameworks let an engineer write assertions against a table \cite{deequ,tfdv}; observability products fit
+statistical monitors to column metrics; catalogues record ownership and glossary terms; reconciliation is
+sold separately. A research literature on constraint discovery \cite{metanome,fdeval,dcdiscovery} and error
+detection and repair \cite{holoclean,rahabaran} addresses what an engineer might check, and a recent one
+addresses what a language model might propose \cite{llmdqr,llmtabular,tuwien,zeroed}.
+
+\subsection{Three places a belief is held without reason}
+
+We read the practical failures of this tooling as three failures of justification.
+
+\paragraph{The control is typed in.} A person writes \pql{SELECT count(*) \ldots\ WHERE isin IS NULL}. The
+control encodes a belief about what the dataset should be, but the belief is recorded nowhere except in
+the control. When the dataset's grain changes, nothing connects the change to the control. When an auditor
+asks why a critical data element has no accuracy check, the answer is that nobody wrote one, and nothing
+counted the absence.
+
+\paragraph{The verdict is decided by something that is not accountable.} A control ``passes'' because a SQL
+screen returned zero rows, when the screen could only express the shape of an identifier and not its check
+digit; a freshness control ``passes'' because a row count was positive. Increasingly, a model is asked
+whether a column ``looks right''. In each case a verdict is issued by a mechanism that cannot justify it.
+
+\paragraph{The evidence certifies itself.} The execution log lives in the same database, under the same
+administrator, as the system whose correctness it records. A record that can be verified only by the
+software that wrote it is testimony, not evidence.
+
+\subsection{The thesis}\label{sec:thesis}
+
+The Sanskrit \emph{pram\=a} names valid cognition: knowledge that is both true and arrived at by a reliable
+means. A true belief held for a bad reason is not \emph{pram\=a}. We think this is the right standard for a
+data quality claim, and that it decomposes into three engineering constraints, each checkable.
+
+\begin{enumerate}[leftmargin=2em,label=\textbf{J\arabic*.}]
+  \item \textbf{A control derives from a declaration.} Every control either is produced by a total,
+        deterministic map $\Gam$ from something an accountable owner declared, or carries the provenance
+        of the proposal that a named person accepted. What is declared but not controlled, and what is
+        critical but not declared, is measured.
+  \item \textbf{A verdict comes from a deterministic engine.} A verdict is a function of the compiled plan
+        and the data, computed the same way on every engine the plan targets, and never a function of a
+        model's output. Where the engine cannot decide, the verdict says so.
+  \item \textbf{Evidence verifies without its author.} The record of every verdict can be checked by a
+        program that shares no code with the system that produced it.
+\end{enumerate}
+
+\begin{plain}
+\pt ``Declare it. Prove it. Trust it.'' A business owner says what the data means; the system turns that
+into checks nobody had to write; a deterministic engine runs them and records what it found in a form that
+anyone can check with a short script. A model may help write a check or explain a result. It never decides
+whether the data passed.
+\end{plain}
+
+\subsection{Contributions}
+
+\begin{enumerate}[leftmargin=2em]
+  \item A formal account of \emph{declaration-derived controls}: the map $\Gam$ from a business semantic
+        layer (grain, rhythm, value domains, semantic types, and thirteen relationship kinds) to controls,
+        with determinism, identity stability, provenance and refusal properties, and a coverage measure over
+        (attribute, dimension) pairs (\Cref{sec:gamma}).
+  \item A verdict semantics for an engine-neutral rule language that separates an exact test from a
+        \emph{screen}, makes $\IND$ first class, and is checked across three SQL engines and a reference
+        interpreter; and the fusion of controls into shared scans (\Cref{sec:pql}).
+  \item An evidence ledger whose verification is independent of the system that writes it
+        (\Cref{sec:evidence}).
+  \item A tolerance and timing semantics for reconciliation, with a counting result for timing offsets and
+        its measurement on a month-end close (\Cref{sec:recon}).
+  \item An account of column lineage read from code, of the controls it justifies and the ones it must
+        hold back, and a negative result about what it cannot see (\Cref{sec:lineage}).
+  \item The boundary ``models author, the engine decides'', enforced by an architectural test with a
+        counterfactual, by a gate that refuses a control that cannot fail, and by an evaluation-gated
+        model gateway with a hash-chained call ledger (\Cref{sec:ai}).
+  \item Trust propagation as a choice of semiring, and false-alarm budgets as conformal $p$-values with
+        Benjamini--Hochberg selection (\Cref{sec:trust}); metadata-implied rules, correlation and fitness
+        search (\Cref{sec:metadata}).
+  \item An evaluation that reports eight planted-defect case studies, both columns, and a labelled
+        benchmark whose bounds and ablations were run and whose comparison with \textsc{Prama} was not
+        (\Cref{sec:eval}).
+\end{enumerate}
+
+\subsection{How to read this paper, and how to check it}
+
+Each definition, proposition and theorem is followed by a marker:
+\textsf{Runs:} names a test in the repository, as \texttt{path::test\_name}, that exercises the claim;
+\textsf{Runs:} followed by prose names a mechanism without a single test;
+\textsf{In part:} says what is weaker in the code than on the page;
+\textsf{Not executed:} marks mathematics that constrains the system without the system checking it; and
+\textsf{Not in \textsc{Prama}:} marks a construction that is not built. Every cited test was located in
+the repository at the time of writing. A reader with the repository can run any of them with
+\texttt{pytest -q '<path>::<name>'}. Numbers are quoted only where they come from a run we performed or from
+an assertion in a named test, and each says which.
+
+The system is \textsc{Prama} version 0.1.0 (\texttt{src/prama/version.py}), about 115,000 lines of Python
+under \texttt{src/prama} and 249 test modules under \texttt{tests}. It is proprietary; the paper describes
+it and does not release it.
+
+% =============================================================================
+\section{The objects, in engineering terms}\label{sec:objects}
+
+Before the formal material, the vocabulary in the terms an engineer uses.
+
+\begin{description}[leftmargin=1.5em,style=nextline]
+  \item[Estate] Everything a tenant governs: connectors to sources, and the datasets read through them.
+  \item[Dataset] A table, a view, a feed of files, or a set of feeds, with an owner, a criticality tier,
+        a \emph{grain} (``one row per trade'') and a \emph{rhythm} (``arrives by 06:30 on business days'').
+  \item[Attribute] A column given a business meaning: optional or mandatory, a semantic type such as ISIN
+        or LEI, a value domain (a code list or a range), and possibly the mark of a \emph{critical data
+        element} (CDE).
+  \item[Relationship] A typed, declared link between two datasets: \textsf{references},
+        \textsf{reconciles-with}, \textsf{derives-from}, and ten others (\Cref{tab:relkinds}).
+  \item[Control] An executable check, written in PQL, with a severity, a quality dimension and a
+        threshold. A control has a stable \emph{identity} and a content \emph{hash}.
+  \item[Proposal] A candidate control, from any origin, awaiting a person. Proposals are the only way a
+        control enters the estate.
+  \item[Plan] The engine-neutral intermediate representation (IR) a control lowers to; the thing that is
+        compiled, fused, executed and hashed.
+  \item[Verdict] The outcome of executing a plan: $\PASS$, $\FAIL$, $\IND$, $\ERR$ or $\SKIP$.
+  \item[Evidence record] An append-only, hash-linked record of one verdict and what it was computed from.
+\end{description}
+
+The pipeline is: \emph{declare} $\to$ $\Gam$ \emph{derives} proposals $\to$ a person \emph{activates}
+$\to$ the plan is \emph{compiled} and \emph{fused} $\to$ an engine \emph{executes} $\to$ the verdict is
+\emph{judged} from metrics $\to$ the evidence is \emph{recorded} and can be \emph{verified} and
+\emph{replayed}. Models sit beside this pipeline --- they may draft a declaration, a proposal or an
+explanation --- and never inside the step from metrics to verdict.
+
+% =============================================================================
+\section{Controls derived from declarations}\label{sec:gamma}
+
+\subsection{Why derive}
+
+A control written by hand restates a belief about a dataset in a second place. The first place is
+wherever the belief really lives: in the owner's head, in a data dictionary, in a regulatory instruction.
+Two statements of one rule diverge, and they diverge silently, because only one of them is executed. The
+remedy we propose is not better discipline in writing controls but a change in what is written: the owner
+writes the belief once, in business terms, and the control is computed from it. When the belief changes,
+the control changes, because it is the same object seen twice.
+
+\subsection{Declarations}
+
+\begin{definition}[Dataset declaration]\label{def:decl}
+A \defn{dataset declaration} is a tuple
+\[ d = (\mathit{ref}, G, K, \rho, \theta, A, \alpha, t) \]
+where $\mathit{ref}$ names a dataset; $G$ is a \emph{grain}, a set of attribute names whose values identify a row;
+$K$ is an optional business key; $\rho$ is a \emph{rhythm} (an arrival expectation with a calendar, and an
+expected volume); $\theta$ is a temporality; $A$ is a finite set of \emph{attribute declarations}; $\alpha$
+is an optional authoritativeness statement (``replica of $X$''); and $t$ is a criticality tier. An attribute
+declaration $a \in A$ carries an optionality, an optional semantic type (\eg ISIN, LEI, ISO date, monetary
+amount with its currency column), an optional value domain (a code list or a range), and a flag marking it
+a critical data element. A declaration records who declared it and when.
+\end{definition}
+
+\begin{definition}[Relationship declaration]\label{def:rel}
+A \defn{relationship declaration} is a tuple
+\[ r = (k, \mathit{left}, \mathit{right}, M, c, \epsilon, \delta) \]
+where $k$ is one of the thirteen kinds of \Cref{tab:relkinds}, $M$ is a match key (pairs of attributes), $c$ an
+optional compared attribute, $\epsilon$ an optional tolerance and $\delta$ an optional timing offset.
+A relationship is either \emph{proposed} (discovered from data or lineage) or \emph{confirmed} by a person.
+\end{definition}
+
+\runs{tests/semantic/test\_services.py::TestRelationshipService::test\_every\_kind\_is\_offered\_in\_business\_language}
+\runs{tests/semantic/test\_services.py::TestRelationshipService::test\_a\_discovered\_relationship\_is\_never\_confirmed\_automatically}
+
+\subsection{The map $\Gam$}
+
+\begin{definition}[Control, identity and hash]\label{def:control}
+A \defn{control} is a PQL statement together with a severity, a quality dimension, and a
+\emph{provenance}. Its \defn{identity} is a function $\iota(\mathit{declaration}, \mathit{rule},
+\mathit{subject})$ of where it came from and never of its text. Its \defn{content hash} is a function of
+its text. Identity answers ``is this the same control?''; the hash answers ``has it changed?''.
+\end{definition}
+
+\begin{definition}[$\Gam$]\label{def:gamma}
+For a dataset declaration $d$, $\Gam(d)$ is obtained by applying, in a fixed order, the rules
+$\gamma_{\mathrm{grain}}$, $\gamma_{\mathrm{key}}$, $\gamma_{\mathrm{rhythm}}$, $\gamma_{\mathrm{temporality}}$,
+$\gamma_{\mathrm{attr}}$ and $\gamma_{\mathrm{auth}}$, each of which returns a finite set of controls and a
+finite set of \emph{unsatisfiable} findings, and then \emph{coalescing}: controls whose checks are equal are
+merged into one control whose rule is the sorted join of the contributing rules. For a relationship $r$,
+$\Gam(r)$ dispatches on the kind $k$ and returns a lineage edge together with either controls,
+comparison specifications for the reconciliation engine, or a refusal naming what is missing.
+\end{definition}
+
+\Cref{tab:gamma} lists what each dataset rule produces and \Cref{tab:relkinds} what each relationship
+kind produces. The second table is honest about a gap between what a kind \emph{declares} it generates
+and what the code \emph{emits}: every kind emits something, but several emit fewer control families than
+the design corpus lists.
+
+\begin{table}[t]
+\centering\small
+\begin{tabular}{@{}L{0.30\linewidth}L{0.62\linewidth}@{}}
+\toprule
+\textbf{Declaration} & \textbf{Control emitted by $\Gam$} \\
+\midrule
+Grain $G$ & \pql{HAS UNIQUE KEY} over $G$ (\textsf{grain.uniqueness}); completeness of each member of $G$ \\
+Business key $K$ & uniqueness over $K$ \\
+Rhythm $\rho$ & a freshness control with the declared calendar; a volume control; seasonality deferred to a monitor \\
+Temporality $\theta$ & a temporal control \\
+Mandatory attribute & \pql{IS NOT NULL} \\
+Semantic type & \pql{IS VALID '<type>'}, naming its standard \\
+Value domain & \pql{IN CODELIST} or a range \\
+Monetary amount & \pql{IN CODELIST 'iso4217'} on the currency column beside it \\
+Authoritativeness & parity with the authoritative source \\
+\bottomrule
+\end{tabular}
+\caption{The dataset rules of $\Gam$ (\texttt{src/prama/derive/generator.py}).}\label{tab:gamma}
+\end{table}
+
+\begin{table}[t]
+\centering\small
+\begin{tabular}{@{}L{0.22\linewidth}L{0.34\linewidth}L{0.36\linewidth}@{}}
+\toprule
+\textbf{Kind} & \textbf{Declared families} & \textbf{Actually emitted} \\
+\midrule
+references & referential integrity, orphans, key coverage & PQL \pql{REFERENCES} (a correlated \pql{EXISTS}) \\
+reconciles-with & reconciliation, breaks, certificate & a reconciliation specification \\
+derives-from & aggregate parity, trust edge, impact & aggregate parity \\
+feeds & lineage edge, arrival chain, latency & an edge, and deliberately no control \\
+mirrors & row-count, content parity, staleness & row-count parity, value parity (if compared), staleness \\
+aggregates & roll-up parity, trust edge & aggregate parity \\
+enriches & enrichment coverage & PQL reference check, completeness dimension \\
+supersedes & migration parity, dual run & value parity \\
+same-entity-as & resolution, duplicates, identifiers & identifier consistency \\
+temporal-successor & roll-forward & roll-forward \\
+parent-of & hierarchy completeness, cycles, orphans & PQL orphan-node check only; no cycle detection \\
+mutually-exclusive & overlap & overlap \\
+together-complete & population completeness & coverage \\
+\bottomrule
+\end{tabular}
+\caption{The thirteen relationship kinds (\texttt{src/prama/derive/relationships.py}). Only three kinds
+yield PQL controls; the rest yield comparison specifications executed by the reconciliation engine.}
+\label{tab:relkinds}
+\end{table}
+
+\begin{proposition}[Determinism and identity stability]\label{prop:det}
+$\Gam$ is a function: regenerating an unchanged declaration yields the same identities and the same
+hashes. Editing a declaration so that a control's check changes yields a control with the same identity
+and a different hash, so the control is updated rather than orphaned and replaced.
+\end{proposition}
+\begin{proof}
+Each rule is a pure function of the declaration, applied in a fixed order, and coalescing sorts its rule
+names, so the output is independent of iteration order. Identity is computed from $(\mathit{declaration},
+\mathit{rule}, \mathit{subject})$, none of which an edit to a threshold or a code list changes; the hash is
+computed from the text, which such an edit does change.
+\end{proof}
+\runs{tests/derive/test\_generator.py::test\_regenerating\_an\_unchanged\_declaration\_changes\_nothing}
+\runs{tests/derive/test\_generator.py::test\_editing\_a\_declaration\_updates\_a\_control\_rather\_than\_orphaning\_it}
+\runs{tests/propose/test\_end\_to\_end.py::test\_a\_second\_run\_of\_the\_generator\_adds\_nothing}
+
+\begin{proposition}[Provenance]\label{prop:prov}
+Every control in $\Gam(d)$ carries a provenance naming its origin (\textsf{declaration}), the rule that
+produced it, the declaration and attribute it came from, the declaring person and the time. The question
+``why does this control exist?'' therefore has an answer that is data, not recollection.
+\end{proposition}
+\runs{tests/derive/test\_generator.py::test\_every\_generated\_control\_can\_say\_why\_it\_exists}
+
+\begin{proposition}[Round trip]\label{prop:roundtrip}
+Every generated control is valid PQL: for every $c \in \Gam(d)$, $\mathrm{render}(\mathrm{parse}(c)) = c$.
+\end{proposition}
+\runs{tests/derive/test\_generator.py::test\_every\_generated\_control\_re\_parses\_to\_itself}
+
+\begin{proposition}[Coalescing]\label{prop:coalesce}
+If two rules produce the same check, $\Gam$ emits one control, whose rule records both.
+\end{proposition}
+\runs{tests/derive/test\_generator.py::test\_two\_rules\_reaching\_the\_same\_check\_produce\_one\_control}
+
+\begin{proposition}[Refusal, not omission]\label{prop:refusal}
+$\Gam$ is total in the following sense: every declaration either produces a control or produces a finding
+that says why it did not. A grain naming a column that does not exist is reported, not emitted; a
+reconciliation with no tolerance is refused with the reason; every one of the thirteen relationship kinds
+yields an edge and either an output or a refusal.
+\end{proposition}
+\runs{tests/derive/test\_generator.py::test\_a\_grain\_naming\_a\_column\_that\_does\_not\_exist\_is\_reported\_not\_emitted}
+\runs{tests/derive/test\_relationships.py::test\_a\_reconciliation\_with\_no\_tolerance\_is\_refused\_with\_the\_reason}
+\runs{tests/derive/test\_relationships.py::test\_every\_kind\_produces\_something\_and\_nothing\_silently}
+\runs{tests/derive/test\_relationships.py::test\_feeds\_generates\_an\_edge\_and\_deliberately\_no\_control}
+
+\begin{plain}
+\pt Writing ``one row per trade, identified by trade id'' produces a uniqueness check and a not-null check
+on the trade id. Writing ``this column is an ISIN'' produces a validity check that names ISO 6166. Nobody
+writes SQL. If the owner changes the rule, the same control is updated. If a statement cannot be turned into
+a check --- a grain naming a column that is not there --- the system says so instead of quietly dropping it.
+\end{plain}
+
+\begin{worked}
+\wk{a trading book}
+Case study 1 (\texttt{case-studies/01-trading-book-sqlite}) declares six datasets over one SQLite database,
+with 5,000 trades and nine planted defects. In our run, $\Gam$ produced 65 controls and reported three
+declarations that produced none, each with a reason: \emph{``Prama has no validator or code list called
+`currency'\,''}. Executed, the 65 controls gave 44 passes, 5 failures and 16 not established. The five
+failures are exactly the five planted defects that a single-dataset declaration can see: the duplicated
+positions (grain), 60 missing notionals (a mandatory CDE), 7 negative quantities (a range), and the currency
+\texttt{'EURO'} (a code list, reported twice, as validity and consistency). The four it did not find are
+each named in the run's output with the reason: an ISIN checksum (a screen, \Cref{sec:screen}), an orphan
+instrument and a ledger adjustment (both need a \emph{relationship}, which this study does not declare), and
+a settlement date before the trade date --- for which no control exists because nothing in the declaration
+says how the two dates relate. That last one is a gap in the declaration, not in $\Gam$, and the study
+leaves it in to show the difference.
+\end{worked}
+
+\subsection{Coverage, and the number that flatters}\label{sec:coverage}
+
+A percentage of columns ``with a control'' flatters: a single \pql{IS NOT NULL} makes a column covered
+while its format, domain and accuracy go unchecked.
+
+\begin{definition}[Applicable pairs and coverage]\label{def:coverage}
+For a declared dataset, the \defn{applicable pairs} $P$ are the (attribute, dimension) pairs, over the
+dimensions completeness, validity, consistency and accuracy, that the declaration makes meaningful:
+validity only where a semantic type or a value domain is declared; consistency only for an amount with a
+currency; accuracy only for a CDE; completeness except for an optional attribute. Uniqueness and timeliness
+are counted at dataset level. The \defn{coverage} is $\kappa = |P_{\mathrm{cov}}|/|P|$, where
+$P_{\mathrm{cov}}$ are the pairs some active control addresses. The \defn{touched fraction} $\tau$ is the
+share of attributes with at least one control.
+\end{definition}
+
+\begin{proposition}[The honest and the flattering number]\label{prop:flatter}
+$\tau$ can equal $1$ while $\kappa < 1/2$. Both are reported, side by side, and every uncovered pair is
+reported with the declaration or control that would close it, ranked by a risk weight that favours CDEs
+and obligations.
+\end{proposition}
+\begin{proof}
+Take attributes each with a mandatory flag, a semantic type and a CDE mark, and one \pql{IS NOT NULL} control
+on each. Then $\tau = 1$, while of the three applicable pairs per attribute only completeness is covered,
+so $\kappa = 1/3$.
+\end{proof}
+\runs{tests/derive/test\_coverage.py::test\_coverage\_is\_measured\_per\_dimension\_not\_per\_column}
+\runs{tests/derive/test\_coverage.py::test\_the\_flattering\_number\_is\_reported\_beside\_the\_honest\_one}
+\runs{tests/derive/test\_coverage.py::test\_a\_dimension\_an\_attribute\_cannot\_have\_is\_not\_counted\_against\_it}
+\runs{tests/derive/test\_coverage.py::test\_every\_gap\_names\_what\_would\_close\_it}
+
+\begin{proposition}[A dataset cannot vouch for its own accuracy]\label{prop:accuracy}
+No dataset declaration alone covers the accuracy pair of a CDE. Coverage of a CDE's accuracy requires a
+relationship declaration.
+\end{proposition}
+\begin{proof}
+The accuracy dimension is satisfied only by a control comparing the attribute with something outside its
+row --- in \textsc{Prama}, a \pql{REFERENCES} control or a comparison. The dataset rules of
+\Cref{tab:gamma} emit neither; only the relationship rules of \Cref{tab:relkinds} do.
+\end{proof}
+\runs{tests/propose/test\_wave6\_acceptance.py::test\_a\_dataset\_declaration\_alone\_cannot\_cover\_its\_own\_cdes}
+\runs{tests/propose/test\_wave6\_acceptance.py::test\_adding\_the\_relationships\_reaches\_the\_target}
+
+\begin{plain}
+\pt Accuracy means ``agrees with something else''. A dataset, however carefully described, cannot be
+compared with nothing. That is a small piece of logic, but it is the reason relationships --- a line drawn
+between two datasets --- carry the most weight in \textsc{Prama}'s estate-maturity score.
+\end{plain}
+
+The implementation roadmap reports the effect on a realistic Tier-1 declaration: the dataset declaration
+alone reaches 82\% of pairs and 71\% of CDE pairs, and adding the relationship declarations reaches 100\%
+of both. The test asserts the weaker statement that relationships reach at least 95\% of CDE pairs and 80\%
+overall; the 82/71 figures are prose and we did not reproduce them.
+\partly{the proposition runs; the specific percentages are stated in \texttt{docs/19}, not asserted.}
+
+\subsection{Proposals, and who activates}\label{sec:proposals}
+
+\begin{definition}[Proposal and origin]\label{def:proposal}
+A \defn{proposal} is a candidate control with an \emph{origin} in the totally ordered set
+$\textsf{declaration} > \textsf{document} > \textsf{import} > \textsf{mining} > \textsf{example} >
+\textsf{induction}$ (the last is a language model), a backtest against current data, and a utility score.
+Proposals are the only channel through which a control enters the estate.
+\end{definition}
+
+\begin{proposition}[Only a declaration may skip review, and not always]\label{prop:review}
+A proposal may be marked as not needing review only if its origin is \textsf{declaration}, and not even then
+if its backtest violates more than 20\% of rows (a declaration that would ``drown the queue'' is probably
+wrong about the data). Mining, documents, examples and model induction always need review.
+\end{proposition}
+\runs{tests/derive/test\_provenance.py::test\_only\_a\_declaration\_may\_run\_without\_review}
+\runs{tests/propose/test\_queue.py::test\_not\_even\_a\_declaration\_may\_run\_if\_it\_would\_drown\_the\_queue}
+\runs{tests/induce/test\_inducer.py::test\_a\_good\_answer\_becomes\_an\_induced\_control}
+
+\begin{remark}
+Reading the code closely, the ``may skip review'' mark is counted in the queue summary and used nowhere
+else: the only activation path is \texttt{ControlDAO.activate}, which requires an \texttt{approved\_by}
+identity and writes it into the control's provenance. In practice, therefore, a person activates every
+control, including a declared one; the case studies do so explicitly. The generator's docstring (``nothing it
+emits is active'') is correct; the \texttt{may\_auto\_activate} property overstates what happens.
+\end{remark}
+\runsprose{\texttt{src/prama/db/dao/control.py} (\texttt{activate} requires \texttt{approved\_by}); no test
+asserts the absence of another activation path.}
+
+\begin{proposition}[Corroboration merges]\label{prop:corrob}
+When two origins propose a control with the same identity, the result is one proposal, held by the
+stronger origin and marked corroborated, whose confidence rises by a bounded amount. A rejected proposal is
+not offered again unless the evidence changes materially.
+\end{proposition}
+\runs{tests/propose/test\_queue.py::test\_two\_origins\_reaching\_the\_same\_rule\_merge\_rather\_than\_duplicate}
+\runs{tests/propose/test\_queue.py::test\_the\_stronger\_origin\_keeps\_the\_proposal}
+\runs{tests/propose/test\_wave6\_acceptance.py::test\_mining\_and\_declaring\_the\_same\_rule\_produces\_one\_corroborated\_proposal}
+\runs{tests/propose/test\_utility.py::test\_corroboration\_raises\_confidence\_modestly}
+\runs{tests/propose/test\_queue.py::test\_a\_rejected\_proposal\_is\_not\_offered\_again}
+
+The utility score is a fixed linear combination of criticality, coverage gap, confidence and an
+acceptance prior learned from past decisions, Laplace-smoothed and capped so that the learned term cannot
+dominate. Tier-1 datasets require a second person (maker--checker).
+\runs{tests/propose/test\_utility.py::test\_the\_learned\_term\_cannot\_dominate\_the\_ranking}
+\runs{tests/semantic/test\_services.py::TestApprovalPolicy::test\_tier\_one\_requires\_a\_second\_person}
+
+\subsection{What $\Gam$ does not yet do}
+
+Declaring a rhythm generates a freshness control, and that control has no execution strategy on a plain
+table: it can never reach a verdict. The repository pins this as a \emph{strict} expected failure, so the
+day it is fixed the test fails and forces the finding to be closed. In case study 1 the stale JPY rate is
+reported ``not established'' for this reason. Freshness is established in \textsc{Prama} only where there is
+an arrival record --- a feed of files, as in case study 2, where the missing and the duplicated deliveries are
+both found by the arrival ledger rather than by SQL.
+\partly{\texttt{tests/derive/test\_generator.py::test\_a\_generated\_freshness\_control\_can\_reach\_a\_verdict}
+is a strict \texttt{xfail}.}
+
+The design corpus lists roll-forward, aggregate parity and row-count parity as \emph{PQL} forms. They exist
+as comparison specifications produced by $\Gam$; the PQL surface for them is still a specification.
+\absent{PQL syntax for roll-forward, aggregate and row-count parity; cycle detection for
+\textsf{parent-of}.}
+
+% =============================================================================
+\section{One language, one plan, a verdict that can say ``not known''}\label{sec:pql}
+
+\subsection{PQL and the plan}
+
+PQL is \textsc{Prama}'s control language. A control is a \pql{CHECK} over a dataset --- a predicate over rows
+(\pql{amount >= 0}, \pql{ccy IN CODELIST 'iso4217'}, \pql{isin IS VALID 'isin'}), a dataset property
+(\pql{HAS UNIQUE KEY (trade\_id)}, \pql{REFERENCES}), a named Python delegate, or a single read-only custom
+query --- with a threshold (\pql{AT MOST 5 ROWS}, \pql{BELOW 0.1\%}), a severity, a dimension, an optional
+scope (\pql{WHERE}, \pql{FOR EACH}) and a policy for unknowns. A \pql{RECONCILE} statement compares two
+datasets (\Cref{sec:recon}).
+
+\begin{verbatim}
+CHECK trades.notional IS NOT NULL SEVERITY critical DIMENSION completeness
+CHECK trades.isin IS VALID 'isin'
+CHECK trades HAS UNIQUE KEY (trade_id)
+CHECK trades.ccy IN CODELIST 'iso4217'
+      TREAT UNKNOWN AS PASS BECAUSE 'optional on internal moves'
+\end{verbatim}
+
+\begin{definition}[Plan and plan identity]\label{def:plan}
+A control \emph{lowers} to a \defn{plan}: a typed, engine-neutral logical form comprising an assertion
+kind, a predicate, an unknown policy, a scope, the metrics to compute and a threshold, together with any
+code-list values and validator implementations it names. Its \defn{meaning} $\mu(P)$ is that tuple and its
+IR version; its identity is $\mathit{plan\_id}(P) = \texttt{ir:sha256:}\,\hash(\mathrm{canon}(\mu(P)))$,
+where $\mathrm{canon}$ serialises with sorted keys, no whitespace and UTF-8. Severity, description,
+rationale and provenance are not part of $\mu$.
+\end{definition}
+
+\begin{proposition}[What the plan identity closes over]\label{prop:closure}
+Changing a code list changes the plan identity of every control that names it; a plan that needs a
+residual validator hashes differently from the same plan without one; and the identity is the same
+whichever entry point lowered the control.
+\end{proposition}
+\runs{tests/backend/test\_worked\_example.py::TestTheCodelistIsClosedOver::test\_changing\_the\_codelist\_changes\_the\_control}
+\runs{tests/backend/test\_two\_stage.py::test\_a\_two\_stage\_plan\_hashes\_differently\_from\_a\_screen\_only\_one}
+\runs{tests/backend/test\_resolve.py::TestItDoesNotChangeAnythingElse::test\_a\_control\_with\_no\_codelist\_hashes\_identically}
+\partly{no test asserts that severity or provenance are \emph{excluded} from the hash; it is true of
+\texttt{ControlPlan.meaning} by inspection.}
+
+\begin{plain}
+\pt A control's fingerprint changes when what it checks changes --- including the list of allowed values
+it points at, and including the Python behind a validator it names --- and does not change when somebody
+edits its description. Last month's evidence therefore refers to exactly the control that produced it.
+\end{plain}
+
+\subsection{The verdict set}
+
+\begin{definition}[Verdicts]\label{def:verdict}
+$\Ver = \{\PASS, \FAIL, \IND, \ERR, \SKIP\}$. Given the metrics $m$ an engine returned for a plan with
+threshold $\theta$:
+\[
+\mathrm{judge}(m,\theta) =
+\begin{cases}
+\IND & \text{if the metric $\theta$ reads is absent,}\\
+     & \text{or $m.\mathit{scanned\_rows}$ is absent or $0$,}\\
+     & \text{or $\theta$ is relative and its denominator is $0$;}\\
+\PASS & \text{if $\theta$ holds of $m$;}\\
+\FAIL & \text{otherwise.}
+\end{cases}
+\]
+$\ERR$ records an execution failure (an unreadable source, an absent delegate host) as a finding rather
+than a crash. A segmented control fails if any segment fails, and is indeterminate if any segment is
+indeterminate and none fails. The actionable verdicts are $\{\FAIL, \ERR, \IND\}$.
+\end{definition}
+
+\begin{proposition}[Nothing scanned is not a pass]\label{prop:empty}
+A control over an empty scope is $\IND$, for absolute and relative thresholds alike. The exception is a
+row-count control, which is a claim about the count itself: over an empty table it fails.
+\end{proposition}
+\runs{tests/backend/test\_reference.py::TestScopes::test\_an\_empty\_scope\_is\_indeterminate\_not\_a\_pass}
+\runs{tests/backend/test\_two\_stage.py::TestNothingScannedIsNotAPass::test\_an\_absolute\_threshold\_refuses\_an\_empty\_scan}
+\runs{tests/backend/test\_two\_stage.py::TestNothingScannedIsNotAPass::test\_the\_two\_agree}
+\runs{tests/backend/test\_two\_stage.py::TestNothingScannedIsNotAPass::test\_a\_row\_count\_control\_still\_judges\_an\_empty\_table}
+\runs{tests/delegates/test\_delegates.py::test\_without\_a\_delegate\_host\_the\_control\_is\_an\_error\_not\_a\_skip}
+
+\subsection{Unknowns}
+
+SQL evaluates a comparison with a null to \textsf{unknown}, and a \pql{WHERE} clause drops unknown rows. A
+control written as ``count the rows where the predicate is false'' therefore silently passes every null.
+
+\begin{definition}[Unknown policy]\label{def:unknown}
+For a row predicate $\varphi$ with three-valued semantics, the violation count under policy $\pi$ is
+\[
+v_\pi = \bigl|\{ x : \varphi(x) = \textsf{false} \}\bigr| + [\pi = \textsf{violation}]\cdot
+\bigl|\{ x : \varphi(x) = \textsf{unknown} \}\bigr|.
+\]
+The default is $\pi = \textsf{violation}$. \pql{TREAT UNKNOWN AS PASS} selects the other policy and must
+carry a \pql{BECAUSE} clause stating why.
+\end{definition}
+
+\begin{proposition}[The default is the conservative one]\label{prop:unknown}
+$v_{\textsf{pass}} \le v_{\textsf{violation}}$, with equality exactly when no row evaluates to unknown.
+Hence for any upper-bound threshold, a control that passes under the default also passes under
+\pql{TREAT UNKNOWN AS PASS}, and not conversely.
+\end{proposition}
+\begin{proof}Immediate from \Cref{def:unknown}; the second term is non-negative. An upper-bound threshold is
+monotone in $v$.\end{proof}
+\runs{tests/pql/test\_parser.py::TestUnknownsAreViolationsByDefault::test\_an\_unknown\_counts\_against\_the\_control}
+\runs{tests/pql/test\_parser.py::TestUnknownsAreViolationsByDefault::test\_but\_only\_with\_a\_reason}
+\runs{tests/backend/test\_engine\_conformance.py::TestTheCorpusDiscriminates::test\_the\_unknown\_policy\_changes\_the\_count}
+\runs{tests/backend/test\_reference.py::TestUnknownsAreViolations::test\_a\_null\_counts\_against\_the\_control}
+
+\subsection{A screen is not a test}\label{sec:screen}
+
+Some validity rules have no faithful SQL form. An LEI's check digits are computed by ISO 7064 MOD 97-10
+over a letter-to-number mapping; an ISIN's by a Luhn variant. SQL can check the \emph{shape} (length,
+alphabet, position of digits) but not the arithmetic, portably. The tempting move is to compile the shape
+check and call it the control. That control passes every well-shaped fabricated identifier.
+
+\begin{definition}[Screen and residual]\label{def:screen}
+For an exact validator $V$ over values, a \defn{screen} is a predicate $S$ with $V(x) \Rightarrow S(x)$ for
+every $x$: a necessary condition every valid value satisfies, and which invalid values may also satisfy.
+The \defn{residual} is $V$ itself, run over the rows the screen admits. A plan whose SQL computes only
+$S$ is \emph{incomplete}.
+\end{definition}
+
+\begin{proposition}[Screen soundness]\label{prop:screen}
+Let $n_S = |\{x : \neg S(x)\}|$ and $n_V = |\{x : \neg V(x)\}|$ over a scope. Then $n_S \le n_V$. Hence an
+incomplete plan may soundly report $\FAIL$ when $n_S$ breaches the threshold, and may not report $\PASS$
+when $n_S = 0$: the only sound verdict for an incomplete plan with $n_S$ within the threshold is $\IND$.
+\end{proposition}
+\begin{proof}
+By contraposition of $V \Rightarrow S$, $\neg S(x) \Rightarrow \neg V(x)$, so the screen's violations are a
+subset of the validator's. A breach by the subset is a breach by the whole, for any upper-bound threshold.
+Conversely $n_S = 0$ is consistent with any $n_V \ge 0$, so it cannot establish a threshold on $n_V$.
+\end{proof}
+\runs{tests/backend/test\_two\_stage.py::test\_a\_valid\_value\_is\_never\_rejected\_by\_the\_screen}
+\runs{tests/backend/test\_two\_stage.py::test\_the\_screen\_alone\_would\_have\_passed\_the\_fabricated\_value}
+\runs{tests/backend/test\_two\_stage.py::test\_the\_compiled\_query\_declares\_that\_it\_is\_not\_the\_whole\_test}
+\runs{tests/execute/test\_control\_run.py::TestAnIncompleteScreenCannotPass::test\_zero\_violations\_from\_a\_screen\_is\_not\_a\_pass}
+\runs{tests/execute/test\_control\_run.py::TestAnIncompleteScreenCannotPass::test\_a\_screen\_that\_found\_violations\_still\_fails}
+
+\begin{worked}
+\wk{a fabricated LEI}
+A twenty-character value with the right alphabet and wrong check digits passes the screen: the SQL counts
+$n_S = 0$. The exact validator counts $n_V = 1$. \textsc{Prama} compiles the screen, marks the query
+incomplete, and on $n_S = 0$ reports \emph{``a pass cannot be reported from a screen alone''}. Across the
+eight case studies this is the most frequent ``not established'' line: in case study 1, ten controls on
+ISIN, LEI and ISO-date columns are reported this way, including the one on the column where twelve ISINs
+with wrong checksums were planted.
+\end{worked}
+
+\begin{plain}
+\pt Zero rows failing a rough check is not the same as zero rows failing the real check. Reporting it as a
+pass would be the most expensive lie a data quality tool can tell, because it is told about exactly the
+columns whose correctness SQL cannot express.
+\end{plain}
+
+The residual is not run on the SQL path in the case studies: the run reports ``residual not run''. This is
+by design --- the residual is a Python validator and runs where rows are available --- but it means that on
+a pure pushdown deployment the checksum columns stay $\IND$ until a residual executor is configured.
+\partly{screens are sound and never report a pass; the residual executes in the reference interpreter,
+not as part of an SQL pushdown run.}
+
+\subsection{One plan, several engines}\label{sec:conformance}
+
+\textsc{Prama} compiles plans to three SQL dialects --- PostgreSQL, DuckDB and SQLite ---
+and executes them with a fourth, independent evaluator: a reference interpreter in Python that is never
+given SQL and shares no code with the compiler.
+
+\begin{definition}[Conformance]\label{def:conformance}
+A backend $e$ \defn{conforms} on a corpus case $c$ if it returns the verdict, the metrics and the
+per-segment breakdown that the case declares, or if it refuses $c$ at compile time with a named reason.
+A refusal is a conforming outcome; a silently different answer is not.
+\end{definition}
+
+\begin{proposition}[Cross-engine agreement on the corpus]\label{prop:conform}
+Every case of the conformance corpus yields the same verdict and metrics on every engine that runs it, and
+each case is compared by at least two genuinely different engines. The corpus discriminates: it contains
+passing and failing cases, a case where the unknown policy changes the count, a duplicate key that counts
+once, a segment that fails alone, and rates judged against the rows actually scanned after a filter.
+\end{proposition}
+\runs{tests/backend/test\_engine\_conformance.py::TestTheEnginesAgree::test\_every\_case\_gives\_the\_same\_answer\_everywhere}
+\runs{tests/backend/test\_engine\_conformance.py::TestTheEnginesAgree::test\_at\_least\_two\_genuinely\_different\_engines\_took\_part}
+\runs{tests/backend/test\_engine\_conformance.py::TestTheCorpusDiscriminates::test\_a\_rate\_is\_judged\_against\_the\_rows\_actually\_scanned}
+\runs{tests/backend/test\_reference.py::TestItSharesNothingWithTheCompiler::test\_it\_never\_asks\_for\_sql}
+
+The corpus has 25 cases (\texttt{src/prama/backend/corpus.py}). DuckDB, SQLite and the reference
+interpreter always run; PostgreSQL runs when \texttt{PRAMA\_TEST\_POSTGRES\_DSN} is set. We ran the backend
+suite both ways: without PostgreSQL, and against a PostgreSQL 16 container, where all 138 backend tests
+passed with none skipped.
+
+Beyond the corpus, a seeded generator produces random controls (250 by default) and requires every engine to
+agree on each; the generated set is required to exercise all three of $\PASS$, $\FAIL$ and $\IND$, and every
+generated control is reproducible from its seed.
+\runs{tests/backend/test\_generated\_equivalence.py::TestTheEnginesAgreeOnAllOfThem::test\_no\_generated\_control\_produces\_a\_disagreement}
+\runs{tests/backend/test\_generated\_equivalence.py::TestTheEnginesAgreeOnAllOfThem::test\_the\_generated\_set\_exercises\_all\_three\_outcomes}
+\runs{tests/backend/test\_generated\_equivalence.py::TestEveryGeneratedControlIsValid::test\_they\_are\_reproducible\_from\_their\_seed}
+
+\begin{remark}
+This is seeded differential testing, not property-based testing with shrinking, and it is not a proof of
+semantic equivalence. Full equivalence across engines is probably unattainable for regular-expression
+flavours, collations and decimal semantics; the response is a portable subset and compile-time refusal.
+\end{remark}
+\stated{a semantic-equivalence proof between the compiler and the reference interpreter.}
+
+\begin{proposition}[Refusal is conformance]\label{prop:refuse}
+A construct an engine cannot express is refused at compile time with a named reason, never approximated.
+SQLite refuses approximate distinct counts and sampling, and a key wider than its column limit; it does
+regular expressions through a function the executor registers, and the corpus confirms it agrees with
+DuckDB. A fused group containing a refused control is stopped, not silently shortened.
+\end{proposition}
+\runs{tests/backend/test\_engine\_conformance.py::TestRefusalIsConformance::test\_sqlite\_refuses\_what\_it\_genuinely\_cannot\_do}
+\runs{tests/backend/test\_engine\_conformance.py::TestRefusalIsConformance::test\_sqlite\_does\_regex\_through\_a\_registered\_function}
+\runs{tests/pql/test\_deep\_input.py::test\_a\_500\_column\_key\_runs\_where\_the\_engine\_can\_and\_is\_refused\_where\_it\_cannot}
+\runs{tests/backend/test\_fuse.py::TestTheFusedQuery::test\_a\_control\_the\_engine\_cannot\_run\_stops\_that\_group}
+\partly{DuckDB's refusal of back-references and look-arounds (RE2) is implemented and untested.}
+
+\begin{plain}
+\pt The same control means the same thing on every database it runs on, and a fourth, deliberately
+separate implementation checks that. Where a database genuinely cannot do something, the control refuses
+to run there and says why; it never runs a weaker version and reports the answer as if it were the same.
+\end{plain}
+
+Building the case studies against real data found two defects of exactly this kind, both since fixed and
+recorded in \texttt{case-studies/README.md}: a rounding function that double-rounded on DuckDB (a bare
+\pql{CAST(x AS NUMERIC)} is \pql{DECIMAL(18,3)} there), producing 131 false one-cent breaks in 3,000 rows; and
+an unknown function name that compiled straight through to SQL while the reference interpreter returned
+unknown. The second is the more instructive: the independent check existed, and the two disagreed silently
+because nothing compared them on that input. There is now a function catalogue in which no function can
+exist without both a lowering and a reference implementation.
+
+\subsection{Fusion}
+
+A source pays for scans, not for controls.
+
+\begin{definition}[Fusion]\label{def:fusion}
+Plans over the same dataset and scope are grouped into one query that computes every plan's metrics in a
+single pass, computing identical metrics once. The cost of a suite is the number of scans.
+\end{definition}
+
+\begin{proposition}[Fusion preserves answers]\label{prop:fusion}
+Every control in a fused query receives the metrics, and hence the verdict, it receives when run alone.
+\end{proposition}
+\begin{proof}[Proof sketch]
+Each plan's metrics are aggregate expressions over the same scope, conditioned on the plan's own predicate
+(\eg a \pql{SUM(CASE WHEN \ldots)}); aggregates over one scan are independent of the other aggregates
+computed in it. Plans whose scopes differ are not fused.
+\end{proof}
+\runs{tests/backend/test\_fuse.py::TestTheFusedQuery::test\_it\_answers\_every\_control\_identically}
+\runs{tests/soak/test\_throughput.py::TestFusionActuallySaves::test\_fused\_answers\_match\_unfused\_ones\_at\_volume}
+\runs{tests/backend/test\_fuse.py::TestCost::test\_cost\_is\_counted\_in\_scans\_not\_controls}
+
+The unit suite runs nine controls in three scans. At volume, the soak test asserts that a realistic
+generated suite needs at most half the naive number of scans and that the saving grows with the suite; in our
+run it printed \emph{``400 controls in 160 scans = 40.0\% of a naive pass''}.
+\runs{tests/soak/test\_throughput.py::TestFusionActuallySaves::test\_a\_realistic\_suite\_needs\_far\_fewer\_scans}
+\runs{tests/soak/test\_throughput.py::TestFusionActuallySaves::test\_the\_saving\_grows\_with\_the\_suite}
+
+\subsection{Where PQL stops: custom SQL and delegates}
+
+Two escape hatches exist, and both are shaped to keep the verdict with the engine.
+
+\pql{CHECK CUSTOM SQL} accepts exactly one read-only query, checked at parse time, and runs only on the
+engines it names. There is deliberately no inline Python.
+\runs{tests/pql/test\_custom\_sql.py::test\_anything\_but\_one\_read\_only\_query\_is\_refused\_at\_parse\_time}
+\runs{tests/pql/test\_custom\_sql.py::test\_it\_runs\_on\_an\_engine\_it\_names\_and\_is\_refused\_on\_others}
+
+\begin{definition}[Delegate]\label{def:delegate}
+A \defn{delegate} is a registered Python class, named in PQL as
+\pql{CHECK ds USING DELEGATE 'acme.settlement\_cycle@1' (\ldots) BELOW 0.1\%}, that returns
+\emph{counts} --- rows scanned and rows violating --- and never a verdict. The control's threshold judges the
+counts. A delegate's source hash is folded into the evidence.
+\end{definition}
+
+\begin{proposition}[A delegate cannot decide]\label{prop:delegate}
+The verdict of a delegate control is $\mathrm{judge}(m, \theta)$ of \Cref{def:verdict} applied to the
+delegate's counts, so a delegate that establishes nothing yields $\IND$, not $\PASS$. A delegate importing a
+network, clock or model client is refused before it is imported; one that is not deterministic on admission
+probes is refused; a file changed after admission is refused; input over the row ceiling is refused, not
+truncated; and a sandboxed run agrees with an in-process run.
+\end{proposition}
+\runs{tests/delegates/test\_delegates.py::test\_a\_result\_that\_establishes\_nothing\_is\_indeterminate\_not\_a\_pass}
+\runs{tests/delegates/test\_delegates.py::test\_an\_impure\_file\_is\_refused\_before\_it\_is\_imported}
+\runs{tests/delegates/test\_delegates.py::test\_admission\_refuses\_what\_cannot\_replay\_or\_be\_judged}
+\runs{tests/delegates/test\_streaming\_and\_testkit.py::test\_a\_file\_changed\_after\_admission\_is\_refused\_in\_the\_sandbox}
+\runs{tests/delegates/test\_delegates.py::test\_too\_many\_rows\_are\_refused\_not\_truncated}
+\runs{tests/delegates/test\_delegates.py::test\_sandboxed\_and\_in\_process\_runs\_agree\_and\_both\_see\_json\_values}
+
+The sandbox is a subprocess with CPU and memory limits and a wall-clock timeout. It is weaker than its
+description in three respects: the worker inherits the parent's environment, there is no network namespace
+(purity is enforced by a static scan of imports, not by the operating system), and neither the timeout nor
+the memory limit is exercised by a test.
+\partly{process isolation and static vetting run; OS-level network isolation is absent; limits untested.}
+
+\begin{worked}
+\wk{a check PQL cannot say}
+Case study 5 plants 23 US trades booked on T+2 after the move to T+1, 9 EU trades settling on a TARGET2
+closing day, and 4 unreadable dates. The column comparison \pql{settlement\_date >= trade\_date} passes all
+of them, because every one settles after it trades. A bank-owned delegate that knows each market's cycle
+and calendar returns 36 violations (23 late, 9 early, 4 unreadable); the threshold, not the delegate, turns
+them into a failure. A second delegate, run on a remote agent inside a payments zone, applies Benford's
+first-digit test and fails the planted ledger (MAD 0.0176, above Nigrini's 0.015 nonconformity band) while
+keeping the example rows inside the zone.
+\end{worked}
+
+\subsection{Numbers}
+
+Operator arithmetic in the function library and the reference interpreter is exact decimal: one tenth plus
+two tenths is three tenths, and division by zero is unknown rather than an error. Threshold values are
+parsed and stored as binary floating point, and survive rendering digit for digit; the comparison of a
+metric with a threshold is therefore a float comparison.
+\runs{tests/pql/test\_numbers\_survive.py::TestOperatorArithmeticIsExact::test\_a\_tenth\_plus\_two\_tenths\_is\_three\_tenths}
+\runs{tests/pql/test\_numbers\_survive.py::TestRenderingKeepsEveryDigit::test\_a\_threshold\_survives\_a\_round\_trip}
+\partly{thresholds are \texttt{float}, not decimal.}
+
+% =============================================================================
+\section{Evidence that verifies without its author}\label{sec:evidence}
+
+\subsection{The record}
+
+\begin{definition}[Evidence record and chain]\label{def:record}
+An \defn{evidence record} $e_i$ is a mapping of fields --- tenant, control identity and version, plan
+identity, snapshot, verdict, metrics, dimensions, a reference by hash to any sample rows, the format version,
+the sequence number $i$ --- together with three hashes. Its \defn{content hash} is
+$h_i = \hash(\mathrm{canon}(e_i \setminus \{\mathit{prev}, h, \mathit{rh}\}))$, computed over exactly the
+fields its own format version defines. Its \defn{record hash} is $\mathit{rh}_i = \hash(\mathit{rh}_{i-1}
+\,\Vert\, h_i)$, with $\mathit{rh}_{0} = \textsf{GENESIS} = \texttt{0}^{64}$. $\hash$ is SHA-256 and
+$\mathrm{canon}$ is canonical JSON (keys sorted at every level, no whitespace, UTF-8). A chain is valid if
+its sequence numbers are contiguous from 1, every $h_i$ recomputes, and every $\mathit{rh}_i$ links.
+\end{definition}
+
+\begin{theorem}[Tamper evidence]\label{thm:tamper}
+Suppose a verifier holds an authentic chain head $\mathit{rh}_n$. If $\hash$ is collision resistant, then any
+alteration of a field of any $e_i$ ($i \le n$), any deletion, insertion or reordering of records, or any
+truncation of the chain, is detected by the validity check, except with negligible probability.
+\end{theorem}
+\begin{proof}[Proof sketch]
+An altered field changes $\mathrm{canon}(e_i)$ and hence, except on a collision, $h_i$; if $h_i$ is left
+unchanged the recomputation fails. If $h_i$ is recomputed, $\mathit{rh}_i$ changes, and by induction every
+subsequent record hash changes, so $\mathit{rh}_n$ differs from the authentic head unless a collision was
+found at some step. Deletion, insertion and reordering break contiguity of sequence numbers or the link
+equation at the point of change, and a truncated chain ends at a head different from $\mathit{rh}_n$.
+\end{proof}
+\runs{tests/evidence/test\_ledger.py::TestTheChain::test\_a\_fresh\_chain\_starts\_from\_genesis}
+\runs{tests/evidence/test\_ledger.py::TestTheChain::test\_each\_record\_links\_to\_the\_one\_before}
+\runs{tests/evidence/test\_ledger.py::TestTheChain::test\_a\_missing\_record\_is\_detected\_as\_a\_gap}
+\runs{tests/evidence/test\_ledger.py::TestTheChain::test\_reordering\_is\_detected}
+\runs{tests/evidence/test\_independent\_verifier.py::TestItRejectsTampering::test\_a\_truncated\_file\_is\_caught}
+\runs{tests/evidence/test\_independent\_verifier.py::TestItRejectsTampering::test\_a\_removed\_middle\_record\_is\_caught}
+\runs{tests/evidence/test\_independent\_verifier.py::TestItRejectsTampering::test\_a\_reordered\_pair\_is\_caught}
+
+The theorem is only as strong as the authenticity of the head. \textsc{Prama} signs the head with
+HMAC-SHA256, which proves nothing to a party that does not hold the key --- the code says so in as many
+words --- and seals exported bundles with an HMAC and, optionally, an Ed25519 signature over the manifest
+that verifies with the public key alone. A bundle without a signature is reported untrustworthy even when
+every hash matches.
+\runs{tests/evidence/test\_ledger.py::TestSigning::test\_a\_different\_key\_does\_not\_verify}
+\runs{tests/evidence/test\_ledger.py::TestSigning::test\_a\_changed\_head\_does\_not\_verify}
+\runs{tests/security/test\_bundle.py::TestAsymmetricSignature::test\_a\_signature\_verifies\_with\_only\_the\_public\_half}
+\runs{tests/security/test\_bundle.py::TestAnUnsignedBundleIsNotABundle::test\_no\_signature\_is\_not\_trustworthy\_even\_when\_the\_hashes\_match}
+\absent{publication of chain heads to an external timestamping service or transparency log
+\cite{haber1991,laurie2013}. Without it, an operator holding the HMAC key could rewrite a chain and
+re-sign its head; the Ed25519 bundle signature binds only what was exported.}
+
+\begin{definition}[Merkle root]\label{def:merkle}
+For record hashes $x_1,\ldots,x_n$, the root is computed level by level, combining adjacent pairs with
+$\hash(x_{2j-1} \Vert x_{2j})$; an unpaired node at the end of a level is \emph{promoted} unchanged to the
+next level; the root of the empty set is \textsf{GENESIS} \cite{merkle1987}.
+\end{definition}
+
+\begin{remark}
+Promotion rather than duplication matters: the common alternative, duplicating the last node, gives the
+lists $[a,b,c]$ and $[a,b,c,c]$ the same root, which lets a duplicated record pass unnoticed.
+\end{remark}
+\runs{tests/evidence/test\_ledger.py::TestMerkleRoots::test\_an\_odd\_node\_is\_promoted\_not\_duplicated}
+\runs{tests/evidence/test\_ledger.py::TestMerkleRoots::test\_an\_empty\_set\_has\_no\_root}
+
+\subsection{A verifier that shares nothing}
+
+\begin{proposition}[Independent verification]\label{prop:independent}
+The script \texttt{scripts/verify\_evidence.py} imports only the Python standard library, runs where
+\textsc{Prama} is not importable, and checks content hashes, links, contiguity, erasure seals, the manifest's
+record count and file digest, the Merkle root and the chain head. On every input tested, including records
+with non-ASCII text, an added field, and doctored manifests, it reaches the same conclusion as \textsc{Prama}'s
+own verifier. A second, test-local re-implementation written from the prose description of the algorithm
+also agrees.
+\end{proposition}
+\runs{tests/evidence/test\_independent\_verifier.py::TestItIsGenuinelyIndependent::test\_it\_imports\_only\_the\_standard\_library}
+\runs{tests/evidence/test\_independent\_verifier.py::TestItIsGenuinelyIndependent::test\_it\_runs\_without\_prama\_importable}
+\runs{tests/evidence/test\_independent\_verifier.py::TestTheTwoVerifiersAgree::test\_a\_non\_ascii\_record\_verifies\_in\_both}
+\runs{tests/evidence/test\_independent\_verifier.py::TestTheTwoVerifiersAgree::test\_an\_added\_field\_is\_a\_breach\_in\_both}
+\runs{tests/evidence/test\_independent\_verifier.py::TestItRejectsTampering::test\_a\_doctored\_manifest\_is\_caught}
+\runs{tests/evidence/test\_ledger.py::TestVerifiableWithoutPrama::test\_an\_independent\_reader\_reaches\_the\_same\_conclusion}
+\runs{tests/evidence/test\_ledger.py::TestVerifiableWithoutPrama::test\_and\_the\_same\_conclusion\_when\_a\_record\_is\_altered}
+\runs{tests/evidence/test\_end\_to\_end.py::TestVerifyingWithoutPrama::test\_an\_exported\_chain\_checks\_with\_stdlib\_alone}
+
+\begin{plain}
+\pt An auditor does not have to trust \textsc{Prama} to check \textsc{Prama}'s records. A short script that
+uses nothing but Python's standard library reads the exported file and says whether anything was changed,
+removed or reordered. The two verifiers once disagreed (QA finding C4, since fixed); that disagreement was a
+defect in the evidence layer, it was found by running the two against each other, and a test --- including a
+record with non-ASCII text --- now holds them together.
+\end{plain}
+
+\paragraph{Erasure without breaking the chain.} A record that must be erased (a legal hold ends, or a subject
+exercises a right to erasure) is replaced by a tombstone that keeps the original content hash, so the chain
+still links, and carries a seal of its own over who erased it and why. Rewriting who erased a record is
+caught.
+\runs{tests/evidence/test\_independent\_verifier.py::TestAnErasureIsItselfTamperEvident::test\_rewriting\_who\_erased\_it\_is\_caught}
+\runs{tests/evidence/test\_independent\_verifier.py::TestAnErasureIsItselfTamperEvident::test\_the\_chain\_still\_verifies\_across\_the\_erasure}
+
+\paragraph{Format versions.} A field added to the record format is hashed only in records whose version
+defines it, so a chain mixing old and new records verifies.
+\runs{tests/evidence/test\_format\_versions.py::TestOldRecordsSurviveANewBuild::test\_a\_mixed\_chain\_verifies}
+
+\paragraph{Size.} Sample rows are referenced by hash rather than carried. The tests assert that the median
+record is under 2 KB; the roadmap reports 848 bytes on the worked example, a figure we did not reproduce.
+\runs{tests/evidence/test\_ledger.py::TestSize::test\_a\_record\_is\_well\_under\_two\_kilobytes}
+\runs{tests/evidence/test\_ledger.py::TestSize::test\_samples\_are\_referenced\_not\_carried}
+
+\subsection{Replay, and naming why an answer moved}
+
+\begin{definition}[Replay outcome]\label{def:replay}
+Re-executing the plan of a record yields one of: \textsf{identical}; \textsf{stable} (the answer held while
+the inputs moved); one of six named causes of divergence --- \textsf{data\_changed},
+\textsf{control\_changed}, \textsf{engine\_changed}, \textsf{parameters\_changed},
+\textsf{snapshot\_not\_exact}, \textsf{coverage\_changed}; or \textsf{unexplained}. Causes are tried in a fixed
+precedence (a changed control explains more than changed data), and \textsf{unexplained} is never folded into
+an ordinary cause.
+\end{definition}
+
+\begin{proposition}[Replay classifies]\label{prop:replay}
+Each named cause is assigned when, and only when, its condition holds in the tested scenarios; a changed
+control takes precedence over changed data; an engine disagreement is escalated; and a run whose answer held
+is reported as \textsf{stable}, not diverged, so that a nightly replay against fresh data does not bury the
+divergences that matter.
+\end{proposition}
+\runs{tests/evidence/test\_replay.py::TestNamingTheCause::test\_moved\_data\_is\_the\_ordinary\_case}
+\runs{tests/evidence/test\_replay.py::TestNamingTheCause::test\_an\_edited\_control\_makes\_the\_answers\_incomparable}
+\runs{tests/evidence/test\_replay.py::TestNamingTheCause::test\_the\_control\_wins\_when\_both\_the\_control\_and\_the\_data\_moved}
+\runs{tests/evidence/test\_replay.py::TestNamingTheCause::test\_an\_engine\_disagreement\_is\_escalated}
+\runs{tests/evidence/test\_replay.py::TestNamingTheCause::test\_an\_inexact\_snapshot\_explains\_itself}
+\runs{tests/evidence/test\_replay.py::TestNamingTheCause::test\_an\_unexplained\_divergence\_is\_reported\_as\_alarming}
+\runs{tests/execute/test\_watermarks.py::TestTheWidthTravelsWithTheVerdict::test\_a\_replay\_at\_a\_different\_width\_is\_not\_blamed\_on\_the\_data}
+\runs{tests/evidence/test\_end\_to\_end.py::TestReplay::test\_the\_controls\_whose\_answer\_held\_are\_not\_reported\_as\_diverged}
+
+Every case study ends by verifying its chain and printing its Merkle root; all eight verified in our runs,
+over 10 to 81 records each.
+
+% =============================================================================
+\section{Reconciliation}\label{sec:recon}
+
+Reconciliation --- showing that two systems that should agree do --- is the most expensive data quality
+failure in banking, and is usually sold as a separate product. In \textsc{Prama} it is a PQL statement:
+\begin{verbatim}
+RECONCILE subledger AGAINST general_ledger
+  ON (account, cost_centre, posting_date)
+  COMPARING amount = balance_eur WITHIN 0.01 EUR
+  NORMALISING currency TO 'EUR' USING RATES fx_rates
+  OFFSET BY 1 DAY
+\end{verbatim}
+
+\begin{definition}[Reconciliation]\label{def:recon}
+A reconciliation $\mathcal{R} = (L, R, M, (c_L, c_R), \epsilon, \nu, k)$ has a left and a right dataset, a
+match key $M$, compared attributes, a tolerance $\epsilon = (a, r)$ with absolute bound $a \ge 0$ and
+relative bound $r \ge 0$ (either may be absent, treated as $0$), an optional normalisation $\nu$ converting
+the left amount into the right's currency through a declared rate table, and an optional offset of
+$k$ days on one date component of the key.
+\end{definition}
+
+\begin{definition}[Tolerance]\label{def:tolerance}
+A difference $\Delta$ against a magnitude $m$ is \defn{permitted} when
+$|\Delta| \le a \;\lor\; |\Delta| \le r\,|m|$ --- ``whichever is larger''. A pair is a \emph{break} when
+the difference is not permitted, that is, when it breaches \emph{both} bounds.
+\end{definition}
+
+\begin{proposition}[Tolerance laws]\label{prop:tolerance}
+(i) Permission is monotone: enlarging $a$ or $r$ never creates a break. (ii) For large positions the relative
+bound governs; for small ones the absolute bound. (iii) Against a zero magnitude, a purely relative bound
+permits only an exact match. (iv) A difference breaching both bounds is a break however large either bound is
+individually.
+\end{proposition}
+\begin{proof}
+(i) Each disjunct is monotone in its bound. (ii) $r|m| > a$ exactly when $|m| > a/r$. (iii) $r\cdot 0 = 0$.
+(iv) is \Cref{def:tolerance} restated.
+\end{proof}
+\runs{tests/recon/test\_reconciliation.py::TestWhicheverIsLarger::test\_the\_relative\_bound\_governs\_a\_large\_position}
+\runs{tests/recon/test\_reconciliation.py::TestWhicheverIsLarger::test\_a\_difference\_breaching\_both\_is\_still\_a\_break}
+\runs{tests/recon/test\_reconciliation.py::TestWhicheverIsLarger::test\_a\_relative\_bound\_against\_nothing\_permits\_only\_an\_exact\_match}
+\runs{tests/recon/test\_reconcile\_pql.py::test\_the\_engine\_counts\_genuine\_breaks\_and\_the\_threshold\_judges}
+\runs{tests/recon/test\_reconcile\_pql.py::test\_normalising\_converts\_before\_comparing}
+
+\begin{definition}[Matching with an offset]\label{def:offsetmatch}
+Rows are first matched exactly on $M$. Only left rows still unmatched are then probed at offsets
+$\pm 1, \ldots, \pm k$ days on the named date component of $M$ (by default the last), against right rows
+also still unmatched.
+\end{definition}
+
+\begin{lemma}[An offset never steals an exact match]\label{lem:exactfirst}
+No row that has an exact match is paired across an offset.
+\end{lemma}
+\begin{proof}Exact matching runs to completion before any offset probe, and probes consider only rows left
+unmatched by it.\end{proof}
+\runs{tests/recon/test\_reconciliation.py::test\_an\_exact\_match\_is\_never\_quietly\_paired\_with\_the\_wrong\_day}
+\runs{tests/recon/test\_reconciliation.py::test\_a\_date\_one\_day\_apart\_is\_matched\_rather\_than\_double\_counted}
+
+\begin{proposition}[The price of ignoring timing]\label{prop:timing}
+Let $T$ be a set of keys whose right-hand entry is posted $\ell \le k$ days late, such that for each
+$t \in T$ neither the original date nor the late date has another unmatched counterpart and the amounts agree
+within tolerance. Let $B_k$ be the number of breaks with offset $k$ and $B_0$ the number without. Then
+\[ B_0 = B_k + 2|T|. \]
+\end{proposition}
+\begin{proof}
+With the offset, by \Cref{lem:exactfirst} and the hypothesis, each $t \in T$ is paired across the offset
+and contributes no break. Without it, $t$ has a left row at date $d$ with no right row at $d$ (a
+\emph{missing}) and a right row at $d+\ell$ with no left row there (an \emph{extra}): two breaks. Breaks not
+involving $T$ are unaffected, since exact matching is the same in both runs.
+\end{proof}
+\runsprose{case study 6, run by us: 5 breaks with \pql{OFFSET BY 1 DAY}, 9 without, with $|T| = 2$.
+No test asserts either number; \texttt{run.py} prints them and \texttt{README.md} states them.}
+
+\begin{worked}
+\wk{a month-end close}
+Case study 6 builds an ERP with 840 subledger rows, 280 ledger rows and three currencies, and plants four
+defects: a manual journal of 250.00 EUR posted to the ledger only, a day's entries that never reached the
+ledger, a ledger balance on an account the subledger never booked, and two entries from the last evening
+that reached the ledger the next morning. The reconciliation above found five breaks needing a person ---
+three \emph{genuine} (the journal, on three dates), one \emph{missing}, one \emph{extra} --- and no break for
+the timing difference. Run without \pql{OFFSET BY 1 DAY}, the same books show nine: each of the two late
+entries becomes one missing on the last day and one extra the next, exactly as
+\Cref{prop:timing} predicts.
+\end{worked}
+
+\begin{definition}[Break classes]\label{def:breaks}
+Each break is classified as \textsf{timing}, \textsf{fx}, \textsf{rounding}, \textsf{missing},
+\textsf{extra}, \textsf{duplicate}, \textsf{sign} or \textsf{genuine}. Only \textsf{timing} is expected to
+clear by itself; \textsf{sign}, \textsf{duplicate} and \textsf{fx} are configuration faults and are routed away
+from the data steward; the violation count of a reconciliation is the number of breaks that need a person.
+\end{definition}
+\runs{tests/recon/test\_reconciliation.py::test\_a\_timing\_difference\_is\_expected\_to\_clear}
+\runs{tests/recon/test\_reconciliation.py::test\_a\_sign\_convention\_error\_is\_named\_rather\_than\_reported\_as\_a\_big\_break}
+\runs{tests/recon/test\_reconciliation.py::test\_a\_duplicated\_posting\_is\_named}
+\runs{tests/recon/test\_reconciliation.py::test\_configuration\_faults\_are\_routed\_away\_from\_the\_data\_steward}
+
+The statement round-trips through the parser and renders as a sentence; a \pql{WHERE} on one side is
+refused, because a filtered reconciliation reports every filtered row as missing.
+\runs{tests/recon/test\_reconcile\_pql.py::test\_it\_round\_trips\_and\_says\_what\_it\_checks}
+\runs{tests/recon/test\_reconcile\_pql.py::test\_a\_filter\_on\_one\_side\_is\_refused}
+\absent{user-written \pql{CLASSIFY} rules on \pql{RECONCILE} (the engine's built-in classification is used);
+a \pql{WHERE} on a reconciliation; a signed reconciliation certificate from the break workbench.}
+
+% =============================================================================
+\section{Lineage read from code}\label{sec:lineage}
+
+\subsection{Parsed, never executed}
+
+\begin{definition}[Lineage graph]\label{def:lineage}
+A \defn{column lineage graph} is a directed graph whose nodes are qualified columns and whose edges carry a
+transform $\tau$, one of \textsf{identity}, \textsf{rename}, \textsf{derived}, \textsf{aggregated},
+\textsf{filter} and \textsf{join\_key}; a status, \textsf{parsed} or \textsf{inferred}; a confidence;
+and the source span it was read from.
+\end{definition}
+
+\textsc{Prama} reads SQL with sqlglot, falling back to a pattern reader that records the fallback as a gap;
+PySpark, pandas and Airflow code are read with Python's \texttt{ast} module (importing a DAG file runs it, so
+it is never imported); Power BI models are read as JSON. An edge produced by a parser is \textsf{parsed} with
+confidence 1.0; an edge produced by the fallback is \textsf{inferred} at 0.8; an edge proposed by a language
+model is \textsf{inferred} and capped at 0.85, and is kept only if it is checked against the code.
+\runs{tests/lineage/test\_pyspark.py::test\_the\_code\_is\_parsed\_never\_run}
+\runs{tests/codeintake/test\_intake.py::test\_nothing\_received\_is\_executable}
+\runs{tests/lineage/test\_sql.py::test\_the\_parser\_path\_is\_the\_one\_running}
+\runs{tests/lineage/test\_sql.py::test\_what\_the\_parser\_cannot\_read\_falls\_back\_and\_says\_so}
+\runs{tests/lineage/test\_sql.py::test\_a\_where\_clause\_column\_feeds\_the\_target\_as\_a\_filter}
+\runs{tests/codeintake/test\_model\_lineage.py::test\_the\_model\_pass\_keeps\_only\_checked\_edges\_as\_inferred}
+
+On a gold fixture ETL repository the extractor is required to reach precision at least 0.98 and recall at
+least 0.95 on value edges, with filter and join-key edges excluded from the measure.
+\runs{tests/codeintake/test\_gold\_fixture.py::test\_bankco\_etl\_meets\_the\_gate}
+
+\subsection{Blast radius}
+
+\begin{definition}[Impact]\label{def:impact}
+Each transform has an attenuation $\alpha(\tau) \in (0,1]$: identity and rename $1.0$, filter $0.9$,
+join key $0.8$, derived $0.7$, aggregated $0.35$. The impact of a path is the product of its attenuations,
+and the \defn{impact} of a defect at $s$ on a node $v$ is the maximum over paths from $s$ to $v$ of length at
+most 12, reported when it is at least $0.01$.
+\end{definition}
+
+\begin{proposition}[Strongest path]\label{prop:strongest}
+Because every $\alpha \le 1$, extending a path never increases its impact. A breadth-first search that
+re-expands a node whenever a strictly stronger path reaches it (a label-correcting search) therefore
+terminates, even on a cyclic graph, with every node at its maximum-product impact; the first path found is not
+in general the strongest.
+\end{proposition}
+\runs{tests/lineage/test\_graph.py::test\_the\_strongest\_path\_wins\_rather\_than\_the\_first\_one\_found}
+\runs{tests/lineage/test\_graph.py::test\_an\_aggregate\_attenuates\_more\_than\_a\_copy}
+\runs{tests/lineage/test\_graph.py::test\_a\_filter\_is\_barely\_attenuated}
+\runs{tests/lineage/test\_graph.py::test\_a\_negligible\_impact\_is\_counted\_rather\_than\_listed}
+
+The attenuations are declared constants, not estimates. They order transforms sensibly and they carry no
+statistical meaning; a reader should read ``35\% of the defect'' as a ranking, not a measurement. The code
+also contains a comment saying a filter ``is not attenuated at all'' beside the value 0.9; the value is what
+runs.
+\stated{the attenuation constants are not calibrated against observed defect propagation.}
+
+\subsection{Controls justified by lineage}
+
+A lineage edge is a claim about how one column is computed from another. Some controls follow from that
+claim, and some do not.
+
+\begin{definition}[Lineage-derived proposals]\label{def:linprop}
+From a lineage graph and the active controls, \textsc{Prama} proposes: \emph{propagation}, carrying a
+row-level control on $s$ to $t$ when $t$ is an identity or rename copy of $s$; \emph{referential}, a
+\pql{REFERENCES} check from a copied key column to its source; and \emph{reconciliation}, a
+\pql{RECONCILE t AGAINST s \ldots\ WITHIN 0} when keys and an amount are copied at the same grain. A
+proposal is \emph{held}, with its reason, when any edge it rests on is \textsf{inferred}, or --- for a
+reconciliation --- when a \textsf{filter} edge lies between source and target.
+\end{definition}
+
+\begin{proposition}[What a copy justifies]\label{prop:copy}
+Let $t$ be produced from $s$ by selecting a subset of rows and copying a column by identity or rename.
+(i) For any row predicate $\varphi$, if every row of $s$ satisfies $\varphi$ then every row of $t$ does; so
+propagating a row-level control from $s$ to $t$ is sound, filtered or not. (ii) A reconciliation of $t$
+against $s$ on their keys reports every row the filter removed as missing, so it is sound only when no filter
+lies between them. (iii) Neither (i) nor (ii) holds for an aggregated column.
+\end{proposition}
+\begin{proof}
+(i) Every row of $t$ is a copy of a row of $s$. (ii) Rows of $s$ outside the filter have no counterpart in
+$t$. (iii) An aggregate is not a copy of any row, so a row-level predicate on the input says nothing about
+the output, and the output's grain differs.
+\end{proof}
+\runs{tests/derive/test\_lineage\_controls.py::test\_a\_control\_is\_carried\_to\_a\_copied\_column}
+\runs{tests/derive/test\_lineage\_controls.py::test\_an\_aggregated\_column\_does\_not\_inherit\_a\_row\_level\_control}
+\runs{tests/derive/test\_lineage\_controls.py::test\_a\_copied\_key\_must\_exist\_in\_its\_source}
+\runs{tests/derive/test\_lineage\_controls.py::test\_a\_proposal\_on\_an\_inferred\_edge\_is\_held}
+\runs{tests/derive/test\_lineage\_controls.py::test\_every\_proposal\_is\_valid\_pql}
+\runs{tests/recon/test\_reconcile\_pql.py::test\_lineage\_proposes\_a\_reconciliation\_for\_a\_copy\_at\_the\_same\_grain}
+
+\begin{plain}
+\pt If staging is a straight copy of the raw feed, a rule that must hold on every raw row must hold on
+every staged row too, so \textsc{Prama} proposes the same rule downstream. But if staging keeps only booked
+trades, reconciling it against the raw feed would report every cancelled trade as a break, so that
+proposal is held back with the reason. A guess about lineage never becomes a control without somebody
+confirming the guess first.
+\end{plain}
+
+Case study 8 found both halves of \Cref{prop:copy}(ii) the hard way: the first run proposed a
+reconciliation across the filter and reported 118 breaks, one per cancelled trade, and the proposed
+reconciliation had no tolerance and could not run. Both are fixed; the reconciliation is now held and
+proposed with \pql{WITHIN 0}.
+
+\subsection{A negative result: value lineage cannot see a join}\label{sec:join}
+
+\begin{proposition}[Join predicates are invisible to value lineage]\label{prop:join}
+Let $m$ be a column of a view $Q = \pi_{\ldots m \ldots}(S \bowtie_{S.c = F.c} F)$ and suppose $c$ is not
+projected into $Q$. In a lineage graph whose edges record only value flow (identity, rename, derived,
+aggregated) and filters on \pql{WHERE} columns, there is no path from $S.c$ to $Q.m$; yet a defect in $S.c$
+that makes the join predicate false removes rows from $Q$, and so changes every aggregate of $m$.
+\end{proposition}
+\begin{proof}
+No value of $S.c$ is copied, transformed or aggregated into any column of $Q$, and $c$ is not in a
+\pql{WHERE} clause, so the extractor emits no edge from $S.c$ into $Q$. The dependence of $Q$ on $S.c$ is a
+dependence of $Q$'s \emph{row population}, not of any column's values.
+\end{proof}
+\runsprose{case study 8, run by us. No test asserts it; the nearest test is
+\texttt{tests/lineage/test\_pyspark.py::test\_a\_join\_is\_a\_gap\_not\_a\_guess}, which requires the PySpark
+reader to record a join as a gap rather than invent an edge.}
+
+\begin{worked}
+\wk{four lower-case currencies, 605 million of notional}
+Case study 8 builds a warehouse by running an ETL repository: raw feed, staging (booked trades only), and a
+mart that joins staging to an FX table on currency and aggregates exposure, with a Power BI model on top.
+Intake reads three files and emits twelve parsed column edges. Two defects are planted in the raw feed: five
+notionals carrying the sign of the side, and four currencies in lower case. The owner writes two controls on
+the raw columns; lineage proposes the rest. The notional's blast radius runs to the dashboard --- 100\% at
+staging, 35\% at the mart's exposure (aggregated), 35\% at the dashboard's exposure (renamed), 12\% at its
+total ($0.35^2$) --- and the propagated control finds the five at staging too. The currency's blast radius
+\emph{stops at staging}: the mart uses currency only in the join. Yet its effect there is real, and the run
+measures it: three staged trades with no FX rate drop out of the mart, 605,000,000 of notional with them, with
+no error, no null and no count anywhere that changes. Only the control on the raw column saw it.
+\end{worked}
+
+The lineage model has a \textsf{join\_key} transform, and imported lineage and the pandas reader can
+populate it; the SQL reader does not emit one. Emitting it would put $S.c$ on the graph, but with an
+attenuation of $0.8$ it would describe a population effect as though it were a value effect of 80\% strength,
+which is a different error. We take the result to mean that controls belong at the source, and lineage is a
+means of carrying them downstream, not of replacing them.
+\absent{a population-dependence edge (``this column decides which rows survive'') distinct from value
+lineage.}
+
+% =============================================================================
+\section{Models author; the engine decides}\label{sec:ai}
+
+\subsection{The boundary}
+
+Language models are good at drafting a rule from a data dictionary, at ranking datasets for a question put
+in plain words, and at explaining a failure. They are not accountable for a verdict, and their output is
+not reproducible in the sense evidence requires. \textsc{Prama}'s rule is that a model may \emph{author},
+\emph{rank}, \emph{explain}, \emph{calibrate} and \emph{summarise}, and that no code path lets a model's output
+determine whether data passed.
+
+\begin{definition}[Model-free verdict path]\label{def:modelfree}
+The \defn{verdict path} is the sequence parse $\to$ type-check $\to$ lower $\to$ compile $\to$ execute
+$\to$ judge $\to$ record. It is \defn{model-free} if no function on it takes as input a value returned by a
+model client.
+\end{definition}
+
+\begin{proposition}[What the architectural guard establishes]\label{prop:guard}
+The architecture test fails the build if any source module both refers to a model (by names such as
+\texttt{llm}, \texttt{openai}, \texttt{completion}, \texttt{build\_prompt}) and produces or assigns a verdict
+(\texttt{verdict}, \texttt{pass\_fail}, \texttt{is\_violation}, \texttt{assert\_outcome}), with docstrings
+stripped before scanning. A counterfactual module that calls a model and returns a verdict makes the guard
+fire. The guard is a syntactic necessary condition for \Cref{def:modelfree}, not a proof of it: a model's
+output laundered through a neutral name in a separate module would not be caught.
+\end{proposition}
+\runs{tests/architecture/test\_layering.py::TestModelVerdicts::test\_no\_module\_both\_calls\_a\_model\_and\_produces\_a\_verdict}
+\runs{tests/architecture/test\_layering.py::TestModelVerdicts::test\_the\_guard\_still\_fires\_on\_a\_module\_that\_would\_break\_the\_rule}
+\runs{tests/architecture/test\_layering.py::TestModelVerdicts::test\_the\_guard\_ignores\_prose\_about\_the\_rule}
+\runs{tests/architecture/test\_layering.py::TestModelVerdicts::test\_the\_exemption\_is\_a\_ban\_list\_not\_a\_model\_call}
+\stated{an information-flow proof of \Cref{def:modelfree}; the guard approximates it by co-occurrence.}
+
+The structural argument is stronger than the guard. A verdict is $\mathrm{judge}(m, \theta)$
+(\Cref{def:verdict}), where $m$ comes from an engine executing a compiled plan and $\theta$ from the plan
+itself; a plan comes from parsing PQL text that a person activated (\Cref{sec:proposals}). A model can
+influence a verdict only by authoring PQL that a person then activates, at which point the verdict is a
+function of that person's decision and the data, and the evidence names both. Validators and delegates that
+import a model client are refused at admission (\Cref{prop:delegate}).
+
+\subsection{Induced controls must be able to fail}
+
+A model asked for a rule can return one that is well formed, type-correct, compiles, runs --- and cannot
+fail: \pql{CHECK trades.side MATCHES /.*/}, or a bound of \pql{qty >= -1e308}.
+
+\begin{definition}[Validation gates]\label{def:gates}
+An induced control is \emph{validated} only after five gates: it parses; it type-checks against the
+catalogue; it compiles; it runs in a sandbox over at most 2,000 sample rows; and a \emph{counterfactual} gate
+finds data on which it fails. The type \texttt{Validated} cannot be constructed unless all five passed.
+\end{definition}
+
+\begin{proposition}[No vacuous control reaches a reviewer]\label{prop:vacuous}
+A control that accepts every value it could be shown is rejected at the counterfactual gate, however well
+formed, and never enters the proposal queue.
+\end{proposition}
+\runs{tests/induce/test\_validate.py::test\_a\_validated\_control\_cannot\_be\_built\_without\_passing\_every\_gate}
+\runs{tests/induce/test\_validate.py::test\_a\_control\_that\_cannot\_fail\_is\_rejected\_however\_well\_formed}
+\runs{tests/induce/test\_validate.py::test\_a\_bound\_so\_wide\_that\_nothing\_breaches\_it\_is\_rejected}
+\runs{tests/induce/test\_inducer.py::test\_a\_vacuous\_answer\_never\_reaches\_a\_reviewer}
+
+\begin{plain}
+\pt A check that cannot fail is worth nothing, and a model is quite capable of writing one that looks
+reasonable. So before anybody is shown a model's suggestion, \textsc{Prama} tries to make it fail. If it cannot,
+the suggestion is thrown away.
+\end{plain}
+
+\subsection{The gateway}
+
+All model calls go through one gateway. A caller asks for a \emph{purpose} (author, explain, discover,
+embed), never for a model; a profile maps each purpose to an ordered route of providers. A purpose with no
+profile is routed to a mock provider that answers with nothing --- so a fresh installation uses no model at
+all, and still records the call.
+
+\begin{definition}[Call ledger]\label{def:callledger}
+Every call is appended to a ledger whose entries are sealed as in \Cref{def:record}: each seal is a hash over
+the entry and the previous seal. Payloads are redacted by default (secrets, card numbers, IBANs) and may
+expire; an expired payload is blanked and the chain still verifies.
+\end{definition}
+\runs{tests/llm/test\_gateway.py::test\_the\_seal\_chains}
+\runs{tests/llm/test\_governance.py::test\_an\_expired\_payload\_is\_blanked\_and\_the\_chain\_still\_verifies}
+\runs{tests/llm/test\_governance.py::test\_payloads\_follow\_policy\_and\_are\_redacted\_by\_default}
+\runs{tests/llm/test\_gateway.py::test\_an\_unconfigured\_purpose\_falls\_to\_the\_mock\_which\_answers\_nothing}
+\partly{\texttt{prama llm verify} is not itself exercised by a test; the method it calls is.}
+
+\begin{proposition}[Evaluation gates activation]\label{prop:evalgate}
+A prompt template version is approved only after a passing evaluation run, and not by its author; a new
+profile version cannot be activated without its own passing run; and with no model configured no evaluation
+can pass. Graders are deterministic.
+\end{proposition}
+\runs{tests/llm/test\_governance.py::test\_a\_template\_version\_is\_approved\_only\_after\_a\_passing\_run\_and\_by\_another}
+\runs{tests/llm/test\_governance.py::test\_with\_the\_gate\_a\_new\_profile\_version\_waits\_for\_its\_own\_passing\_run}
+\runs{tests/llm/test\_governance.py::test\_with\_no\_model\_configured\_nothing\_can\_pass}
+
+Personal data may not be sent to a hosted model; when no provider on the route may receive a payload, the
+refusal is recorded and raised; a spent budget refuses with HTTP 429.
+\runs{tests/llm/test\_providers.py::test\_pii\_may\_not\_be\_sent\_to\_a\_hosted\_model}
+\runs{tests/llm/test\_gateway.py::test\_when\_nothing\_may\_receive\_it\_the\_refusal\_is\_recorded\_and\_raised}
+\runs{tests/llm/test\_providers.py::TestTheThreeDefects::test\_a\_secret\_and\_a\_card\_number\_are\_withheld\_from\_the\_prompt}
+\runs{tests/llm/test\_providers.py::TestPatternRedaction::test\_a\_valid\_iban\_is\_withheld\_and\_a\_lookalike\_is\_not}
+\runs{tests/api/test\_llm\_api.py::test\_a\_spent\_budget\_refuses\_with\_429}
+
+\absent{any measurement of the \emph{quality} of model-authored rules --- acceptance rate, precision, or the
+comparison of mining, induction and their fusion. The mechanism for merging corroborated origins runs
+(\Cref{prop:corrob}); the claim that fusion beats either alone is about reviewers' decisions and was not
+measured.}
+
+% =============================================================================
+\section{Trust and false-alarm budgets}\label{sec:trust}
+
+\subsection{Trust as a choice of semiring}
+
+A score for a derived column should depend on the scores of what it is derived from. How it should depend is
+a modelling choice, and the choice is algebraic.
+
+\begin{definition}[Trust propagation]\label{def:trust}
+Given a lineage DAG, base scores $s(v) \in [0,1]$, and a pair of operations $(\otimes, \oplus)$ for combining
+along a path and across paths, the propagated trust of $v$ combines its own score with
+$\bigoplus_{\text{paths } p \to v} \bigotimes_{u \in p} s(u)$. \textsc{Prama} offers four choices:
+\begin{center}\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Name} & \textbf{along a path} ($\otimes$) & \textbf{across paths} ($\oplus$) \\
+\midrule
+all inputs matter (default) & product & min \\
+redundant sources & product & max \\
+weakest link & min & min \\
+product--mean & product & mean \\
+\bottomrule
+\end{tabular}
+\end{center}
+Attenuation (\Cref{def:impact}) applies to the \emph{deficit} $1 - s$, not to the score: an aggregate
+passes on only part of a source's defect.
+\end{definition}
+
+\begin{remark}
+The code calls all four ``semirings''. Strictly, only one is. \emph{Redundant sources},
+$([0,1],\max,\times,0,1)$, is the Viterbi semiring of the provenance literature \cite{green2007}. The
+default, $(\min,\times)$, has both operations associative and commutative and $\times$ distributes over
+$\min$ on $[0,1]$, but the identity of $\min$ is $1$, which does not annihilate under $\times$; the same
+holds for \emph{weakest link}, $(\min,\min)$. \emph{Product--mean} is not associative across paths at all,
+since a mean of means over unequal groups is not the mean. Nothing in \textsc{Prama} relies on annihilation
+--- a node with no inbound path is simply scored on its own evidence --- so the gap is one of naming, and we
+record it rather than repair it here. The choice is exposed rather than hidden because the choices genuinely
+disagree on the same graph.
+\end{remark}
+\runs{tests/score/test\_trust.py::test\_the\_default\_treats\_inputs\_as\_complementary}
+\runs{tests/score/test\_trust.py::test\_the\_semirings\_genuinely\_disagree}
+\runs{tests/score/test\_trust.py::test\_a\_copy\_inherits\_the\_defect\_intact}
+\runs{tests/score/test\_trust.py::test\_an\_aggregate\_makes\_a\_column\_more\_trustworthy\_than\_its\_source}
+\runs{tests/score/test\_trust.py::test\_a\_control\_that\_caught\_the\_problem\_stops\_it\_propagating}
+\stated{the algebraic laws (associativity, distributivity) of each choice; the tests check behaviour on
+examples, not the laws.}
+
+\subsection{Conformal $p$-values}
+
+A statistical monitor raises an alert when an observation is unusual. ``Unusual'' needs a false-alarm rate,
+and a rate needs a guarantee.
+
+\begin{definition}[Conformal $p$-value]\label{def:conformal}
+Given calibration scores $s_1, \ldots, s_n$ and a new score $s$, the conformal $p$-value is
+\[ p(s) = \frac{1 + |\{ i : s_i \ge s \}|}{n + 1}. \]
+An alert is raised at level $\alpha$ when $p(s) \le \alpha$.
+\end{definition}
+
+\begin{theorem}[Validity {\cite{vovk2005}}]\label{thm:conformal}
+If $s_1, \ldots, s_n, s$ are exchangeable, then $\Pr[p(s) \le \alpha] \le \alpha$ for every $\alpha \in [0,1]$.
+\end{theorem}
+\begin{proof}[Proof sketch]
+Under exchangeability the rank of $s$ among the $n+1$ scores is uniform over $\{1, \ldots, n+1\}$ (breaking
+ties conservatively), and $p(s) \le \alpha$ requires $s$ to rank among the top $\lfloor \alpha(n+1) \rfloor$.
+\end{proof}
+\runs{tests/calibrate/test\_conformal.py::test\_a\_normal\_observation\_alerts\_at\_most\_alpha\_of\_the\_time}
+\runs{tests/calibrate/test\_conformal.py::test\_the\_guarantee\_survives\_a\_distribution\_no\_z\_score\_would}
+\runs{tests/calibrate/test\_conformal.py::test\_the\_plus\_one\_is\_the\_guarantee\_and\_not\_rounding}
+
+\begin{corollary}[A budget the history cannot express]\label{cor:resolution}
+With $n$ calibration points the smallest attainable $p$-value is $1/(n+1)$. A budget of $b$ false alarms over
+$N$ runs asks for $\alpha = b/N$; if $b/N < 1/(n+1)$ no threshold honours it, and \textsc{Prama} refuses the
+budget with the arithmetic rather than silently alerting at a higher rate.
+\end{corollary}
+\runs{tests/calibrate/test\_select.py::test\_a\_business\_budget\_becomes\_a\_statistical\_level}
+
+Exchangeability fails under drift. \textsc{Prama} offers three responses and is explicit about each one's
+price: \emph{recency weighting} (a weighted $p$-value with a half-life, which is no longer exact, says so, and
+reports its reduced effective sample size); \emph{adaptive levels} in the style of adaptive conformal
+inference \cite{gibbs2021}, $\alpha_{t+1} = \alpha_t + \gamma(\alpha - \mathrm{err}_t)$ with $\gamma = 0.02$,
+which controls the long-run alert rate rather than each test; and \emph{conditioning} on a declared
+seasonal calendar. Adaptation cannot help when every $p$-value sits at its floor, and the code detects that
+state rather than adapting forever.
+\runs{tests/calibrate/test\_conformal.py::test\_a\_weighted\_p\_value\_does\_not\_claim\_to\_be\_exact}
+\runs{tests/calibrate/test\_conformal.py::test\_recency\_weighting\_costs\_resolution\_and\_the\_cost\_is\_reported}
+\runs{tests/calibrate/test\_conformal.py::test\_the\_long\_run\_alert\_rate\_converges\_to\_the\_budget\_under\_drift}
+\runs{tests/calibrate/test\_conformal.py::test\_adapting\_cannot\_help\_when\_every\_p\_value\_is\_at\_its\_floor}
+
+\begin{table}[t]
+\centering\small
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+\textbf{Regime} & \textbf{plain} & \textbf{seasonal} & \textbf{weighted} & \textbf{adaptive} & \textbf{changepoint} \\
+\midrule
+stationary    & 0.0040 & 0.0152 & 0.0096 & 0.0016 & 0.0040 \\
+seasonal      & 0.0672 & 0.0232 & 0.0696 & 0.0152 & 0.0672 \\
+level shift   & 0.1112 & 0.0904 & 0.0208 & 0.0168 & 0.0784 \\
+regime switch & 0.0112 & 0.0520 & 0.0136 & 0.0080 & 0.0112 \\
+bursty        & 0.0104 & 0.0192 & 0.0080 & 0.0064 & 0.0104 \\
+\bottomrule
+\end{tabular}
+\caption{Calibration error (mean absolute gap between nominal and realised alert rate over the levels
+0.01, 0.02, 0.05, 0.10 and 0.20) by drift regime and mechanism, on synthetic generators at the default 500
+observations per regime. Printed by \texttt{tests/monitor/test\_benchmark.py} in our run; the target is 0.02.}
+\label{tab:calib}
+\end{table}
+
+\Cref{tab:calib} is the result as a grid rather than a number, because no single mechanism is the answer
+and one number would hide that. Conditioning on season repairs seasonality and cannot repair a level shift;
+forgetting (weighting) nearly repairs a level shift and makes seasonality worse; in this run the adaptive level
+meets the target in every regime. What the test asserts is weaker than the table: that every regime has
+\emph{some} mechanism meeting the target, that every mechanism is calibrated on the stationary regime, and
+that plain conformal fails on seasonal data.
+\runs{tests/monitor/test\_benchmark.py::test\_every\_regime\_has\_a\_mechanism\_that\_holds\_the\_promise}
+\runs{tests/monitor/test\_benchmark.py::test\_the\_stationary\_case\_is\_calibrated\_by\_every\_mechanism}
+\runs{tests/monitor/test\_benchmark.py::test\_plain\_conformal\_fails\_on\_seasonal\_data}
+
+End to end, a monitor declaring a budget of 0.05 realised 0.0467 over 300 judged days in our run, with a
+calibration error of 0.0061 on its curve. The test asserts only that more than 200 days were judged and that
+the realised rate is within 0.03 of the budget; the two figures are printed, not asserted.
+\partly{\texttt{tests/monitor/test\_wave7\_demo.py::test\_the\_alert\_volume\_tracks\_the\_declared\_budget}
+asserts a looser bound than the figures quoted.}
+
+\subsection{Selection across many monitors}
+
+With ten thousand monitors each at $\alpha = 0.05$, five hundred false alarms a day is the expected outcome.
+\textsc{Prama} selects which $p$-values to raise with Benjamini--Hochberg \cite{bh1995}, or with
+Benjamini--Yekutieli \cite{by2001} when dependence is arbitrary, over a hierarchy domain $\to$ dataset $\to$
+attribute $\to$ check; a parent's $p$-value is combined from its children by Simes' method, and a wholesale
+failure of most checks under one parent is rolled up into a single finding.
+\runs{tests/calibrate/test\_select.py::test\_bh\_controls\_the\_false\_discovery\_rate}
+\runs{tests/calibrate/test\_select.py::test\_by\_is\_strictly\_more\_conservative\_than\_bh}
+\runs{tests/calibrate/test\_select.py::test\_a\_wholesale\_failure\_becomes\_one\_finding\_rather\_than\_four\_hundred}
+\stated{a proof that the hierarchical procedure controls FDR at the declared level; the test measures flat BH,
+and the roll-up is a presentation rule, not part of the error guarantee.}
+
+\absent{calibration on real financial data. Every figure in this section is from synthetic generators;
+the claim that the guarantees hold on a bank's metric history is the central open question of this part of
+the work.}
+
+% =============================================================================
+\section{Metadata, correlation and fitness for purpose}\label{sec:metadata}
+
+Owners do not only declare structure. They write descriptions, tag fields (``mandatory'', ``allowed
+values'', ``PII''), and map attributes to glossary terms. Two further derivations use that material.
+
+\begin{definition}[Metadata-implied rule]\label{def:metarule}
+A metadata template field of a given kind (flag, choice, list, number, \ldots) may carry a rule pattern with
+placeholders. Setting the field's value on an attribute instantiates the pattern with the value as a
+\emph{typed literal} and submits the result as a proposal with origin metadata. Changing the value retracts
+the earlier proposal and keeps its history.
+\end{definition}
+
+\begin{proposition}[A value cannot become syntax]\label{prop:injection}
+Instantiation quotes each value as a literal of the placeholder's type, and a pattern may use only
+placeholders its field kind can fill. A value such as \texttt{x') OR (1=1} is therefore a string literal in
+the resulting control, not a change to its predicate.
+\end{proposition}
+\runs{tests/semantic/test\_metadata.py::test\_metadata\_proposes\_its\_rules\_and\_retracts\_them\_when\_changed}
+\runs{tests/semantic/test\_metadata.py::test\_a\_value\_cannot\_inject\_pql}
+\runs{tests/semantic/test\_metadata.py::test\_a\_rule\_may\_only\_use\_placeholders\_its\_kind\_can\_fill}
+
+\begin{definition}[Correlation]\label{def:correlate}
+Attributes are grouped by shared meaning, trying in order a business concept, then a glossary term, then a
+semantic type; each attribute joins only its strongest group. Within a group, if exactly one dataset owns
+the value as a unique key, every other member is proposed a \pql{REFERENCES} check to it. Generic semantic
+types (currency, dates, country, boolean) group for consistency only and never yield a reference.
+\end{definition}
+\runs{tests/semantic/test\_correlate.py::test\_a\_shared\_term\_groups\_and\_the\_key\_owner\_is\_referenced}
+\runs{tests/semantic/test\_correlate.py::test\_no\_owner\_or\_two\_owners\_means\_no\_reference}
+\runs{tests/semantic/test\_correlate.py::test\_a\_generic\_type\_groups\_for\_consistency\_but\_never\_proposes\_a\_reference}
+\runs{tests/semantic/test\_correlate.py::test\_an\_attribute\_joins\_only\_its\_strongest\_group}
+
+\begin{plain}
+\pt If two columns in two datasets are both ``the customer's LEI'', and one dataset is the customer master
+where the LEI is unique, then every LEI elsewhere should exist in that master. If nobody, or two datasets,
+claim to own it, \textsc{Prama} proposes nothing, because it cannot tell which way the check should point.
+\end{plain}
+
+\paragraph{Fitness search.} A question in plain words --- ``trade amounts in USD'', ``who is the customer
+and where are they registered, for sanctions screening'' --- is answered by ranking \emph{datasets}, not rows,
+over their descriptions, metadata and attribute profiles: with Okapi BM25 \cite{robertson2009}
+($k_1 = 1.5$, $b = 0.75$) when no embedding model is configured, and with embeddings when one is. The result
+names the matched evidence (which attributes and fields matched) so that the ranking can be checked. A
+discover-purpose model may re-rank and explain; it does not decide what exists.
+\runs{tests/semantic/test\_fitness.py::test\_without\_an\_embedding\_model\_bm25\_ranks\_and\_names\_its\_evidence}
+\runs{tests/semantic/test\_fitness.py::test\_with\_an\_embedding\_model\_profiles\_are\_embedded\_once\_and\_again\_on\_change}
+\absent{any retrieval-quality measurement (precision at $k$, nDCG) of fitness search; and correlation from
+data-side signals such as value overlap and query co-access.}
+
+\begin{worked}
+\wk{governance from metadata}
+Case study 7 declares three datasets and has the owners describe them: \texttt{customers.segment} allowed
+values \texttt{RETAIL, SME, CORPORATE} and mandatory; \texttt{payments.amount} minimum 0; the two LEI columns
+mapped to one glossary term; dataset keys. Nine rules follow as proposals, a reviewer accepts them, and
+correlation adds the reference from \texttt{accounts.customer\_lei} to \texttt{customers.lei}, and also
+reports that the two columns sharing the term disagree on their PII flag. All four
+planted defects are found: six segments \texttt{'SME '} with a trailing space, four accounts with no LEI and
+three with an LEI no customer has (together the 7 integrity failures), and five negative payments. Asked
+``who is the customer and where are they registered, for sanctions screening'', fitness search returns
+\emph{Customers}, naming \texttt{legal\_name}, \texttt{customer\_id} and \texttt{lei} as its evidence.
+\end{worked}
+
+% =============================================================================
+\section{Evaluation}\label{sec:eval}
+
+We report two kinds of evidence, and one absence. The case studies show the whole pipeline on planted
+defects, with both columns --- what was planted and what was found --- printed by the run. The benchmark
+measures bounds and ablations on a labelled corpus. Neither compares \textsc{Prama} with another system.
+
+\subsection{Eight case studies}
+
+Each study fabricates seeded banking data, declares an estate in business terms, lets $\Gam$ derive the
+controls, runs them, and prints the planted defects against the findings. The rule the studies follow is
+that every planted defect is stated before \textsc{Prama} is pointed at anything, in the generator and in the
+README, including the ones \textsc{Prama} will not find. We ran all eight
+(\texttt{python run.py --no-serve} in each study directory, against a scratch application database);
+\Cref{tab:studies} is transcribed from those runs.
+
+\begin{table}[t]
+\centering\small
+\begin{tabular}{@{}L{0.30\linewidth}rrrrr@{}}
+\toprule
+\textbf{Study} & \textbf{Planted} & \textbf{Found} & \textbf{Not est.} & \textbf{Not claimed} & \textbf{Controls} \\
+\midrule
+1 Trading book (SQLite)            & 9 & 4 & 2 & 3 & 65 \\
+2 Feeds: CSV, Parquet, JSON Lines  & 9 & 7 & 1 & 1 & 58 \\
+3 Mixed estate, relationships      & 4 & 4 & 0 & 0 & 59 \\
+4 Expressions and plugins          & 5 & 4 & 1 & 0 & 27 \\
+5 DQ delegates                     & 4 & 4 & 0 & 0 & 14 \\
+6 Month-end close                  & 4 & 3 & 0 & 0 & 18 \\
+7 Governance from metadata         & 4 & 4 & 0 & 0 & 10 \\
+8 From code to impact              & 2 & 2 & 0 & 0 & 7 \\
+\midrule
+Total                              & 41 & 32 & 4 & 4 & \\
+\bottomrule
+\end{tabular}
+\caption{Planted defects against outcomes, from our runs of the eight case studies. \emph{Not est.}: reported
+as not established (a screen, or a freshness control on a plain table). \emph{Not claimed}: stated in the study
+as outside what the declared controls can see, with the reason. In study 6 the fourth planted item is a
+timing difference that is correctly \emph{not} a break. \emph{Controls} is the number executed on the main
+source; study 3 runs a further 22 on a second source.}
+\label{tab:studies}
+\end{table}
+
+\paragraph{What the table shows.} Every defect a declared control can see was found, on the rows planted,
+with counts that match: 60 missing notionals, 7 negative quantities, 400 duplicated rows from a resent file,
+37 orphan instruments, 18 settlement dates before trade dates, 31 half-cent rounding disagreements. The four
+``not established'' outcomes are the screens of \Cref{sec:screen} (ISIN, LEI and a bank's book-code check
+character) and the freshness control of \Cref{sec:gamma}; in none of them did \textsc{Prama} report a pass.
+The four ``not claimed'' are a relationship not declared in study 1 (two defects) and a relation between two
+dates nobody declared, and in study 2 a truncated file whose trailer check runs at arrival and is not yet
+wired into the control runner.
+
+\paragraph{What the table does not show.} The defects were planted by the author of the system that finds
+them, in data generated for the purpose, so the table demonstrates mechanism, not detection quality. Its
+most useful columns are the last two: a tool with no false negatives on data it was built against tells a
+reader nothing, while a tool that names what it did not catch, and why, tells the reader what it is. The
+per-study counts are printed by each \texttt{run.py} and stated in each README; the test suite asserts only
+that each study runs to completion.
+\partly{\texttt{tests/casestudies/test\_they\_still\_run.py::test\_it\_runs\_to\_completion} asserts exit status
+0 for each study; the planted-versus-found counts are not asserted.}
+
+\paragraph{What building them found.} Running the studies against data somebody had to look at found six
+defects in \textsc{Prama}, all of the kind this paper is about --- artefacts that build, validate and look right
+while being wrong. $\Gam$ generated \pql{MATCHES /None/} for every free-text column, because a value domain
+read back from JSON kept its kind as a string and the ``is this constrained?'' test passed for everything;
+controls were lowered without their code lists; a regular expression would not bind against a date column on
+a strict engine; SQLite was believed unable to do regular expressions; \pql{ROUND} double-rounded on DuckDB;
+and an unknown function compiled straight to SQL while the reference interpreter returned unknown. Study 8
+found two more, both fixed in the most recent revision: a lineage reconciliation proposed across a filter,
+which reported 118 cancelled trades as breaks, and a proposed reconciliation with no tolerance, which the
+engine refused to run.
+
+\subsection{The labelled defect benchmark}
+
+\texttt{prama bench run --seed 42} builds a corpus of 28 scenarios of 200 rows, one per defect class, across
+six families (structural, content, statistical, relational, temporal, semantic) and four difficulties
+(obvious 7, ordinary 9, subtle 11, adversarial 1), and labels only the rows that actually changed. A detection
+counts only when dataset, column and window all match. Our run:
+
+\begin{center}\small
+\begin{tabular}{@{}llrrrr@{}}
+\toprule
+\textbf{Detector} & \textbf{Kind} & \textbf{Found} & \textbf{Precision} & \textbf{Recall} & \textbf{F1} \\
+\midrule
+detect-nothing      & bound    & 0/28  & --   & 0.00 & -- \\
+alert-on-everything & bound    & 28/28 & 0.08 & 1.00 & 0.14 \\
+schema-only         & ablation & 2/28  & 0.67 & 0.07 & 0.13 \\
+patterns-only       & ablation & 5/28  & 0.83 & 0.18 & 0.29 \\
+statistics-only     & ablation & 7/28  & 0.88 & 0.25 & 0.39 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The blind spots matter more than the F1: statistics-only found nothing in the relational family, and
+patterns-only nothing in the statistical, relational, temporal or semantic families. A detector's blind
+spots are the argument for whatever covers them, and they do not appear in an aggregate score.
+\runs{tests/bench/test\_corpus.py::TestReproducibility::test\_the\_same\_seed\_gives\_the\_same\_corpus}
+\runs{tests/bench/test\_corpus.py::TestTheLabelsFollowWhatHappened::test\_a\_no\_op\_injection\_plants\_no\_label}
+\runs{tests/bench/test\_baselines.py::TestTheBoundsAreTheAxes::test\_detecting\_nothing\_has\_no\_precision\_rather\_than\_zero}
+\runs{tests/bench/test\_baselines.py::TestTheAblationsAnswerWhichClaimDoesTheWork::test\_no\_ablation\_comes\_near\_perfect\_recall}
+\runs{tests/bench/test\_scoring.py::TestTheMatchIsExact::test\_the\_wrong\_column\_does\_not}
+\runs{tests/cli/test\_bench\_cli.py::TestRun::test\_it\_names\_the\_baselines\_that\_were\_not\_run}
+
+\paragraph{The absence.} None of the five detectors is \textsc{Prama}. The benchmark does not yet score
+\textsc{Prama}'s own controls and monitors on the corpus, and none of the fifteen external systems it names
+(Great Expectations, Soda Core, Deequ, dbt tests, HoloClean/Raha/Baran/ZeroED and others) was run; the command
+prints them as not run. We regard publishing the bounds and ablations without the comparison as better than
+publishing a comparison configured by the party that benefits from it, but it means this paper makes
+\emph{no} claim about \textsc{Prama}'s detection quality relative to anything.
+\absent{\textsc{Prama} scored on its own benchmark; any external baseline; the banking-scale corpus; a blind
+evaluation with stewards (the blinding mechanism exists: \texttt{tests/bench/test\_shadow.py::TestTheBlinding::test\_what\_a\_steward\_sees\_carries\_no\_system}).}
+
+\subsection{Measurements of the system itself}
+
+The following were measured in our runs and concern \textsc{Prama}'s own overhead, not detection. The test
+packages cited in this paper (1,693 tests across \texttt{backend}, \texttt{evidence}, \texttt{recon},
+\texttt{derive}, \texttt{lineage}, \texttt{architecture}, \texttt{calibrate}, \texttt{score}, \texttt{llm},
+\texttt{induce}, \texttt{propose}, \texttt{semantic}, \texttt{codeintake}, \texttt{delegates} and \texttt{bench})
+passed, with one strict expected failure (the freshness control of \Cref{sec:gamma}), in 25 seconds. Fusion ran
+400 generated controls in 160 scans. The backend conformance suite passed on DuckDB, SQLite, the reference
+interpreter and PostgreSQL 16.
+
+% =============================================================================
+\section{The claims register}\label{sec:register}
+
+A paper that argues that beliefs about data must be justified owes the same to its own claims. The
+register below lists every formal claim with its state: \textbf{runs} (a named test exercises it),
+\textbf{in part} (something weaker runs, as stated at the claim), \textbf{stated} (mathematics or a
+specification that constrains the system and that the system does not execute), and \textbf{not built}.
+
+\begin{center}
+\small
+\begin{longtable}{@{}L{0.42\linewidth}L{0.12\linewidth}L{0.38\linewidth}@{}}
+\toprule
+\textbf{Claim} & \textbf{State} & \textbf{Where, or why not} \\
+\midrule
+\endhead
+\multicolumn{3}{@{}l}{\emph{Declarations and $\Gam$}} \\
+Relationships, thirteen kinds, never auto-confirmed (\Cref{def:rel}) & runs & \texttt{test\_services.py} \\
+Determinism and identity stability (\Cref{prop:det}) & runs & \texttt{test\_generator.py} \\
+Provenance (\Cref{prop:prov}) & runs & \texttt{test\_generator.py} \\
+Round trip (\Cref{prop:roundtrip}) & runs & \texttt{test\_generator.py} \\
+Coalescing (\Cref{prop:coalesce}) & runs & \texttt{test\_generator.py} \\
+Refusal, not omission (\Cref{prop:refusal}) & runs & \texttt{test\_relationships.py} \\
+Honest and flattering coverage (\Cref{prop:flatter}) & runs & \texttt{test\_coverage.py} \\
+Accuracy needs a relationship (\Cref{prop:accuracy}) & runs & \texttt{test\_wave6\_acceptance.py}; 82/71\% figures prose \\
+Only a declaration may skip review (\Cref{prop:review}) & runs & \texttt{test\_queue.py}, \texttt{test\_provenance.py} \\
+A person activates every control (\Cref{sec:proposals}) & in part & one activation path, by inspection; untested \\
+Corroboration merges (\Cref{prop:corrob}) & runs & \texttt{test\_queue.py}, \texttt{test\_utility.py} \\
+A rhythm yields a freshness verdict & not built & strict \texttt{xfail} \\
+PQL parity and roll-forward forms; hierarchy cycles & not built & comparison specifications only \\
+\multicolumn{3}{@{}l}{\emph{PQL, plans and verdicts}} \\
+Plan identity closes over code lists and validators (\Cref{prop:closure}) & in part & exclusions untested \\
+Nothing scanned is not a pass (\Cref{prop:empty}) & runs & \texttt{test\_two\_stage.py} \\
+Unknown default is conservative (\Cref{prop:unknown}) & runs & \texttt{test\_parser.py}, conformance \\
+Screen soundness (\Cref{prop:screen}) & runs & \texttt{test\_two\_stage.py}, \texttt{test\_control\_run.py} \\
+Residual runs on the pushdown path & in part & reference interpreter only \\
+Cross-engine agreement (\Cref{prop:conform}) & runs & 25 cases; 250 generated; PostgreSQL when configured \\
+Semantic equivalence of compiler and interpreter & stated & tested, not proved \\
+Refusal is conformance (\Cref{prop:refuse}) & in part & RE2 refusal untested \\
+Fusion preserves answers and saves scans (\Cref{prop:fusion}) & runs & \texttt{test\_fuse.py}, \texttt{test\_throughput.py} \\
+Custom SQL is one read-only query & runs & \texttt{test\_custom\_sql.py} \\
+A delegate cannot decide (\Cref{prop:delegate}) & runs & \texttt{test\_delegates.py} \\
+Delegate sandbox isolation & in part & no network namespace; limits untested \\
+Exact arithmetic & in part & operators exact; thresholds float \\
+\multicolumn{3}{@{}l}{\emph{Evidence}} \\
+Tamper evidence (\Cref{thm:tamper}) & runs & \texttt{test\_ledger.py}, \texttt{test\_independent\_verifier.py} \\
+External anchoring of chain heads & not built & HMAC head; Ed25519 on bundles only \\
+Merkle promotion (\Cref{def:merkle}) & runs & \texttt{test\_ledger.py} \\
+Independent verification (\Cref{prop:independent}) & runs & \texttt{test\_independent\_verifier.py} \\
+Erasure keeps the chain (tombstones) & runs & \texttt{test\_independent\_verifier.py} \\
+Mixed format versions verify & runs & \texttt{test\_format\_versions.py} \\
+Records under 2 KB & runs & \texttt{test\_ledger.py}; 848 bytes is prose \\
+Replay classifies (\Cref{prop:replay}) & runs & \texttt{test\_replay.py}, \texttt{test\_end\_to\_end.py} \\
+\multicolumn{3}{@{}l}{\emph{Reconciliation}} \\
+Tolerance laws (\Cref{prop:tolerance}) & runs & \texttt{test\_reconciliation.py} \\
+Exact match first (\Cref{lem:exactfirst}) & runs & \texttt{test\_reconciliation.py} \\
+Price of ignoring timing (\Cref{prop:timing}) & in part & case study 6 run; not asserted \\
+Break classes (\Cref{def:breaks}) & runs & \texttt{test\_reconciliation.py} \\
+\pql{CLASSIFY} and \pql{WHERE} on \pql{RECONCILE}; signed certificate & not built & \\
+\multicolumn{3}{@{}l}{\emph{Lineage}} \\
+Parsed, never executed; fallback recorded & runs & \texttt{test\_pyspark.py}, \texttt{test\_sql.py}, \texttt{test\_intake.py} \\
+Gold-fixture precision and recall & runs & \texttt{test\_gold\_fixture.py} \\
+Strongest path (\Cref{prop:strongest}) & runs & \texttt{test\_graph.py} \\
+Attenuation constants calibrated & stated & declared constants, not estimates \\
+What a copy justifies (\Cref{prop:copy}) & runs & \texttt{test\_lineage\_controls.py}, \texttt{test\_reconcile\_pql.py} \\
+Join predicates invisible (\Cref{prop:join}) & in part & case study 8 run; not asserted \\
+Population-dependence edges & not built & \\
+\multicolumn{3}{@{}l}{\emph{Models}} \\
+Architectural guard (\Cref{prop:guard}) & runs & \texttt{test\_layering.py}, with counterfactual \\
+Model-free verdict path, as information flow & stated & guard is syntactic \\
+No vacuous control reaches a reviewer (\Cref{prop:vacuous}) & runs & \texttt{test\_validate.py}, \texttt{test\_inducer.py} \\
+Hash-chained call ledger (\Cref{def:callledger}) & in part & chain tested; CLI untested \\
+Evaluation gates activation (\Cref{prop:evalgate}) & runs & \texttt{test\_governance.py} \\
+Residency, redaction, budgets & runs & \texttt{test\_providers.py}, \texttt{test\_gateway.py} \\
+Quality of model-authored rules & not built & not measured \\
+\multicolumn{3}{@{}l}{\emph{Trust and calibration}} \\
+Trust choices disagree (\Cref{def:trust}) & runs & \texttt{test\_trust.py} \\
+Semiring laws of the trust choices & stated & only one is a semiring \\
+Conformal validity (\Cref{thm:conformal}) & runs & \texttt{test\_conformal.py} \\
+Unexpressible budgets refused (\Cref{cor:resolution}) & runs & \texttt{test\_select.py} \\
+Drift mechanisms and their costs & runs & \texttt{test\_conformal.py} \\
+Some mechanism calibrated per regime (\Cref{tab:calib}) & runs & \texttt{test\_benchmark.py} \\
+Declared budget realised end to end & in part & looser bound asserted than quoted \\
+BH and BY control FDR & runs & \texttt{test\_select.py} \\
+Hierarchical FDR guarantee & stated & roll-up is presentation \\
+Calibration on real financial data & not built & synthetic only \\
+\multicolumn{3}{@{}l}{\emph{Metadata and search}} \\
+A value cannot become syntax (\Cref{prop:injection}) & runs & \texttt{test\_metadata.py} \\
+Correlation and key ownership (\Cref{def:correlate}) & runs & \texttt{test\_correlate.py} \\
+Fitness search names its evidence & runs & \texttt{test\_fitness.py} \\
+Retrieval quality of fitness search & not built & not measured \\
+\multicolumn{3}{@{}l}{\emph{Evaluation}} \\
+Benchmark bounds and ablations & runs & \texttt{tests/bench} \\
+\textsc{Prama} scored on the benchmark; external baselines & not built & named, not run \\
+Case studies: planted against found (\Cref{tab:studies}) & in part & exit status asserted; counts printed \\
+\bottomrule
+\end{longtable}
+\end{center}
+
+Of seventy rows, forty-five run, eleven run in part, five are stated without being executed, and nine are
+not built.
+
+The ratio is not flattering and is not meant to be. The claims that run are concentrated where the thesis
+lives: derivation, verdict semantics and evidence. The claims that do not are concentrated where a claim is
+about the world rather than about the code --- detection quality against other systems, calibration on real
+data, whether reviewers accept what models propose --- and those need a bank, a steward and time, none of
+which a test suite can supply.
+
+% =============================================================================
+\section{Related work}\label{sec:related}
+
+\paragraph{Rule frameworks and validation.} Deequ \cite{deequ} and TFX data validation \cite{tfdv} made
+declarative assertions over large datasets practical, and open frameworks in the same family (Great
+Expectations, Soda, dbt tests) are widely deployed. They take the assertion as the primitive. \textsc{Prama}
+takes the \emph{declaration} as the primitive and derives assertions, which is what makes coverage measurable
+and a control's existence explainable. Data contracts \cite{odcs} move in the same direction, though
+contract tooling frequently records obligations without enforcing them \cite{contractenforce}; \textsc{Prama}
+imports ODCS quality blocks where they state a rule it has, and refuses the rest by name. SHACL
+\cite{shacldq,shaclreview} is the closest standard to a declaration-first model for graph data.
+
+\paragraph{Discovery and cleaning.} Profiling and dependency discovery \cite{metanome,fdeval,dcdiscovery,
+conformance} find constraints the data satisfies; error detection and repair \cite{holoclean,rahabaran,
+zeroed} find cells that are probably wrong. Both are sources of \emph{proposals} in \textsc{Prama}, ranked
+below a declaration because a column that happens to be unique today is not a declared key. Example-driven
+induction follows the label-efficient line of Raha and Baran \cite{rahabaran} and weak supervision
+\cite{snorkel}.
+
+\paragraph{Models as rule authors.} Recent work uses language models to generate data quality rules
+\cite{llmdqr,llmtabular,tuwien}. Our contribution here is a boundary rather than a generator: the
+counterfactual gate (\Cref{prop:vacuous}), the evaluation gate on activation (\Cref{prop:evalgate}), and a
+structural argument that a model can influence a verdict only through a person's activation.
+
+\paragraph{Calibration and multiple testing.} Conformal prediction \cite{vovk2005} gives distribution-free
+false-alarm guarantees under exchangeability; adaptive conformal inference \cite{gibbs2021} trades per-test
+validity for long-run rate control under drift; conformal anomaly detection with FDR control is an active
+area \cite{fdrnovelty,nonconform}. Benjamini--Hochberg \cite{bh1995} and Benjamini--Yekutieli \cite{by2001}
+control the false discovery rate across tests. We apply these off the shelf; the contribution is honest
+degradation (refusing a budget the history cannot express) and reporting a grid rather than a number.
+
+\paragraph{Provenance and lineage.} Provenance semirings \cite{green2007} give the algebra of which our trust
+choices are instances, or near-instances (\Cref{sec:trust}). OpenLineage \cite{openlineage} standardises the
+exchange of lineage events; \textsc{Prama} emits it and reads SQL, Python and BI models itself, and our
+negative result (\Cref{prop:join}) concerns any lineage model that records value flow only.
+
+\paragraph{Tamper-evident records.} Hash-linked timestamping \cite{haber1991}, Merkle trees \cite{merkle1987},
+tamper-evident logging \cite{crosby2009} and certificate transparency \cite{laurie2013} are the foundations of
+the evidence ledger. The ledger's contribution is modest and practical: a verifier that shares no code with the
+writer, held equal to it by a test. It lacks the external anchoring these systems use.
+
+\paragraph{Regulation and practice.} BCBS 239 \cite{bcbs239} frames the obligation; fines for reporting
+errors \cite{ateam2024} price it; market surveys \cite{gartner2025adq,datakitchen2026,dqframeworks} describe the
+fragmented tooling that the thesis responds to.
+
+% =============================================================================
+\section{Limitations and how this could be wrong}\label{sec:limits}
+
+\paragraph{Do owners declare?} The thesis rests on business owners writing declarations. The case studies
+declare on the owners' behalf. Nothing here measures whether a real steward, in a real week, produces the
+declarations that make $\Gam$ useful. If they do not, derivation has nothing to derive from, and the system
+falls back to mining and induction --- the proposals this paper ranks lowest.
+
+\paragraph{Planted defects are not defects.} Every defect in the evaluation was planted by the author, and the
+benchmark does not yet score \textsc{Prama}. The paper therefore makes no claim of superior detection. What it
+claims is narrower: that a verdict \textsc{Prama} reports is justified in the sense of \Cref{sec:thesis}, and that
+what it cannot justify it reports as not established.
+
+\paragraph{Synthetic calibration.} The conformal guarantees are theorems under exchangeability, and the drift
+mechanisms are measured on generators the author wrote. A bank's metric history may violate the assumptions in
+ways none of the five regimes represents.
+
+\paragraph{Scale.} The declaration model and $\Gam$ have not been exercised on an estate of thousands of
+datasets; the throughput figures measure \textsc{Prama}'s own overhead against an in-memory engine, not a
+warehouse.
+
+\paragraph{Connectors and engines.} Conformance runs on DuckDB, SQLite and PostgreSQL. Other dialects reached
+through JDBC are code-complete but not verified against live services, and a Snowflake connector has never met
+an account; the repository says so wherever it describes them.
+
+\paragraph{The guard is syntactic.} \Cref{prop:guard} is a necessary condition checked by co-occurrence of
+names. It would not detect a model's output passed through neutral names across modules. The structural
+argument --- a verdict is a function of an activated plan and the data --- is the stronger defence, and it is
+argued, not checked.
+
+\paragraph{Evidence trusts its head.} Without external anchoring, a party holding the HMAC key can rewrite a
+chain and re-sign its head. Tamper evidence is against everyone else.
+
+\paragraph{What would falsify the thesis.} A declared estate on which derived controls miss defects that
+hand-written controls catch, at comparable effort; a deployment in which $\IND$ is so frequent that operators
+treat it as a pass; or a replay that reports \textsf{identical} for a run whose data changed. Each is a
+measurable outcome, and the first two need real users.
+
+% =============================================================================
+\section{Conclusion}\label{sec:conclusion}
+
+A data quality claim is a belief, and a belief is worth acting on when it is justified. We turned that into
+three constraints --- controls derived from declarations, verdicts from a deterministic engine, evidence that
+verifies without its author --- and showed what each requires: a total, provenance-carrying map from
+declarations to controls with a coverage measure that does not flatter; a verdict set in which ``the SQL found
+nothing'' can be reported as what it is; and a record an auditor can check with the standard library. On that
+base, reconciliation acquires a tolerance semantics and a timing law, lineage acquires a precise statement of
+which controls a copy justifies, and models acquire a boundary they cannot cross except through a person.
+
+The register counts forty-five claims that run and twenty-five that do not, or do so only in part. The ones
+that run are the ones the thesis depends on. The ones that do not are, for the most part, claims about people
+and data that the author does not own, and they are where the work goes next.
+
+\bibliographystyle{plainurl}
+\bibliography{references}
+
+\end{document}

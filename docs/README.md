@@ -61,7 +61,8 @@ differ, `docs/19` decides.
 | — | **[Operations](operations/)** | **Runbook, troubleshooting, CLI reference, configuration reference** |
 | — | [Brand](brand.md) | Name, mark, slogan, palette, voice |
 | — | [Glossary](glossary.md) | Terms of art |
-| — | [Academic Paper](paper/) | Manuscript, outline, bibliography, experiment plan |
+| — | [Deck](deck/Prama-Evidence-First-Data-Quality.pptx) | 45 slides for the people who must stand behind a number; built from [`tools/deck/`](../tools/deck/GUIDE.md) and audited as rendered |
+| — | [Academic Paper](paper/) | [*Data Quality as Justified Belief*](paper/data-quality-as-justified-belief.pdf): the paper, its LaTeX source, a long-form [article](paper/data-quality-as-justified-belief-article.md), bibliography, experiment plan |
 
 ## The one-paragraph thesis
 

@@ -9,59 +9,83 @@
 
 
 ---
-# Academic Paper — Plan & Artefacts
+# The Paper
 
-| File | Purpose |
+**Data Quality as Justified Belief: Derived Controls, Deterministic Verdicts, and Evidence that
+Verifies Without Its Author.** Ashutosh Sinha, 2026. 39 pages.
+
+The thesis: a data quality claim is a belief, and it is worth acting on only when it is justified. That
+becomes three constraints — a control derives from a declaration, a verdict comes from a deterministic
+engine, and evidence verifies without its author — and the paper gives the formal account of each,
+together with reconciliation, lineage read from code, the model boundary, trust propagation and
+false-alarm budgets.
+
+## Artefacts
+
+| File | What it is |
 |---|---|
-| [`prama-paper.md`](prama-paper.md) | Full manuscript draft (venue-neutral Markdown; LaTeX conversion at submission) |
-| [`references.bib`](references.bib) | Bibliography |
-| [`experiment-plan.md`](experiment-plan.md) | Detailed experimental protocol, artefact list, and reproducibility package |
+| [`data-quality-as-justified-belief.tex`](data-quality-as-justified-belief.tex) | The paper: definitions, propositions and proofs, each marked with what enforces it in the code |
+| [`data-quality-as-justified-belief.pdf`](data-quality-as-justified-belief.pdf) | The compiled paper |
+| [`data-quality-as-justified-belief-article.md`](data-quality-as-justified-belief-article.md) | A long-form article version for engineers and data owners |
+| [`references.bib`](references.bib) | Bibliography, used by `data-quality-as-justified-belief.tex` through BibTeX (`plainurl`) |
+| [`experiment-plan.md`](experiment-plan.md) | The experimental protocol written before the code existed. **The plan, not results** |
 
-## Venue strategy
+## How the paper keeps itself honest
 
-| Target | Type | Fit | Timing |
-|---|---|---|---|
-| **ACM JDIQ** (Journal of Data and Information Quality) | Primary | Quarterly, multi-disciplinary: modelling & measurement, cleansing algorithms, organisational management, real-world evaluation. The only venue whose charter covers *all* of our contributions in one paper. | Submit at GA (month ~15) |
-| **VLDB Industrial Track** | Companion | Systems contribution: IR, cross-engine equivalence, fusion, scale results | Month ~15–18 |
-| **SIGMOD Industry** / **ICDE Industry** | Alternate | Same systems angle | Fallback |
-| **CIDR** | Vision paper | "Data quality as a calibrated, evidence-producing control plane" — the argument, short and early | Month ~10 |
-| **DEEM / aiDM / QDB workshops** | Focused | Calibration result standalone; benchmark paper standalone | Month ~9 onward |
+Every formal claim carries a marker: **Runs** names a test as `tests/path::test_name`; **In part**
+says what is weaker in the code than on the page; **Not executed** marks mathematics the code does
+not check; **Not in Prama** marks what is not built. Section 12 is a claims register: of seventy
+rows, **45 run, 11 run in part, 5 are stated without being executed, and 9 are not built**.
 
-**Recommended sequence:** a CIDR-style vision paper early (establishes the framing and the term
-"risk-controlled data quality alerting"), the benchmark as its own resource paper (maximises
-citation and adoption), then the full JDIQ systems-and-method paper at GA.
+Every number is either from a run of the repository or from an assertion in a named test, and the
+paper says which. The case-study table, the benchmark table and the calibration grid were produced by
+running `case-studies/*/run.py --no-serve`, `prama bench run --seed 42` and
+`pytest -s tests/monitor/test_benchmark.py` respectively.
 
-## Splitting the work
+To check that every cited test still exists and passes:
 
-The material supports **three** publishable papers. Attempting one is a mistake — each contribution
-is strong enough to stand, and reviewers punish overloaded systems papers.
+```bash
+python3 - <<'EOF' > /tmp/ids.txt
+import re
+s = open("docs/paper/data-quality-as-justified-belief.tex").read().replace("\\_", "_")
+print("\n".join(sorted(set(re.findall(r"(tests/[\w/]+\.py::[\w:]+)", s)))))
+EOF
+pytest -q $(grep -v casestudies /tmp/ids.txt)
+```
 
-| # | Paper | Core claim | Venue |
-|---|---|---|---|
-| **P1** | *Risk-Controlled Alerting for Data Quality Monitoring* | Conformal calibration + hierarchical FDR over the asset×attribute×check lattice gives an operator-declarable false-alarm budget with empirical validity under drift | VLDB / JDIQ / DEEM |
-| **P2** | *DQ-Bench: A Defect-Labelled Benchmark for Enterprise Data Quality* | The first public, cross-system, semantically-defect-labelled benchmark, plus a banking instantiation | VLDB resource track / JDIQ |
-| **P3** | *Prama: A Declarative, Calibrated, Evidence-First Data Quality Control Plane* | The system: semantic layer → IR → calibrated execution → evidence → trust propagation, with deployment experience | JDIQ (primary) + VLDB Industrial |
+A cited test that has been renamed or deleted makes `pytest` report it as not found. The register is
+kept in the paper rather than in an executable file, which is weaker than the paper argues for.
 
-## Artefacts to release
+## Rebuilding the PDF
 
-1. **DQ-Bench** and **FinDQ-Bench** generators, seeds, defect taxonomy, and labels (open licence).
-2. **PQL grammar, IR specification, and the conformance test suite.**
-3. A **reference calibration implementation** (weighted conformal + hierarchical BH) as a standalone
-   library.
-4. Baseline configurations for every compared system, published for challenge.
-5. An artefact-evaluation container reproducing every table and figure.
+```bash
+cd docs/paper
+latexmk -pdf data-quality-as-justified-belief.tex        # pdflatex + bibtex, rerun until references settle
+latexmk -c                    # remove the auxiliary files
+rm -f prama.bbl               # latexmk -c keeps the .bbl
+```
 
-## Authorship & ethics
+Requires a TeX Live with `tcolorbox`, `cleveref`, `aliascnt`, `hyphenat`, `xurl` and the `urlbst`
+styles. It should build with no errors and no undefined references; the only warnings are font-shape
+substitutions. Check the metadata with `pdfinfo data-quality-as-justified-belief.pdf`.
 
-- Author list: engineering + research contributors by contribution, with an explicit CRediT
-  statement.
-- **Conflict-of-interest declaration:** the benchmark is authored by the vendor whose system it
-  evaluates. Mitigations (published generators, external advisory reviewer, published negative
-  results, published baseline configurations) are stated in the paper, not hidden in an appendix.
-- **Data statement:** FinDQ-Bench is fully synthetic; no customer or personal data. Live-shadow
-  results are reported in aggregate, per-site anonymised, under partner agreement, with an ethics
-  note on steward-participation consent.
-- **Negative results are in the main body**, not the appendix.
+## Venue
+
+The paper is a single systems-and-method manuscript. **ACM JDIQ** remains the natural home: its charter
+covers modelling and measurement, organisational practice and real-world evaluation in one journal. A
+systems-track submission (VLDB or SIGMOD industrial) would need what the paper says is missing —
+deployment at a real site and a comparison against external baselines — and is not realistic until
+those exist. The earlier plan to split the work into three papers (calibration, benchmark, system)
+presupposed results on real data and on a public benchmark scored across systems; neither exists yet.
+
+## Authorship and ethics
+
+- Sole author. No other contributor.
+- **Conflict of interest.** The system, the case studies, the planted defects and the benchmark are all
+  written by the author of the system they evaluate. The paper states this in the body, reports what the
+  system did *not* find, and makes no claim of detection quality relative to other systems.
+- **Data.** Every dataset is fabricated and seeded. No customer or personal data is used.
+- **Negative results are in the main body**, not an appendix.
 
 ---
 

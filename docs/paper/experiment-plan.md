@@ -11,8 +11,12 @@
 ---
 # Experiment Plan & Reproducibility Package
 
-Companion to [`prama-paper.md`](prama-paper.md). Operationalises
-[15 — Evaluation & Benchmark Methodology](../15-evaluation-benchmark-methodology.md).
+> **This is the plan, not the results.** It was written before most of the code existed, and it
+> describes experiments — live-shadow deployments, competitor baselines, design-partner corpora — that
+> have **not** been run. What has been measured, and what has not, is in the paper
+> ([`data-quality-as-justified-belief.tex`](data-quality-as-justified-belief.tex), [PDF](data-quality-as-justified-belief.pdf)), §11 *Evaluation* and §12 *The claims register*.
+
+Operationalises [15 — Evaluation & Benchmark Methodology](../15-evaluation-benchmark-methodology.md).
 
 ---
 
