@@ -153,7 +153,7 @@ HAS NULL RATE BELOW p
 ### 4.2 Dataset-level assertions
 ```pql
 CHECK positions_eod HAS ROW COUNT BETWEEN 900000 AND 1200000
-CHECK positions_eod IS FRESH WITHIN 4 HOURS OF '06:30' ON BUSINESS DAYS CALENDAR 'TARGET2'
+CHECK positions_eod IS FRESH WITHIN 4 HOURS OF '06:30' CALENDAR 'TARGET2'
 CHECK positions_eod HAS UNIQUE KEY (account_id, instrument_id, as_of_date)
 CHECK positions_eod CONFORMS TO SCHEMA OF CONTRACT 'positions@3.1.0'
 CHECK positions_eod HAS NO DUPLICATE ROWS

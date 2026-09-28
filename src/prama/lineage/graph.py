@@ -61,8 +61,8 @@ class Transform(enum.Enum):
     #: than removing it.
     AGGREGATED = "aggregated"
     #: Used to filter rather than to produce a value. A wrong filter changes
-    #: which rows exist, which is often worse than a wrong value and is not
-    #: attenuated at all.
+    #: which rows exist, which is often worse than a wrong value, so it is
+    #: barely attenuated (0.9, below).
     FILTER = "filter"
     #: Used only as a join key.
     JOIN_KEY = "join_key"
