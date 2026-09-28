@@ -50,6 +50,10 @@ becomes `PRAMA_DATABASE__SQLITE__PATH`.
 | `codeintake.workdir` | `data/code` | extracted here while read; deleted after |
 | `codeintake.timeout` | `300` | seconds the sandboxed reader may take |
 | `codeintake.git.allowed_hosts` | *(empty)* | empty: any public host; or e.g. [git.bank.example] |
+| `evidence.anchor.kind` | `none` | none \| rfc3161 |
+| `evidence.anchor.url` | *(empty)* | the time-stamp authority, e.g. https://freetsa.org/tsr |
+| `evidence.anchor.region` | *(empty)* | where it is, for the residency gate |
+| `evidence.anchor.timeout` | `30` | seconds |
 | `scheduler.enabled` | `False` |  |
 | `scheduler.interval` | `60s` |  |
 | `scheduler.against` | *(empty)* | a local .duckdb or .sqlite file |

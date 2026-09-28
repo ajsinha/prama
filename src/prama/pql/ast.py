@@ -753,6 +753,15 @@ class FreshnessAssertion(Assertion):
             parts.append(f"CALENDAR '{self.calendar}'")
         return " ".join(parts)
 
+    def render_head(self, target: str) -> str:
+        # The measured column folds into the target, as for any column
+        # assertion. The inherited form dropped it, so `CHECK t.loaded_at IS
+        # FRESH` came back as `CHECK t IS FRESH`: a different control, and one
+        # with nothing to measure.
+        if self.column is not None and self.column.dataset in (target, ""):
+            return f"{quote_dataset(target)}.{self.column.name} {self.render()}"
+        return f"{quote_dataset(target)} {self.render()}"
+
     @property
     def is_structural(self) -> bool:
         return True

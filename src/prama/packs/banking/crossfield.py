@@ -254,7 +254,10 @@ BANKING_FUNCTIONS: tuple[Function, ...] = (
         arity=(1, 1),
         returns=TEXT,
         argument_types=(TEXT,),
-        sql="(CASE WHEN LENGTH({0}) < 2 THEN NULL ELSE SUBSTR(UPPER({0}), 1, 2) END)",
+        # TRIM, as the reference does: a padded identifier is read without
+        # its padding. Without it the two disagreed on ' padded ' (found when
+        # the packs' functions were tested with the packs installed).
+        sql="(CASE WHEN LENGTH(TRIM({0})) < 2 THEN NULL ELSE SUBSTR(UPPER(TRIM({0})), 1, 2) END)",
         evaluate=_iban_country,
     ),
     Function(
@@ -263,7 +266,7 @@ BANKING_FUNCTIONS: tuple[Function, ...] = (
         arity=(1, 1),
         returns=TEXT,
         argument_types=(TEXT,),
-        sql="(CASE WHEN LENGTH({0}) < 6 THEN NULL ELSE SUBSTR(UPPER({0}), 5, 2) END)",
+        sql="(CASE WHEN LENGTH(TRIM({0})) < 6 THEN NULL ELSE SUBSTR(UPPER(TRIM({0})), 5, 2) END)",
         evaluate=_bic_country,
     ),
     Function(
@@ -275,7 +278,10 @@ BANKING_FUNCTIONS: tuple[Function, ...] = (
         arity=(1, 1),
         returns=TEXT,
         argument_types=(TEXT,),
-        sql="(CASE WHEN LENGTH({0}) < 2 THEN NULL ELSE SUBSTR(UPPER({0}), 1, 2) END)",
+        # TRIM, as the reference does: a padded identifier is read without
+        # its padding. Without it the two disagreed on ' padded ' (found when
+        # the packs' functions were tested with the packs installed).
+        sql="(CASE WHEN LENGTH(TRIM({0})) < 2 THEN NULL ELSE SUBSTR(UPPER(TRIM({0})), 1, 2) END)",
         evaluate=_isin_country,
     ),
 )

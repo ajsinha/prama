@@ -142,7 +142,8 @@ on the estate map, and still shows as a *coverage gap* on the metadata scorecard
 - **Identity**: the business key(s) that make a record unique
 - **Temporality**: point-in-time snapshot / event stream / slowly-changing / append-only /
   as-of-dated, plus the as-of and effective-date attributes
-- **Expected rhythm**: arrival schedule, frequency, business calendar, cut-off time, expected volume
+- **Expected rhythm**: arrival schedule, frequency, business calendar, cut-off time, expected volume,
+  and the column that records arrival (a load timestamp), which freshness is measured on
   range and its drivers ("volume tracks trading days; month-end is 3× normal")
 - **Authoritativeness**: golden source / derived copy / replica / extract / vendor-supplied
 - Retention, jurisdiction/residency, sensitivity classification

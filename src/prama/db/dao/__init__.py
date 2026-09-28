@@ -19,7 +19,7 @@ from __future__ import annotations
 from prama.db.dao.attestation import AttestationDao
 from prama.db.dao.base import Dao, TenantScopedDao
 from prama.db.dao.control import ControlDao, RejectionDao
-from prama.db.dao.evidence import EvidenceDao, EvidenceRunDao, SampleDao
+from prama.db.dao.evidence import AnchorDao, EvidenceDao, EvidenceRunDao, SampleDao
 from prama.db.dao.platform import (
     ApiKeyDao,
     AuditDao,
@@ -43,6 +43,7 @@ from prama.db.dao.semantic import (
 from prama.db.dao.versioned import VersionedDao
 
 __all__ = [
+    "AnchorDao",
     "ApiKeyDao",
     "AttestationDao",
     "AttributeDao",

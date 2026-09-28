@@ -92,6 +92,20 @@ DEFAULTS: dict[str, Any] = {
             "allowed_hosts": [],
         },
     },
+    "evidence": {
+        "anchor": {
+            # A witness outside Prama for the chain head after each run: none
+            # or rfc3161 (a time-stamp authority). Off by default, because it
+            # sends a digest to a third party and that is the operator's call.
+            "kind": "none",
+            # The authority's URL, e.g. https://freetsa.org/tsr.
+            "url": "",
+            # Where the authority is, for the residency gate.
+            "region": "",
+            # Seconds to wait for the authority.
+            "timeout": 30,
+        },
+    },
     "scheduler": {
         # Off unless configured: a scheduler that ran against a default source
         # would produce evidence nobody asked for about data nobody named.

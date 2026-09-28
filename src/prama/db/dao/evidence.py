@@ -33,7 +33,7 @@ from sqlalchemy import func, select
 
 from prama.core.errors import ConflictError, NotFoundError
 from prama.db.dao.base import Dao
-from prama.db.models.evidence import EvRecord, EvRun, EvSample
+from prama.db.models.evidence import EvAnchor, EvRecord, EvRun, EvSample
 from prama.evidence.ledger import Verification, verify
 from prama.evidence.record import GENESIS, EvidenceRecord, SnapshotRef, Tombstone
 
@@ -595,3 +595,59 @@ class SampleDao(Dao[EvSample]):
         await self._session.delete(sample)
         await self._session.flush()
         return True
+
+
+class AnchorDao(Dao[EvAnchor]):
+    """Receipts from a witness outside Prama, beside the chain they witness."""
+
+    model = EvAnchor
+
+    async def record(
+        self,
+        *,
+        tenant_id: str,
+        sequence: int,
+        digest: str,
+        kind: str,
+        authority: str,
+        status: str,
+        requested_at: str,
+        witnessed_at: str | None = None,
+        token: str = "",
+        detail: str = "",
+    ) -> EvAnchor:
+        row = EvAnchor(
+            tenant_id=tenant_id,
+            sequence=sequence,
+            digest=digest,
+            kind=kind,
+            authority=authority,
+            status=status,
+            requested_at=requested_at,
+            witnessed_at=witnessed_at,
+            token=token,
+            detail=detail,
+        )
+        self.add(row)
+        await self._session.flush()
+        return row
+
+    async def at(self, tenant_id: str, sequence: int) -> EvAnchor | None:
+        """The latest attempt at a position, anchored or not."""
+        stmt = (
+            select(EvAnchor)
+            .where(EvAnchor.tenant_id == tenant_id, EvAnchor.sequence == sequence)
+            .order_by(EvAnchor.requested_at.desc())
+            .limit(1)
+        )
+        return (await self._session.execute(stmt)).scalars().first()
+
+    async def for_tenant(
+        self, tenant_id: str, *, first: int = 0, last: int | None = None
+    ) -> list[EvAnchor]:
+        """Every attempt, in chain order, optionally within a range of positions."""
+        stmt = select(EvAnchor).where(EvAnchor.tenant_id == tenant_id, EvAnchor.sequence >= first)
+        if last is not None:
+            stmt = stmt.where(EvAnchor.sequence <= last)
+        stmt = stmt.order_by(EvAnchor.sequence, EvAnchor.requested_at)
+        return list((await self._session.execute(stmt)).scalars())

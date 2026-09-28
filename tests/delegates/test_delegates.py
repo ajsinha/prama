@@ -138,6 +138,10 @@ def test_sandboxed_and_in_process_runs_agree_and_both_see_json_values() -> None:
     plan = resolved(parse_control(CONTROL))
     inside = _host(sandbox=False).measure_plan(plan, ROWS)
     sandboxed = _host(sandbox=True).measure_plan(plan, ROWS)
+    # They agree on everything but what stood between the delegate and the
+    # host, which the evidence records.
+    assert inside.parameters.pop("delegate_isolation") == "none: in process"
+    assert "audit hook" in sandboxed.parameters.pop("delegate_isolation")
     assert inside == sandboxed
     assert inside.metrics == {"scanned_rows": 3.0, "violating_rows": 2.0}
     assert inside.note == "booked types: str"  # a date arrives as ISO text, everywhere

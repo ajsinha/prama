@@ -33,6 +33,7 @@ need different people.
 | [`prama db`](#prama-db) | database schema operations (Prama has no migrations) |
 | [`prama delegate`](#prama-delegate) | Python DQ checks: list, vet and try them |
 | [`prama estate`](#prama-estate) | export, diff and score the declared estate |
+| [`prama evidence`](#prama-evidence) | anchor the evidence chain outside Prama, and export it for an auditor |
 | [`prama glossary`](#prama-glossary) | the business glossary: import, search and bind terms |
 | [`prama lineage`](#prama-lineage) | column lineage: scan SQL, show edges, impact, gaps |
 | [`prama llm`](#prama-llm) | model providers, profiles and the call ledger |
@@ -413,6 +414,33 @@ export, diff and score the declared estate
 |---|---|
 | `--tenant` **required** |  |
 | `--domain` |  |
+
+## `prama evidence`
+
+anchor the evidence chain outside Prama, and export it for an auditor
+
+| Subcommand | What it does |
+|---|---|
+| `prama evidence anchor` | anchor the chain head with the configured witness (evidence.anchor) |
+| `prama evidence anchors` | every anchoring attempt, failures included |
+| `prama evidence export` | write a bundle (manifest, records, anchor receipts) for scripts/verify_evidence.py |
+
+**`prama evidence anchor`**
+
+| Argument | Meaning |
+|---|---|
+| `--tenant` | slug or id; defaults to the configured one |
+**`prama evidence anchors`**
+
+| Argument | Meaning |
+|---|---|
+| `--tenant` | slug or id; defaults to the configured one |
+**`prama evidence export`**
+
+| Argument | Meaning |
+|---|---|
+| `out` **required** | a directory, created if absent |
+| `--tenant` | slug or id; defaults to the configured one |
 
 ## `prama glossary`
 

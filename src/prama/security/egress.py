@@ -103,6 +103,16 @@ EGRESS_POINTS: Final[tuple[EgressPoint, ...]] = (
         jurisdiction_from="the tenant's declared residency",
     ),
     EgressPoint(
+        name="evidence-anchor",
+        module="prama.evidence.anchor",
+        what=(
+            "a SHA-256 digest of the evidence chain head, to a time-stamp authority: "
+            "32 bytes naming no record, no dataset and no tenant"
+        ),
+        destination_from="the time-stamp authority's configured region",
+        jurisdiction_from="the tenant's declared residency",
+    ),
+    EgressPoint(
         name="evidence-export",
         module="prama.evidence.retention",
         what="the evidence ledger for a period, including sample digests",

@@ -218,6 +218,11 @@ class Rhythm:
     expected_volume_max: int | None = None
     #: Named, declared causes of legitimate variation: "month_end", "trading_days".
     volume_drivers: tuple[str, ...] = ()
+    #: The column that records when each row arrived: a load or ingestion
+    #: timestamp. Freshness is measured on it. Without it, a table carries no
+    #: record of when it was loaded, so a freshness control would have nothing
+    #: to read, and none is generated (the reason is given instead).
+    arrival_column: str | None = None
 
     def __post_init__(self) -> None:
         if self.arrival_by is not None and not _TIME_OF_DAY.match(self.arrival_by):
@@ -262,6 +267,9 @@ class Rhythm:
             "expected_volume_min": self.expected_volume_min,
             "expected_volume_max": self.expected_volume_max,
             "volume_drivers": list(self.volume_drivers),
+            # Only when declared, so a rhythm without one serialises (and
+            # hashes) exactly as it did before the field existed.
+            **({"arrival_column": self.arrival_column} if self.arrival_column else {}),
         }
 
     @classmethod
@@ -273,6 +281,7 @@ class Rhythm:
             lateness_tolerance_seconds=float(data.get("lateness_tolerance_seconds", 0.0)),
             expected_volume_min=data.get("expected_volume_min"),
             expected_volume_max=data.get("expected_volume_max"),
+            arrival_column=data.get("arrival_column") or None,
             volume_drivers=tuple(data.get("volume_drivers", ())),
         )
 

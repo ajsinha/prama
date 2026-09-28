@@ -425,7 +425,42 @@ class ControlGenerator:
             return Generation()
         controls: list[DerivedControl] = []
         deferred: list[Deferred] = []
-        if rhythm.has_arrival_expectation:
+        unmeasurable: list[Unsatisfiable] = []
+        absent: tuple[str, ...] = (
+            self._missing(declaration, (rhythm.arrival_column,)) if rhythm.arrival_column else ()
+        )
+        if rhythm.has_arrival_expectation and absent:
+            unmeasurable.append(
+                Unsatisfiable(
+                    rule="rhythm.freshness",
+                    declared=_arrival(rhythm),
+                    reason=(f"the arrival column {_and(absent)} is not in {declaration.name}"),
+                    remedy="Correct the arrival column, or declare the attribute.",
+                    dataset=declaration.name,
+                )
+            )
+        elif rhythm.has_arrival_expectation and not rhythm.arrival_column:
+            # A table records its rows, not when they were loaded. With no
+            # column saying when a row arrived there is nothing to measure, and
+            # a freshness control that can never reach a verdict is worse than
+            # none: it sits on the scorecard, never red (Q-64).
+            unmeasurable.append(
+                Unsatisfiable(
+                    rule="rhythm.freshness",
+                    declared=_arrival(rhythm),
+                    reason=(
+                        f"{declaration.name} declares when it arrives but not which column "
+                        "records the arrival, so there is nothing to measure freshness on"
+                    ),
+                    remedy=(
+                        "Declare the rhythm's arrival column: the load or ingestion "
+                        "timestamp each row carries. For a feed of files, the arrival "
+                        "checks on the feed judge timeliness instead."
+                    ),
+                    dataset=declaration.name,
+                )
+            )
+        elif rhythm.has_arrival_expectation:
             controls.append(
                 self._control(
                     declaration,
@@ -437,6 +472,9 @@ class ControlGenerator:
                             tolerance_minutes=int(rhythm.lateness_tolerance_seconds // 60),
                             due_time=rhythm.arrival_by or "",
                             calendar=rhythm.calendar or "",
+                            column=ast.ColumnRef(
+                                name=str(rhythm.arrival_column), dataset=declaration.name
+                            ),
                         ),
                         name=f"{declaration.slug or declaration.name}_freshness",
                         severity=severity_for(declaration),
@@ -505,7 +543,7 @@ class ControlGenerator:
         checked = self._checked(declaration, controls)
         return Generation(
             controls=checked.controls,
-            unsatisfiable=checked.unsatisfiable,
+            unsatisfiable=(*checked.unsatisfiable, *unmeasurable),
             deferred=tuple(deferred),
         )
 

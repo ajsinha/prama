@@ -23,6 +23,7 @@ from prama.cli.contract import ContractCommand
 from prama.cli.control import ControlCommand
 from prama.cli.delegate import DelegateCommand
 from prama.cli.estate import EstateCommand
+from prama.cli.evidence import EvidenceCommand
 from prama.cli.glossary import GlossaryCommand
 from prama.cli.lineage import LineageCommand
 from prama.cli.llm import LlmCommand
@@ -328,6 +329,7 @@ def all_commands() -> list[Command]:
         CommentCommand(),
         QueueCommand(),
         UsageCommand(),
+        EvidenceCommand(),
         LineageCommand(),
         CodeCommand(),
         ServeCommand(),

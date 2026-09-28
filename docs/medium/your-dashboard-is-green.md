@@ -252,6 +252,23 @@ library. **It does not import Prama.** An auditor can run it on their own machin
 bundle you handed them, without installing or trusting the system under audit. Evidence that can
 be checked only by the tool that produced it is a claim, not evidence.
 
+### Design idea: a witness the signer does not control
+
+A chain only shows tampering to people who don't hold the key. Whoever holds it can rebuild a
+chain from scratch, and the rebuilt chain verifies perfectly. So after every run, Prama sends the
+chain head's hash (32 bytes, naming no record) to an **RFC 3161 time-stamp authority** and keeps
+the signed token beside the chain.
+
+```bash
+prama evidence export ./bundle
+python3 scripts/verify_evidence.py ./bundle --tsa-ca tsa-ca.pem
+```
+
+The verifier checks that each receipt names the record at its position. With the authority's
+certificate, it verifies the signature with `openssl ts -verify`, a tool the auditor already
+trusts. A test rebuilds a chain with one verdict flipped: on its own it passes every check, and
+against its receipt it fails.
+
 ---
 
 ## 5. A reconciliation is one statement
@@ -440,8 +457,15 @@ Around delegates, Prama also provides:
 - **a test kit** that authors run in their own CI;
 - **remote agents** that run delegates beside the data.
 
-One caveat, stated plainly: the worker is a separate process, not yet a hardened sandbox. It
-has no network namespace.
+The worker is sandboxed in layers:
+- **A clean environment,** so a database DSN or an API key is not there to read.
+- **Its own network namespace,** where the host allows one.
+- **Always, an audit hook,** installed before the delegate is imported, that refuses sockets, processes,
+  `exec`, `fork` and `ctypes`.
+
+The evidence records which layers applied. Testing it with delegates that misbehave on purpose found a real
+hole: a delegate that *slept* held the host forever, because sleeping uses no CPU and the deadline covered only
+the reply. The deadline now covers both pipes.
 
 ---
 
@@ -587,8 +611,8 @@ blind spot does not appear in an aggregate F1 at all.
 - a document names a module that does not exist.
 
 **A paper that audits itself.** The accompanying research paper marks every formal claim with
-the test that carries it. Its claims register counts **47 claims that run, 12 that run in part,
-8 that are not built, and 5 stated but not executed**. The negative results are in the body, not
+the test that carries it. Its claims register counts **50 claims that run, 11 that run in part,
+6 that are not built, and 5 stated but not executed**. The negative results are in the body, not
 an appendix.
 
 ---
@@ -629,7 +653,7 @@ know.
 
 ---
 
-*Prama is proprietary software by Ashutosh Sinha. The design corpus, a 40-page paper
+*Prama is proprietary software by Ashutosh Sinha. The design corpus, a 41-page paper
 (**Data Quality as Justified Belief: Derived Controls, Deterministic Verdicts, and Evidence
 that Verifies Without Its Author**) and a 45-slide deck accompany the code. Figures in this
 article come from the test suite, `prama bench run --seed 42`, and the case studies' own runs.*

@@ -160,3 +160,29 @@ class EvSample(EvidenceBase):
         Index("ix_ev_sample_expiry", "expires_at"),
         Index("ix_ev_sample_tenant", "tenant_id"),
     )
+
+
+class EvAnchor(EvidenceBase, UlidPrimaryKey):
+    """A witness's receipt for the chain head at one position.
+
+    Beside the chain, not in it: a receipt is about the chain, and putting it
+    in would change the hashes it witnesses. See `prama.evidence.anchor`.
+    """
+
+    __tablename__ = "ev_anchor"
+
+    tenant_id: Mapped[str] = mapped_column(String(ULID_WIDTH), nullable=False)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    authority: Mapped[str] = mapped_column(String(512), nullable=False, default="")
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="anchored")
+    requested_at: Mapped[str] = mapped_column(String(32), nullable=False)
+    witnessed_at: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    token: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    detail: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+    __table_args__ = (
+        CheckConstraint("status IN ('anchored', 'failed')", name="ck_ev_anchor_status"),
+        Index("ix_ev_anchor_tenant", "tenant_id", "sequence"),
+    )

@@ -72,7 +72,32 @@ FORBIDDEN: dict[str, str] = {
     # below covers `now`/`today`/`utcnow`/`monotonic`/`perf_counter` and not
     # `time()`, `gmtime()` or `localtime()`.
     "time": "reading the clock makes a control unreplayable",
+    # The module every forbidden name can be fetched from by a string, which
+    # no amount of checking the names themselves would then see.
+    "builtins": "reaching the builtins by name defeats every other rule here",
 }
+
+#: Attributes that reach the interpreter's internals: the ladder every Python
+#: sandbox escape climbs (`len.__self__` is the builtins module,
+#: `().__class__.__base__.__subclasses__()` is every class loaded). A validator
+#: or delegate checks values; it has no use for any of them.
+ESCAPE_ATTRIBUTES: frozenset[str] = frozenset(
+    {
+        "__self__",
+        "__subclasses__",
+        "__globals__",
+        "__builtins__",
+        "__code__",
+        "__base__",
+        "__bases__",
+        "__mro__",
+        "__loader__",
+        "__spec__",
+    }
+)
+#: Built-ins that fetch an attribute by a string, which is fine for a literal
+#: and hides what is reached when the string is computed.
+_BY_NAME = frozenset({"getattr", "setattr", "delattr", "hasattr"})
 
 #: Prama packages a validator may not reach into. Listed separately because a
 #: prefix match against the bare root would have banned every ``prama.*``
@@ -196,6 +221,23 @@ def scan_source(path: str) -> list[tuple[str, str]]:
         return [(Path(path).name, f"this file could not be scanned: {exc}")]
     found: list[tuple[str, str]] = []
     for node in python_ast.walk(tree):
+        if isinstance(node, python_ast.Attribute) and node.attr in ESCAPE_ATTRIBUTES:
+            found.append((node.attr, "reaching the interpreter's internals escapes every rule"))
+        if isinstance(node, python_ast.Name) and node.id == "__builtins__":
+            found.append((node.id, "reaching the interpreter's internals escapes every rule"))
+        if (
+            isinstance(node, python_ast.Call)
+            and isinstance(node.func, python_ast.Name)
+            and node.func.id in _BY_NAME
+            and len(node.args) >= 2
+            and not (
+                isinstance(node.args[1], python_ast.Constant)
+                and isinstance(node.args[1].value, str)
+            )
+        ):
+            found.append(
+                (f"{node.func.id}()", "an attribute named by a computed string hides what is used")
+            )
         # Dynamic imports first: `__import__("socket")` and
         # `importlib.import_module(name)` are invisible to a scan that only
         # looks at `ast.Import`, and a validator using either was admitted.

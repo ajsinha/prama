@@ -575,14 +575,24 @@ dominate. Tier-1 datasets require a second person (maker--checker).
 
 \subsection{What $\Gam$ does not yet do}
 
-Declaring a rhythm generates a freshness control, and that control has no execution strategy on a plain
-table: it can never reach a verdict. The repository pins this as a \emph{strict} expected failure, so the
-day it is fixed the test fails and forces the finding to be closed. In case study 1 the stale JPY rate is
-reported ``not established'' for this reason. Freshness is established in \textsc{Prama} only where there is
-an arrival record --- a feed of files, as in case study 2, where the missing and the duplicated deliveries are
-both found by the arrival ledger rather than by SQL.
-\partly{\texttt{tests/derive/test\_generator.py::test\_a\_generated\_freshness\_control\_can\_reach\_a\_verdict}
-is a strict \texttt{xfail}.}
+\paragraph{Freshness, and the column it needs.} A declared rhythm says when data is due; it does not say how
+anybody would know it arrived, and a plain table keeps its rows, not when they were loaded. Until recently
+$\Gam$ generated a freshness control anyway, which had no execution strategy and could never reach a verdict;
+the repository pinned it as a \emph{strict} expected failure. It is closed by making the missing fact
+declarable. A rhythm names its \emph{arrival column} (a load timestamp), and $\Gam$ derives
+\pql{CHECK t.loaded\_at IS FRESH WITHIN 30 MINUTES OF '06:30' CALENDAR 'TARGET2'}. It measures
+$\max(\textit{loaded\_at})$. The cycle judged is the most recent business day $d$ whose deadline (due time plus
+tolerance, on the calendar) has passed at the instant of evaluation $t$. The control passes iff the newest arrival
+is later than the deadline of the business day before $d$. The instant $t$ is recorded as a metric, so a replay
+of the evidence reaches the same verdict. A rhythm \emph{without} an arrival column generates no control and an
+unsatisfiable entry that says what to declare, which is \Cref{prop:refusal} applied to time. The measure is
+one-sided by construction: the newest arrival alone cannot tell a very late delivery for the previous cycle
+from an early one for this cycle, and it cannot miss the failure that matters, nothing new since the last
+deadline.
+\runs{tests/derive/test\_generator.py::test\_a\_generated\_freshness\_control\_can\_reach\_a\_verdict}
+\runs{tests/backend/test\_freshness.py::test\_the\_cycle\_due\_is\_found\_on\_the\_business\_calendar}
+\runs{tests/backend/test\_freshness.py::test\_the\_verdict\_is\_reproducible\_from\_the\_evidence}
+\runs{tests/backend/test\_freshness.py::test\_executed\_on\_a\_real\_engine}
 
 The design corpus lists roll-forward, aggregate parity and row-count parity as \emph{PQL} forms. They exist
 as comparison specifications produced by $\Gam$; the PQL surface for them is still a specification.
@@ -869,11 +879,23 @@ truncated; and a sandboxed run agrees with an in-process run.
 \runs{tests/delegates/test\_delegates.py::test\_too\_many\_rows\_are\_refused\_not\_truncated}
 \runs{tests/delegates/test\_delegates.py::test\_sandboxed\_and\_in\_process\_runs\_agree\_and\_both\_see\_json\_values}
 
-The sandbox is a subprocess with CPU and memory limits and a wall-clock timeout. It is weaker than its
-description in three respects: the worker inherits the parent's environment, there is no network namespace
-(purity is enforced by a static scan of imports, not by the operating system), and neither the timeout nor
-the memory limit is exercised by a test.
-\partly{process isolation and static vetting run; OS-level network isolation is absent; limits untested.}
+The sandbox is a subprocess with CPU and memory limits and one wall-clock deadline over both of its pipes.
+Its environment is an allowlist, so the database's DSN and a provider's key are not in it. Where the host
+permits unprivileged namespaces it runs in a network namespace of its own, with no interface up. In every
+case an audit hook (PEP 578), installed before the delegate is imported and not removable afterwards, refuses
+sockets, processes, \texttt{exec}, \texttt{fork}, and \texttt{ctypes}. The evidence records which of these
+applied. Each is exercised by a delegate that passes admission and misbehaves only when a control asks it to.
+Two findings came out of building the tests. The deadline had covered only the reply, so a delegate that
+slept (using no CPU, so the CPU limit never fired) held the host for ever. And the admission scan let
+\texttt{getattr(len.\_\_self\_\_, "\_\_imp" + "ort\_\_")} through; it now refuses \texttt{builtins}, the
+interpreter-internals attributes and \texttt{getattr} with a computed name. Two limits remain. An audit hook is
+not a boundary against native code already loaded. And delegates the operator installs (configured paths,
+entry points) are imported and probed in the server's own process at admission, which is the trust given to
+any installed package; uploads, the untrusted route, are vetted in a subprocess and never imported by the host.
+\runs{tests/delegates/test\_sandbox.py::test\_what\_a\_delegate\_has\_no\_use\_for\_is\_refused}
+\runs{tests/delegates/test\_sandbox.py::test\_a\_sleeping\_delegate\_is\_stopped\_at\_its\_deadline}
+\runs{tests/delegates/test\_sandbox.py::test\_memory\_is\_limited}
+\runs{tests/delegates/test\_sandbox.py::test\_the\_worker\_gets\_no\_secrets\_from\_the\_environment}
 
 \begin{worked}
 \wk{a check PQL cannot say}
@@ -941,9 +963,19 @@ every hash matches.
 \runs{tests/evidence/test\_ledger.py::TestSigning::test\_a\_changed\_head\_does\_not\_verify}
 \runs{tests/security/test\_bundle.py::TestAsymmetricSignature::test\_a\_signature\_verifies\_with\_only\_the\_public\_half}
 \runs{tests/security/test\_bundle.py::TestAnUnsignedBundleIsNotABundle::test\_no\_signature\_is\_not\_trustworthy\_even\_when\_the\_hashes\_match}
-\absent{publication of chain heads to an external timestamping service or transparency log
-\cite{haber1991,laurie2013}. Without it, an operator holding the HMAC key could rewrite a chain and
-re-sign its head; the Ed25519 bundle signature binds only what was exported.}
+\paragraph{External anchoring.} Signing does not stop the signer. An operator holding the HMAC key can
+rebuild a chain from genesis and re-sign its head, and the rebuilt chain verifies perfectly. What stops that
+is a witness outside the operator's control \cite{haber1991,laurie2013}. After a run, \textsc{Prama} sends the
+head's record hash (32 bytes, naming no record) to an RFC 3161 time-stamp authority, in a unit of work of its
+own, so a witness that is down cannot roll the run's evidence back. It stores the token beside the chain. A
+failed attempt is stored as such, not dropped. The offline verifier checks each receipt against the record at
+its position, reading the token with the standard library alone. Given the authority's certificate, it
+verifies the signature with \texttt{openssl ts -verify}, a tool the auditor already trusts. A rebuilt chain
+then disagrees with a receipt its author cannot forge. What remains open is the window after the last anchor,
+which is why anchoring happens after every run and not on a daily schedule.
+\runs{tests/evidence/test\_anchor.py::test\_an\_auditor\_verifies\_the\_anchor\_and\_catches\_a\_rebuilt\_chain}
+\runs{tests/evidence/test\_anchor.py::test\_the\_head\_is\_anchored\_once\_and\_a\_failure\_is\_recorded}
+\runs{tests/evidence/test\_anchor.py::test\_residency\_is\_consulted\_before\_anything\_leaves}
 
 \begin{definition}[Merkle root]\label{def:merkle}
 For record hashes $x_1,\ldots,x_n$, the root is computed level by level, combining adjacent pairs with
@@ -1642,7 +1674,7 @@ Total                              & 41 & 32 & 4 & 4 & \\
 \bottomrule
 \end{tabular}
 \caption{Planted defects against outcomes, from our runs of the eight case studies. \emph{Not est.}: reported
-as not established (a screen, or a freshness control on a plain table). \emph{Not claimed}: stated in the study
+as not established (a screen, or, when these runs were made, a freshness control on a plain table). \emph{Not claimed}: stated in the study
 as outside what the declared controls can see, with the reason. In study 6 the fourth planted item is a
 timing difference that is correctly \emph{not} a break. \emph{Controls} is the number executed on the main
 source; study 3 runs a further 22 on a second source.}
@@ -1653,7 +1685,9 @@ source; study 3 runs a further 22 on a second source.}
 with counts that match: 60 missing notionals, 7 negative quantities, 400 duplicated rows from a resent file,
 37 orphan instruments, 18 settlement dates before trade dates, 31 half-cent rounding disagreements. The four
 ``not established'' outcomes are the screens of \Cref{sec:screen} (ISIN, LEI and a bank's book-code check
-character) and the freshness control of \Cref{sec:gamma}; in none of them did \textsc{Prama} report a pass.
+character) and the freshness control of \Cref{sec:gamma} as it then was; in none of them did \textsc{Prama}
+report a pass. Rerun now, study 1 generates no freshness control and says why, since its tables declare no
+arrival column.
 The four ``not claimed'' are a relationship not declared in study 1 (two defects) and a relation between two
 dates nobody declared, and in study 2 a truncated file whose trailer check runs at arrival and is not yet
 wired into the control runner.
@@ -1724,7 +1758,8 @@ The following were measured in our runs and concern \textsc{Prama}'s own overhea
 packages cited in this paper (1,693 tests across \texttt{backend}, \texttt{evidence}, \texttt{recon},
 \texttt{derive}, \texttt{lineage}, \texttt{architecture}, \texttt{calibrate}, \texttt{score}, \texttt{llm},
 \texttt{induce}, \texttt{propose}, \texttt{semantic}, \texttt{codeintake}, \texttt{delegates} and \texttt{bench})
-passed, with one strict expected failure (the freshness control of \Cref{sec:gamma}), in 25 seconds. Fusion ran
+passed, with one strict expected failure (the freshness control of \Cref{sec:gamma}, since closed), in 25
+seconds. Fusion ran
 400 generated controls in 160 scans. The backend conformance suite passed on DuckDB, SQLite, the reference
 interpreter and PostgreSQL 16.
 
@@ -1755,7 +1790,7 @@ Accuracy needs a relationship (\Cref{prop:accuracy}) & runs & \texttt{test\_wave
 Only a declaration may skip review (\Cref{prop:review}) & runs & \texttt{test\_queue.py}, \texttt{test\_provenance.py} \\
 A person activates every control (\Cref{sec:proposals}) & in part & one activation path, by inspection; untested \\
 Corroboration merges (\Cref{prop:corrob}) & runs & \texttt{test\_queue.py}, \texttt{test\_utility.py} \\
-A rhythm yields a freshness verdict & not built & strict \texttt{xfail} \\
+A rhythm yields a freshness verdict & runs & \texttt{test\_freshness.py}, \texttt{test\_generator.py} \\
 PQL parity and roll-forward forms; hierarchy cycles & not built & comparison specifications only \\
 \multicolumn{3}{@{}l}{\emph{PQL, plans and verdicts}} \\
 Plan identity closes over code lists and validators (\Cref{prop:closure}) & in part & exclusions untested \\
@@ -1769,11 +1804,11 @@ Refusal is conformance (\Cref{prop:refuse}) & in part & RE2 refusal untested \\
 Fusion preserves answers and saves scans (\Cref{prop:fusion}) & runs & \texttt{test\_fuse.py}, \texttt{test\_throughput.py} \\
 Custom SQL is one read-only query & runs & \texttt{test\_custom\_sql.py} \\
 A delegate cannot decide (\Cref{prop:delegate}) & runs & \texttt{test\_delegates.py} \\
-Delegate sandbox isolation & in part & no network namespace; limits untested \\
+Delegate sandbox isolation & runs & \texttt{test\_sandbox.py}; namespace where the host allows \\
 Exact arithmetic & in part & operators exact; thresholds float \\
 \multicolumn{3}{@{}l}{\emph{Evidence}} \\
 Tamper evidence (\Cref{thm:tamper}) & runs & \texttt{test\_ledger.py}, \texttt{test\_independent\_verifier.py} \\
-External anchoring of chain heads & not built & HMAC head; Ed25519 on bundles only \\
+External anchoring of chain heads & runs & \texttt{test\_anchor.py}; RFC 3161, verified by OpenSSL \\
 Merkle promotion (\Cref{def:merkle}) & runs & \texttt{test\_ledger.py} \\
 Independent verification (\Cref{prop:independent}) & runs & \texttt{test\_independent\_verifier.py} \\
 Erasure keeps the chain (tombstones) & runs & \texttt{test\_independent\_verifier.py} \\
@@ -1828,8 +1863,8 @@ Case studies: planted against found (\Cref{tab:studies}) & in part & exit status
 \end{longtable}
 \end{center}
 
-Of seventy-two rows, forty-seven run, twelve run in part, five are stated without being executed, and
-eight are not built.
+Of seventy-two rows, fifty run, eleven run in part, five are stated without being executed, and six are
+not built.
 
 The ratio is not flattering and is not meant to be. The claims that run are concentrated where the thesis
 lives: derivation, verdict semantics and evidence. The claims that do not are concentrated where a claim is
@@ -1876,7 +1911,8 @@ negative result (\Cref{prop:join}) concerns any lineage model that records value
 \paragraph{Tamper-evident records.} Hash-linked timestamping \cite{haber1991}, Merkle trees \cite{merkle1987},
 tamper-evident logging \cite{crosby2009} and certificate transparency \cite{laurie2013} are the foundations of
 the evidence ledger. The ledger's contribution is modest and practical: a verifier that shares no code with the
-writer, held equal to it by a test. It lacks the external anchoring these systems use.
+writer, held equal to it by a test, and an RFC 3161 anchor after every run that the auditor verifies with
+their own tools.
 
 \paragraph{Regulation and practice.} BCBS 239 \cite{bcbs239} frames the obligation; fines for reporting
 errors \cite{ateam2024} price it; market surveys \cite{gartner2025adq,datakitchen2026,dqframeworks} describe the
@@ -1912,8 +1948,9 @@ names. It would not detect a model's output passed through neutral names across 
 argument --- a verdict is a function of an activated plan and the data --- is the stronger defence, and it is
 argued, not checked.
 
-\paragraph{Evidence trusts its head.} Without external anchoring, a party holding the HMAC key can rewrite a
-chain and re-sign its head. Tamper evidence is against everyone else.
+\paragraph{Evidence trusts its anchors.} With anchoring off, a party holding the HMAC key can rewrite a chain
+and re-sign its head. With it on, the records written since the last anchor remain rewritable until the next;
+and the anchor is only as independent as the time-stamp authority chosen.
 
 \paragraph{What would falsify the thesis.} A declared estate on which derived controls miss defects that
 hand-written controls catch, at comparable effort; a deployment in which $\IND$ is so frequent that operators
@@ -1931,7 +1968,7 @@ nothing'' can be reported as what it is; and a record an auditor can check with 
 base, reconciliation acquires a tolerance semantics and a timing law, lineage acquires a precise statement of
 which controls a copy justifies, and models acquire a boundary they cannot cross except through a person.
 
-The register counts forty-seven claims that run and twenty-five that do not, or do so only in part. The ones
+The register counts fifty claims that run and twenty-two that do not, or do so only in part. The ones
 that run are the ones the thesis depends on. The ones that do not are, for the most part, claims about people
 and data that the author does not own, and they are where the work goes next.
 

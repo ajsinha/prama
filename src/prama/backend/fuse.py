@@ -29,7 +29,7 @@ from __future__ import annotations
 import dataclasses
 from typing import Any
 
-from prama.backend.execute import ControlResult, judge, judge_segments
+from prama.backend.execute import ControlResult, as_number, judge, judge_segments
 from prama.backend.sql import SqlCompiler
 from prama.ir.model import ControlPlan
 from prama.pql.errors import PqlUnsupportedError
@@ -100,10 +100,10 @@ class FusedQuery:
 
     def _metrics_for(self, index: int, row: dict[str, Any]) -> dict[str, float]:
         return {
-            metric: float(row[alias])
+            metric: number
             for alias, owners in self.columns.items()
             for owner, metric in owners
-            if owner == index and row.get(alias) is not None
+            if owner == index and (number := as_number(row.get(alias))) is not None
         }
 
 

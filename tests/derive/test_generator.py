@@ -46,6 +46,7 @@ def positions(**overrides: object) -> DatasetDeclaration:
         "rhythm": Rhythm(
             frequency=Frequency.DAILY,
             arrival_by="06:30",
+            arrival_column="loaded_at",
             calendar="TARGET2",
             lateness_tolerance_seconds=900,
             expected_volume_min=10_000,
@@ -53,6 +54,7 @@ def positions(**overrides: object) -> DatasetDeclaration:
         ),
         "attributes": (
             AttributeDeclaration(name="account_id", optionality=Optionality.MANDATORY),
+            AttributeDeclaration(name="loaded_at"),
             AttributeDeclaration(name="business_date", optionality=Optionality.MANDATORY),
             AttributeDeclaration(
                 name="counterparty_lei",
@@ -113,11 +115,6 @@ def test_every_generated_control_can_reach_a_verdict() -> None:
     for derived in ControlGenerator().generate(positions()).controls:
         plan = lowerer.control(derived.control)
         assert plan.plan_id
-        # Freshness is knowingly unanswerable and pinned by a strict xfail
-        # below rather than silently tolerated here: excluding it keeps this
-        # assertion live for every other kind. QA round 3, Q-64 and Q-71.
-        if plan.assertion_kind == "freshness":
-            continue
         reason = unanswerable(plan)
         assert not reason, f"{derived.control.render().splitlines()[0]}: {reason}"
 
@@ -164,7 +161,7 @@ def test_a_grain_naming_a_column_that_does_not_exist_is_reported_not_emitted() -
     )
     generated = ControlGenerator().generate(declaration)
     assert not generated.is_complete
-    problem = generated.unsatisfiable[0]
+    (problem,) = [u for u in generated.unsatisfiable if u.rule != "rhythm.freshness"]
     assert "book_id" in problem.reason
     assert problem.remedy
 
@@ -264,8 +261,9 @@ def test_an_unknown_semantic_type_is_refused_with_the_known_ones_offered() -> No
         attributes=(AttributeDeclaration(name="x", semantic_type="klingon_id"),),
     )
     generated = ControlGenerator().generate(declaration)
-    assert "klingon_id" in generated.unsatisfiable[0].reason
-    assert "isin" in generated.unsatisfiable[0].remedy
+    (problem,) = [u for u in generated.unsatisfiable if u.rule != "rhythm.freshness"]
+    assert "klingon_id" in problem.reason
+    assert "isin" in problem.remedy
 
 
 def test_a_numeric_bound_renders_as_a_number_not_a_string() -> None:
@@ -307,7 +305,8 @@ def test_an_amount_whose_currency_column_is_missing_is_reported() -> None:
         attributes=(AttributeDeclaration(name="market_value", currency_attribute="ccy"),),
     )
     generated = ControlGenerator().generate(declaration)
-    assert "no column 'ccy'" in generated.unsatisfiable[0].reason
+    (problem,) = [u for u in generated.unsatisfiable if u.rule != "rhythm.freshness"]
+    assert "no column 'ccy'" in problem.reason
 
 
 def test_a_conditional_attribute_becomes_a_filtered_control() -> None:
@@ -342,7 +341,7 @@ def test_an_unparseable_condition_does_not_become_an_unconditional_control() -> 
     )
     generated = ControlGenerator().generate(declaration)
     assert not generated.by_rule("attribute.completeness")
-    problem = generated.unsatisfiable[0]
+    (problem,) = [u for u in generated.unsatisfiable if u.rule != "rhythm.freshness"]
     assert "not a PQL expression" in problem.reason
     assert "stricter than you declared" in problem.remedy
 
@@ -437,6 +436,7 @@ def test_editing_a_declaration_updates_a_control_rather_than_orphaning_it() -> N
             rhythm=Rhythm(
                 frequency=Frequency.DAILY,
                 arrival_by="07:00",
+                arrival_column="loaded_at",
                 calendar="TARGET2",
                 expected_volume_min=10_000,
                 expected_volume_max=90_000,
@@ -485,19 +485,10 @@ def test_each_documented_declaration_generates_its_stated_control(rule: str) -> 
     assert ControlGenerator().generate(positions()).by_rule(rule)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Q-64: IS FRESH has no execution strategy, so a generated freshness "
-    "control can never reach a verdict. This marker fails the day it can.",
-)
 def test_a_generated_freshness_control_can_reach_a_verdict() -> None:
-    """Pinned, not tolerated.
-
-    Declaring a rhythm generates a freshness control, so this is not a language
-    corner nobody reaches — it is the ordinary output of the Γ generator. The
-    strict marker means the day freshness is implemented, this test starts
-    failing as XPASS and forces the note in qa/findings.md to be closed.
-    """
+    """Q-64, closed. Declaring a rhythm with an arrival column generates a
+    freshness control that measures the newest arrival and can be red. It was
+    pinned by a strict xfail until this held."""
     lowerer = Lowerer(codelists=CODELISTS.resolve())
     fresh = [
         lowerer.control(d.control)

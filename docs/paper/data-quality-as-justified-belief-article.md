@@ -18,8 +18,8 @@
 > [`data-quality-as-justified-belief.tex`](data-quality-as-justified-belief.tex) ([PDF](data-quality-as-justified-belief.pdf)). The system it was built against is **Prama** 0.1.0. Where
 > a section says what a data quality system *should* do, it then says what Prama actually does. Often
 > that is less, sometimes it is different, and the differences are marked rather than smoothed over. The
-> paper's claims register has seventy-two rows: **forty-seven run** (a named test exercises them),
-> **twelve run in part**, **five are mathematics the code does not execute**, and **eight are not built**.
+> paper's claims register has seventy-two rows: **fifty run** (a named test exercises them),
+> **eleven run in part**, **five are mathematics the code does not execute**, and **six are not built**.
 > The negative results are in here too: value lineage cannot see a defect that acts through a join (and
 > the population edge that now repairs it), a
 > freshness control derived from a declaration cannot yet reach a verdict, and the benchmark does not yet
@@ -206,14 +206,22 @@ the code closely, that flag is only *counted*. The one activation path requires 
 and writes it into provenance. In practice a person switches on every control, including declared ones.
 I record the flag as overstating what happens, rather than the other way round.
 
-### What Γ cannot do yet
+### Freshness, and the column it needs
 
-Declaring a rhythm generates a freshness control, and on a plain table that control has no execution
-strategy: **it can never reach a verdict**. The repository pins this as a *strict* expected failure, so the
-day it is fixed the test flips and forces the finding closed. In case study 1 the three-week-old JPY rate is
-reported "not established" for exactly this reason. Freshness is established in Prama today only where
-there is an arrival record — a feed of files, as in case study 2, where the missing file and the resent file
-are both caught by the arrival ledger rather than by SQL.
+A declared rhythm says when data is due. It does not say how anybody would know it arrived, and a plain table
+keeps its rows, not when they were loaded. Γ used to generate a freshness control anyway, which **could never
+reach a verdict**; the repository pinned that as a strict expected failure until it was fixed.
+
+The fix makes the missing fact declarable. A rhythm names its **arrival column** (a load timestamp), and Γ
+generates `CHECK t.loaded_at IS FRESH WITHIN 30 MINUTES OF '06:30' CALENDAR 'TARGET2'`:
+
+- **What is measured.** The newest arrival.
+- **What is judged.** The most recent business day whose deadline has passed. It passes if data arrived after
+  the previous day's deadline.
+- **Replay.** The instant of evaluation is recorded as a metric, so a replay reaches the same verdict.
+- **A rhythm without an arrival column** generates no control, and says what to declare instead.
+
+Case study 1's tables declare none, so it now prints that reason rather than a control that can never be red.
 
 ---
 
@@ -353,9 +361,23 @@ a failure. A second delegate, run on a remote agent inside a payments zone, appl
 to a ledger with 350 invented invoices and fails it (MAD 0.0176, above the 0.015 nonconformity band), while
 keeping the example rows inside the zone.
 
-The sandbox is weaker than it sounds, and the paper says so: a subprocess with CPU and memory limits and a
-timeout, but the worker inherits the parent's environment, there is no network namespace (purity is enforced
-by static scanning, not by the operating system), and neither the timeout nor the memory limit is tested.
+The sandbox is a subprocess with CPU and memory limits and one deadline over both of its pipes:
+- **A clean environment.** The database DSN and the provider keys are not in it.
+- **A network namespace of its own,** where the host allows one.
+- **Always, an audit hook** installed before the delegate is imported. It refuses sockets, processes,
+  `exec`, `fork` and `ctypes`, and it cannot be removed.
+
+The evidence records which of these applied. Each is tested with a delegate that passes admission and
+misbehaves only when asked.
+
+Building those tests found two holes:
+- **A sleeping delegate held the host for ever.** The deadline had covered only the reply, and sleeping uses
+  no CPU.
+- **The admission scan let an evasion through:** `getattr(len.__self__, "__imp" + "ort__")`.
+
+Both are closed. What remains: an audit hook is no boundary against native code already loaded. And delegates
+the operator installs are probed in the server's own process at admission, the trust given to any installed
+package. Uploads, the untrusted route, never are.
 
 ---
 
@@ -391,6 +413,19 @@ The two verifiers once disagreed (QA finding C4, since fixed). That disagreement
 layer, found by running the two against each other. A test now holds them together.
 
 An auditor does not have to trust Prama to check Prama's records.
+
+### Anchored outside Prama
+
+Signing a chain does not stop the signer. Somebody holding the key can rebuild a chain from scratch, and the
+rebuilt chain verifies perfectly.
+
+What stops that is a witness they do not control. After every run, Prama sends the head's record hash to an
+**RFC 3161 time-stamp authority** and keeps the signed token beside the chain. The hash is 32 bytes and names
+no record.
+
+The offline verifier checks each receipt against the record at its position. Given the authority's
+certificate, it verifies the signature with `openssl ts -verify`. A test rebuilds a chain with one verdict
+flipped: the rebuilt chain passes every check on its own, and fails against its receipt.
 
 ### Erasure, versions, replay
 
@@ -806,7 +841,8 @@ and a test suite supplies none of them.
   not a warehouse.
 - **Engines beyond three are unverified.** JDBC dialects are code-complete but untested against live services;
   the Snowflake connector has never met an account.
-- **The model guard is syntactic** (see above), and **the evidence trusts its own head** (no external anchoring).
+- **The model guard is syntactic** (see above), and **the evidence trusts its anchors**: records written since the last anchor stay rewritable until the next,
+and an anchor is only as independent as the authority chosen.
 
 What would falsify the thesis? A declared estate where derived controls miss defects that hand-written ones catch,
 at comparable effort. A deployment where *indeterminate* is so common that operators learn to read it as a pass. A
@@ -817,7 +853,7 @@ replay that says *identical* for a run whose data changed. The first two need re
 ## For the practitioner
 
 If you take one thing from this: **make your tools say "not established".** A SQL shape check that finds nothing,
-a freshness check on a table with no arrival time, a reconciliation across a filtered copy — each is a place where
+a freshness check on a table with no arrival column, a reconciliation across a filtered copy — each is a place where
 "green" means "didn't look". A verdict set with only pass and fail forces those into pass.
 
 If you take two: **write the belief down once, and derive the check from it.** The check will then change when the

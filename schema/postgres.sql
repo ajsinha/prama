@@ -808,6 +808,30 @@ CREATE TABLE IF NOT EXISTS ev_sample (
 CREATE INDEX IF NOT EXISTS ix_ev_sample_expiry ON ev_sample (expires_at);
 CREATE INDEX IF NOT EXISTS ix_ev_sample_tenant ON ev_sample (tenant_id);
 
+-- Receipts from a witness outside Prama for the chain head at a position: an
+-- RFC 3161 time-stamp token, today. A chain rebuilt by somebody with write
+-- access verifies on its own; it does not agree with a receipt it cannot
+-- forge, dated before the rebuild. A witness that could not be reached is a
+-- 'failed' row with the reason, not a missing one. See prama/evidence/anchor.py.
+CREATE TABLE IF NOT EXISTS ev_anchor (
+    id             VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id      VARCHAR(26)   NOT NULL,
+    -- The chain position anchored, and its record hash.
+    sequence       INTEGER       NOT NULL,
+    digest         VARCHAR(64)   NOT NULL,
+    kind           VARCHAR(32)   NOT NULL,
+    authority      VARCHAR(512)  NOT NULL DEFAULT '',
+    status         VARCHAR(16)   NOT NULL DEFAULT 'anchored',
+    requested_at   VARCHAR(32)   NOT NULL,
+    -- The witness's own clock reading, which is the one that counts.
+    witnessed_at   VARCHAR(32),
+    -- The proof, base64: for RFC 3161, the DER-encoded token.
+    token          TEXT          NOT NULL DEFAULT '',
+    detail         TEXT          NOT NULL DEFAULT '',
+    CONSTRAINT ck_ev_anchor_status CHECK (status IN ('anchored', 'failed'))
+);
+CREATE INDEX IF NOT EXISTS ix_ev_anchor_tenant ON ev_anchor (tenant_id, sequence);
+
 -- ---------------------------------------------------------------------------
 -- CONTROLS  (Wave 9)
 --

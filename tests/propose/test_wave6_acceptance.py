@@ -75,12 +75,14 @@ def declared() -> DatasetDeclaration:
         rhythm=Rhythm(
             frequency=Frequency.DAILY,
             arrival_by="06:30",
+            arrival_column="loaded_at",
             calendar="TARGET2",
             lateness_tolerance_seconds=900,
             expected_volume_min=1_000,
             expected_volume_max=50_000,
         ),
         attributes=(
+            AttributeDeclaration(name="loaded_at"),
             AttributeDeclaration(
                 name="counterparty_lei",
                 definition="the legal entity identifier of the obligor",
