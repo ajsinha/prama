@@ -1716,3 +1716,21 @@ CREATE TABLE IF NOT EXISTS cm_comment (
 );
 CREATE INDEX IF NOT EXISTS ix_cm_comment_object ON cm_comment (tenant_id, object_kind, object_ref);
 CREATE INDEX IF NOT EXISTS ix_cm_comment_open ON cm_comment (tenant_id, state);
+
+-- ===========================================================================
+-- USAGE  (Wave 17, E7)
+-- ===========================================================================
+-- How often each dataset is queried, per day, from a warehouse's own query
+-- history. Used to decide what to work on first, never to score quality: a
+-- popular dataset is not a better one.
+CREATE TABLE IF NOT EXISTS us_usage (
+    id            VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id     VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    dataset       VARCHAR(255)  NOT NULL,
+    day           VARCHAR(10)   NOT NULL,
+    source        VARCHAR(32)   NOT NULL,
+    queries       INTEGER       NOT NULL DEFAULT 0,
+    users         INTEGER       NOT NULL DEFAULT 0,
+    CONSTRAINT uq_us_usage UNIQUE (tenant_id, dataset, day, source)
+);
+CREATE INDEX IF NOT EXISTS ix_us_usage_day ON us_usage (tenant_id, day);

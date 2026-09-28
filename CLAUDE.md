@@ -184,6 +184,8 @@ prama metadata ask "trade amounts in USD"   # a discover model ranks and explain
 prama metadata correlate                   # same meaning across datasets; inconsistencies
 prama comment trades.ccy "@bo lower case?" --as ada   # discussion; mentions reach queues
 prama queue --as bo --approver             # what is waiting on a person
+prama usage import snowflake history.json  # query history -> daily usage (--query prints the export)
+prama usage priorities                     # most used, least controlled; never a score input
 prama delegate list                      # Python DQ delegates admitted here (delegates: in config)
 prama delegate test acme.x --rows s.csv  # run one exactly as a control would, sandboxed
 prama db init                            # apply schema/<dialect>.sql idempotently

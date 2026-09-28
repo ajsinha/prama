@@ -70,6 +70,7 @@ class MetadataRoutes(UiRoutes):
             starters=sorted(STARTER),
             datasets=await uow.datasets.list_current(caller.tenant_id, limit=5000),
             correlation=await service.correlation(uow, caller.tenant_id),
+            priorities=await _priorities(uow, caller.tenant_id),
         )
 
     async def template(
@@ -212,3 +213,9 @@ async def _find(request: Request, uow: Any, caller: Any, q: str) -> dict[str, An
         config=request.app.state.config,
         principal_id=caller.principal_id or None,
     )
+
+
+async def _priorities(uow: Any, tenant_id: str) -> dict[str, Any]:
+    from prama.semantic.services.priorities import priorities
+
+    return await priorities(uow, tenant_id)
