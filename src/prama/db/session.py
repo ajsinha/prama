@@ -57,6 +57,7 @@ if TYPE_CHECKING:
     from prama.db.dao.llm import LlmDao
     from prama.db.dao.llm_governance import LlmGovernanceDao
     from prama.db.dao.metadata import MetadataDao
+    from prama.db.dao.semantic_index import SemanticIndexDao
     from prama.db.dao.steward import StewardDao
     from prama.db.dao.usage import UsageDao
 
@@ -158,6 +159,12 @@ class UnitOfWork:
         from prama.db.dao import AuditDao
 
         return self._dao("audit", AuditDao)  # type: ignore[no-any-return]
+
+    @property
+    def semantic_index(self) -> SemanticIndexDao:
+        from prama.db.dao.semantic_index import SemanticIndexDao
+
+        return self._dao("semantic_index", SemanticIndexDao)  # type: ignore[no-any-return]
 
     @property
     def usage(self) -> UsageDao:

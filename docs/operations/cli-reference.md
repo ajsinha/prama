@@ -616,7 +616,7 @@ metadata and business context on datasets and attributes
 
 | Subcommand | What it does |
 |---|---|
-| `prama metadata ask` | find data of interest in plain words (a model ranks, if one is configured) |
+| `prama metadata ask` | which datasets are fit for a purpose (embeddings if configured, else BM25) |
 | `prama metadata context` | record the business context of a dataset or dataset.attribute |
 | `prama metadata correlate` | attributes that mean the same thing across datasets, and where they disagree |
 | `prama metadata find` | find datasets and attributes by meaning (business context, definitions, metadata) |

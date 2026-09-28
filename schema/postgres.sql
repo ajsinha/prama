@@ -1734,3 +1734,21 @@ CREATE TABLE IF NOT EXISTS us_usage (
     CONSTRAINT uq_us_usage UNIQUE (tenant_id, dataset, day, source)
 );
 CREATE INDEX IF NOT EXISTS ix_us_usage_day ON us_usage (tenant_id, day);
+
+-- ===========================================================================
+-- SEMANTIC INDEX  (Wave 17)
+-- ===========================================================================
+-- One embedding per dataset profile (name, description, business context,
+-- metadata, attributes, glossary terms), per embedding model. Re-embedded only
+-- when the profile text changes (text_hash). Used to rank datasets by fitness
+-- for a stated purpose; never read by a score.
+CREATE TABLE IF NOT EXISTS sx_vector (
+    id            VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id     VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    dataset_id    VARCHAR(26)   NOT NULL,
+    model         VARCHAR(128)  NOT NULL,
+    text_hash     VARCHAR(64)   NOT NULL,
+    vector_json   TEXT          NOT NULL,
+    updated_at    VARCHAR(32)   NOT NULL,
+    CONSTRAINT uq_sx_vector UNIQUE (tenant_id, dataset_id, model)
+);

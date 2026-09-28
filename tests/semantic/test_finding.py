@@ -31,7 +31,7 @@ async def test_without_a_model_the_keyword_ranking_stands(
     async with started_database.unit_of_work() as uow:
         await _estate(uow, tenant_id)
         answer = await find_data(uow, tenant_id, "which data has settlement dates?")
-    assert answer["ranked_by"] == "keywords"
+    assert answer["ranked_by"] == "relevance"
     assert answer["matches"][0]["name"] == "Trades"
     assert "no LLM is configured" in answer["note"]
 
@@ -70,4 +70,4 @@ async def test_the_search_box_uses_it(ui: Any, started_database: Database, tenan
     async with started_database.unit_of_work() as uow:
         await _estate(uow, tenant_id)
     page = await ui.get("/metadata?q=settlement")
-    assert "Ranked by keywords" in page.text and "Trades" in page.text
+    assert "ranked by relevance" in page.text and "Trades" in page.text

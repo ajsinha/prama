@@ -115,7 +115,12 @@ class ScriptedProvider(ModelProvider):
         answers: Sequence[str] | Callable[[Request], str],
         *,
         supports_grammar: bool = False,
+        embeddings: bool = False,
     ) -> None:
+        #: Toy embeddings (hashed bags of words), for tests and demonstrations
+        #: of the retrieval path. Deterministic, and semantic only in the sense
+        #: that shared words land in shared dimensions.
+        self._embeddings = embeddings
         self._answers = answers
         self._index = 0
         self.calls: list[Request] = []
@@ -141,6 +146,20 @@ class ScriptedProvider(ModelProvider):
             grammar_enforced=bool(self.supports_grammar and request.grammar),
             incomplete="" if text else "the script ran out of answers",
         )
+
+    def embed_texts(self, texts: list[str]) -> list[list[float]] | None:
+        if not self._embeddings:
+            return None
+        import hashlib as _hashlib
+        import re as _re
+
+        out = []
+        for text in texts:
+            vector = [0.0] * 64
+            for word in _re.findall(r"[a-z0-9]+", text.lower()):
+                vector[int(_hashlib.md5(word.encode()).hexdigest(), 16) % 64] += 1.0
+            out.append(vector)
+        return out
 
 
 class _HttpProvider(ModelProvider):
@@ -361,6 +380,18 @@ class OpenAiCompatibleProvider(_HttpProvider):
             incomplete="truncated: hit the token limit" if finish == "length" else "",
         )
 
+    def _embeddings_path(self) -> str:
+        return "/v1/embeddings"
+
+    def embed_texts(self, texts: list[str]) -> list[list[float]] | None:
+        """``/v1/embeddings``: Ollama, vLLM, llama.cpp's server, OpenAI and most gateways."""
+        payload = self._post(
+            self._embeddings_path(), {"model": self._model, "input": texts}, self._auth({})
+        )
+        rows = sorted(payload.get("data") or [], key=lambda d: d.get("index", 0))
+        vectors = [list(map(float, d.get("embedding") or [])) for d in rows]
+        return vectors if len(vectors) == len(texts) and all(vectors) else None
+
     def stream(self, request: Request) -> Iterator[str]:
         """Tokens from ``/v1/chat/completions`` with ``stream: true`` (SSE)."""
         headers = self._auth({"content-type": "application/json"})
@@ -418,6 +449,10 @@ class AzureOpenAiProvider(OpenAiCompatibleProvider):
         deployment = urllib.parse.quote(self._model, safe="")
         return f"/openai/deployments/{deployment}/chat/completions?api-version={self.api_version}"
 
+    def _embeddings_path(self) -> str:
+        deployment = urllib.parse.quote(self._model, safe="")
+        return f"/openai/deployments/{deployment}/embeddings?api-version={self.api_version}"
+
     def _auth(self, headers: dict[str, str]) -> dict[str, str]:
         if self._api_key is not None:
             headers["api-key"] = self._api_key.reveal()
@@ -451,6 +486,11 @@ class VertexProvider(OpenAiCompatibleProvider):
 
     def _path(self) -> str:
         return "/chat/completions"
+
+    def embed_texts(self, texts: list[str]) -> list[list[float]] | None:  # noqa: ARG002
+        # Vertex's OpenAI-compatible surface is for chat; its embedding models
+        # have their own API, not built. Saying so beats a request that 404s.
+        return None
 
 
 class AnthropicProvider(_HttpProvider):

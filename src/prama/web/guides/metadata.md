@@ -54,18 +54,24 @@ inside quotes, so metadata cannot change what a rule checks.
 | `{{ pattern }}` | `/…/` |
 | `{{ columns }}` | `a, b`, checked as identifiers (columns fields) |
 
-## Finding data of interest
+## Which dataset is fit for a purpose
 
-Ask in plain words on the Metadata page, or with `prama metadata ask "…"`:
+Describe what you need the data for, on the Metadata page or with `prama metadata ask "…"`, for
+example *"convert trade amounts to USD"*. Prama ranks the **datasets** by how well they fit.
 
-1. **Candidates.** Every dataset and attribute whose business context, definition, metadata or
-   glossary term mentions a word of the question becomes a candidate. This step is deterministic.
-2. **Ranking.** If a model is configured for the purpose **`discover`** (Models page), it ranks
-   the candidates and says why each fits. It may only choose among them, and a name it invents
-   is dropped. Its call is recorded like any other model call.
-3. **Without a model,** the keyword ranking stands, and the page says so.
+- **Each dataset's profile is searched.** That is its name, description, purpose, business
+  context, metadata, glossary terms, and every attribute's name, definition and context. The
+  better the owners describe their data, the better this works.
+- **Embeddings.** With a model configured for the purpose **`embed`** (Models page; for example
+  `nomic-embed-text` on Ollama), the search matches by meaning, so "amount at risk" can find
+  "exposure". Profiles are embedded once and again only when they change.
+- **Relevance (BM25).** Without an embedding model, a deterministic word-based ranking is used.
+  The page always says which ranking was used.
+- **Evidence.** Each result names the attributes that best match your purpose.
+- **Explanation.** With a model configured for **`discover`**, the best candidates are also
+  explained and re-ordered. That model can only choose among real datasets.
 
-The better the business context, the better the answers.
+This searches what the data **is**, as its owners describe it. It never reads the data itself.
 
 ## Same meaning, across datasets
 

@@ -237,6 +237,24 @@ class ModelProvider(abc.ABC):
         self.permit_residency(request)
         yield from self.stream(self.withhold(request))
 
+    def embed_texts(self, texts: list[str]) -> list[list[float]] | None:  # noqa: ARG002
+        """Vectors for *texts*, or None when this provider cannot embed.
+
+        Override to embed for real. The default says it cannot, so a caller
+        falls back to its non-model ranking rather than guessing.
+        """
+        return None
+
+    def embed(
+        self, texts: list[str], *, sensitivity: Sensitivity = Sensitivity.INTERNAL
+    ) -> list[list[float]] | None:
+        """Vectors for *texts*, after the same checks as :meth:`ask`."""
+        probe = Request(system="", prompt="\n".join(texts), sensitivity=sensitivity)
+        self.permit(probe)
+        self.permit_residency(probe)
+        cleaned = [self.withhold(Request(system="", prompt=t)).prompt for t in texts]
+        return self.embed_texts(cleaned)
+
     def stream(self, request: Request) -> Iterator[str]:
         """Override to stream for real. The default completes, then yields once."""
         response = self.complete(request)

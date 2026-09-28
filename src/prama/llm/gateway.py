@@ -244,6 +244,58 @@ class LlmGateway:
         )
         return Route(purpose=purpose, candidates=(mock,), max_attempts=1)
 
+    def embed(
+        self, purpose: str, texts: list[str], *, sensitivity: Any = None
+    ) -> tuple[list[list[float]], str] | None:
+        """Vectors for *texts* from the first candidate of *purpose* that can embed,
+        with the model that made them; None when no candidate can.
+
+        The mock route (no profile) cannot embed, so an unconfigured purpose
+        returns None and the caller uses its non-model ranking.
+        """
+        from prama.semantic.values import Sensitivity
+
+        route = self._route(purpose)
+        level = sensitivity or Sensitivity.INTERNAL
+        probe = Request(system="", prompt="\n".join(texts), sensitivity=level)
+        started, clock = _now(), time.monotonic()
+        base = {
+            "tenant_id": self._tenant,
+            "surface": self._surface,
+            "purpose": purpose,
+            "sensitivity": level.value,
+            "request_fingerprint": probe.fingerprint,
+            "prompt_hash": _hash(probe.prompt),
+            "principal_id": self._principal,
+            "api_key_id": self._api_key,
+            "profile_id": route.profile_id or None,
+            "profile_version": route.version,
+            "temperature": 0.0,
+            "seed": None,
+        }
+        for candidate in route.candidates:
+            try:
+                vectors = candidate.provider.embed(texts, sensitivity=level)
+            except PramaError as exc:
+                self._record(
+                    base, started, clock, candidate, None, 1, None, "refused_policy", str(exc)
+                )
+                continue
+            except Exception as exc:  # a provider that fails is a finding, and the next is tried
+                self._record(base, started, clock, candidate, None, 1, None, "error", str(exc))
+                continue
+            if vectors is None:
+                continue
+            reply = Response(
+                text="",
+                model=candidate.model,
+                provider=candidate.kind,
+                request_fingerprint=probe.fingerprint,
+            )
+            self._record(base, started, clock, candidate, reply, 1, None, "ok")
+            return vectors, candidate.model
+        return None
+
     def run(self, purpose: str, request: Request) -> Response:
         route = self._route(purpose)
         started, clock = _now(), time.monotonic()
