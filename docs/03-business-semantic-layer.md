@@ -268,9 +268,18 @@ Two additions complete the declaration, both as built:
   `key` proposes `HAS UNIQUE KEY`. This is the same principle as the rest of this document:
   controls derive from what the business says, and a person accepts them.
 
-The next step builds on both: correlating datasets through shared concepts, glossary terms,
-value overlap and query co-access, and reporting where the same business meaning is held
-inconsistently in two places.
+**Correlation**, built on both (`semantic/correlate.py`), works in three steps:
+
+1. **Grouping.** Attributes bound to the same concept property or glossary term are the same
+   thing, whatever they are called. A shared semantic type groups them for consistency only.
+2. **Reference proposals.** When one dataset owns that meaning as its key, every other member
+   is proposed a `REFERENCES` check to it.
+3. **Consistency findings.** Where one meaning is held differently in two places (type,
+   sensitivity, CDE mark, allowed values, pattern, description), that is a finding for a
+   steward.
+
+Value overlap and query co-access, the data-side signals, remain with `prama.discover` and are
+the next evidence to feed in.
 
 ## 3. Progressive formalisation — the adoption contract
 

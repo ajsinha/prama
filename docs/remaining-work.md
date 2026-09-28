@@ -95,9 +95,8 @@ Ordered by what I would take first. Each item says why it matters.
   a `WHERE` on reconciliations, and PQL forms for row-count, aggregate and roll-forward parity,
   which are still specifications.
 - **Wave 17:**
-  - metadata correlation: relationships from shared concepts, terms, value overlap and query
-    co-access, with cross-dataset consistency findings (metadata templates and business context
-    are built);
+  - correlation from data-side signals: value overlap and query co-access fed into the built,
+    metadata-based correlation;
   - AI over business context: embedding search and "find data of interest" (keyword search is
     built);
   - E6: steward queues and comments (search is built for metadata);

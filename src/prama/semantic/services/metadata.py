@@ -295,3 +295,81 @@ async def search(uow: Any, tenant_id: str, text: str, *, limit: int = 30) -> lis
                 (1, {"kind": "term", "name": term.name, "slug": "", "context": term.definition})
             )
     return [h for _, h in sorted(hits, key=lambda x: -x[0])[:limit]]
+
+
+async def correlation(uow: Any, tenant_id: str) -> dict[str, Any]:
+    """Groups of attributes that mean the same thing, the references that follow,
+    and where one meaning is held inconsistently (`prama.semantic.correlate`)."""
+    from prama.semantic.correlate import AttributeFact, findings, groups, references
+
+    names: dict[str, str] = {}
+    for template in await uow.metadata.templates(tenant_id, applies_to="attribute"):
+        for row in await uow.metadata.fields(template.id):
+            names[row.id] = row.name
+    dataset_fields: dict[str, str] = {}
+    for template in await uow.metadata.templates(tenant_id, applies_to="dataset"):
+        for row in await uow.metadata.fields(template.id):
+            dataset_fields[row.id] = row.name
+    values: dict[str, dict[str, Any]] = {}
+    for value in await uow.metadata.current_values(tenant_id):
+        field = names.get(value.field_id) or dataset_fields.get(value.field_id)
+        if field:
+            values.setdefault(value.object_ref, {})[field] = json.loads(value.value_json)
+    term_names = {t.id: t.name for t in await uow.glossary.terms(tenant_id)}
+    bound: dict[str, set[str]] = {}
+    for binding in await uow.glossary.bindings(tenant_id):
+        if binding.object_kind == "attribute":
+            bound.setdefault(binding.object_ref, set()).add(term_names.get(binding.term_id, ""))
+    facts = []
+    for version in await uow.datasets.list_current(tenant_id, limit=5000):
+        keys = set((version.grain_json or {}).get("attributes") or [])
+        keys |= set(values.get(version.dataset_id, {}).get("key") or [])
+        for a in await uow.attributes.for_dataset(version.dataset_id, tenant_id=tenant_id):
+            terms = set(bound.get(f"{version.slug}.{a.name}", set()))
+            if a.glossary_term:
+                terms.add(a.glossary_term)
+            facts.append(
+                AttributeFact(
+                    dataset=version.slug,
+                    attribute=a.name,
+                    concept_property=a.concept_property_id or "",
+                    terms=tuple(sorted(t for t in terms if t)),
+                    semantic_type=a.semantic_type or "",
+                    is_key=a.name in keys,
+                    is_cde=bool(a.is_cde),
+                    sensitivity=a.sensitivity,
+                    metadata=values.get(a.attribute_id, {}),
+                    described=bool(
+                        (a.definition or "").strip() or (a.business_context or "").strip()
+                    ),
+                )
+            )
+    found = groups(facts)
+    proposed = []
+    for group in found:
+        for ref in references(group):
+            content_hash = hashlib.sha256(ref.pql.encode("utf-8")).hexdigest()
+            if await uow.controls.by_identity(tenant_id, ref.identity) is not None:
+                continue
+            if await uow.rejections.was_rejected(tenant_id, ref.identity, content_hash):
+                continue
+            proposed.append(
+                {
+                    "identity": ref.identity,
+                    "rule": ref.rule,
+                    "dataset": ref.dataset,
+                    "dataset_id": "",
+                    "pql": ref.pql,
+                    "content_hash": content_hash,
+                    "sentence": ref.sentence,
+                    "amends": False,
+                }
+            )
+    return {
+        "groups": [
+            {"meaning": g.meaning, "by": g.by, "members": [m.qualified for m in g.members]}
+            for g in found
+        ],
+        "findings": [f.to_dict() for g in found for f in findings(g)],
+        "proposals": proposed,
+    }

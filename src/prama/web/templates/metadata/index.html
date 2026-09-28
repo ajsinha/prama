@@ -20,6 +20,16 @@
 {% else %}<li class="text-muted">Nothing mentions “{{ q }}” yet. Business context is what this searches; add some.</li>{% endfor %}</ul>
 {% endif %}
 
+{% if correlation.groups %}
+<section class="border rounded p-3 mb-4" aria-labelledby="corr-h">
+  <h2 class="h6" id="corr-h">Same meaning, across datasets</h2>
+  <ul class="small mb-2">{% for g in correlation.groups %}<li><strong>{{ g.meaning }}</strong> <span class="text-muted">(same {{ g.by }})</span>: {{ g.members | join(', ') }}</li>{% endfor %}</ul>
+  {% if correlation.findings %}<h3 class="h6">Held inconsistently</h3>
+  <ul class="small mb-2">{% for f in correlation.findings %}<li><span class="badge text-bg-warning">{{ f.aspect }}</span> {{ f.meaning }}: {{ f.detail }}</li>{% endfor %}</ul>{% endif %}
+  {% if correlation.proposals %}<p class="small mb-0">{{ correlation.proposals | length }} reference check(s) follow from these, waiting in <a href="{{ url_for('proposal_queue') }}">Proposals</a>.</p>{% endif %}
+</section>
+{% endif %}
+
 <div class="row g-4">
   <div class="col-lg-6">
     <h2 class="h6">Datasets</h2>

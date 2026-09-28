@@ -190,6 +190,13 @@ class ProposalRoutes(UiRoutes):
                 )
                 continue
             proposals.append({**implied, "criticality": criticality.get(implied["dataset_id"], 3)})
+        # References that follow from two attributes meaning the same thing, when
+        # one dataset owns that meaning as its key (`prama.semantic.correlate`).
+        if not dataset_id:
+            from prama.semantic.services.metadata import correlation
+
+            for referenced in (await correlation(uow, caller.tenant_id))["proposals"]:
+                proposals.append({**referenced, "criticality": 3})
         # Tier 1 first, then by rule so a systematically bad rule is visible as
         # a block rather than scattered through the list.
         proposals.sort(key=lambda p: (p["criticality"], p["rule"], p["dataset"]))

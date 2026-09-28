@@ -69,6 +69,7 @@ class MetadataRoutes(UiRoutes):
             templates=templates,
             starters=sorted(STARTER),
             datasets=await uow.datasets.list_current(caller.tenant_id, limit=5000),
+            correlation=await service.correlation(uow, caller.tenant_id),
         )
 
     async def template(
