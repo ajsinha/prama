@@ -54,6 +54,19 @@ inside quotes, so metadata cannot change what a rule checks.
 | `{{ pattern }}` | `/…/` |
 | `{{ columns }}` | `a, b`, checked as identifiers (columns fields) |
 
+## Finding data of interest
+
+Ask in plain words on the Metadata page, or with `prama metadata ask "…"`:
+
+1. **Candidates.** Every dataset and attribute whose business context, definition, metadata or
+   glossary term mentions a word of the question becomes a candidate. This step is deterministic.
+2. **Ranking.** If a model is configured for the purpose **`discover`** (Models page), it ranks
+   the candidates and says why each fits. It may only choose among them, and a name it invents
+   is dropped. Its call is recorded like any other model call.
+3. **Without a model,** the keyword ranking stands, and the page says so.
+
+The better the business context, the better the answers.
+
 ## Same meaning, across datasets
 
 When two attributes in different datasets are bound to the same **concept property** or the

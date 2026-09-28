@@ -600,6 +600,7 @@ metadata and business context on datasets and attributes
 
 | Subcommand | What it does |
 |---|---|
+| `prama metadata ask` | find data of interest in plain words (a model ranks, if one is configured) |
 | `prama metadata context` | record the business context of a dataset or dataset.attribute |
 | `prama metadata correlate` | attributes that mean the same thing across datasets, and where they disagree |
 | `prama metadata find` | find datasets and attributes by meaning (business context, definitions, metadata) |
@@ -607,6 +608,12 @@ metadata and business context on datasets and attributes
 | `prama metadata show` | a dataset's context, metadata, attributes, rules and implied rules |
 | `prama metadata template` | metadata templates |
 
+**`prama metadata ask`**
+
+| Argument | Meaning |
+|---|---|
+| `question` **required** |  |
+| `--tenant` | slug or id; defaults to the configured one |
 **`prama metadata context`**
 
 | Argument | Meaning |

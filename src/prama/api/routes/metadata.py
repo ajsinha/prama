@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 
 from prama.api.deps import Reader, Uow
 from prama.semantic.services import metadata as service
@@ -18,6 +18,21 @@ router = APIRouter(tags=["metadata"])
 @router.get("/metadata/search")
 async def search(uow: Uow, caller: Reader, q: str = Query(min_length=1)) -> list[dict[str, Any]]:
     return await service.search(uow, caller.tenant_id, q)
+
+
+@router.get("/metadata/ask")
+async def ask(
+    request: Request, uow: Uow, caller: Reader, q: str = Query(min_length=1)
+) -> dict[str, Any]:
+    from prama.semantic.services.finding import find_data
+
+    return await find_data(
+        uow,
+        caller.tenant_id,
+        q,
+        config=request.app.state.config,
+        principal_id=caller.principal_id or None,
+    )
 
 
 @router.get("/metadata/correlation")

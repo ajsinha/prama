@@ -180,6 +180,8 @@ prama lineage import export.json --from manta   # or alation; kept beside Prama'
 prama glossary import terms.json --from alation # or collibra; lists what it dropped
 prama metadata set trades.account_id mandatory=yes   # metadata; rules it implies go to Proposals
 prama metadata find "settlement currency"   # find data by business context and metadata
+prama metadata ask "trade amounts in USD"   # a discover model ranks and explains, if configured
+prama metadata correlate                   # same meaning across datasets; inconsistencies
 prama delegate list                      # Python DQ delegates admitted here (delegates: in config)
 prama delegate test acme.x --rows s.csv  # run one exactly as a control would, sandboxed
 prama db init                            # apply schema/<dialect>.sql idempotently

@@ -353,6 +353,10 @@ Modules named in the design notes that do not exist yet are marked `(planned)` t
   grouped. `REFERENCES` checks toward the one dataset keyed by that meaning go to Proposals, and
   consistency findings (type, sensitivity, CDE, allowed values, pattern, description) are shown
   for stewards.
+- **Finding data of interest, built** (`semantic/services/finding.py`, `prama metadata ask`,
+  `/api/v1/metadata/ask`). Candidates are retrieved by keyword. A `discover` model ranks and
+  explains them, may cite only candidates it was given, and falls back to keywords without a
+  model.
 - **Next:** feed the data-side signals (value overlap and query co-access, `prama.discover`) into
   correlation.
 
