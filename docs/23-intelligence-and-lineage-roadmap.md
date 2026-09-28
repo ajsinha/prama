@@ -334,6 +334,23 @@ Modules named in the design notes that do not exist yet are marked `(planned)` t
 - **Also added:** the mock LLM provider. When no model is configured, the gateway uses a
   placeholder that answers with nothing.
 
+**Wave 17, E5 (glossary and catalog imports), as built:**
+
+- **The glossary.** `gl_term` and `gl_binding` bind terms to concepts, datasets and
+  attributes. The Glossary page searches names, synonyms and definitions.
+  `sem_attribute_version.glossary_term` stays, for display; removing it would make every
+  deployed database fail verification, since there are no migrations.
+- **Imports** (`importers/catalog.py`):
+  - Alation terms and column lineage;
+  - Collibra Business Terms;
+  - Manta's graph export.
+
+  Each import lists every item it dropped, and why. Terms bind to same-named concepts
+  automatically. Imported edges are stored as `imported:<vendor>`, beside Prama's own parse.
+  `prama lineage conflicts` and the Lineage page show where the two disagree.
+- **Not verified:** these readers are tested against the vendors' documented export shapes, not
+  against a live Alation, Collibra or Manta instance. That verification is part of E9.
+
 ## 1. What the analysis found
 
 **1. Prama's lineage is a tested library that nothing uses.** `lineage/graph.py`, `lineage/sql.py`

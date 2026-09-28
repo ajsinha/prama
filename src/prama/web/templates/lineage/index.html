@@ -91,6 +91,11 @@
     </table>
   </div>
   <div class="col-lg-6">
+    {% if conflicts %}
+    <h2 class="h6">Imported lineage that disagrees with Prama's parse</h2>
+    {% for c in conflicts %}<div class="small mb-2"><code>{{ c.column }}</code> <span class="badge text-bg-warning">{{ c.vendor }}</span>
+      <div class="text-muted">only theirs: {{ c.theirs_only | join(', ') or '-' }} · only ours: {{ c.ours_only | join(', ') or '-' }}</div></div>{% endfor %}
+    {% endif %}
     <h2 class="h6">Not understood in the latest scan</h2>
     {% for g in gaps %}<div class="small mb-2"><span class="badge text-bg-secondary">{{ g.kind }}</span> {{ g.detail }}</div>
     {% else %}<p class="text-muted small">Nothing: every statement was read.</p>{% endfor %}

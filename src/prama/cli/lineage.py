@@ -289,6 +289,57 @@ class HistoryCommand(Command):
         return EXIT_OK
 
 
+class ImportCatalogCommand(Command):
+    name = "import"
+    help = "import lineage from a Manta or Alation export (kept beside Prama's own parse)"
+
+    def configure(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("export", help="the JSON the vendor exported")
+        parser.add_argument("--from", dest="vendor", required=True, choices=["manta", "alation"])
+        parser.add_argument("--source", default="", help="a name; defaults to <vendor>-import")
+        _tenant_flag(parser)
+
+    def run(self, ctx: CommandContext) -> int:
+        import json
+
+        from prama.cli.glossary import emit_import
+        from prama.importers.catalog import ingest, read
+
+        imported = read(ctx.args.vendor, "lineage", json.loads(_read(ctx.args.export)))
+
+        async def work(uow: Any, tenant: str) -> dict[str, Any]:
+            return await ingest(uow, tenant, imported, source=ctx.args.source)
+
+        emit_import(ctx, _with_uow(ctx, work))
+        return EXIT_OK
+
+
+class ConflictsCommand(Command):
+    name = "conflicts"
+    help = "columns where an imported catalog and Prama's own parse disagree"
+
+    def configure(self, parser: argparse.ArgumentParser) -> None:
+        _tenant_flag(parser)
+
+    def run(self, ctx: CommandContext) -> int:
+        from prama.importers.catalog import disagreements
+
+        async def work(uow: Any, tenant: str) -> list[dict[str, Any]]:
+            return await disagreements(uow, tenant)
+
+        rows = _with_uow(ctx, work)
+        if ctx.json_output:
+            ctx.emit_json(rows)
+            return EXIT_OK
+        if not rows:
+            ctx.emit("No disagreements between imported lineage and Prama's parse.")
+        for r in rows:
+            ctx.emit(f"{r['column']}  ({r['vendor']})")
+            ctx.emit(f"  only theirs: {', '.join(r['theirs_only']) or '-'}")
+            ctx.emit(f"  only ours:   {', '.join(r['ours_only']) or '-'}")
+        return EXIT_OK
+
+
 class LineageCommand(CommandGroup):
     name = "lineage"
     help = "column lineage: scan SQL, show edges, impact, gaps"
@@ -298,6 +349,8 @@ class LineageCommand(CommandGroup):
             ScanCommand(),
             IngestDbtCommand(),
             HistoryCommand(),
+            ImportCatalogCommand(),
+            ConflictsCommand(),
             ShowCommand(),
             ImpactCommand(),
             GapsCommand(),

@@ -1,0 +1,35 @@
+{# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{% extends "base.html" %}
+{% block title %}Glossary — Prama{% endblock %}
+{% block heading %}Business glossary{% endblock %}
+{% block content %}
+<p class="text-muted small" style="max-width: 58rem">The terms the business uses, and what each one names in the estate.
+  Import them from Alation or Collibra (<code>prama glossary import</code>) or bind them here. A term bound to a concept
+  reaches every control derived from that concept.</p>
+<form class="row g-2 mb-3" method="get" action="{{ url_for('glossary') }}" style="max-width: 36rem">
+  <div class="col-8"><label class="visually-hidden" for="g-q">Search</label>
+    <input class="form-control form-control-sm" id="g-q" name="q" value="{{ q }}" placeholder="Search names, synonyms, definitions"></div>
+  <div class="col-4"><button class="btn btn-sm btn-outline-primary w-100" type="submit">Search</button></div>
+</form>
+{% if not rows %}<p class="text-muted small">{% if q %}No term mentions “{{ q }}”.{% else %}No terms yet.{% endif %}</p>{% endif %}
+{% for r in rows %}
+<section class="border rounded p-3 mb-2" aria-labelledby="t-{{ r.term.id }}">
+  <div class="d-flex flex-wrap gap-2 align-items-center">
+    <h2 class="h6 mb-0" id="t-{{ r.term.id }}">{{ r.term.name }}</h2>
+    <span class="badge {{ 'text-bg-success' if r.term.status == 'accepted' else 'text-bg-secondary' }}">{{ r.term.status }}</span>
+    <span class="small text-muted">{{ r.term.source }}{% if r.term.domain %} · {{ r.term.domain }}{% endif %}{% if r.term.steward %} · steward {{ r.term.steward }}{% endif %}</span>
+  </div>
+  {% if r.term.definition %}<p class="small mb-1 mt-1">{{ r.term.definition }}</p>{% endif %}
+  {% if r.synonyms %}<p class="small text-muted mb-1">Also called: {{ r.synonyms | join(', ') }}</p>{% endif %}
+  <p class="small mb-1">Names: {% for kind, name, how in r.bound %}<span class="badge text-bg-light border">{{ kind }}: {{ name }}{% if how != 'person' %} ({{ how | replace('_', ' ') }}){% endif %}</span> {% else %}<span class="text-muted">nothing yet</span>{% endfor %}</p>
+  <form method="post" action="{{ url_for('glossary_bind') }}" class="d-flex flex-wrap gap-2 small">
+    <input type="hidden" name="term" value="{{ r.term.name }}">
+    <label class="visually-hidden" for="k-{{ r.term.id }}">Kind</label>
+    <select class="form-select form-select-sm" style="max-width: 9rem" id="k-{{ r.term.id }}" name="kind"><option>concept</option><option>dataset</option><option>attribute</option></select>
+    <label class="visually-hidden" for="r-{{ r.term.id }}">Name</label>
+    <input class="form-control form-control-sm" style="max-width: 18rem" id="r-{{ r.term.id }}" name="ref" placeholder="Exposure, or positions.notional">
+    <button class="btn btn-sm btn-outline-secondary" type="submit">Bind</button>
+  </form>
+</section>
+{% endfor %}
+{% endblock %}

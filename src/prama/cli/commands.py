@@ -22,6 +22,7 @@ from prama.cli.contract import ContractCommand
 from prama.cli.control import ControlCommand
 from prama.cli.delegate import DelegateCommand
 from prama.cli.estate import EstateCommand
+from prama.cli.glossary import GlossaryCommand
 from prama.cli.lineage import LineageCommand
 from prama.cli.llm import LlmCommand
 from prama.cli.lsp import LspCommand
@@ -319,6 +320,7 @@ def all_commands() -> list[Command]:
         ApiKeyCommand(),
         LlmCommand(),
         DelegateCommand(),
+        GlossaryCommand(),
         LineageCommand(),
         CodeCommand(),
         ServeCommand(),

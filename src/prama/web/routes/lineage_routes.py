@@ -78,6 +78,7 @@ class LineageRoutes(UiRoutes):
             dataset=dataset,
             column=column,
             impact=impact,
+            conflicts=await _conflicts(uow, caller.tenant_id),
         )
 
     async def decide(
@@ -97,3 +98,9 @@ class LineageRoutes(UiRoutes):
             flash_error_and_log(request, "That decision could not be recorded", exc)
             return redirect_to(request, "lineage")
         return redirect_to(request, "lineage", flash_message=f"Edge {decision}.")
+
+
+async def _conflicts(uow: Any, tenant_id: str) -> list[dict[str, Any]]:
+    from prama.importers.catalog import disagreements
+
+    return await disagreements(uow, tenant_id)

@@ -235,7 +235,7 @@ Five contributions, targeting **ACM JDIQ** with a **VLDB Industrial** companion 
 are complete, apart from two tasks that are open on infrastructure rather than code. So is most of
 the intelligence roadmap in [docs/23](docs/23-intelligence-and-lineage-roadmap.md): the LLM gateway
 and the lineage workbench, code-to-lineage, steward agents, and DQ delegates. What is left is in
-[docs/remaining-work.md](docs/remaining-work.md). The suite is at <!--tests-->5,895 passing, 118 skipped<!--/tests-->,
+[docs/remaining-work.md](docs/remaining-work.md). The suite is at <!--tests-->5,902 passing, 118 skipped<!--/tests-->,
 derived from a green run by `scripts/sync_test_counts.py` rather than typed — a
 count in prose rots the first time somebody adds a test.
 
@@ -292,6 +292,7 @@ The intelligence layer adds these pieces:
 - **Code intake.** A ZIP or a git repository is read in a sandbox and never executed, re-reading
   only what a commit changed. A model may propose further edges, which are checked before a
   person confirms them.
+- **A business glossary**, imported from Alation or Collibra, with its terms bound to concepts, datasets and attributes. Lineage can also be imported from Manta or Alation, and is kept beside Prama's own parse, with any disagreements shown.
 - **Controls proposed from lineage.**
 - **Steward agents** that read and propose, and never approve.
 - **DQ delegates.** These are Python checks named from PQL, vetted before import, run in a

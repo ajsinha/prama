@@ -91,6 +91,12 @@ SECTIONS: tuple[HelpSection, ...] = (
                 "bi-robot",
             ),
             _g(
+                "glossary",
+                "Business glossary",
+                "Terms, their meanings, what they name; imported from Alation or Collibra.",
+                "bi-book-half",
+            ),
+            _g(
                 "delegates",
                 "DQ delegates",
                 "Your own Python checks, named from PQL and judged by Prama.",

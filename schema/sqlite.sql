@@ -1595,3 +1595,42 @@ CREATE TABLE IF NOT EXISTS llm_eval_run (
     CONSTRAINT ck_llm_eval_status CHECK (status IN ('running', 'passed', 'failed', 'error'))
 );
 CREATE INDEX IF NOT EXISTS ix_llm_eval_run_subject ON llm_eval_run (tenant_id, profile_id, template_id);
+
+-- ===========================================================================
+-- BUSINESS GLOSSARY  (Wave 17, E5)
+-- ===========================================================================
+-- Terms the business uses, bound to the concepts, datasets and attributes they
+-- name. Imported from Alation or Collibra (source + external_id) or written
+-- here. `sem_attribute_version.glossary_term` stays for display; bindings here
+-- are the authority.
+CREATE TABLE IF NOT EXISTS gl_term (
+    id            VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id     VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    name          VARCHAR(255)  NOT NULL,
+    definition    TEXT          NOT NULL DEFAULT '',
+    synonyms_json TEXT          NOT NULL DEFAULT '[]',
+    domain        VARCHAR(255)  NOT NULL DEFAULT '',
+    steward       VARCHAR(255)  NOT NULL DEFAULT '',
+    status        VARCHAR(16)   NOT NULL DEFAULT 'accepted',
+    source        VARCHAR(32)   NOT NULL DEFAULT 'prama',
+    external_id   VARCHAR(255),
+    created_at    VARCHAR(32)   NOT NULL,
+    updated_at    VARCHAR(32)   NOT NULL,
+    CONSTRAINT uq_gl_term_name UNIQUE (tenant_id, name),
+    CONSTRAINT ck_gl_term_status CHECK (status IN ('candidate', 'accepted', 'deprecated'))
+);
+CREATE INDEX IF NOT EXISTS ix_gl_term_external ON gl_term (tenant_id, source, external_id);
+CREATE TABLE IF NOT EXISTS gl_binding (
+    id            VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id     VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    term_id       VARCHAR(26)   NOT NULL REFERENCES gl_term (id) ON DELETE CASCADE,
+    object_kind   VARCHAR(16)   NOT NULL,
+    object_ref    VARCHAR(512)  NOT NULL,
+    how           VARCHAR(16)   NOT NULL DEFAULT 'person',
+    created_by    VARCHAR(26),
+    created_at    VARCHAR(32)   NOT NULL,
+    CONSTRAINT uq_gl_binding UNIQUE (term_id, object_kind, object_ref),
+    CONSTRAINT ck_gl_binding_kind CHECK (object_kind IN ('concept', 'dataset', 'attribute')),
+    CONSTRAINT ck_gl_binding_how CHECK (how IN ('person', 'name_match', 'imported'))
+);
+CREATE INDEX IF NOT EXISTS ix_gl_binding_object ON gl_binding (tenant_id, object_kind, object_ref);
