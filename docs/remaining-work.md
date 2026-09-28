@@ -97,8 +97,6 @@ Ordered by what I would take first. Each item says why it matters.
 - **Wave 17:**
   - correlation from data-side signals: value overlap and query co-access fed into the built,
     metadata-based correlation;
-  - embedding retrieval for "find data of interest" (keyword retrieval with model ranking is
-    built);
   - E9: write-back verified against live catalogs, which needs live catalogs.
 - **Delegates:** Arrow record batches in place of JSON lines.
 - **Out of scope by decision (2026-09-27):** mainframe code (COBOL, JCL, copybooks), and DataStage,

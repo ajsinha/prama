@@ -72,6 +72,7 @@ from prama.db.models.semantic_graph import (
     SemRelationship,
     SemRelationshipVersion,
 )
+from prama.db.models.semantic_index import SxVector
 from prama.db.models.steward import (
     AgtApproval,
     AgtGoal,
@@ -153,6 +154,7 @@ __all__ = [
     "SemRelationship",
     "SemRelationshipVersion",
     "Setting",
+    "SxVector",
     "Tenant",
     "TenantScoped",
     "Timestamped",

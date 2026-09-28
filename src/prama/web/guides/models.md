@@ -88,6 +88,19 @@ budget and a per-person rate limit, and records the call. No program needs a pro
 Set `llm.offline: true` in `config/application.yaml` for an air-gapped estate. Only self-hosted
 providers on this machine or a private network address are then used.
 
+## Purposes Prama uses
+
+A purpose with no profile falls back to the mock model, which does nothing. These are the
+purposes Prama uses:
+
+| Purpose | What for |
+|---|---|
+| `author`, `explain`, `summarise` | drafting and explaining controls, incident briefs |
+| `lineage` | proposing lineage for code the parsers could not read |
+| `curate` | drafting descriptions for datasets that have none |
+| `discover` | explaining which datasets fit a stated purpose |
+| `embed` | embedding dataset profiles for meaning-based search (an embedding model) |
+
 ## Templates, evaluation and the gate
 
 A **prompt template** is a feature's instructions, with named `{{ variables }}`. Each variable

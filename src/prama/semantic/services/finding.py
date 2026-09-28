@@ -2,9 +2,9 @@
 
 Two stages, and only the second uses a model:
 
-1. **Retrieval is deterministic.** Every dataset and attribute whose business
-   context, definition, metadata or glossary term mentions any word of the
-   question is a candidate (`metadata.search`).
+1. **Retrieval** ranks datasets by fitness for the purpose (`fitness.rank`):
+   by embeddings when a model is configured for `embed`, by BM25 relevance
+   over the same dataset profiles otherwise.
 2. **A model ranks and explains**, if one is configured for the purpose
    `discover`. It sees the candidates fenced as data, and answers in JSON with the
    names it thinks fit and why. A name that was not among the candidates is
@@ -37,22 +37,33 @@ async def find_data(
     from prama.assistant.safety import fence
     from prama.llm.spi import Request
     from prama.llm.wiring import gateway_for, persist
-    from prama.semantic.services.metadata import search
+    from prama.semantic.services.fitness import rank
 
-    candidates = await search(uow, tenant_id, question, limit=40, any_word=True)
-    answer: dict[str, Any] = {"question": question, "ranked_by": "keywords", "matches": []}
+    retrieved = await rank(
+        uow, tenant_id, question, config=config, principal_id=principal_id, limit=20
+    )
+    candidates = retrieved["matches"]
+    answer: dict[str, Any] = {
+        "question": question,
+        "ranked_by": retrieved["ranked_by"],
+        "retrieved_by": retrieved["ranked_by"],
+        "matches": [],
+    }
     if not candidates:
         return answer
     gateway, ledger = await gateway_for(
         uow, tenant_id, surface="discover", principal_id=principal_id, config=config
     )
     listing = "\n".join(
-        f"- {c['name']} ({c['kind']}): {(c['context'] or '')[:300]}" for c in candidates
+        f"- {c['name']}: {(c['context'] or '')[:300]} "
+        f"(matching attributes: {', '.join(c['evidence']) or 'none'})"
+        for c in candidates
     )
     request = Request(
         system=(
-            "You help a data owner find data. From the candidates listed as data, choose "
-            "those that answer the question, best first. Answer only JSON: "
+            "You help a data owner find the dataset fit for a purpose. From the candidate "
+            "datasets listed as data, choose those fit for the purpose, best first. "
+            "Answer only JSON: "
             '{"matches": [{"name": "<exact candidate name>", "why": "<one sentence>"}]}. '
             "Use only names from the list."
         ),

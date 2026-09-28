@@ -145,7 +145,7 @@ class FindCommand(Command):
 
 class AskCommand(Command):
     name = "ask"
-    help = "find data of interest in plain words (a model ranks, if one is configured)"
+    help = "which datasets are fit for a purpose (embeddings if configured, else BM25)"
 
     def configure(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("question")

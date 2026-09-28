@@ -334,6 +334,20 @@ Modules named in the design notes that do not exist yet are marked `(planned)` t
 - **Also added:** the mock LLM provider. When no model is configured, the gateway uses a
   placeholder that answers with nothing.
 
+**Semantic search for fitness to purpose, as built** (`semantic/services/fitness.py`,
+`sx_vector`, the provider SPI's `embed`):
+
+- **What is ranked.** Each dataset's profile: its declaration, business context, metadata,
+  glossary terms and attribute texts.
+- **How.** By embeddings when a model is configured for `embed`
+  (OpenAI-compatible `/v1/embeddings`, or Azure deployments). Vectors are stored per model and
+  re-embedded only when a profile's text changes. Otherwise BM25 with light stemming is used,
+  and the answer names the ranking.
+- **Evidence and explanation.** Each result names its matching attributes. A `discover` model
+  may re-order and explain the top datasets.
+- **Scope.** Search stays across datasets; searching inside a dataset was withdrawn by the user.
+- **Not built:** Vertex embeddings, whose API is separate from the chat one.
+
 **Wave 17, E7 (usage signals), as built** (`us_usage`, `lineage/usage.py`,
 `semantic/services/priorities.py`):
 

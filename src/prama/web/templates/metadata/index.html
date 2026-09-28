@@ -9,15 +9,17 @@
 
 <form class="row g-2 mb-3" method="get" action="{{ url_for('metadata') }}" style="max-width: 40rem">
   <div class="col-9"><label class="visually-hidden" for="m-q">Find data</label>
-    <input class="form-control form-control-sm" id="m-q" name="q" value="{{ q }}" placeholder="Find data by meaning: settlement date, counterparty LEI…"></div>
+    <input class="form-control form-control-sm" id="m-q" name="q" value="{{ q }}" placeholder="What do you need the data for? e.g. convert trade amounts to USD"></div>
   <div class="col-3"><button class="btn btn-sm btn-primary w-100" type="submit">Find</button></div>
 </form>
 {% if q %}
-<p class="small text-muted mb-1">Ranked by {{ hits.ranked_by }}{% if hits.ranked_by == 'keywords' %} (configure a model for the purpose <code>discover</code> to have it rank and explain){% endif %}.</p>
+<p class="small text-muted mb-1">Datasets fit for this purpose, ranked by {{ hits.ranked_by }}{% if hits.ranked_by == 'model' %} after {{ hits.retrieved_by }}{% endif %}.
+  {% if hits.retrieved_by == 'relevance' %}Configure a model for <code>embed</code> for meaning-based search, and for <code>discover</code> to have the best explained.{% endif %}</p>
 <ul class="small mb-4">{% for h in hits.matches %}
   <li><span class="badge text-bg-light border">{{ h.kind }}</span>
     {% if h.slug %}<a href="{{ url_for('metadata_dataset', slug=h.slug) }}">{{ h.name }}</a>{% else %}{{ h.name }}{% endif %}
-    <span class="text-muted">— {{ h.why or (h.context or '')[:160] }}</span></li>
+    <span class="text-muted">— {{ h.why or (h.context or '')[:160] }}</span>
+    {% if h.evidence %}<span class="small">· matching: {% for e in h.evidence %}<code>{{ e }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}</li>
 {% else %}<li class="text-muted">Nothing mentions “{{ q }}” yet. Business context is what this searches; add some.</li>{% endfor %}</ul>
 {% endif %}
 

@@ -172,7 +172,10 @@ def build(
     if spec.kind == "mock":
         return MockProvider()
     if spec.kind == "scripted":
-        return ScriptedProvider(list(spec.settings.get("answers", [])))
+        return ScriptedProvider(
+            list(spec.settings.get("answers", [])),
+            embeddings=bool(spec.settings.get("embeddings", False)),
+        )
     return NullProvider()
 
 
