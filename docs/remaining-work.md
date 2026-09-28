@@ -95,7 +95,6 @@ Ordered by what I would take first. Each item says why it matters.
   a `WHERE` on reconciliations, and PQL forms for row-count, aggregate and roll-forward parity,
   which are still specifications.
 - **Wave 17:**
-  - E5: glossary terms, and importing glossaries and lineage from Manta, Alation and Collibra;
   - E6: search, steward queues and comments;
   - E7: usage signals;
   - E9: write-back verified against live catalogs, which needs live catalogs.

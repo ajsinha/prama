@@ -32,6 +32,7 @@ need different people.
 | [`prama db`](#prama-db) | database schema operations (Prama has no migrations) |
 | [`prama delegate`](#prama-delegate) | Python DQ checks: list, vet and try them |
 | [`prama estate`](#prama-estate) | export, diff and score the declared estate |
+| [`prama glossary`](#prama-glossary) | the business glossary: import, search and bind terms |
 | [`prama lineage`](#prama-lineage) | column lineage: scan SQL, show edges, impact, gaps |
 | [`prama llm`](#prama-llm) | model providers, profiles and the call ledger |
 | [`prama lsp`](#prama-lsp) | language server for PQL, for an editor outside the console |
@@ -396,19 +397,59 @@ export, diff and score the declared estate
 | `--tenant` **required** |  |
 | `--domain` |  |
 
+## `prama glossary`
+
+the business glossary: import, search and bind terms
+
+| Subcommand | What it does |
+|---|---|
+| `prama glossary bind` | bind a term to a concept, dataset or attribute (dataset.column) |
+| `prama glossary import` | import glossary terms from an Alation or Collibra export |
+| `prama glossary list` | terms, their definitions and what each is bound to |
+
+**`prama glossary bind`**
+
+| Argument | Meaning |
+|---|---|
+| `term` **required** |  |
+| `--concept` |  |
+| `--dataset` |  |
+| `--attribute` | dataset.column |
+| `--tenant` | slug or id; defaults to the configured one |
+**`prama glossary import`**
+
+| Argument | Meaning |
+|---|---|
+| `export` **required** | the JSON the vendor's API returned |
+| `--from` **required** |  One of: alation, collibra. |
+| `--tenant` | slug or id; defaults to the configured one |
+**`prama glossary list`**
+
+| Argument | Meaning |
+|---|---|
+| `--search` | name, synonym or definition text |
+| `--tenant` | slug or id; defaults to the configured one |
+
 ## `prama lineage`
 
 column lineage: scan SQL, show edges, impact, gaps
 
 | Subcommand | What it does |
 |---|---|
+| `prama lineage conflicts` | columns where an imported catalog and Prama's own parse disagree |
 | `prama lineage gaps` | what the latest scans could not read |
 | `prama lineage history` | column lineage from a warehouse's query history (Snowflake, Databricks, BigQuery) |
 | `prama lineage impact` | everything a defect in one column reaches, ranked |
+| `prama lineage import` | import lineage from a Manta or Alation export (kept beside Prama's own parse) |
 | `prama lineage ingest-dbt` | read a dbt project's column lineage from its manifest.json |
 | `prama lineage scan` | read SQL files into the lineage store as a run of a named source |
 | `prama lineage show` | current edges, optionally those touching one dataset |
 
+**`prama lineage conflicts`**
+
+| Argument | Meaning |
+|---|---|
+| `--tenant` | slug or id; defaults to the configured one |
 **`prama lineage gaps`**
 
 | Argument | Meaning |
@@ -430,6 +471,14 @@ column lineage: scan SQL, show edges, impact, gaps
 | `column` | dataset.column |
 | `--diff` | two versions of a SQL file: what does the change put at risk? exits 3 if any control or attestation is affected |
 | `--dialect` |  |
+| `--tenant` | slug or id; defaults to the configured one |
+**`prama lineage import`**
+
+| Argument | Meaning |
+|---|---|
+| `export` **required** | the JSON the vendor exported |
+| `--from` **required** |  One of: manta, alation. |
+| `--source` | a name; defaults to <vendor>-import |
 | `--tenant` | slug or id; defaults to the configured one |
 **`prama lineage ingest-dbt`**
 

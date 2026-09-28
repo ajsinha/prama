@@ -23,6 +23,7 @@ from prama.db.models.code import CodeAnalysisRun, CodeSource, CodeUnit
 from prama.db.models.control import CtlControl, CtlControlVersion, CtlRejection
 from prama.db.models.delegate import DqDelegateUpload
 from prama.db.models.evidence import EvRecord, EvRun, EvSample
+from prama.db.models.glossary import GlBinding, GlTerm
 from prama.db.models.lineage import LinEdge, LinGap, LinRun, LinSource
 from prama.db.models.llm import (
     LlmBudget,
@@ -101,6 +102,8 @@ __all__ = [
     "EvRun",
     "EvSample",
     "EvidenceBase",
+    "GlBinding",
+    "GlTerm",
     "LeaseRow",
     "LinEdge",
     "LinGap",
