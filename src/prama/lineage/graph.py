@@ -286,6 +286,30 @@ class LineageGraph:
 
     # -- traversal ---------------------------------------------------------
 
+    def _onward(self, column: Column) -> list[Edge]:
+        """The edges a defect at *column* travels along.
+
+        ``dataset.*`` stands for the dataset's rows, reached by a filter or a
+        join key. A change in which rows exist reaches every column computed
+        over them, so the rows lead to each of the dataset's own columns, and
+        on from there. Without this the blast radius stopped at the rows: a
+        join that silently drops trades never reached the dashboard built on
+        them. The step is an edge of its own, so the path says so.
+        """
+        if column.name != "*":
+            return self._out.get(column, [])
+        return [
+            Edge(
+                source=column,
+                target=member,
+                transform=Transform.IDENTITY,
+                produced_by="",
+                expression="computed over these rows",
+            )
+            for member in sorted(self._datasets.get(column.dataset, ()), key=lambda c: c.name)
+            if member.name != "*"
+        ]
+
     def blast_radius(
         self,
         origin: Column,
@@ -311,7 +335,7 @@ class LineageGraph:
             if depth >= max_depth:
                 truncated = True
                 continue
-            for edge in self._out.get(column, ()):
+            for edge in self._onward(column):
                 carried = impact * edge.transform.attenuation
                 if carried < floor:
                     below += 1

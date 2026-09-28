@@ -50,9 +50,25 @@ def test_it_compiles_to_one_fetch_per_side() -> None:
     assert compiled.counterpart_query == 'SELECT "account", "book", "balance"\nFROM "ledger"'
 
 
-def test_a_filter_on_one_side_is_refused() -> None:
-    with pytest.raises(PramaError, match="no WHERE or FOR EACH"):
+def test_a_filter_on_the_whole_control_is_refused() -> None:
+    """A trailing WHERE would filter one side only, and leave the other side's rows
+    looking missing. Each side's filter goes after the dataset it applies to."""
+    with pytest.raises(PramaError, match="takes its filters after each dataset"):
         resolved(parse_control(SOURCE + " WHERE desk = 'EQ'"))
+
+
+def test_each_side_filters_its_own_rows() -> None:
+    control = parse_control(
+        "RECONCILE a WHERE side = 'BUY' AGAINST b WHERE status = 'BOOKED' "
+        "ON (k) COMPARING amt WITHIN 0"
+    )
+    assert parse_control(control.render()) == control
+    compiled = compile_for(resolved(control), "duckdb")
+    assert compiled.metric_query.endswith("WHERE (\"side\" = 'BUY')")
+    assert compiled.counterpart_query.endswith("WHERE (\"status\" = 'BOOKED')")
+    # An unfiltered reconciliation's plan is untouched, so its evidence still names it.
+    plain = resolved(parse_control("RECONCILE a AGAINST b ON (k) COMPARING amt WITHIN 0"))
+    assert "counterpart_filter" not in plain.to_dict()["scope"]
 
 
 def test_the_engine_counts_genuine_breaks_and_the_threshold_judges() -> None:
@@ -103,7 +119,13 @@ def test_an_agent_runs_it_beside_the_data() -> None:
     assert outcome.record.metrics["violating_rows"] == 2
 
 
-def _edge(src: str, tgt: str, status: str = "parsed") -> Any:
+def _edge(
+    src: str,
+    tgt: str,
+    status: str = "parsed",
+    transform: str = "identity",
+    expression: str = "",
+) -> Any:
     sd, _, sc = src.rpartition(".")
     td, _, tc = tgt.rpartition(".")
     return types.SimpleNamespace(
@@ -111,8 +133,9 @@ def _edge(src: str, tgt: str, status: str = "parsed") -> Any:
         source_column=sc,
         target_dataset=td,
         target_column=tc,
-        transform="identity",
+        transform=transform,
         status=status,
+        expression=expression,
     )
 
 
@@ -129,12 +152,22 @@ def test_lineage_proposes_a_reconciliation_for_a_copy_at_the_same_grain() -> Non
     from prama.recon.pql import definition_of
 
     assert definition_of(resolved(control)).tolerance.absolute == 0
-    # A filtered copy is held: every row the filter drops would be a break.
-    status = types.SimpleNamespace(
-        **{**vars(_edge("stg.trades.status", "mart.positions.*")), "transform": "filter"}
+    # A filtered copy compares only the source rows the filter keeps: without
+    # that, every row the filter dropped is reported as missing (case study 8
+    # reported all 118 cancelled trades).
+    status = _edge(
+        "stg.trades.status",
+        "mart.positions.*",
+        transform="filter",
+        expression="WHERE status = 'BOOKED'",
     )
-    (held,) = [p for p in propose([*edges, status], []) if p.rule == "lineage_reconcile"]
-    assert "filter on status" in held.deferred_because
+    (filtered,) = [p for p in propose([*edges, status], []) if p.rule == "lineage_reconcile"]
+    assert filtered.deferred_because == ""
+    assert "AGAINST \"stg.trades\" WHERE status = 'BOOKED' ON" in filtered.pql
+    # A filter whose condition could not be carried over is held, with the reason.
+    opaque = _edge("stg.trades.status", "mart.positions.*", transform="filter", expression="WHERE")
+    (held,) = [p for p in propose([*edges, opaque], []) if p.rule == "lineage_reconcile"]
+    assert "could not be carried over" in held.deferred_because
     # The counterfactual: an aggregated amount is not a same-grain copy.
     aggregated = [edges[0], types.SimpleNamespace(**{**vars(edges[1]), "transform": "aggregated"})]
     assert not [p for p in propose(aggregated, []) if p.rule == "lineage_reconcile"]
@@ -188,3 +221,39 @@ def test_a_declared_reconciliation_is_proposed_as_runnable_pql() -> None:
         match_keys=(MatchKey(left="k"),),
     )
     assert parity.to_pql() is None  # no PQL form yet: stays a specification
+
+
+def test_a_join_proposes_that_every_driving_row_finds_its_match() -> None:
+    """Case study 8: trades with currency 'usd' found no FX rate and left the mart,
+    and nothing failed. The join key now proposes the check that catches it there."""
+    pairing = "inner join: stg.trades.ccy = ref.fx_rates.ccy"
+    edges = [
+        _edge("stg.trades.ccy", "mart.positions.*", transform="join_key", expression=pairing),
+        _edge("ref.fx_rates.ccy", "mart.positions.*", transform="join_key", expression=pairing),
+    ]
+    (proposal,) = [p for p in propose(edges, []) if p.rule == "lineage_join"]
+    control = parse_control(proposal.pql)
+    assert control.target == "stg.trades" and proposal.deferred_because == ""
+    assert proposal.pql.startswith('CHECK "stg.trades".ccy REFERENCES "ref.fx_rates".ccy')
+    left = [
+        _edge(
+            e.source_dataset + "." + e.source_column,
+            "mart.positions.*",
+            transform="join_key",
+            expression=pairing.replace("inner", "left"),
+        )
+        for e in edges
+    ]
+    (kept,) = [p for p in propose(left, []) if p.rule == "lineage_join"]
+    assert "nothing joined to it" in kept.sentence
+    inferred = [
+        _edge(
+            "stg.trades.ccy",
+            "mart.positions.*",
+            status="inferred",
+            transform="join_key",
+            expression=pairing,
+        )
+    ]
+    (held,) = [p for p in propose(inferred, []) if p.rule == "lineage_join"]
+    assert "inferred" in held.deferred_because

@@ -628,14 +628,21 @@ class ReconcileAssertion(Assertion):
     currency_column: str = ""
     target_currency: str = ""
     rates: str = ""
+    #: ``RECONCILE a WHERE p AGAINST b WHERE q``: each side's filter, written
+    #: after the dataset it applies to. One filter on the whole control would
+    #: leave the other side's rows looking missing, so each side has its own.
+    where: Expression | None = None
+    against_where: Expression | None = None
 
     def _key(self) -> str:
         return ", ".join(a if a == b else f"{a} = {b}" for a, b in self.keys)
 
     def render_head(self, target: str) -> str:
+        mine = f" WHERE {self.where.render()}" if self.where is not None else ""
+        theirs = f" WHERE {self.against_where.render()}" if self.against_where is not None else ""
         text = (
-            f"RECONCILE {quote_dataset(target)} AGAINST {quote_dataset(self.against)} "
-            f"ON ({self._key()}) COMPARING {self.amount[0]}"
+            f"RECONCILE {quote_dataset(target)}{mine} AGAINST {quote_dataset(self.against)}"
+            f"{theirs} ON ({self._key()}) COMPARING {self.amount[0]}"
         )
         if self.amount[1] != self.amount[0]:
             text += f" = {self.amount[1]}"
@@ -664,9 +671,15 @@ class ReconcileAssertion(Assertion):
             f"{self.relative}%" if self.relative else "",
         ]
         within = " within " + " or ".join(b for b in bounds if b) if any(bounds) else ""
+        kept = [
+            f"only rows where {w.render()}{side}"
+            for w, side in ((self.where, ""), (self.against_where, f" in {self.against}"))
+            if w is not None
+        ]
         return (
             f"every row agrees with {self.against} on {self.amount[0]}, matched on "
             f"({self._key()}){within}, and nothing is missing from either side"
+            + (f" (comparing {' and '.join(kept)})" if kept else "")
         )
 
 

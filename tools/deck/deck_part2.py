@@ -107,7 +107,7 @@ SLIDES: list[dict[str, Any]] = [
             "Parsed and inferred, kept apart",
             "The blast radius of a defect",
             "Controls carried downstream",
-            "What column lineage cannot see",
+            "A join decides which rows exist",
         ],
     },
     {
@@ -139,7 +139,7 @@ SLIDES: list[dict[str, Any]] = [
             ("→ the Risk Dashboard's Exposure column", "35%, 3 hops: a rename"),
             ("→ its Total Exposure measure", "12%, 4 hops: aggregated again"),
         ],
-        "note": "Case study 8: two SQL scripts and a Power BI model give 12 parsed column "
+        "note": "Case study 8: two SQL scripts and a Power BI model give 14 parsed column "
         "edges; the defect is traced from the raw feed to the measure a risk committee reads.",
     },
     {
@@ -152,38 +152,40 @@ SLIDES: list[dict[str, Any]] = [
             ["Referential", "Each copied key must exist at its source", "The edge is inferred"],
             [
                 "Reconcile",
-                "The copy agrees with its source, exactly (WITHIN 0)",
-                "Inferred, or the copy is filtered",
+                "The copy agrees with the same rows of its source, exactly (WITHIN 0)",
+                "Inferred, or its filter cannot be carried over",
             ],
+            ["Join", "Every driving row's key finds its match", "The edge is inferred"],
         ],
         "col_w": [0.9, 2.1, 1.3],
-        "note": "Case study 8 found both defects this slide depends on: a proposed RECONCILE "
-        "with no tolerance could not run, and a filtered copy reported 118 cancelled trades "
-        "as breaks. Both are fixed, each with a test that fails on the old code.",
+        "note": "Case study 8 found the defects this slide depends on: a RECONCILE with no "
+        "tolerance, a filtered copy reported as 118 breaks, and a join lineage could not see. "
+        "All are fixed, each with a test that fails on the old code.",
     },
     {
         "kind": "split",
-        "kicker": "An honest limit",
-        "title": "What column lineage cannot see",
+        "kicker": "Population, not value",
+        "title": "A join decides which rows exist",
         "left": {
             "head": "The defect",
             "items": [
-                "Four trades with currency 'usd' in lower case",
-                "Three are staged; the mart joins FX rates on currency",
-                "Those trades have no rate, and silently leave the mart",
+                "Four trades with currency 'usd' in lower case; three are staged",
+                "The mart inner-joins FX rates on currency, and finds no rate",
+                "605,000,000 of notional leaves the mart: no error, no null",
+                "Value lineage cannot see it: the currency is never copied",
             ],
         },
         "right": {
-            "head": "What each part of Prama sees",
+            "head": "What Prama does about it",
             "items": [
-                "The raw column's control: 4 of 2,000 rows",
-                "The propagated control on staging: 3 of 1,882",
-                "The blast radius: stops at staging, since a join key is not a value",
-                "The mart: no error, no null; 605,000,000 of notional simply gone",
+                "Join keys are edges into the view's rows, read through CTEs",
+                "The blast radius follows the rows to every column built on them",
+                "The join proposes: every stg.trades.ccy exists in ref.fx_rates",
+                "That check fails on 3 of 1,882, where the defect happens",
             ],
         },
-        "note": "Lineage carries a control downstream; it does not replace the control at "
-        "the source. That is the design, and case study 8 is its evidence.",
+        "note": "The first version of case study 8 showed the blast radius stopping at "
+        "staging. That negative result is in the paper, with the repair.",
     },
     # ------------------------------------------------------------------ part 6
     {

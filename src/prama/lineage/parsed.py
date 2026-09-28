@@ -13,7 +13,10 @@ What it keeps from the regex extractor, deliberately:
   gap, not an edge to whichever table came first.
 * **The same gap kinds** (`no_target`, `no_source`, `unnamed_output`,
   `ambiguous`), so a gap report reads the same whichever path produced it.
-* **Filter columns feed the target as `FILTER` edges.**
+* **Filter columns feed the target as `FILTER` edges,** carrying the condition
+  when it is over one table, so a proposal can apply the same filter elsewhere.
+* **Join keys feed the target as `JOIN_KEY` edges,** because a join decides
+  which rows the target holds.
 
 `extract_statement` returns ``None`` when the statement does not parse. The
 caller then falls back to the regex extractor and records that it did.
@@ -83,8 +86,10 @@ class _Scope:
     """The real tables a SELECT reads, by alias, and its CTE names."""
 
     def __init__(self, select: exp.Select) -> None:
-        with_ = select.args.get("with")
-        self.ctes = {cte.alias_or_name.lower() for cte in (with_.expressions if with_ else [])}
+        # `ctes` rather than args["with"]: sqlglot 30 keeps the clause under
+        # "with_", so reading the old key found no CTEs at all, and a CTE's
+        # name was taken for a real table.
+        self.ctes = {cte.alias_or_name.lower() for cte in select.ctes}
         self.aliases: dict[str, str] = {}
         for table in select.find_all(exp.Table):
             name = _qualified(table)
@@ -256,6 +261,7 @@ def extract_statement(
 
     where = select.args.get("where")
     if where is not None:
+        predicate = _predicate(where.this, scope)
         seen_filters: set[str] = set()
         for column in where.find_all(exp.Column):
             dataset = scope.aliases.get(column.table.lower()) if column.table else None
@@ -268,7 +274,88 @@ def extract_statement(
                     target=Column(dataset=target, name="*"),
                     transform=Transform.FILTER,
                     produced_by=job,
-                    expression="WHERE",
+                    expression=f"WHERE {predicate}" if predicate else "WHERE",
                 )
             )
+    edges.extend(_join_edges(select, scope, target, job, read))
     return edges, gaps
+
+
+def _predicate(condition: exp.Expression, scope: _Scope) -> str:
+    """The WHERE condition as written against its one table, or "" if it is not.
+
+    Kept on the filter edge so that a reconciliation proposed across a filtered
+    copy can apply the same filter to the source, rather than report every row
+    the filter dropped as a break. Only a condition over a single real table
+    can be moved like that; anything else keeps the bare "WHERE" it had.
+    """
+    columns = list(condition.find_all(exp.Column))
+    owners = {scope.aliases.get(c.table.lower()) if c.table else None for c in columns}
+    if len(owners) != 1 or None in owners or condition.find(exp.Subquery) is not None:
+        return ""
+    moved = condition.copy()
+    for column in moved.find_all(exp.Column):
+        column.set("table", None)
+    return str(moved.sql())
+
+
+def _join_edges(
+    select: exp.Select, scope: _Scope, target: str, job: str, read: str | None
+) -> list[Edge]:
+    """Join keys feed the target's rows, as `JOIN_KEY` edges.
+
+    An inner join drops every row with no match, and a left join keeps it with
+    nothing joined to it. Either way the join key decides which rows the target
+    holds, which column lineage following values cannot see: case study 8 lost
+    605,000,000 of notional at an FX join its blast radius did not reach.
+
+    Each equality in an ON clause gives one edge from each side's key to the
+    target's rows (``*``), and the edge's expression records the pairing as
+    ``<kind> join: <driving> = <looked up>``, which is what lineage-derived
+    proposals read to ask that every driving row finds its match.
+    """
+    ctes = {cte.alias_or_name.lower(): cte.this for cte in select.ctes}
+
+    def resolve(column: exp.Column) -> list[Column]:
+        alias = column.table.lower() if column.table else ""
+        if alias in scope.aliases:
+            return [Column(dataset=scope.aliases[alias], name=column.name.lower())]
+        body = ctes.get(alias)
+        if isinstance(body, exp.Select):
+            try:
+                return _leaves(column.name.lower(), body, read)
+            except SqlglotError:
+                return []
+        return []
+
+    edges: list[Edge] = []
+    for join in select.args.get("joins") or []:
+        kind = str(join.args.get("side") or join.args.get("kind") or "inner").lower()
+        condition = join.args.get("on")
+        joined = join.this.alias_or_name.lower() if join.this is not None else ""
+        if kind in ("cross", "full", "right") or condition is None:
+            continue
+        for equality in condition.find_all(exp.EQ):
+            left, right = equality.this, equality.expression
+            if not (isinstance(left, exp.Column) and isinstance(right, exp.Column)):
+                continue
+            if (left.table or "").lower() == joined:
+                left, right = right, left
+            if (right.table or "").lower() != joined:
+                continue
+            for driving in resolve(left):
+                for looked_up in resolve(right):
+                    if driving.dataset == looked_up.dataset:
+                        continue
+                    pairing = f"{kind} join: {driving.qualified} = {looked_up.qualified}"
+                    for side in (driving, looked_up):
+                        edges.append(
+                            Edge(
+                                source=side,
+                                target=Column(dataset=target, name="*"),
+                                transform=Transform.JOIN_KEY,
+                                produced_by=job,
+                                expression=pairing,
+                            )
+                        )
+    return edges

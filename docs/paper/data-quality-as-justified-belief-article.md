@@ -18,9 +18,10 @@
 > [`data-quality-as-justified-belief.tex`](data-quality-as-justified-belief.tex) ([PDF](data-quality-as-justified-belief.pdf)). The system it was built against is **Prama** 0.1.0. Where
 > a section says what a data quality system *should* do, it then says what Prama actually does. Often
 > that is less, sometimes it is different, and the differences are marked rather than smoothed over. The
-> paper's claims register has seventy rows: **forty-five run** (a named test exercises them), **eleven
-> run in part**, **five are mathematics the code does not execute**, and **nine are not built**. The
-> negative results are in here too: column lineage cannot see a defect that acts through a join, a
+> paper's claims register has seventy-two rows: **forty-seven run** (a named test exercises them),
+> **twelve run in part**, **five are mathematics the code does not execute**, and **eight are not built**.
+> The negative results are in here too: value lineage cannot see a defect that acts through a join (and
+> the population edge that now repairs it), a
 > freshness control derived from a declaration cannot yet reach a verdict, and the benchmark does not yet
 > score Prama at all.
 
@@ -458,8 +459,12 @@ Breaks are classified — timing, FX, rounding, missing, extra, duplicate, sign,
 expected to clear by itself. Sign, duplicate and FX breaks are *configuration* faults and are routed away from
 the data steward, because a steward cannot fix a sign convention by looking harder at the data.
 
-Not built yet: your own `CLASSIFY` rules on a reconciliation, a `WHERE` on one, and a signed reconciliation
-certificate from the break workbench.
+Each side of a reconciliation can be filtered, written after the dataset it applies to:
+`RECONCILE a WHERE p AGAINST b WHERE q`. A single filter on the whole control is refused, because it would
+filter one side only and every row it dropped would look missing on the other.
+
+Not built yet: your own `CLASSIFY` rules on a reconciliation, and a signed reconciliation certificate from
+the break workbench.
 
 ---
 
@@ -489,21 +494,23 @@ and some don't:
 
 - **If staging is a straight copy of the raw feed**, every rule that holds on every raw row holds on every
   staged row too — *even if staging keeps only some of the rows*. So Prama proposes the same rule downstream.
-- **If staging keeps only booked trades**, reconciling it against the raw feed would report every cancelled
-  trade as a break. So that proposal is *held*, with the reason.
+- **If staging keeps only booked trades**, reconciling it against the whole raw feed would report every
+  cancelled trade as a break. The filter edge carries its condition, so the proposal applies the same filter
+  to the source: `AGAINST raw.trades WHERE status = 'BOOKED'`. A condition that cannot be carried over holds
+  the proposal, with the reason.
 - **Aggregated columns inherit nothing** row-level. A sum is not a copy of any row.
 - **A guess never becomes a control.** Any proposal resting on an *inferred* edge is held until somebody
   confirms the edge.
 
 Case study 8 found both halves of this the hard way. The first run proposed a reconciliation across the filter
 and reported 118 breaks — one per cancelled trade — and the proposed reconciliation had no tolerance, so the
-engine refused to run it. Both are fixed: the reconciliation is now held, and proposed with `WITHIN 0`.
+engine refused to run it. Both are fixed: the reconciliation carries the filter, and says `WITHIN 0`.
 
 ### The negative result: four lower-case currencies, 605 million of notional
 
 Case study 8 builds a warehouse by actually running an ETL repository: raw feed, staging (booked trades only),
 and a mart that **joins staging to an FX table on currency** and sums exposure, with a Power BI model on top.
-Prama reads three files and extracts twelve parsed column edges.
+Prama reads three files; when the study was first built, it extracted twelve parsed column edges.
 
 Two defects are planted in the raw feed: five notionals carrying the sign of the side, and four currencies
 written in lower case (`'usd'`).
@@ -532,13 +539,35 @@ that changes. The rows are simply gone.
 > Column lineage models *value* dependence. A join predicate creates *population* dependence — it decides
 > which rows exist — and no amount of value lineage will see it.
 
-Prama's lineage model does have a `join_key` transform, and imported lineage and the pandas reader can
-populate it; the SQL reader does not. But emitting one would not really fix this: with an attenuation of 0.8 it
-would describe a row-dropping effect as though it were an 80%-strength value effect, which is a different
-mistake.
+### The repair: an edge into the rows
 
-The lesson I take is about where controls belong. **Only the control on the raw column saw the currency
-defect.** Controls belong at the source; lineage is a way to *carry* them downstream, not to replace them.
+The fix is not a better value edge but a different kind of node. The SQL reader now records each equality
+in a join's `ON` clause as a `join_key` edge from each side's key into the view's **rows**, written
+`mart.positions.*`. That is the same node a `WHERE` column already fed. It also reads a CTE through to its
+real table, which exposed a latent bug: sqlglot 30 keeps `WITH` under a different key, so Prama had been
+finding no CTEs at all.
+
+The blast radius treats the rows as a population: a change in which rows exist reaches every column
+computed over them, and the path says so. Rerun, the currency's blast radius reads:
+
+```
+stg.trades.ccy                                      100%, 1 hop
+mart.positions.*               (the mart's rows)     80%, 2 hops
+mart.positions.exposure_usd                          80%, 3 hops
+powerbi.risk_dashboard.positions.exposure            80%, 4 hops
+powerbi.risk_dashboard.positions.total exposure      28%, 5 hops
+```
+
+The 80% is still a declared weight, not a measurement. What changed is that the report names the rows as
+the thing affected, not a value.
+
+The join also justifies a control. A staged trade whose currency has no rate is dropped by the inner join,
+and nothing fails, so lineage proposes `CHECK "stg.trades".ccy REFERENCES "ref.fx_rates".ccy`. Rerun, that
+check fails on **3 of 1,882** staged trades, where the defect happens and not only where it entered.
+
+The lesson about where controls belong still stands. **Controls belong at the source; lineage carries them
+downstream**, and now it carries them across a join too. The PySpark reader still records a join as a gap,
+and that is where this goes next.
 
 ---
 

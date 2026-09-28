@@ -85,10 +85,11 @@ class Lowerer:
         predicate, kind, detail = self._assertion(control.assertion)
         if kind == "reconcile" and (control.where is not None or control.segmentation):
             raise ValidationError(
-                "a RECONCILE takes no WHERE or FOR EACH yet",
+                "a RECONCILE takes its filters after each dataset, and no FOR EACH",
                 remedy=(
-                    "Reconcile views that already hold the rows to compare. A filter on one "
-                    "side only would make the other side's rows look missing."
+                    "Write RECONCILE a WHERE … AGAINST b WHERE … ON (…). A filter on one "
+                    "side only would make the other side's rows look missing, so each "
+                    "side says which of its rows it compares."
                 ),
             )
         if kind == "custom_sql" and (control.where is not None or control.segmentation):
@@ -108,6 +109,12 @@ class Lowerer:
                 ),
             )
         filter_expression = self._expression(control.where) if control.where is not None else None
+        counterpart_filter = None
+        if isinstance(control.assertion, ast.ReconcileAssertion):
+            if control.assertion.where is not None:
+                filter_expression = self._expression(control.assertion.where)
+            if control.assertion.against_where is not None:
+                counterpart_filter = self._expression(control.assertion.against_where)
         if self._residuals:
             # Part of ``detail``, which is part of the plan's meaning, so a
             # two-stage control hashes differently from a screen-only one. Two
@@ -125,6 +132,7 @@ class Lowerer:
             if control.segmentation
             else (),
             as_of=self._as_of,
+            counterpart_filter=counterpart_filter,
         )
         metrics = self._metrics(predicate, kind, detail)
         return ControlPlan(

@@ -466,49 +466,75 @@ def recon() -> Canvas:
 
 
 def blast() -> Canvas:
-    c = Canvas("07-blast-radius", 700)
+    c = Canvas("07-blast-radius", 900)
     y = c.title(
-        "From code to impact",
+        "From code to impact, across a join",
         "Case study 8: lineage parsed from two SQL scripts and a Power BI model. How much of "
-        "a defect in the raw feed reaches each column downstream.",
+        "each raw-feed defect reaches each column downstream.",
     )
-    nodes = [
-        ("raw.trades.notional_amt", 1.0, "the defect"),
-        ("stg.trades.notional", 1.0, "copied"),
-        ("mart.positions.exposure_usd", 0.35, "summed with FX"),
-        ("Dashboard: Exposure", 0.35, "renamed"),
-        ("Dashboard: Total Exposure", 0.12, "aggregated again"),
-    ]
-    for i, (name, share, how) in enumerate(nodes):
-        ny = y + 16 + i * 84
-        key = f"n{i}"
-        c.rect(60, ny, 520, 64, fill=WHITE, box=key)
-        c.text(80, ny + 41, name, 22, INK, 600, mono=True, box=key)
-        c.rect(
-            620, ny + 12, 560 * share, 40, fill=RED if i == 0 else REFRACT, stroke="none", radius=6
-        )
-        c.text(
-            640 + 560 * share if share < 0.9 else 1200,
-            ny + 41,
-            f"{share:.0%} · {how}",
-            21,
-            SLATE,
-            400,
-        )
-        if i:
-            c.arrow(320, ny - 20, 320, ny - 4)
-    c.rect(60, y + 450, 1280, 112, fill=FROST, box="limit")
+
+    def lane(top: float, heading: str, nodes: list, key: str) -> float:
+        c.text(60, top + 26, heading, 24, INDIGO, 700)
+        for i, (name, share, how) in enumerate(nodes):
+            ny = top + 46 + i * 76
+            box = f"{key}{i}"
+            c.rect(60, ny, 520, 58, fill=FROST if name.endswith("rows)") else WHITE, box=box)
+            c.text(80, ny + 37, name, 21, INK, 600, mono=True, box=box)
+            c.rect(
+                620,
+                ny + 11,
+                540 * share,
+                36,
+                fill=RED if i == 0 else REFRACT,
+                stroke="none",
+                radius=6,
+            )
+            # A long bar carries its label inside, so the label never runs off the canvas.
+            inside = share >= 0.6
+            c.text(
+                620 + 540 * share - 16 if inside else 640 + 540 * share,
+                ny + 36,
+                f"{share:.0%} · {how}",
+                20,
+                WHITE if inside else SLATE,
+                600 if inside else 400,
+                "end" if inside else "start",
+            )
+            if i:
+                c.arrow(320, ny - 16, 320, ny - 4)
+        return top + 46 + len(nodes) * 76
+
+    below = lane(
+        y,
+        "A wrong value travels as a value",
+        [
+            ("raw.trades.notional_amt", 1.0, "the defect"),
+            ("mart.positions.exposure_usd", 0.35, "summed with FX"),
+            ("Dashboard: Total Exposure", 0.12, "aggregated twice"),
+        ],
+        "v",
+    )
+    below = lane(
+        below + 12,
+        "A lost row travels through the join",
+        [
+            ("stg.trades.ccy", 1.0, "'usd' has no rate"),
+            ("mart.positions.* (rows)", 0.8, "inner join on ccy"),
+            ("Dashboard: Total Exposure", 0.28, "computed over those rows"),
+        ],
+        "p",
+    )
+    c.rect(60, below + 20, 1280, 104, fill=MIST, stroke=MIST, box="join")
     c.block(
         84,
-        y + 466,
+        below + 34,
         1232,
-        "What it cannot see: four trades with currency 'usd' drop out "
-        "of the mart at the FX join. A join key is not a value, so the blast radius stops "
-        "at staging, while 605,000,000 of notional silently leaves the exposure. The "
-        "control on the raw column is what catches it.",
+        "The join proposes: CHECK stg.trades.ccy REFERENCES "
+        "ref.fx_rates.ccy. It fails on 3 of 1,882 staged trades, where 605,000,000 of "
+        "notional would otherwise leave the mart with no error and no null.",
         21,
         INK,
-        box="limit",
+        box="join",
     )
     return c
 

@@ -156,9 +156,9 @@ propagation as a choice of combining operations (only one of which is, strictly,
 false-alarm budgets as conformal $p$-values with
 false-discovery-rate selection. Every formal claim is marked with what carries it in \textsc{Prama}, the
 system the author built to this account: a named test, prose, or nothing. The markers are not uniformly
-favourable. Two results are negative and are reported in the body: a column-level lineage graph cannot
-see a defect that acts through a join predicate, and the labelled defect benchmark does not yet score
-\textsc{Prama} itself. \Cref{sec:register} counts what runs.
+favourable. Two results are negative and are reported in the body: a lineage graph of value flow alone
+cannot see a defect that acts through a join predicate (so \textsc{Prama} now records a join as a separate,
+row-population edge), and the labelled defect benchmark does not yet score \textsc{Prama} itself. \Cref{sec:register} counts what runs.
 \end{abstract}
 
 \tableofcontents
@@ -242,7 +242,8 @@ whether the data passed.
   \item A tolerance and timing semantics for reconciliation, with a counting result for timing offsets and
         its measurement on a month-end close (\Cref{sec:recon}).
   \item An account of column lineage read from code, of the controls it justifies and the ones it must
-        hold back, and a negative result about what it cannot see (\Cref{sec:lineage}).
+        hold back, a negative result about what value lineage cannot see, and the population edge that
+        repairs it (\Cref{sec:lineage}).
   \item The boundary ``models author, the engine decides'', enforced by an architectural test with a
         counterfactual, by a gate that refuses a control that cannot fail, and by an evaluation-gated
         model gateway with a hash-chained call ledger (\Cref{sec:ai}).
@@ -1124,12 +1125,17 @@ from the data steward; the violation count of a reconciliation is the number of 
 \runs{tests/recon/test\_reconciliation.py::test\_a\_duplicated\_posting\_is\_named}
 \runs{tests/recon/test\_reconciliation.py::test\_configuration\_faults\_are\_routed\_away\_from\_the\_data\_steward}
 
-The statement round-trips through the parser and renders as a sentence; a \pql{WHERE} on one side is
-refused, because a filtered reconciliation reports every filtered row as missing.
+The statement round-trips through the parser and renders as a sentence. A filter is written after the
+dataset it applies to, \pql{RECONCILE a WHERE p AGAINST b WHERE q}, and a single \pql{WHERE} on the whole
+control is refused: a filter on one side only reports every row it dropped from that side as missing on the
+other. An unfiltered reconciliation's plan is unchanged by the addition, so evidence already written still
+names it.
 \runs{tests/recon/test\_reconcile\_pql.py::test\_it\_round\_trips\_and\_says\_what\_it\_checks}
-\runs{tests/recon/test\_reconcile\_pql.py::test\_a\_filter\_on\_one\_side\_is\_refused}
+\runs{tests/recon/test\_reconcile\_pql.py::test\_a\_filter\_on\_the\_whole\_control\_is\_refused}
+\runs{tests/recon/test\_reconcile\_pql.py::test\_each\_side\_filters\_its\_own\_rows}
+\runs{tests/lineage/test\_joins.py::test\_a\_filtered\_copy\_reconciles\_against\_the\_same\_rows\_of\_its\_source}
 \absent{user-written \pql{CLASSIFY} rules on \pql{RECONCILE} (the engine's built-in classification is used);
-a \pql{WHERE} on a reconciliation; a signed reconciliation certificate from the break workbench.}
+a signed reconciliation certificate from the break workbench.}
 
 % =============================================================================
 \section{Lineage read from code}\label{sec:lineage}
@@ -1228,8 +1234,11 @@ confirming the guess first.
 
 Case study 8 found both halves of \Cref{prop:copy}(ii) the hard way: the first run proposed a
 reconciliation across the filter and reported 118 breaks, one per cancelled trade, and the proposed
-reconciliation had no tolerance and could not run. Both are fixed; the reconciliation is now held and
-proposed with \pql{WITHIN 0}.
+reconciliation had no tolerance and could not run. Both are fixed. The proposal says \pql{WITHIN 0}, and
+the filter edge now carries its condition when it is over one table, so the proposal applies the same filter
+to the source side (\pql{AGAINST raw.trades WHERE status = 'BOOKED'}); a condition that cannot be carried over
+holds the proposal, with the reason.
+\runs{tests/recon/test\_reconcile\_pql.py::test\_lineage\_proposes\_a\_reconciliation\_for\_a\_copy\_at\_the\_same\_grain}
 
 \subsection{A negative result: value lineage cannot see a join}\label{sec:join}
 
@@ -1252,7 +1261,7 @@ reader to record a join as a gap rather than invent an edge.}
 \wk{four lower-case currencies, 605 million of notional}
 Case study 8 builds a warehouse by running an ETL repository: raw feed, staging (booked trades only), and a
 mart that joins staging to an FX table on currency and aggregates exposure, with a Power BI model on top.
-Intake reads three files and emits twelve parsed column edges. Two defects are planted in the raw feed: five
+Intake read three files and, when the study was first built, emitted twelve parsed column edges. Two defects are planted in the raw feed: five
 notionals carrying the sign of the side, and four currencies in lower case. The owner writes two controls on
 the raw columns; lineage proposes the rest. The notional's blast radius runs to the dashboard --- 100\% at
 staging, 35\% at the mart's exposure (aggregated), 35\% at the dashboard's exposure (renamed), 12\% at its
@@ -1262,13 +1271,34 @@ measures it: three staged trades with no FX rate drop out of the mart, 605,000,0
 no error, no null and no count anywhere that changes. Only the control on the raw column saw it.
 \end{worked}
 
-The lineage model has a \textsf{join\_key} transform, and imported lineage and the pandas reader can
-populate it; the SQL reader does not emit one. Emitting it would put $S.c$ on the graph, but with an
-attenuation of $0.8$ it would describe a population effect as though it were a value effect of 80\% strength,
-which is a different error. We take the result to mean that controls belong at the source, and lineage is a
-means of carrying them downstream, not of replacing them.
-\absent{a population-dependence edge (``this column decides which rows survive'') distinct from value
-lineage.}
+\paragraph{The repair: a population edge.} The proposition is about a graph of value flow, so the repair
+is not a better value edge but a different kind of node. The SQL reader now records each equality in an
+inner or left join's \pql{ON} clause as two \textsf{join\_key} edges, one from each side's key, into the
+view's \emph{rows}, written $Q.\ast$ --- the same node a \pql{WHERE} column already fed --- and reads a
+common table expression through to its real table. The blast radius then treats $Q.\ast$ as a population
+node: a change in which rows exist reaches every column computed over them, and the path says so
+(\emph{computed over these rows}). The edge does not pretend to be a value effect: nothing flows from $S.c$
+into $Q.m$ except through $Q.\ast$, and a reader sees the rows named as the thing affected. What remains a
+heuristic is its weight, $0.8$, which is declared rather than estimated like every other attenuation
+(\Cref{sec:lineage}).
+\runs{tests/lineage/test\_joins.py::test\_a\_join\_key\_is\_recorded\_through\_a\_cte\_to\_the\_real\_table}
+\runs{tests/lineage/test\_joins.py::test\_a\_cte\_is\_not\_mistaken\_for\_a\_table}
+\runs{tests/lineage/test\_joins.py::test\_the\_blast\_radius\_follows\_a\_join\_to\_the\_dashboard}
+
+The join also justifies a control, by the same argument as \Cref{prop:copy}: in
+$S \bowtie_{S.c = F.c} F$ every $S$ row whose $c$ has no match in $F$ is dropped by an inner join, or reaches
+$Q$ with nothing joined to it by a left join, and in neither case does anything fail. So lineage proposes
+\pql{CHECK S.c REFERENCES F.c DIMENSION integrity} on the driving side, held while the edge is inferred.
+\runs{tests/recon/test\_reconcile\_pql.py::test\_a\_join\_proposes\_that\_every\_driving\_row\_finds\_its\_match}
+
+Rerun with both changes, case study 8 reads fourteen edges. The proposed join check fails on 3 of 1,882
+staged trades, which is where the defect happens and not only where it entered, and the currency's blast
+radius now runs from staging to the mart's rows (80\%), the mart's exposure (80\%), the dashboard's exposure
+(80\%) and its total (28\%). The filtered reconciliation of staging against the raw feed passes: the copy is
+faithful, and the defects are in what it faithfully copied. We still take the result to mean that controls
+belong at the source; lineage carries them downstream, and now carries them across a join.
+\absent{join-key edges from the PySpark reader, which records a join as a gap; population edges from
+\pql{EXISTS} and \pql{IN} subqueries.}
 
 % =============================================================================
 \section{Models author; the engine decides}\label{sec:ai}
@@ -1755,15 +1785,17 @@ Tolerance laws (\Cref{prop:tolerance}) & runs & \texttt{test\_reconciliation.py}
 Exact match first (\Cref{lem:exactfirst}) & runs & \texttt{test\_reconciliation.py} \\
 Price of ignoring timing (\Cref{prop:timing}) & in part & case study 6 run; not asserted \\
 Break classes (\Cref{def:breaks}) & runs & \texttt{test\_reconciliation.py} \\
-\pql{CLASSIFY} and \pql{WHERE} on \pql{RECONCILE}; signed certificate & not built & \\
+A filter on each side of \pql{RECONCILE} & runs & \texttt{test\_reconcile\_pql.py}, \texttt{test\_joins.py} \\
+\pql{CLASSIFY} on \pql{RECONCILE}; signed certificate & not built & \\
 \multicolumn{3}{@{}l}{\emph{Lineage}} \\
 Parsed, never executed; fallback recorded & runs & \texttt{test\_pyspark.py}, \texttt{test\_sql.py}, \texttt{test\_intake.py} \\
 Gold-fixture precision and recall & runs & \texttt{test\_gold\_fixture.py} \\
 Strongest path (\Cref{prop:strongest}) & runs & \texttt{test\_graph.py} \\
 Attenuation constants calibrated & stated & declared constants, not estimates \\
 What a copy justifies (\Cref{prop:copy}) & runs & \texttt{test\_lineage\_controls.py}, \texttt{test\_reconcile\_pql.py} \\
-Join predicates invisible (\Cref{prop:join}) & in part & case study 8 run; not asserted \\
-Population-dependence edges & not built & \\
+Join predicates invisible (\Cref{prop:join}) & in part & case study 8 run; the repair is asserted \\
+Population-dependence edges & in part & SQL reader, \texttt{test\_joins.py}; PySpark records a gap \\
+Every driving row finds its match (join checks) & runs & \texttt{test\_reconcile\_pql.py} \\
 \multicolumn{3}{@{}l}{\emph{Models}} \\
 Architectural guard (\Cref{prop:guard}) & runs & \texttt{test\_layering.py}, with counterfactual \\
 Model-free verdict path, as information flow & stated & guard is syntactic \\
@@ -1796,8 +1828,8 @@ Case studies: planted against found (\Cref{tab:studies}) & in part & exit status
 \end{longtable}
 \end{center}
 
-Of seventy rows, forty-five run, eleven run in part, five are stated without being executed, and nine are
-not built.
+Of seventy-two rows, forty-seven run, twelve run in part, five are stated without being executed, and
+eight are not built.
 
 The ratio is not flattering and is not meant to be. The claims that run are concentrated where the thesis
 lives: derivation, verdict semantics and evidence. The claims that do not are concentrated where a claim is
@@ -1899,7 +1931,7 @@ nothing'' can be reported as what it is; and a record an auditor can check with 
 base, reconciliation acquires a tolerance semantics and a timing law, lineage acquires a precise statement of
 which controls a copy justifies, and models acquire a boundary they cannot cross except through a person.
 
-The register counts forty-five claims that run and twenty-five that do not, or do so only in part. The ones
+The register counts forty-seven claims that run and twenty-five that do not, or do so only in part. The ones
 that run are the ones the thesis depends on. The ones that do not are, for the most part, claims about people
 and data that the author does not own, and they are where the work goes next.
 

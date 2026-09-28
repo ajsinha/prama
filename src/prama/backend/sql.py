@@ -140,9 +140,14 @@ class SqlCompiler:
         keys = [list(k) for k in plan.detail.get("keys") or []]
         amount = list(plan.detail.get("amount") or ["", ""])
 
-        def fetch(columns: list[str], table: str) -> str:
+        def fetch(columns: list[str], table: str, where: Any) -> str:
             unique = list(dict.fromkeys(columns))
-            return f"SELECT {', '.join(self.dialect.quote(c) for c in unique)}\nFROM {table}"
+            query = f"SELECT {', '.join(self.dialect.quote(c) for c in unique)}\nFROM {table}"
+            if where is None:
+                return query
+            # Unqualified: each side's filter names that side's own columns.
+            with self._scope(""):
+                return f"{query}\nWHERE {self.expression(where)}"
 
         currency = (
             [str(plan.detail["currency_column"])] if plan.detail.get("currency_column") else []
@@ -152,10 +157,13 @@ class SqlCompiler:
             plan_id=plan.plan_id,
             dialect=self.dialect.name,
             rates_query=f"SELECT *\nFROM {self.dialect.qualify(rates)}" if rates else "",
-            metric_query=fetch([k[0] for k in keys] + [amount[0]] + currency, source),
+            metric_query=fetch(
+                [k[0] for k in keys] + [amount[0]] + currency, source, plan.scope.filter
+            ),
             counterpart_query=fetch(
                 [k[1] for k in keys] + [amount[1]],
                 self.dialect.qualify(str(plan.detail.get("against", ""))),
+                plan.scope.counterpart_filter,
             ),
             parameters=tuple(sorted(plan.parameters())),
         )

@@ -100,7 +100,10 @@ def test_an_ambiguous_column_is_reported_rather_than_guessed() -> None:
     """
     _, extraction = edges(sql)
     assert any(gap.kind == "ambiguous" for gap in extraction.gaps)
-    assert not extraction.edges
+    # No edge for the ambiguous value. The join key is qualified, so its edges
+    # (which decide the view's rows, not its amount) are not guesses.
+    assert all(e.transform is Transform.JOIN_KEY for e in extraction.edges)
+    assert {e.source.qualified for e in extraction.edges} == {"a.k", "b.k"}
 
 
 def test_a_schema_resolves_the_ambiguity() -> None:
