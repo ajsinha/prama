@@ -32,6 +32,7 @@ from prama.cli.metadata import MetadataCommand
 from prama.cli.pack import PackCommand
 from prama.cli.principal import PrincipalCommand
 from prama.cli.tenant import TenantCommand
+from prama.cli.usage import UsageCommand
 from prama.core.errors import PramaError, ValidationError
 from prama.db import Database
 from prama.version import IR_VERSION, PRODUCT_NAME, PRODUCT_TAGLINE, SCHEMA_VERSION, VERSION
@@ -326,6 +327,7 @@ def all_commands() -> list[Command]:
         MetadataCommand(),
         CommentCommand(),
         QueueCommand(),
+        UsageCommand(),
         LineageCommand(),
         CodeCommand(),
         ServeCommand(),

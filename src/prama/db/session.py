@@ -58,6 +58,7 @@ if TYPE_CHECKING:
     from prama.db.dao.llm_governance import LlmGovernanceDao
     from prama.db.dao.metadata import MetadataDao
     from prama.db.dao.steward import StewardDao
+    from prama.db.dao.usage import UsageDao
 
 _log = get_logger(__name__)
 
@@ -157,6 +158,12 @@ class UnitOfWork:
         from prama.db.dao import AuditDao
 
         return self._dao("audit", AuditDao)  # type: ignore[no-any-return]
+
+    @property
+    def usage(self) -> UsageDao:
+        from prama.db.dao.usage import UsageDao
+
+        return self._dao("usage", UsageDao)  # type: ignore[no-any-return]
 
     @property
     def comments(self) -> CommentDao:

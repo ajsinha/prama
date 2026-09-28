@@ -44,6 +44,7 @@ need different people.
 | [`prama queue`](#prama-queue) | what is waiting on a person: mentions, failures, inconsistencies, approvals |
 | [`prama serve`](#prama-serve) | run the HTTP API |
 | [`prama tenant`](#prama-tenant) | the estate this installation is for |
+| [`prama usage`](#prama-usage) | dataset usage from query history, as a priority signal |
 | [`prama version`](#prama-version) | print version information |
 
 ---
@@ -772,6 +773,30 @@ the estate this installation is for
 | `slug` **required** | short name, lowercase, e.g. acme-bank |
 | `--name` | what people call it; defaults to the slug |
 | `--residency` | where this estate's data must stay, if that is constrained |
+
+## `prama usage`
+
+dataset usage from query history, as a priority signal
+
+| Subcommand | What it does |
+|---|---|
+| `prama usage import` | read a warehouse's query-history export into daily usage (--query prints it) |
+| `prama usage priorities` | most used, least controlled: where to work first |
+
+**`prama usage import`**
+
+| Argument | Meaning |
+|---|---|
+| `warehouse` **required** |  One of: snowflake, bigquery, databricks. |
+| `rows` | JSON list or CSV |
+| `--query` | print the export query |
+| `--tenant` | slug or id; defaults to the configured one |
+**`prama usage priorities`**
+
+| Argument | Meaning |
+|---|---|
+| `--days` |  |
+| `--tenant` | slug or id; defaults to the configured one |
 
 ## `prama version`
 

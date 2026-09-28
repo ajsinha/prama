@@ -334,6 +334,15 @@ Modules named in the design notes that do not exist yet are marked `(planned)` t
 - **Also added:** the mock LLM provider. When no model is configured, the gateway uses a
   placeholder that answers with nothing.
 
+**Wave 17, E7 (usage signals), as built** (`us_usage`, `lineage/usage.py`,
+`semantic/services/priorities.py`):
+
+- **Daily usage.** Queries and distinct readers per dataset per day, taken from Snowflake,
+  BigQuery or Databricks query-history exports. A re-import replaces the same days.
+- **"Most used, least controlled"** orders the work, and lists used datasets nobody has declared.
+- **Usage never reaches a score.** A structural test fails if anything under `prama.score`
+  imports it.
+
 **Wave 17, E6 (comments and steward queues), as built** (`cm_comment`,
 `semantic/services/collaboration.py`):
 

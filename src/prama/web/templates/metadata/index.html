@@ -21,6 +21,20 @@
 {% else %}<li class="text-muted">Nothing mentions “{{ q }}” yet. Business context is what this searches; add some.</li>{% endfor %}</ul>
 {% endif %}
 
+{% if priorities.has_usage %}
+<section class="border rounded p-3 mb-4" aria-labelledby="prio-h">
+  <h2 class="h6" id="prio-h">Most used, least controlled <span class="text-muted small">since {{ priorities.since }}</span></h2>
+  <p class="small text-muted">From the warehouse's query history. It orders the work; it never changes a quality score.</p>
+  <div class="table-responsive"><table class="table table-sm small mb-2">
+    <thead><tr><th scope="col">Dataset</th><th scope="col">Queries</th><th scope="col">Readers</th><th scope="col">Controls</th><th scope="col">Failing</th></tr></thead>
+    <tbody>{% for r in priorities.datasets[:15] %}<tr>
+      <td><a href="{{ url_for('metadata_dataset', slug=r.slug) }}">{{ r.dataset }}</a></td><td>{{ r.queries }}</td><td>{{ r.readers }}</td>
+      <td>{% if r.controls == 0 and r.queries %}<span class="badge text-bg-warning">0</span>{% else %}{{ r.controls }}{% endif %}</td><td>{{ r.failing }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% if priorities.undeclared %}<p class="small mb-0">Used but not declared: {% for u in priorities.undeclared[:10] %}<code>{{ u.dataset }}</code> ({{ u.queries }}){% if not loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+</section>
+{% endif %}
+
 {% if correlation.groups %}
 <section class="border rounded p-3 mb-4" aria-labelledby="corr-h">
   <h2 class="h6" id="corr-h">Same meaning, across datasets</h2>

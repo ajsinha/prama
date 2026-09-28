@@ -101,3 +101,17 @@ prama metadata find "settlement currency"
 
 The same information is available to programs at `GET /api/v1/metadata/{dataset}` and
 `GET /api/v1/metadata/search?q=…`.
+
+## Most used, least controlled
+
+Import the warehouse's query history, and the Metadata page lists the busiest datasets with the
+fewest controls first. Datasets that are used but not declared are listed separately:
+
+```bash
+prama usage import snowflake --query        # prints the export query to run
+prama usage import snowflake history.json   # or bigquery / databricks
+prama usage priorities
+```
+
+Usage orders the work and does nothing else. No quality score reads it, and a test holds that:
+a popular dataset is not a better one.

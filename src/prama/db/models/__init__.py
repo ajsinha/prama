@@ -80,6 +80,7 @@ from prama.db.models.steward import (
     AgtTask,
     CurSuggestion,
 )
+from prama.db.models.usage import UsUsage
 
 __all__ = [
     "AgtApproval",
@@ -156,4 +157,5 @@ __all__ = [
     "TenantScoped",
     "Timestamped",
     "UlidPrimaryKey",
+    "UsUsage",
 ]
