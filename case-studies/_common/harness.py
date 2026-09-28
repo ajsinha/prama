@@ -21,8 +21,7 @@ from typing import Any
 
 from _common.defects import DefectLog
 from _common.estate import Dataset, declare_estate
-from prama.core.config import Configuration, ConfigurationBuilder
-from prama.core.config.defaults import DEFAULTS
+from prama.core.config import Configuration, load_configuration
 from prama.db import Database
 from prama.derive import ControlGenerator
 from prama.derive.persisted import dataset_declaration_of
@@ -43,37 +42,45 @@ def stage(number: int, title: str, why: str) -> None:
     say(RULE)
 
 
-def configure(workspace: Path, *, tenant: str = "") -> Configuration:
-    """A configuration pointing at this study's own Prama database.
+#: The repository root: where `prama serve` runs, and what relative paths in the
+#: application's configuration are relative to.
+ROOT = Path(__file__).resolve().parents[2]
 
-    Each study gets its own, so running one does not disturb another and
-    deleting one is deleting a directory.
+#: A study's `--config`, or None for the application's own configuration.
+CONFIG_PATH: str | None = None
+
+
+def use_config(path: str | None) -> None:
+    """Run the study against *path* instead of the application's configuration."""
+    global CONFIG_PATH
+    CONFIG_PATH = path or None
+
+
+def configure(*, tenant: str = "") -> Configuration:
+    """The application's own configuration, and so its one database.
+
+    A study is a guided run of Prama against a demonstration estate, not a
+    separate installation: it writes into the database the application uses
+    (`database.*` in `config/application.yaml`, or in `--config`), under a
+    tenant of its own, and never into a database file of its own. The data a
+    study *checks* (its SQLite book, its CSV and Parquet landing zone) is the
+    customer's side, and stays in the study's workspace.
+
+    Relative paths resolve against the repository root, where the application
+    runs, so a study started from its own directory still reaches the same
+    database rather than creating one beside itself.
     """
-    return (
-        ConfigurationBuilder()
-        .with_defaults(DEFAULTS)
-        .with_mapping(
-            {
-                "database": {
-                    "dialect": "sqlite",
-                    "sqlite": {"path": str(workspace / "prama.db")},
-                    "schema_dir": str(Path(__file__).resolve().parents[2] / "schema"),
-                    "verify_on_start": True,
-                },
-                # A case study is not a deployment. The secret is fixed so the
-                # study is reproducible, and it is worthless — which is why it
-                # says so.
-                "security": {
-                    "session_secret": "case-study-only-not-a-secret",
-                    "cookies_https_only": False,
-                },
-                "tenancy": {"default_tenant": tenant},
-                "logging": {"level": "WARNING"},
-            },
-            name="case-study",
-        )
-        .build()
-    )
+    path = Path(CONFIG_PATH).expanduser() if CONFIG_PATH else ROOT / "config" / "application.yaml"
+    base = load_configuration(path)
+    overrides = [f"tenancy.default_tenant={tenant}"] if tenant else []
+    schema_dir = Path(base.get_str("database.schema_dir", "schema"))
+    if not schema_dir.is_absolute():
+        overrides.append(f"database.schema_dir={ROOT / schema_dir}")
+    if base.get_str("database.dialect", "sqlite") == "sqlite":
+        raw = base.get_str("database.sqlite.path", "")
+        if raw and raw != ":memory:" and not Path(raw).expanduser().is_absolute():
+            overrides.append(f"database.sqlite.path={ROOT / raw}")
+    return load_configuration(path, overrides=overrides) if overrides else base
 
 
 @dataclasses.dataclass
@@ -99,12 +106,14 @@ class Harness:
         self.workspace = workspace
         self.title = title
         self.workspace.mkdir(parents=True, exist_ok=True)
-        self._prama_db = workspace / "prama.db"
-        if self._prama_db.exists():
-            # A study is reproducible or it is anecdote. Every run starts from
-            # nothing rather than adding to whatever the last one left.
-            self._prama_db.unlink()
-        self.config = configure(workspace)
+        # The study's source data lives in the workspace; Prama's own records go
+        # to the application's database. A run is reproducible because it gets
+        # a fresh tenant, not because a database file is deleted: the evidence
+        # ledger is append-only, and earlier runs stay as they were.
+        stale = workspace / "prama.db"
+        for leftover in (stale, stale.with_suffix(".db-wal"), stale.with_suffix(".db-shm")):
+            leftover.unlink(missing_ok=True)  # from before studies used the main database
+        self.config = configure()
         self.database = Database.from_config(self.config)
         self.tenant_id = ""
         self.dataset_ids: dict[str, str] = {}
@@ -117,14 +126,25 @@ class Harness:
     # -- stages ------------------------------------------------------------
 
     async def start(self, *, tenant_slug: str, tenant_name: str) -> None:
+        from datetime import datetime
+
         self.database.initialise(applied_by="case-study")
         await self.database.start()
+        # One tenant per run, in the application's database. The timestamp is
+        # what makes a rerun start clean without deleting anybody's evidence.
+        slug = f"{tenant_slug}-{datetime.now():%Y%m%d-%H%M%S}"
         async with self.database.unit_of_work() as uow:
-            tenant = uow.tenants.create(slug=tenant_slug, display_name=tenant_name)
+            tenant = uow.tenants.create(slug=slug, display_name=tenant_name)
             await uow.flush()
             self.tenant_id = str(tenant.id)
+        where = (
+            self.config.get_str("database.sqlite.path", "")
+            if self.config.get_str("database.dialect", "sqlite") == "sqlite"
+            else f"postgres {self.config.get_str('database.postgres.host', '')}"
+        )
+        say(f"  Prama database: {where} (the application's), tenant {slug}")
         # Re-read with the tenant fixed, so the console needs no sign-in.
-        self.config = configure(self.workspace, tenant=self.tenant_id)
+        self.config = configure(tenant=self.tenant_id)
 
     async def declare(self, datasets: list[Dataset]) -> None:
         stage(

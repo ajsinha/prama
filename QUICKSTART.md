@@ -214,10 +214,14 @@ generates controls from the declarations, runs them, and opens a console on
 `:8801` showing what it found — including a table of what it planted against
 what it caught, and what it did **not** catch.
 
+A study writes Prama's records into the application's own database, the one
+`config/application.yaml` configures, under a fresh tenant for each run. Only the data it checks
+stays in the study's `workspace/`. Pass `--config` to use a different configuration.
+
 | | Study | What it is for |
 |---|---|---|
 | 1 | `01-trading-book-sqlite` | The whole loop on one source |
-| 2 | `02-feeds-csv-parquet` | Arrival: defects no content check can see |
+| 2 | `02-feeds-csv-parquet` | Arrival, and content in CSV, Parquet and JSON Lines feeds |
 | 3 | `03-mixed-estate` | Relationships: defects no single dataset can see |
 | 4 | `04-expressions-and-plugins` | Excel formulas, and a third-party validator |
 | 5 | `05-dq-delegates` | Python checks named from PQL, one run on a remote agent |

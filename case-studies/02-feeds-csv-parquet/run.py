@@ -12,15 +12,15 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-from typing import Any
 import sys
 from pathlib import Path
+from typing import Any
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 
 from _common.estate import Attribute, Dataset  # noqa: E402
-from _common.harness import Harness, Source, banner, say, stage  # noqa: E402
+from _common.harness import Harness, Source, banner, say, stage, use_config  # noqa: E402
 from generate import build  # noqa: E402
 
 from prama.connect.sources.query import executor_for  # noqa: E402
@@ -40,12 +40,24 @@ ESTATE = [
         arrival_by="06:30",
         obligations=("MiFID II",),
         attributes=(
-            Attribute("trade_id", "The firm's identifier for the trade.", mandatory=True, is_cde=True),
+            Attribute(
+                "trade_id", "The firm's identifier for the trade.", mandatory=True, is_cde=True
+            ),
             Attribute("book", "The trading book the risk sits in.", mandatory=True),
-            Attribute("isin", "The instrument traded.", semantic_type="isin", mandatory=True, is_cde=True),
-            Attribute("counterparty_lei", "Who we faced.", semantic_type="lei", mandatory=True, is_cde=True),
+            Attribute(
+                "isin", "The instrument traded.", semantic_type="isin", mandatory=True, is_cde=True
+            ),
+            Attribute(
+                "counterparty_lei",
+                "Who we faced.",
+                semantic_type="lei",
+                mandatory=True,
+                is_cde=True,
+            ),
             Attribute("side", "Which way.", codelist=("BUY", "SELL"), mandatory=True),
-            Attribute("quantity", "Units traded.", minimum=0.0, maximum=100_000_000.0, mandatory=True),
+            Attribute(
+                "quantity", "Units traded.", minimum=0.0, maximum=100_000_000.0, mandatory=True
+            ),
             Attribute(
                 "price",
                 "Execution price per unit. A price above the cap is a fat finger or a units error.",
@@ -68,7 +80,9 @@ ESTATE = [
                 codelist=("USD", "EUR", "GBP", "CHF", "JPY"),
                 mandatory=True,
             ),
-            Attribute("trade_date", "The date of execution.", semantic_type="iso_date", mandatory=True),
+            Attribute(
+                "trade_date", "The date of execution.", semantic_type="iso_date", mandatory=True
+            ),
             Attribute("settlement_date", "When it settles.", semantic_type="iso_date"),
             Attribute("venue", "Where it executed.", semantic_type="mic"),
             Attribute("trader", "Who booked it."),
@@ -86,7 +100,9 @@ ESTATE = [
         obligations=("FRTB",),
         attributes=(
             Attribute("book", "The trading book.", mandatory=True),
-            Attribute("isin", "The instrument held.", semantic_type="isin", mandatory=True, is_cde=True),
+            Attribute(
+                "isin", "The instrument held.", semantic_type="isin", mandatory=True, is_cde=True
+            ),
             Attribute("as_of_date", "The business date.", semantic_type="iso_date", mandatory=True),
             Attribute("quantity", "Net units held; a short is a position."),
             Attribute(
@@ -116,7 +132,13 @@ ESTATE = [
         frequency="daily",
         arrival_by="05:00",
         attributes=(
-            Attribute("isin", "The ISO 6166 identifier.", semantic_type="isin", mandatory=True, is_cde=True),
+            Attribute(
+                "isin",
+                "The ISO 6166 identifier.",
+                semantic_type="isin",
+                mandatory=True,
+                is_cde=True,
+            ),
             Attribute("name", "The instrument's legal name.", mandatory=True),
             Attribute(
                 "asset_class",
@@ -166,17 +188,45 @@ ESTATE = [
             ),
         ),
     ),
+    Dataset(
+        name="Settlement Feed",
+        description="The settlement system's daily instructions, as JSON Lines.",
+        grain_statement="one row per settlement instruction",
+        grain=("settlement_id",),
+        criticality=2,
+        shape="feed",
+        frequency="daily",
+        attributes=(
+            Attribute("settlement_id", "The instruction's identifier.", mandatory=True),
+            Attribute(
+                "amount",
+                "Amount to settle; the direction is not in the sign.",
+                minimum=0.0,
+                mandatory=True,
+            ),
+            Attribute("currency", "Settlement currency.", codelist=("USD", "EUR", "GBP")),
+            Attribute(
+                "status",
+                "Where the instruction stands.",
+                codelist=("PENDING", "SETTLED", "FAILED"),
+                mandatory=True,
+            ),
+            Attribute("value_date", "The intended settlement date.", mandatory=True),
+        ),
+    ),
 ]
 
 
-async def main(serve: bool, port: int) -> Any:
+async def main(serve: bool, port: int) -> Any:  # noqa: ARG001
     workspace = HERE / "workspace"
     banner(
-        "Case study 2 — daily feeds, CSV and Parquet",
-        "A landing zone. Ten business days, four feeds, seven planted defects.",
+        "Case study 2 — daily feeds: CSV, Parquet and JSON Lines",
+        "A landing zone. Ten business days, five feeds, nine planted defects.",
     )
 
-    stage(1, "Build the landing zone", "CSV where a vendor writes it, Parquet where a platform does.")
+    stage(
+        1, "Build the landing zone", "CSV where a vendor writes it, Parquet where a platform does."
+    )
     landing, catalogue, planted, counts = build(workspace)
     say(f"  {landing}")
     for name, count in counts.items():
@@ -222,7 +272,7 @@ async def main(serve: bool, port: int) -> Any:
     return harness if serve else None
 
 
-async def _arrival_report(harness: Harness, landing: Path) -> None:
+async def _arrival_report(harness: Harness, landing: Path) -> None:  # noqa: ARG001
     """What arrived, and what did not.
 
     Content controls cannot see a missing file: there is nothing wrong with the
@@ -262,9 +312,7 @@ async def _arrival_report(harness: Harness, landing: Path) -> None:
         say("  nothing parsed")
         return
     days = sorted(landed)
-    expected = feed.expected_dates(
-        date.fromisoformat(days[0]), date.fromisoformat(days[-1])
-    )
+    expected = feed.expected_dates(date.fromisoformat(days[0]), date.fromisoformat(days[-1]))
     for day in expected:
         key = day.isoformat()
         files = landed.get(key, [])
@@ -284,8 +332,12 @@ async def _arrival_report(harness: Harness, landing: Path) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--no-serve", action="store_true")
+    parser.add_argument(
+        "--config", default="", help="a Prama configuration file; defaults to the application's"
+    )
     parser.add_argument("--port", type=int, default=8802)
     args = parser.parse_args()
+    use_config(args.config)
     started = asyncio.run(main(serve=not args.no_serve, port=args.port))
     if started is not None:
         # Outside the loop, where uvicorn can own one of its own.

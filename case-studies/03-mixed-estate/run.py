@@ -29,7 +29,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 
 from _common.estate import Attribute, Dataset  # noqa: E402
-from _common.harness import Harness, Source, banner, say, stage  # noqa: E402
+from _common.harness import Harness, Source, banner, say, stage, use_config  # noqa: E402
 from generate import build  # noqa: E402
 
 from prama.connect.sources.query import executor_for  # noqa: E402
@@ -358,8 +358,12 @@ async def main(serve: bool, port: int) -> Any:  # noqa: ARG001
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--no-serve", action="store_true")
+    parser.add_argument(
+        "--config", default="", help="a Prama configuration file; defaults to the application's"
+    )
     parser.add_argument("--port", type=int, default=8803)
     args = parser.parse_args()
+    use_config(args.config)
     started = asyncio.run(main(serve=not args.no_serve, port=args.port))
     if started is not None:
         # Outside the loop, where uvicorn can own one of its own.

@@ -13,7 +13,7 @@ runs them, and serves the console — all on localhost, nothing external.
 | | Study | Sources | What it is for |
 |---|---|---|---|
 | **1** | [Trading book, in SQLite](01-trading-book-sqlite/) | One SQLite database | The whole loop, end to end, on one source |
-| **2** | [Daily feeds, CSV and Parquet](02-feeds-csv-parquet/) | A landing zone of files | Arrival: the defects a content check cannot see |
+| **2** | [Daily feeds: CSV, Parquet and JSON Lines](02-feeds-csv-parquet/) | A landing zone of files | Arrival, and content in all three feed formats |
 | **3** | [A mixed estate](03-mixed-estate/) | SQLite **and** files | Relationships: the defects one dataset cannot see |
 | **4** | [Expressions and plugins](04-expressions-and-plugins/) | CSV via DuckDB | Excel formulas, and a validator somebody else wrote |
 | **5** | [DQ delegates](05-dq-delegates/) | CSV via DuckDB, and a remote agent | Python checks PQL cannot say, judged by Prama, run beside the data |
@@ -27,9 +27,26 @@ python run.py --no-serve      # build, run, print the report, stop
 ```
 
 The consoles are on `:8801` to `:8805`, one per study, so all five
-can run at once. Everything lives under each study's `workspace/`; delete the
-directory to start over. The data is seeded, so two runs produce the same
-numbers and the figures in each README are checkable rather than decorative.
+can run at once. The data is seeded, so two runs produce the same numbers and
+the figures in each README are checkable rather than decorative.
+
+**Where things are kept.** Two kinds of storage are involved, and they are kept apart:
+
+- **The data a study checks** lives under the study's `workspace/`. That is its SQLite book, and
+  its CSV, Parquet and JSON Lines landing zone. It stands in for a customer's source systems,
+  which in a real deployment are remote and stay where they are.
+- **Prama's own records** go to the application's one database: the database configured in
+  `config/application.yaml`, or in `--config` if you pass one. That covers declarations,
+  controls and evidence. No study creates a database of its own.
+- **Tenants.** Each run creates a fresh tenant there (for example `acme-desk-20260928-141230`),
+  so a rerun starts clean without deleting anybody's evidence, which is append-only.
+
+```bash
+python run.py --no-serve --config /path/to/other.yaml   # use a different configuration
+```
+
+If your application database predates a schema change, `prama db verify` says so and the study
+stops. Recreate the database with `prama db init` on a fresh file.
 
 Requires the dev install: `pip install -e ".[dev,serve]"`.
 

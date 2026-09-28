@@ -21,25 +21,24 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-from typing import Any
 import csv
 import dataclasses
 import shutil
 import sys
 from decimal import ROUND_HALF_EVEN, Decimal
 from pathlib import Path
+from typing import Any
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent))
 
 import duckdb  # noqa: E402
-from acme_validators import AcmeBookCode, book_code  # noqa: E402
-
 from _common.bank import Book  # noqa: E402
 from _common.defects import DefectLog  # noqa: E402
 from _common.estate import Attribute, Dataset  # noqa: E402
-from _common.harness import Harness, Source, banner, say, stage  # noqa: E402
+from _common.harness import Harness, Source, banner, say, stage, use_config  # noqa: E402
+from acme_validators import AcmeBookCode, book_code  # noqa: E402
 
 from prama.classify.plugins import PLUGINS, scan_source  # noqa: E402
 from prama.classify.validators import REGISTRY as VALIDATORS  # noqa: E402
@@ -115,9 +114,7 @@ ESTATE = [
                 is_cde=True,
             ),
             Attribute("isin", "The instrument traded.", semantic_type="isin", mandatory=True),
-            Attribute(
-                "counterparty_lei", "Who we faced.", semantic_type="lei", is_cde=True
-            ),
+            Attribute("counterparty_lei", "Who we faced.", semantic_type="lei", is_cde=True),
             Attribute("side", "Which way.", codelist=("BUY", "SELL"), mandatory=True),
             Attribute("quantity", "Units traded.", minimum=0.0, maximum=100_000_000.0),
             Attribute("price", "Execution price.", minimum=0.0, maximum=1_000_000.0),
@@ -246,7 +243,7 @@ def build(workspace: Path) -> tuple[Path, DefectLog, int]:
     return catalogue, log, len(rows)
 
 
-async def main(serve: bool, port: int) -> Any:
+async def main(serve: bool, port: int) -> Any:  # noqa: ARG001
     workspace = HERE / "workspace"
     banner(
         "Case study 4 — Excel formulas, and a validator somebody else wrote",
@@ -273,7 +270,7 @@ async def main(serve: bool, port: int) -> Any:
         say("  A plugin is scanned from its source before it is imported, because")
         say("  importing runs its top-level code — a gate that had to run the thing")
         say("  it was gating would already have run it.")
-        return
+        return None
     say("    clean: no clock, no network, no filesystem, no model")
 
     validator = AcmeBookCode()
@@ -340,9 +337,7 @@ async def _declare_formulas(harness: Harness) -> None:
                 f"SEVERITY major DIMENSION {dimension} BECAUSE '{because}'"
             )
             control = parse_control(pql)
-            compiled = compile_for(
-                resolved(control), "duckdb", table="trade_blotter"
-            )
+            compiled = compile_for(resolved(control), "duckdb", table="trade_blotter")
             say(f"  {formula}")
             predicate = compiled.metric_query.split("WHERE NOT COALESCE((", 1)
             if len(predicate) > 1:
@@ -400,8 +395,12 @@ def _explain_the_half_cent() -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--no-serve", action="store_true")
+    parser.add_argument(
+        "--config", default="", help="a Prama configuration file; defaults to the application's"
+    )
     parser.add_argument("--port", type=int, default=8804)
     args = parser.parse_args()
+    use_config(args.config)
     started = asyncio.run(main(serve=not args.no_serve, port=args.port))
     if started is not None:
         # Outside the loop, where uvicorn can own one of its own.

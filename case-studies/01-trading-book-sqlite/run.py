@@ -17,15 +17,15 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-from typing import Any
 import sys
 from pathlib import Path
+from typing import Any
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 
 from _common.estate import Attribute, Dataset  # noqa: E402
-from _common.harness import Harness, banner, say, stage  # noqa: E402
+from _common.harness import Harness, banner, say, stage, use_config  # noqa: E402
 from generate import build  # noqa: E402
 
 from prama.connect.sources.query import executor_for  # noqa: E402
@@ -105,7 +105,9 @@ ESTATE = [
         arrival_by="06:30",
         obligations=("MiFID II", "FRTB"),
         attributes=(
-            Attribute("trade_id", "The firm's identifier for the trade.", mandatory=True, is_cde=True),
+            Attribute(
+                "trade_id", "The firm's identifier for the trade.", mandatory=True, is_cde=True
+            ),
             Attribute("book", "The trading book the risk sits in.", mandatory=True),
             Attribute(
                 "isin",
@@ -130,9 +132,7 @@ ESTATE = [
                 maximum=100_000_000.0,
                 mandatory=True,
             ),
-            Attribute(
-                "price", "Execution price per unit.", minimum=0.0, maximum=1_000_000.0
-            ),
+            Attribute("price", "Execution price per unit.", minimum=0.0, maximum=1_000_000.0),
             Attribute(
                 "notional",
                 "Quantity times price. The number every risk and capital figure rests on.",
@@ -149,7 +149,9 @@ ESTATE = [
                 codelist=("USD", "EUR", "GBP", "CHF", "JPY"),
                 mandatory=True,
             ),
-            Attribute("trade_date", "The date of execution.", semantic_type="iso_date", mandatory=True),
+            Attribute(
+                "trade_date", "The date of execution.", semantic_type="iso_date", mandatory=True
+            ),
             Attribute("settlement_date", "When it is due to settle.", semantic_type="iso_date"),
             Attribute("venue", "Where it executed.", semantic_type="mic"),
             Attribute("trader", "Who booked it."),
@@ -165,7 +167,9 @@ ESTATE = [
         obligations=("FRTB",),
         attributes=(
             Attribute("book", "The trading book.", mandatory=True),
-            Attribute("isin", "The instrument held.", semantic_type="isin", mandatory=True, is_cde=True),
+            Attribute(
+                "isin", "The instrument held.", semantic_type="isin", mandatory=True, is_cde=True
+            ),
             Attribute("as_of_date", "The business date.", semantic_type="iso_date", mandatory=True),
             Attribute("quantity", "Net units held. May be negative — a short is a position."),
             Attribute(
@@ -194,7 +198,9 @@ ESTATE = [
         arrival_by="21:00",
         attributes=(
             Attribute("book", "The trading book.", mandatory=True),
-            Attribute("posting_date", "The accounting date.", semantic_type="iso_date", mandatory=True),
+            Attribute(
+                "posting_date", "The accounting date.", semantic_type="iso_date", mandatory=True
+            ),
             Attribute("currency", "Always USD in the ledger.", codelist=("USD",), mandatory=True),
             Attribute(
                 "balance_usd",
@@ -214,15 +220,23 @@ ESTATE = [
         arrival_by="18:00",
         attributes=(
             Attribute("currency_pair", "The pair, base then quote.", mandatory=True),
-            Attribute("rate_date", "The date the rate is for.", semantic_type="iso_date", mandatory=True),
-            Attribute("rate", "Units of quote per unit of base.", minimum=0.0, maximum=10_000.0, mandatory=True),
+            Attribute(
+                "rate_date", "The date the rate is for.", semantic_type="iso_date", mandatory=True
+            ),
+            Attribute(
+                "rate",
+                "Units of quote per unit of base.",
+                minimum=0.0,
+                maximum=10_000.0,
+                mandatory=True,
+            ),
             Attribute("source", "Which vendor supplied it.", codelist=("VENDOR-A", "VENDOR-B")),
         ),
     ),
 ]
 
 
-async def main(serve: bool, port: int) -> Any:
+async def main(serve: bool, port: int) -> Any:  # noqa: ARG001
     workspace = HERE / "workspace"
     banner(
         "Case study 1 — a trading book, in SQLite",
@@ -275,8 +289,12 @@ async def main(serve: bool, port: int) -> Any:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--no-serve", action="store_true", help="do not start the console")
+    parser.add_argument(
+        "--config", default="", help="a Prama configuration file; defaults to the application's"
+    )
     parser.add_argument("--port", type=int, default=8801)
     args = parser.parse_args()
+    use_config(args.config)
     started = asyncio.run(main(serve=not args.no_serve, port=args.port))
     if started is not None:
         # Outside the loop, where uvicorn can own one of its own.
