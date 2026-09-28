@@ -143,6 +143,31 @@ class FindCommand(Command):
         return EXIT_OK
 
 
+class CorrelateCommand(Command):
+    name = "correlate"
+    help = "attributes that mean the same thing across datasets, and where they disagree"
+
+    def configure(self, parser: argparse.ArgumentParser) -> None:
+        _tenant_flag(parser)
+
+    def run(self, ctx: CommandContext) -> int:
+        from prama.semantic.services.metadata import correlation
+
+        result: dict[str, Any] = _with_uow(ctx, lambda uow, t: correlation(uow, t))
+        if ctx.json_output:
+            ctx.emit_json(result)
+            return EXIT_OK
+        if not result["groups"]:
+            ctx.emit("No shared meanings yet: bind attributes to concepts or glossary terms.")
+        for g in result["groups"]:
+            ctx.emit(f"{g['meaning']} (same {g['by']}): {', '.join(g['members'])}")
+        for f in result["findings"]:
+            ctx.emit(f"  INCONSISTENT {f['aspect']}: {f['meaning']}: {f['detail']}")
+        for p in result["proposals"]:
+            ctx.emit(f"  proposed: {p['pql'].split(' BECAUSE')[0]}")
+        return EXIT_OK
+
+
 class _Template(CommandGroup):
     name = "template"
     help = "metadata templates"
@@ -156,4 +181,11 @@ class MetadataCommand(CommandGroup):
     help = "metadata and business context on datasets and attributes"
 
     def commands(self) -> list[Command]:
-        return [_Template(), SetCommand(), ContextCommand(), ShowCommand(), FindCommand()]
+        return [
+            _Template(),
+            SetCommand(),
+            ContextCommand(),
+            ShowCommand(),
+            FindCommand(),
+            CorrelateCommand(),
+        ]

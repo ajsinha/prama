@@ -601,6 +601,7 @@ metadata and business context on datasets and attributes
 | Subcommand | What it does |
 |---|---|
 | `prama metadata context` | record the business context of a dataset or dataset.attribute |
+| `prama metadata correlate` | attributes that mean the same thing across datasets, and where they disagree |
 | `prama metadata find` | find datasets and attributes by meaning (business context, definitions, metadata) |
 | `prama metadata set` | set metadata on a dataset or dataset.attribute: field=value … |
 | `prama metadata show` | a dataset's context, metadata, attributes, rules and implied rules |
@@ -612,6 +613,11 @@ metadata and business context on datasets and attributes
 |---|---|
 | `target` **required** |  |
 | `--text` **required** |  |
+| `--tenant` | slug or id; defaults to the configured one |
+**`prama metadata correlate`**
+
+| Argument | Meaning |
+|---|---|
 | `--tenant` | slug or id; defaults to the configured one |
 **`prama metadata find`**
 

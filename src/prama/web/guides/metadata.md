@@ -54,6 +54,23 @@ inside quotes, so metadata cannot change what a rule checks.
 | `{{ pattern }}` | `/…/` |
 | `{{ columns }}` | `a, b`, checked as identifiers (columns fields) |
 
+## Same meaning, across datasets
+
+When two attributes in different datasets are bound to the same **concept property** or the
+same **glossary term**, Prama treats them as the same thing. The Metadata page and
+`prama metadata correlate` show three things:
+
+- **The groups:** which attributes share a meaning, and the signal that says so. A shared
+  semantic type, such as two currency columns, groups them for consistency only, because every
+  table has a currency.
+- **Reference checks.** When exactly one dataset is keyed by that meaning, every other member
+  should reference it: `CHECK trades.counterparty_lei REFERENCES counterparties.lei`. The check is
+  proposed on the Proposals page. If nobody owns the meaning, or two datasets claim it, no check
+  is proposed: that is a question, not a check.
+- **Held inconsistently:** the same meaning with a different semantic type, sensitivity, CDE
+  mark, allowed values or pattern, or described in one place but not another. These are findings
+  for a steward, not controls, because which side is right is a business decision.
+
 ## Writing a rule directly
 
 On the dataset's page, write a rule in PQL about the dataset or any attribute. It is recorded as

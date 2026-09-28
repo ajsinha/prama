@@ -20,6 +20,11 @@ async def search(uow: Uow, caller: Reader, q: str = Query(min_length=1)) -> list
     return await service.search(uow, caller.tenant_id, q)
 
 
+@router.get("/metadata/correlation")
+async def correlation(uow: Uow, caller: Reader) -> dict[str, Any]:
+    return await service.correlation(uow, caller.tenant_id)
+
+
 @router.get("/metadata/{dataset}")
 async def describe(dataset: str, uow: Uow, caller: Reader) -> dict[str, Any]:
     return await service.describe(uow, caller.tenant_id, dataset)

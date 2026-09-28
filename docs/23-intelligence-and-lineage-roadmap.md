@@ -348,8 +348,13 @@ Modules named in the design notes that do not exist yet are marked `(planned)` t
 - **Search by meaning** covers business context, definitions, metadata values and the glossary.
   It uses keywords today; the same function is where embedding search will go.
 - **Surfaces:** the Metadata pages, `prama metadata`, and `/api/v1/metadata`.
-- **Next:** correlating datasets through shared concepts, terms, value overlap and query
-  co-access, with cross-dataset consistency findings, all offered as proposals.
+- **Correlation, built** (`semantic/correlate.py`, `prama metadata correlate`,
+  `/api/v1/metadata/correlation`). Attributes sharing a concept property or a glossary term are
+  grouped. `REFERENCES` checks toward the one dataset keyed by that meaning go to Proposals, and
+  consistency findings (type, sensitivity, CDE, allowed values, pattern, description) are shown
+  for stewards.
+- **Next:** feed the data-side signals (value overlap and query co-access, `prama.discover`) into
+  correlation.
 
 **Wave 17, E5 (glossary and catalog imports), as built:**
 
