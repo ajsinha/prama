@@ -27,12 +27,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import duckdb  # noqa: E402
-import pyarrow as pa  # noqa: E402
-import pyarrow.parquet as pq  # noqa: E402
-
-from _common.bank import Book  # noqa: E402
-from _common.defects import DefectLog  # noqa: E402
+import duckdb
+import pyarrow as pa
+import pyarrow.parquet as pq
+from _common.bank import Book
+from _common.defects import DefectLog
 
 
 def _write_csv(path: Path, rows: list[dict], *, declared_rows: int | None = None) -> None:
@@ -49,17 +48,23 @@ def _write_csv(path: Path, rows: list[dict], *, declared_rows: int | None = None
         writer.writeheader()
         writer.writerows(rows)
     if declared_rows is not None:
-        path.with_suffix(".trl").write_text(
-            f"TRLR,{declared_rows}\n", encoding="utf-8"
-        )
+        path.with_suffix(".trl").write_text(f"TRLR,{declared_rows}\n", encoding="utf-8")
+
+
+def _write_jsonl(path: Path, rows: list[dict]) -> None:
+    """JSON Lines: one record per line, which is what JSON feeds are."""
+    import json
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        for row in rows:
+            handle.write(json.dumps(row) + "\n")
 
 
 def _write_parquet(path: Path, rows: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     columns = list(rows[0])
-    pq.write_table(
-        pa.table({c: [row[c] for row in rows] for c in columns}), path
-    )
+    pq.write_table(pa.table({c: [row[c] for row in rows] for c in columns}), path)
 
 
 def build(workspace: Path) -> tuple[Path, Path, DefectLog, dict[str, int]]:
@@ -217,9 +222,42 @@ def build(workspace: Path) -> tuple[Path, Path, DefectLog, dict[str, int]]:
     _write_csv(landing / "counterparties" / "COUNTERPARTIES_20260908.csv", counterparties)
     counts["counterparties (CSV)"] = len(counterparties)
 
+    # -- settlements, as JSON Lines ------------------------------------------
+    statuses = ("PENDING", "SETTLED", "FAILED")
+    settlements = [
+        {
+            "settlement_id": f"SET{i:06d}",
+            "amount": round(1_000 + (i * 7919) % 250_000 + 0.25, 2),
+            "currency": ("USD", "EUR", "GBP")[i % 3],
+            "status": statuses[i % 3],
+            "value_date": f"2026-09-{8 + i % 3:02d}",
+        }
+        for i in range(600)
+    ]
+    for row in settlements[40:49]:
+        row["amount"] = -row["amount"]
+    log.add(
+        key="negative_settlement_amount",
+        dataset="settlement_feed",
+        what="settlement amount negative: a direction written into the sign",
+        rows=9,
+        dimension="validity",
+    )
+    for row in settlements[300:305]:
+        row["status"] = "UNKNOWN"
+    log.add(
+        key="unknown_settlement_status",
+        dataset="settlement_feed",
+        what="status UNKNOWN, which the settlement system never sends",
+        rows=5,
+        dimension="validity",
+    )
+    _write_jsonl(landing / "settlements" / "SETTLEMENTS_20260908.jsonl", settlements)
+    counts["settlements (JSON Lines)"] = len(settlements)
+
     # -- one DuckDB file with a view over each feed -----------------------
     #
-    # DuckDB reads CSV and Parquet in place, so nothing is copied and the
+    # DuckDB reads CSV, Parquet and JSON Lines in place, so nothing is copied and the
     # files on disk stay the source of truth. The views are the only thing
     # created, and the database is then opened read-only for the run.
     catalogue = workspace / "landing.duckdb"
@@ -240,6 +278,10 @@ def build(workspace: Path) -> tuple[Path, Path, DefectLog, dict[str, int]]:
     connection.execute(
         f"CREATE VIEW counterparty_feed AS "
         f"SELECT * FROM read_csv_auto('{landing}/counterparties/*.csv', header=true)"
+    )
+    connection.execute(
+        f"CREATE VIEW settlement_feed AS SELECT * FROM "
+        f"read_json('{landing}/settlements/*.jsonl', format='newline_delimited')"
     )
     connection.close()
     return landing, catalogue, log, counts

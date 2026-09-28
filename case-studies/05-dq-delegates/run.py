@@ -40,7 +40,7 @@ sys.path.insert(0, str(HERE.parent))
 import duckdb  # noqa: E402
 from _common.defects import DefectLog  # noqa: E402
 from _common.estate import Attribute, Dataset  # noqa: E402
-from _common.harness import Harness, Source, banner, say, stage  # noqa: E402
+from _common.harness import Harness, Source, banner, say, stage, use_config  # noqa: E402
 
 from prama.connect.sources.query import executor_for  # noqa: E402
 from prama.delegates.host import host_from_config  # noqa: E402
@@ -481,8 +481,12 @@ async def _compare(harness: Harness) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--no-serve", action="store_true")
+    parser.add_argument(
+        "--config", default="", help="a Prama configuration file; defaults to the application's"
+    )
     parser.add_argument("--port", type=int, default=8805)
     args = parser.parse_args()
+    use_config(args.config)
     started = asyncio.run(main(serve=not args.no_serve))
     if started is not None:
         started.serve(port=args.port)

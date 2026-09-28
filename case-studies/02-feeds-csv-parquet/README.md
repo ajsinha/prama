@@ -1,4 +1,4 @@
-# Case study 2 — daily feeds, CSV and Parquet
+# Case study 2 — daily feeds: CSV, Parquet and JSON Lines
 
 <sub><b>PRAMA</b> — <i>Declare it. Prove it. Trust it.</i><br/>
 Copyright © 2026 <b>Ashutosh Sinha</b> &lt;ajsinha@gmail.com&gt;. All rights reserved.<br/>
@@ -8,17 +8,21 @@ Proprietary and confidential.</sub>
 
 ## What this shows
 
-A landing zone, not a database. Four feeds arrive daily: trades and
-counterparties as **CSV** (a vendor or a mainframe wrote them), positions and
-instruments as **Parquet** (an analytics platform did). Ten business days,
-3,800 trade rows, seven planted defects.
+A landing zone, not a database. Five feeds arrive daily:
+
+- trades and counterparties as **CSV**, written by a vendor or a mainframe;
+- positions and instruments as **Parquet**, written by an analytics platform;
+- settlement instructions as **JSON Lines** (one record per line), written by the settlement
+  system.
+
+Ten business days, 3,800 trade rows, 600 settlement instructions and nine planted defects.
 
 The difference from case study 1 is one word in the declaration: these are
 **feeds**, and a feed has a *rhythm*. That is what turns "the file never came"
 from an absence nobody notices into something Prama reports.
 
 > **A feed is not a file; it is a contract about arrival.**
-> Three of the seven defects here are invisible to every content check, because
+> Three of the nine defects here are invisible to every content check, because
 > there is nothing wrong with the rows — there are no rows, or there are twice
 > as many as there should be.
 
@@ -30,11 +34,21 @@ python run.py                 # build, run, and serve the console on :8802
 python run.py --no-serve      # build and run, print the report, stop
 ```
 
+## The JSON Lines feed
+
+Settlement instructions arrive as JSON Lines, one record per line. They are declared like any
+other feed, and Prama derives their controls from the declaration:
+
+| Planted | Rows | Found by |
+|---|---:|---|
+| Negative settlement amount (the direction written into the sign) | 9 | the derived `amount >= 0` check: **9 of 600** |
+| Status `UNKNOWN`, which the settlement system never sends | 5 | the derived `status IN (…)` check: **5 of 600** |
+
 ## How the files are read
 
-DuckDB reads CSV and Parquet **in place**. Nothing is copied and nothing is
-loaded: the files on disk stay the source of truth, and one small `.duckdb`
-file holds four views over them.
+DuckDB reads CSV, Parquet and JSON Lines **in place**. Nothing is copied and
+nothing is loaded: the files on disk stay the source of truth, and one small
+`.duckdb` file holds five views over them.
 
 ```
 workspace/landing/
@@ -42,7 +56,8 @@ workspace/landing/
   positions/    POSITIONS_20260908.parquet
   instruments/  INSTRUMENTS_20260908.parquet
   counterparties/ COUNTERPARTIES_20260908.csv
-workspace/landing.duckdb     ← four views, opened read-only
+  settlements/  SETTLEMENTS_20260908.jsonl   (one JSON record per line)
+workspace/landing.duckdb     ← five views, opened read-only
 ```
 
 The trailer is a **sidecar** `.trl` file rather than a last line inside the CSV.
@@ -110,7 +125,8 @@ indistinguishable from one that is passing.
 | File | What it is |
 |---|---|
 | `generate.py` | Builds the landing zone and plants the defects |
-| `run.py` | Declares the four feeds, drives Prama, prints the arrival report |
-| `workspace/landing/` | The actual CSV and Parquet files |
-| `workspace/landing.duckdb` | Four views over them, read-only |
-| `workspace/prama.db` | Prama's own store |
+| `run.py` | Declares the five feeds, drives Prama, prints the arrival report |
+| `workspace/landing/` | The actual CSV, Parquet and JSON Lines files |
+| `workspace/landing.duckdb` | Five views over them, read-only |
+
+Prama's own records go to the application's database, not the workspace.

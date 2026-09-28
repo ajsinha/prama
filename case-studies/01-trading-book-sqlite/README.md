@@ -31,9 +31,10 @@ python run.py --no-serve      # build and run, print the report, stop
 python run.py --port 9000     # serve somewhere else
 ```
 
-Everything is local. One SQLite file for the data, another for Prama's own
-store, both under `workspace/`. Delete the directory to start over; every run
-rebuilds from scratch, seeded, so the numbers are the same every time.
+Everything is local. The data being checked is one SQLite file under `workspace/`. Prama's own
+records go to the application's database (`config/application.yaml`, or `--config`), under a
+fresh tenant each run. Every run rebuilds the data from scratch, seeded, so the numbers are the
+same every time.
 
 ## The five stages
 
@@ -144,7 +145,6 @@ the set cannot look complete when it is not.
 | `generate.py` | Builds the SQLite database and plants the defects |
 | `run.py` | Declares the estate, drives Prama, prints the report |
 | `workspace/trading_book.db` | The fabricated data |
-| `workspace/prama.db` | Prama's own store: declarations, controls, evidence |
 
 The estate declaration is the top of `run.py`. Read it first — everything Prama
 does afterwards follows from those sentences.

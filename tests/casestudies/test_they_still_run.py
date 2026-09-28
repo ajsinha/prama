@@ -50,8 +50,17 @@ def test_it_runs_to_completion(study: Path, tmp_path: Path) -> None:
     by `test_serve_is_not_called_inside_the_loop` below, which is the half that
     was broken.
     """
+    # A study writes into the application's database. Pointed at a scratch
+    # one here, so running the suite never touches the developer's own.
+    config = tmp_path / "application.yaml"
+    config.write_text(
+        f"database:\n  dialect: sqlite\n  sqlite:\n    path: {tmp_path / 'prama.db'}\n"
+        "security:\n  session_secret: case-study-test-secret-not-a-real-one\n"
+        "logging:\n  level: WARNING\n",
+        encoding="utf-8",
+    )
     result = subprocess.run(
-        [sys.executable, "run.py", "--no-serve"],
+        [sys.executable, "run.py", "--no-serve", "--config", str(config)],
         cwd=study,
         capture_output=True,
         text=True,
@@ -91,3 +100,22 @@ def test_serve_is_not_called_inside_the_loop(study: Path) -> None:
                     f"{node.name!r} at line {inner.lineno}. uvicorn.run calls "
                     "asyncio.run, which cannot start inside a running loop."
                 )
+
+
+@pytest.mark.parametrize("study", study_directories(), ids=lambda p: p.name)
+def test_a_study_keeps_no_database_of_its_own(study: Path, tmp_path: Path) -> None:
+    """Prama's records go to the application's one database, never beside the study."""
+    config = tmp_path / "application.yaml"
+    config.write_text(
+        f"database:\n  dialect: sqlite\n  sqlite:\n    path: {tmp_path / 'main.db'}\n",
+        encoding="utf-8",
+    )
+    subprocess.run(
+        [sys.executable, "run.py", "--no-serve", "--config", str(config)],
+        cwd=study,
+        capture_output=True,
+        timeout=600,
+        check=False,
+    )
+    assert (tmp_path / "main.db").is_file()
+    assert not (study / "workspace" / "prama.db").exists()
