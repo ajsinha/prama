@@ -101,6 +101,28 @@ class TestThePublicPages:
     async def test_an_unknown_topic_is_not_found(self, stranger: Any) -> None:
         assert (await stranger.get("/help/no-such-topic")).status_code == 404
 
+    async def test_case_studies_have_a_card_each_and_a_page_each(self, stranger: Any) -> None:
+        from prama.web import case_studies
+
+        studies = case_studies.catalog()
+        # Anti-vacuity: the catalogue is parsed from the index, and a table the
+        # pattern stopped matching would otherwise list nothing and pass.
+        assert len(studies) >= 8
+        on_disk = {p.name for p in case_studies.ROOT.glob("0*") if (p / "README.md").is_file()}
+        assert {s["slug"] for s in studies} == on_disk
+        listing = await stranger.get("/help/case-studies")
+        assert listing.status_code == 200
+        index = await stranger.get("/help")
+        for study in studies:
+            href = f'href="/help/case-studies/{study["slug"]}"'
+            assert href in listing.text and href in index.text, study["slug"]
+            page = await stranger.get(f"/help/case-studies/{study['slug']}")
+            assert page.status_code == 200, study["slug"]
+            # The README itself, rendered: its sections and its tables.
+            assert "<h2" in page.text and "<table" in page.text, study["slug"]
+        assert (await stranger.get("/help/case-studies/09-no-such-study")).status_code == 404
+        assert (await stranger.get("/help/case-studies/_common")).status_code == 404
+
     async def test_help_assets_serve_the_corpus_images_and_nothing_else(
         self, stranger: Any
     ) -> None:

@@ -246,36 +246,59 @@ STARTER: dict[str, dict[str, Any]] = {
                 "kind": "flag",
                 "help": "Every row must have a value.",
                 "rules": [
-                    {"when": "true", "pql": "CHECK {{ dataset }}.{{ attribute }} IS NOT NULL"}
+                    {
+                        "when": "true",
+                        "pql": "CHECK {{ dataset }}.{{ attribute }} IS NOT NULL "
+                        "DIMENSION completeness",
+                    }
                 ],
             },
             {
                 "name": "unique",
                 "kind": "flag",
                 "help": "No two rows share a value.",
-                "rules": [{"when": "true", "pql": "CHECK {{ dataset }}.{{ attribute }} IS UNIQUE"}],
+                "rules": [
+                    {
+                        "when": "true",
+                        "pql": "CHECK {{ dataset }}.{{ attribute }} IS UNIQUE DIMENSION uniqueness",
+                    }
+                ],
             },
             {
                 "name": "allowed_values",
                 "kind": "list",
                 "help": "The only values permitted.",
-                "rules": [{"pql": "CHECK {{ dataset }}.{{ attribute }} IN {{ values }}"}],
+                "rules": [
+                    {
+                        "pql": "CHECK {{ dataset }}.{{ attribute }} IN {{ values }} "
+                        "DIMENSION validity"
+                    }
+                ],
             },
             {
                 "name": "pattern",
                 "kind": "text",
                 "help": "A regular expression every value matches.",
-                "rules": [{"pql": "CHECK {{ dataset }}.{{ attribute }} MATCHES {{ pattern }}"}],
+                "rules": [
+                    {
+                        "pql": "CHECK {{ dataset }}.{{ attribute }} MATCHES {{ pattern }} "
+                        "DIMENSION validity"
+                    }
+                ],
             },
             {
                 "name": "minimum",
                 "kind": "number",
-                "rules": [{"pql": "CHECK {{ dataset }}.{{ attribute }} >= {{ value }}"}],
+                "rules": [
+                    {"pql": "CHECK {{ dataset }}.{{ attribute }} >= {{ value }} DIMENSION validity"}
+                ],
             },
             {
                 "name": "maximum",
                 "kind": "number",
-                "rules": [{"pql": "CHECK {{ dataset }}.{{ attribute }} <= {{ value }}"}],
+                "rules": [
+                    {"pql": "CHECK {{ dataset }}.{{ attribute }} <= {{ value }} DIMENSION validity"}
+                ],
             },
             {"name": "source_system", "kind": "text", "help": "Where this column comes from."},
             {"name": "pii", "kind": "flag", "help": "Personal data; masked in evidence."},
@@ -290,12 +313,22 @@ STARTER: dict[str, dict[str, Any]] = {
                 "name": "key",
                 "kind": "columns",
                 "help": "The columns that identify a row.",
-                "rules": [{"pql": "CHECK {{ dataset }} HAS UNIQUE KEY ({{ columns }})"}],
+                "rules": [
+                    {
+                        "pql": "CHECK {{ dataset }} HAS UNIQUE KEY ({{ columns }}) "
+                        "DIMENSION uniqueness"
+                    }
+                ],
             },
             {
                 "name": "minimum_rows",
                 "kind": "number",
-                "rules": [{"pql": "CHECK {{ dataset }} HAS ROW COUNT AT LEAST {{ value }}"}],
+                "rules": [
+                    {
+                        "pql": "CHECK {{ dataset }} HAS ROW COUNT AT LEAST {{ value }} "
+                        "DIMENSION completeness"
+                    }
+                ],
             },
             {"name": "source_system", "kind": "text"},
             {

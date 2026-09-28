@@ -225,8 +225,12 @@ stays in the study's `workspace/`. Pass `--config` to use a different configurat
 | 3 | `03-mixed-estate` | Relationships: defects no single dataset can see |
 | 4 | `04-expressions-and-plugins` | Excel formulas, and a third-party validator |
 | 5 | `05-dq-delegates` | Python checks named from PQL, one run on a remote agent |
+| 6 | `06-month-end-close` | `RECONCILE` with currencies and a timing offset |
+| 7 | `07-metadata-governance` | Rules from metadata, correlation, fitness search |
+| 8 | `08-code-to-impact` | Lineage from ETL code, and a defect's blast radius |
 
-They use ports `:8801`–`:8805`, so all five can run at once.
+They use ports `:8801`–`:8808`, so all eight can run at once. The console lists them
+under **Help → Case studies**, one card per study with its README.
 
 ---
 

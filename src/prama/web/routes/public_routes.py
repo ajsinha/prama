@@ -73,6 +73,9 @@ class PublicRoutes(UiRoutes):
         self.page("/legal", self.legal, name="legal", scope=None)
         self.page("/help", self.help_index, name="help_index", scope=None)
         self.page("/help/assets/{name}", self.help_asset, name="help_asset", scope=None)
+        # Before /help/{slug}, which would otherwise read "case-studies" as a topic.
+        self.page("/help/case-studies", self.case_studies, name="help_case_studies", scope=None)
+        self.page("/help/case-studies/{slug}", self.case_study, name="help_case_study", scope=None)
         self.page("/help/{slug}", self.help_topic, name="help_topic", scope=None)
 
     async def landing(self, request: Request) -> Any:
@@ -120,6 +123,39 @@ class PublicRoutes(UiRoutes):
             "help/index.html",
             public_nav=not request.session.get("principal_id"),
             sections=help_catalog.SECTIONS,
+            studies=_studies(),
+        )
+
+    async def case_studies(self, request: Request) -> Any:
+        from prama.web import case_studies
+
+        return render(
+            request,
+            "help/case_studies.html",
+            public_nav=not request.session.get("principal_id"),
+            studies=case_studies.catalog(),
+        )
+
+    async def case_study(self, request: Request, slug: str) -> Any:
+        from prama.web import case_studies
+
+        studies = case_studies.catalog()
+        study = next((s for s in studies if s["slug"] == slug), None)
+        if study is None:
+            raise NotFoundError(
+                f"there is no case study called {slug!r}",
+                remedy="The case studies are listed at /help/case-studies.",
+                context={"slug": slug},
+            )
+        i = studies.index(study)
+        return render(
+            request,
+            "help/case_study.html",
+            public_nav=not request.session.get("principal_id"),
+            study=study,
+            doc=case_studies.render(slug),
+            prev=studies[i - 1] if i else None,
+            next=studies[i + 1] if i + 1 < len(studies) else None,
         )
 
     async def help_topic(self, request: Request, slug: str) -> Any:
@@ -155,3 +191,9 @@ class PublicRoutes(UiRoutes):
                 context={"name": name},
             )
         return FileResponse(path, media_type=media)
+
+
+def _studies() -> list[dict[str, str]]:
+    from prama.web import case_studies
+
+    return case_studies.catalog()

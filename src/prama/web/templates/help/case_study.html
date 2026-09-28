@@ -1,0 +1,26 @@
+{# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{% extends "base.html" %}
+{% block title %}{{ doc.title }} — Prama help{% endblock %}
+{% block breadcrumb %}
+<nav aria-label="Breadcrumb"><ol class="breadcrumb small">
+  <li class="breadcrumb-item"><a href="{{ url_for('help_index') }}">Help</a></li>
+  <li class="breadcrumb-item"><a href="{{ url_for('help_case_studies') }}">Case studies</a></li>
+  <li class="breadcrumb-item active" aria-current="page">{{ study.num }} · {{ study.title }}</li>
+</ol></nav>
+{% endblock %}
+{% block content %}
+<h1 class="h4"><span class="badge rounded-pill text-bg-primary me-2">{{ study.num }}</span>{{ doc.title }}</h1>
+<p class="text-muted small">{{ study.uses }} · {{ study.about }}</p>
+<div class="row g-4">
+  <article class="col-lg-9 help-doc">{{ doc.html | safe }}</article>
+  {% if doc.toc and '<li>' in doc.toc %}
+  <aside class="col-lg-3 d-none d-lg-block"><div class="help-toc">
+    <p class="fw-semibold mb-1">On this page</p>{{ doc.toc | safe }}</div></aside>
+  {% endif %}
+</div>
+<div class="d-flex justify-content-between mt-4">
+  {% if prev %}<a class="btn btn-outline-secondary btn-sm" href="{{ url_for('help_case_study', slug=prev.slug) }}"><i class="bi bi-arrow-left" aria-hidden="true"></i> {{ prev.num }} {{ prev.title }}</a>{% else %}<span></span>{% endif %}
+  {% if next %}<a class="btn btn-primary btn-sm" href="{{ url_for('help_case_study', slug=next.slug) }}">{{ next.num }} {{ next.title }} <i class="bi bi-arrow-right" aria-hidden="true"></i></a>{% endif %}
+</div>
+<p class="text-muted small mt-3">Source: <code>case-studies/{{ study.slug }}/README.md</code></p>
+{% endblock %}

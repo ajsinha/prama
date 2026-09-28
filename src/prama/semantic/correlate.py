@@ -132,6 +132,7 @@ def references(group: Group) -> list[ReferenceProposal]:
         pql = (
             f"CHECK {quote_dataset(member.dataset)}.{member.attribute} REFERENCES "
             f"{quote_dataset(owner.dataset)}.{owner.attribute} "
+            f"DIMENSION integrity "
             f"BECAUSE 'both mean {group.meaning} ({group.by}); {owner.dataset} is keyed by it'"
         )
         identity = (

@@ -6,9 +6,12 @@ Proprietary and confidential. No licence is granted except by separate written a
 
 ---
 
-Five runnable studies over fabricated banking and trading data. Each builds its
+Eight runnable studies over fabricated banking and trading data. Each builds its
 own data, declares an estate in business terms, lets Prama derive the controls,
 runs them, and serves the console — all on localhost, nothing external.
+
+The same studies are in the console under **Help → Case studies**: one card per study, and
+each study's README rendered in full.
 
 | | Study | Sources | What it is for |
 |---|---|---|---|
@@ -17,6 +20,9 @@ runs them, and serves the console — all on localhost, nothing external.
 | **3** | [A mixed estate](03-mixed-estate/) | SQLite **and** files | Relationships: the defects one dataset cannot see |
 | **4** | [Expressions and plugins](04-expressions-and-plugins/) | CSV via DuckDB | Excel formulas, and a validator somebody else wrote |
 | **5** | [DQ delegates](05-dq-delegates/) | CSV via DuckDB, and a remote agent | Python checks PQL cannot say, judged by Prama, run beside the data |
+| **6** | [Month-end close](06-month-end-close/) | One SQLite ERP | `RECONCILE` across currencies and a timing offset, and the break workbench |
+| **7** | [Governance from metadata](07-metadata-governance/) | One SQLite warehouse | Rules from owners' metadata and a glossary, correlation, and fitness search |
+| **8** | [From code to impact](08-code-to-impact/) | DuckDB, and an ETL repository | Lineage read from SQL and Power BI, proposals from it, and a defect's blast radius |
 
 ## Run one
 
@@ -26,7 +32,7 @@ python run.py                 # build, run, then serve the console
 python run.py --no-serve      # build, run, print the report, stop
 ```
 
-The consoles are on `:8801` to `:8805`, one per study, so all five
+The consoles are on `:8801` to `:8808`, one per study, so all eight
 can run at once. The data is seeded, so two runs produce the same numbers and
 the figures in each README are checkable rather than decorative.
 

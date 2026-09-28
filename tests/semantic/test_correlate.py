@@ -26,7 +26,7 @@ def test_a_shared_term_groups_and_the_key_owner_is_referenced() -> None:
     ]
     (group,) = groups(facts)
     assert group.by == "term" and len(group.members) == 3
-    pql = sorted(r.pql.split(" BECAUSE")[0] for r in references(group))
+    pql = sorted(r.pql.split(" DIMENSION")[0] for r in references(group))
     assert pql == [
         "CHECK exposures.cpty REFERENCES counterparties.lei",
         "CHECK trades.counterparty_lei REFERENCES counterparties.lei",
