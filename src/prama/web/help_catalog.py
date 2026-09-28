@@ -97,6 +97,12 @@ SECTIONS: tuple[HelpSection, ...] = (
                 "bi-tags",
             ),
             _g(
+                "queue",
+                "Discussion and your queue",
+                "Comments with @mentions, and everything waiting on you in one place.",
+                "bi-inbox",
+            ),
+            _g(
                 "glossary",
                 "Business glossary",
                 "Terms, their meanings, what they name; imported from Alation or Collibra.",

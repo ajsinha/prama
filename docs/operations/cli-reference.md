@@ -24,6 +24,7 @@ need different people.
 | [`prama bench`](#prama-bench) | the labelled defect corpus, and what scores on it |
 | [`prama bundle`](#prama-bundle) | seal and verify an offline install |
 | [`prama code`](#prama-code) | application code: receive a ZIP or a git ref, read its lineage |
+| [`prama comment`](#prama-comment) | comment on a dataset, dataset.attribute, control, term or incident |
 | [`prama config`](#prama-config) | inspect configuration |
 | [`prama connect`](#prama-connect) | test, browse and profile a configured source |
 | [`prama connectors`](#prama-connectors) | list the installed connectors and what each one needs |
@@ -40,6 +41,7 @@ need different people.
 | [`prama metadata`](#prama-metadata) | metadata and business context on datasets and attributes |
 | [`prama pack`](#prama-pack) | what a domain pack ships, and what it does not claim |
 | [`prama principal`](#prama-principal) | the people who sign in |
+| [`prama queue`](#prama-queue) | what is waiting on a person: mentions, failures, inconsistencies, approvals |
 | [`prama serve`](#prama-serve) | run the HTTP API |
 | [`prama tenant`](#prama-tenant) | the estate this installation is for |
 | [`prama version`](#prama-version) | print version information |
@@ -63,7 +65,7 @@ API keys: the credential the HTTP API requires
 | `name` **required** | what this key is for, e.g. 'ci' or 'etl-nightly' |
 | `--tenant` | slug or id; defaults to the configured one |
 | `--principal` **required** | username the key acts as. Required: every key is attributable, so an audit trail names a person and not just a credential. The principal's roles are NOT inherited — scopes are explicit. |
-| `--scope` | repeatable; one of admin, agent:work, attestation:read, attestation:sign, break:read, break:write, control:approve, control:propose, control:read, declaration:read, declaration:write, evidence:read, incident:read, incident:write, llm:use, relationship:read, relationship:write, report:read, or '*' |
+| `--scope` | repeatable; one of admin, agent:work, attestation:read, attestation:sign, break:read, break:write, comment:write, control:approve, control:propose, control:read, declaration:read, declaration:write, evidence:read, incident:read, incident:write, llm:use, relationship:read, relationship:write, report:read, or '*' |
 | `--expires-in-days` | 0 means no expiry, which is a decision rather than a default |
 | `--environment` | prefix tag: live \| test |
 **`prama apikey list`**
@@ -156,6 +158,19 @@ application code: receive a ZIP or a git ref, read its lineage
 
 | Argument | Meaning |
 |---|---|
+| `--tenant` | slug or id; defaults to the configured one |
+
+## `prama comment`
+
+comment on a dataset, dataset.attribute, control, term or incident
+
+| Argument | Meaning |
+|---|---|
+| `target` **required** | dataset slug, dataset.attribute, or an id/name |
+| `text` **required** | the comment; @username mentions somebody |
+| `--kind` |  One of: dataset, attribute, control, term, incident. |
+| `--as` **required** | your username |
+| `--reply-to` | a thread's id |
 | `--tenant` | slug or id; defaults to the configured one |
 
 ## `prama config`
@@ -720,6 +735,16 @@ the people who sign in
 | Argument | Meaning |
 |---|---|
 | `--tenant` | defaults to tenancy.default_tenant |
+
+## `prama queue`
+
+what is waiting on a person: mentions, failures, inconsistencies, approvals
+
+| Argument | Meaning |
+|---|---|
+| `--as` **required** | the username |
+| `--approver` | include approvals |
+| `--tenant` | slug or id; defaults to the configured one |
 
 ## `prama serve`
 
