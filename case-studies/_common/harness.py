@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import os
+import secrets
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -172,7 +173,10 @@ class Harness:
             say("  Pass --username and --password (or PRAMA_USERNAME / PRAMA_PASSWORD),")
             say("  and --estate when the server has more than one estate.")
             sys.exit(2)
-        slug = f"{tenant_slug}-{datetime.now():%Y%m%d-%H%M%S}"
+        # The time says when the run was; the suffix makes two runs in the same
+        # second two estates. A study on a small book finishes in under one, and
+        # the second run was refused because the first had taken its name.
+        slug = f"{tenant_slug}-{datetime.now():%Y%m%d-%H%M%S}-{secrets.token_hex(2)}"
         made = operator.tenants.create(slug, tenant_name)
         self.estate = made["tenant"]
         self.client = operator.as_key(made["credentials"]["api_key"])
