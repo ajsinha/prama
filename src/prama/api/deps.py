@@ -203,6 +203,19 @@ LlmUser = scoped("llm:use")
 AgentWorker = scoped("agent:work")
 ControlReader = scoped("control:read")
 Commenter = scoped("comment:write")
+
+
+async def _holder(caller: Caller) -> CallerIdentity:
+    return caller
+
+
+#: A question a credential asks about **itself** — who am I, which estate, end
+#: this key — which any holder may ask and which reads nothing else. Marked so
+#: the architecture test sees a decision rather than a missing scope.
+HOLDER = "self"
+_holder.prama_scope = HOLDER  # type: ignore[attr-defined]
+Holder = Annotated[CallerIdentity, Depends(_holder)]
+TenantAdmin = scoped("tenant:admin")
 Uow = Annotated[UnitOfWork, Depends(get_uow)]
 Config = Annotated[Configuration, Depends(get_config)]
 Db = Annotated[Database, Depends(get_database)]

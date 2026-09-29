@@ -105,6 +105,10 @@ class TestEveryApiRouteDeclaresAScope:
         "/health": "liveness, read by a load balancer that holds no credential",
         "/capabilities": "what this build supports; no tenant data in the answer",
         "/relationship-kinds": "the fixed vocabulary, identical for every tenant",
+        "/auth/token": (
+            "exchanges a username and password for a key: the caller has no key yet, "
+            "and the principal's own password is the authentication"
+        ),
     }
 
     def anonymous_paths(self) -> set[str]:
@@ -154,7 +158,11 @@ class TestEveryApiRouteDeclaresAScope:
         assert not wrong, f"these change state under a read-only scope: {wrong}"
 
     def test_every_declared_scope_is_a_real_one(self, endpoints: list[Endpoint]) -> None:
-        used = {scope_of(e) for e in endpoints} - {None}
+        from prama.api.deps import HOLDER
+
+        # HOLDER is not a scope a role grants: it marks a question a key asks
+        # about itself (who am I, end this key), which any holder may ask.
+        used = {scope_of(e) for e in endpoints} - {None, HOLDER}
         assert used, "no route required any scope, so this proves nothing"
         assert used <= set(SCOPES), f"routes require scopes nobody can hold: {used - set(SCOPES)}"
 

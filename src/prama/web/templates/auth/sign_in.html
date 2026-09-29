@@ -34,6 +34,16 @@
 
       <form method="post" action="{{ url_for('sign_in') }}">
         <input type="hidden" name="next" value="{{ next }}">
+        {% if ask_estate or tenant %}
+        {# Asked only when there is more than one estate and no default. A text
+           field, not a list: a form anybody can open should not enumerate the
+           estates on the installation. #}
+        <div class="mb-2">
+          <label class="form-label" for="tenant">Estate</label>
+          <input class="form-control" id="tenant" name="tenant" value="{{ tenant }}"
+                 placeholder="acme-bank" autocomplete="organization" required>
+        </div>
+        {% endif %}
         <div class="mb-2">
           <label class="form-label" for="username">Username</label>
           <input class="form-control" id="username" name="username" required

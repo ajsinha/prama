@@ -24,19 +24,7 @@ from prama.api.errors import (
     unexpected_error_handler,
     validation_error_handler,
 )
-from prama.api.routes import (
-    agents,
-    collaboration,
-    delegates,
-    estate,
-    graph,
-    lineage,
-    llm,
-    meta,
-    metadata,
-    probes,
-    semantic,
-)
+from prama.api.routes import discover, probes
 from prama.core.config import Configuration, load_configuration
 from prama.core.errors import PramaError
 from prama.core.log import LoggingConfigurator, get_logger
@@ -189,16 +177,11 @@ def create_app(config: Configuration | None = None, *, database: Database | None
     install_shipped(disabled_plugins=config.get_list("plugins.disabled", []))
 
     app.include_router(probes.router)
-    app.include_router(meta.router, prefix=API_PREFIX)
-    app.include_router(semantic.router, prefix=API_PREFIX)
-    app.include_router(graph.router, prefix=API_PREFIX)
-    app.include_router(estate.router, prefix=API_PREFIX)
-    app.include_router(lineage.router, prefix=API_PREFIX)
-    app.include_router(llm.router, prefix=API_PREFIX)
-    app.include_router(agents.router, prefix=API_PREFIX)
-    app.include_router(delegates.router, prefix=API_PREFIX)
-    app.include_router(metadata.router, prefix=API_PREFIX)
-    app.include_router(collaboration.router, prefix=API_PREFIX)
+    # Every other module in prama.api.routes that defines a `router` is the
+    # versioned API, found rather than listed, so adding an area of the API is
+    # one new file. The SDK parity test then holds it to having SDK methods.
+    for module in discover():
+        app.include_router(module.router, prefix=API_PREFIX)
 
     # The console is mounted onto the same application rather than run beside
     # it, so the two cannot disagree about the database, the configuration or

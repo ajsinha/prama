@@ -134,6 +134,13 @@ class TestNothingSendsWithoutBeingRegistered:
             "sends the estate's data nowhere; what leaves is a request and, when "
             "configured, a credential to the host the owner named (Wave 14)"
         ),
+        "prama/sdk/client.py": (
+            "the SDK: a client of the operator's own Prama server, at the address its "
+            "application.yaml names or the caller passes. It sends what its caller asks "
+            "Prama to do, to Prama, and refuses a credential over plain HTTP to anything "
+            "but this machine. It is how a person reaches Prama, not a path out of it"
+        ),
+        "prama/sdk/transport.py": ("the SDK's transport; as prama/sdk/client.py"),
         "prama/db/schema/bootstrap.py": (
             "imports socket for gethostname, to record who applied a schema. "
             "Nothing of the tenant's leaves"
