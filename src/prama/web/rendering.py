@@ -17,6 +17,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
@@ -179,6 +180,35 @@ PUBLIC_NAVIGATION: tuple[tuple[str, str, str, str], ...] = (
 )
 
 
+def static_version(filename: str) -> str:
+    """A short digest of a static file's content, for its URL.
+
+    Static files are served without ``Cache-Control``, so a browser guesses how
+    long to keep them, and for a file that had not changed in weeks it guesses
+    days. When the themes were replaced, a cached ``themes.css`` with none of
+    the new tokens met a fresh ``shell.css`` that needed them, and every light
+    theme rendered as a white page with the menus drawn through the content.
+    A URL that changes whenever the content does cannot be served stale.
+
+    Keyed on the file's modification stamp, so an edit during development is
+    picked up without a restart and an unchanged file is hashed once.
+    """
+    path = STATIC_DIR / filename
+    try:
+        stamp = path.stat().st_mtime_ns
+    except OSError:
+        return ""
+    cached = _STATIC_VERSIONS.get(filename)
+    if cached and cached[0] == stamp:
+        return cached[1]
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()[:12]
+    _STATIC_VERSIONS[filename] = (stamp, digest)
+    return digest
+
+
+_STATIC_VERSIONS: dict[str, tuple[int, str]] = {}
+
+
 def url_for(request: Request, name: str, **params: Any) -> str:
     """Resolve a route name to a URL, with Flask's semantics.
 
@@ -190,6 +220,9 @@ def url_for(request: Request, name: str, **params: Any) -> str:
     if name == "static":
         filename = params.pop("filename", "")
         url = app.url_path_for("static", path=filename)
+        version = static_version(filename)
+        if version:
+            params.setdefault("v", version)
         return f"{url}?{urlencode(params)}" if params else url
 
     path_params: set[str] = set()

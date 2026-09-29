@@ -33,7 +33,6 @@ becomes `PRAMA_DATABASE__SQLITE__PATH`.
 | `security.session_secret` | *(empty)* |  |
 | `security.cookies_https_only` | `True` | false only for local http development |
 | `security.bootstrap_admin` | `True` |  |
-| `security.allow_default_admin_password` | `False` |  |
 | `tenancy.default_tenant` | *(empty)* |  |
 | `server.host` | `127.0.0.1` | bind address; 0.0.0.0 accepts on every interface |
 | `server.port` | `5900` | the console and the API share this listener |

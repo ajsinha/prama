@@ -219,3 +219,6 @@ h1, h1[class], .h1 { font-weight: 750; letter-spacing: -.01em; color: var(--maya
 body.maya-public { background:
   radial-gradient(900px 500px at 85% -10%, color-mix(in srgb, var(--maya-glow) 35%, transparent), transparent 60%),
   linear-gradient(135deg, var(--maya-nav-from), var(--maya-nav-via) 45%, var(--maya-nav-to)); background-attachment: fixed; }
+/* Between the collapse point and 1200px the bar has no room for the search box: it was
+   squeezed to two letters. It returns in the collapsed menu, where it has a full row. */
+@media (min-width: 992px) and (max-width: 1199.98px) { .maya-nav .maya-search { display: none; } }
