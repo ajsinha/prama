@@ -108,6 +108,7 @@ where = ["src"]
 ]
 "prama.web" = [
     "guides/*.md",
+    "content/*.yaml",
     "templates/*.html",
     "templates/**/*.html",
     "static/css/*.css",

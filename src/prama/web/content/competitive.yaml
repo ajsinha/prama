@@ -1,0 +1,329 @@
+# The competitive landscape, as content: /about/competitive renders it.
+#
+# Categories, not vendors, and every rating is about what is BUILT, not planned.
+# Ratings are exactly Yes, Partial or No; prama.web.about refuses anything else.
+# Kept as data rather than Python because it is copy about products, and the
+# layering guard rightly refuses a module that both names models and verdicts.
+# docs/20-competitive-analysis.md is the vendor-by-vendor long form.
+#
+# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
+categories:
+- key: cat
+  label: Catalogs & governance
+  short: Catalog
+  examples: Collibra, Alation, Atlan, Microsoft Purview
+- key: lin
+  label: Lineage specialists
+  short: Lineage
+  examples: Solidatus, IBM Manta, Octopai
+- key: obs
+  label: Data observability
+  short: Observability
+  examples: Monte Carlo, Anomalo, Bigeye, Sifflet
+- key: dq
+  label: DQ suites & open-source checks
+  short: DQ
+  examples: Informatica, Ataccama, Soda, Great Expectations, dbt tests, Deequ
+- key: rec
+  label: Reconciliation
+  short: Recon
+  examples: Duco, Gresham, SmartStream
+rows:
+- id: declared
+  cap: Business meaning declared by its owner, and controls derived from it
+  ratings:
+    cat: Partial
+    lin: Partial
+    obs: 'No'
+    dq: Partial
+    rec: 'No'
+    prama: 'Yes'
+  problem: 'A glossary says what a term means and a rule engine checks columns, and nothing connects the
+    two: the owner''s sentence and the engineer''s rule drift apart, and neither notices.'
+  how:
+  - An owner declares a dataset, its attributes, its concepts and its relationships in the business's
+    words, with a version. Metadata such as <code>mandatory=yes</code> or a value domain <em>implies</em>
+    controls, and those arrive in Proposals for a person to accept. The control is derived from the declaration,
+    never restated beside it.
+  - Glossaries already curated elsewhere come in (<code>prama glossary import --from alation</code> or
+    <code>collibra</code>), and the import lists what it dropped rather than leaving that to be discovered.
+- id: language
+  cap: One declarative rule language, pushed down to more than one engine
+  ratings:
+    cat: 'No'
+    lin: 'No'
+    obs: 'No'
+    dq: Partial
+    rec: Partial
+    prama: 'Yes'
+  problem: Rules are written in each tool's dialect or UI, so moving engines means rewriting them, and
+    two engines can silently disagree about the same rule.
+  how:
+  - Controls are written in PQL, compiled through a typed intermediate representation to SQL for SQLite,
+    DuckDB and PostgreSQL, and run where the data is. A conformance suite runs every construct on the
+    real engines and compares the <em>executed verdicts</em>, not the SQL text. <code>prama control functions</code>
+    prints what pushes down where.
+  - Every control reads back as a sentence an owner can check (<code>prama control explain</code>), a
+    language server gives the editor completion and type errors, and rules already written for dbt, Great
+    Expectations or Soda are imported, with a list of what did not come across.
+- id: calibrated
+  cap: Alerts with a stated false-alarm rate that you can set
+  ratings:
+    cat: 'No'
+    lin: 'No'
+    obs: Partial
+    dq: 'No'
+    rec: 'No'
+    prama: 'Yes'
+  problem: Anomaly detectors learn what normal looks like and alert on deviation, but none says how many
+    of this month's alerts were expected to be false, so alert fatigue is managed by muting.
+  how:
+  - Monitors produce conformal p-values rather than scores, so a threshold means a false-alarm rate. Across
+    many monitors a Benjamini-Hochberg budget controls the false-discovery rate for the whole estate,
+    and a monitor without enough history says it is uncalibrated instead of guessing.
+  - The calibration adapts with a stated half-life, so a regime change degrades visibly rather than silently.
+- id: evidence
+  cap: Hash-chained evidence, replayable, verified without the platform
+  ratings:
+    cat: 'No'
+    lin: Partial
+    obs: 'No'
+    dq: 'No'
+    rec: Partial
+    prama: 'Yes'
+  problem: Results live in the tool that produced them, with retention windows and mutable history, so
+    the tool ends up vouching for itself.
+  how:
+  - Every verdict is appended to a hash-chained ledger. The chain head can be time-stamped outside Prama
+    by an RFC 3161 authority (<code>prama evidence anchor</code>), so a rewritten and re-chained history
+    is still caught.
+  - 'A run can be replayed and compared with what was recorded, and an export is checked by <code>scripts/verify_evidence.py</code>,
+    which needs no Prama installed: the auditor does not have to trust the platform under audit.'
+- id: attest
+  cap: Owner attestation and regulator-shaped evidence packs
+  ratings:
+    cat: Partial
+    lin: Partial
+    obs: 'No'
+    dq: 'No'
+    rec: Partial
+    prama: 'Yes'
+  problem: Lineage tools evidence where a number came from; catalogs evidence a policy. What an auditor
+    signs is whether the controls on it held, over a period, and who says so.
+  how:
+  - An owner attests that a dataset met its controls over a period, from the evidence itself, and the
+    attestation pack assembles what BCBS 239 / RDARR work asks for. Reports for owners, auditors and regulators
+    are built from the same ledger, so the report and the evidence cannot disagree.
+- id: recon
+  cap: Reconciliation in the same rule model, evidence and score as every other control
+  ratings:
+    cat: 'No'
+    lin: 'No'
+    obs: 'No'
+    dq: Partial
+    rec: 'Yes'
+    prama: 'Yes'
+  problem: Reconciliation lives in a separate product with its own rules and its own audit trail, so the
+    break between the GL and the sub-ledger never reaches the quality score of the return that depends
+    on both.
+  how:
+  - '<code>RECONCILE</code> is a PQL control like any other: keyed and n-way matching, normalisation,
+    tolerance, classification of breaks, and a break workbench to explain, assign and accept them. Its
+    verdicts land in the same ledger and the same scorecards.'
+- id: lineage-controls
+  cap: 'Lineage that runs controls: impact, and controls carried downstream'
+  ratings:
+    cat: Partial
+    lin: Partial
+    obs: Partial
+    dq: 'No'
+    rec: 'No'
+    prama: 'Yes'
+  problem: A lineage map is a claim about topology. It says where a number comes from, not whether what
+    flowed through that path today was right.
+  how:
+  - Column lineage is parsed from ETL SQL (sqlglot, with a regex fallback), pandas and PySpark code, Airflow,
+    Power BI and warehouse query history, and imported from Manta or Alation exports beside Prama's own
+    parse. <code>prama lineage impact</code> says what a defect in a column reaches.
+  - A control the business already has is proposed again downstream along that lineage, and trust in a
+    source propagates to what is derived from it.
+- id: change-review
+  cap: A pull request's effect on lineage and controls, reviewed in CI
+  ratings:
+    cat: 'No'
+    lin: Partial
+    obs: 'No'
+    dq: Partial
+    rec: 'No'
+    prama: 'Yes'
+  problem: A change to ETL code can remove the column a control depends on, and nothing notices until
+    the control errors in production.
+  how:
+  - <code>prama code review --base origin/main</code> parses the changed code, diffs the lineage, and
+    names every control that loses its basis, with exit code 3 so the pipeline can block the merge. Data
+    contracts gate CI the same way (<code>prama contract check</code>).
+- id: ai
+  cap: Models that draft and explain, and never decide a verdict
+  ratings:
+    cat: Partial
+    lin: Partial
+    obs: Partial
+    dq: Partial
+    rec: Partial
+    prama: 'Yes'
+  problem: AI features are added to the product, and it is not always clear which answers a model gave,
+    what it cost, or whether a model's output decided that data passed.
+  how:
+  - No code path lets a model's output decide pass or fail, and an architecture test fails the build if
+    one appears. Models author, rank, explain and summarise; a deterministic, versioned engine decides.
+  - Every model call goes through one gateway with routes, budgets and evaluations, and is recorded in
+    its own hash-chained ledger (<code>prama llm verify</code>). A self-hosted model works as well as
+    a hosted one.
+- id: banking
+  cap: Financial message formats, calendars and banking concepts built in
+  ratings:
+    cat: 'No'
+    lin: 'No'
+    obs: 'No'
+    dq: Partial
+    rec: Partial
+    prama: 'Yes'
+  problem: General tools see a SWIFT message or a FIX order as a string column, and a settlement date
+    check does not know TARGET2 was closed that day.
+  how:
+  - The banking pack parses FIX, ISO 8583, ISO 20022, SWIFT and FpML and says what is wrong with a message;
+    computes market calendars from their rules; recognises business concepts such as Exposure from column
+    names; and states what it does <em>not</em> claim to discharge (<code>prama pack claims</code>).
+- id: delegates
+  cap: Existing Python checks admitted as governed, sandboxed controls
+  ratings:
+    cat: 'No'
+    lin: 'No'
+    obs: 'No'
+    dq: Partial
+    rec: 'No'
+    prama: 'Yes'
+  problem: Years of Python DQ code cannot be rewritten at once, and running it inside a governed platform
+    usually means trusting it completely.
+  how:
+  - A Python check is admitted after review as a delegate, runs sandboxed in its own process with a time
+    limit, and records evidence exactly as a PQL control does. Code intake reads controls out of existing
+    DQ code and proposes PQL for them.
+- id: legacy-lineage
+  cap: Automated lineage from legacy ETL tools and BI
+  ratings:
+    cat: Partial
+    lin: 'Yes'
+    obs: Partial
+    dq: Partial
+    rec: 'No'
+    prama: Partial
+  problem: 'This is where the lineage specialists are strongest: dozens of scanners for ETL tools, stored
+    procedures and BI semantic layers.'
+  how:
+  - Prama verifies its SQL dialects, parses Power BI, and has configurable shapes for ETL exports, but
+    those shapes are <em>not verified</em> against real Informatica or SSIS exports. Mainframe code, DataStage,
+    Talend, Ab Initio and SAS are out of scope by decision.
+  - 'Where Prama does not scan, it imports the specialist''s lineage and attaches controls to it: keep
+    the scanner, let Prama execute.'
+- id: detectors
+  cap: Unsupervised monitoring with minutes to a first alert
+  ratings:
+    cat: 'No'
+    lin: 'No'
+    obs: 'Yes'
+    dq: Partial
+    rec: 'No'
+    prama: Partial
+  problem: Observability tools point at a warehouse and monitor it the same afternoon, with detectors
+    tuned for years on real estates.
+  how:
+  - 'Prama profiles and proposes controls with no declarations, and its monitors cover freshness, volume
+    and distribution, but its detectors are younger. Prama competes on <em>calibration</em>, not raw detection:
+    a detector tournament can adopt any detector, and a calibrated one is what reaches the alert queue.'
+- id: catalog
+  cap: Catalog, search and curation
+  ratings:
+    cat: 'Yes'
+    lin: Partial
+    obs: Partial
+    dq: Partial
+    rec: 'No'
+    prama: Partial
+  problem: Catalogs are years ahead in curation and discovery, and in accounts that own one the glossary
+    is already populated.
+  how:
+  - Prama finds data by business meaning (<code>prama metadata find</code>), keeps a glossary, and imports
+    catalog glossaries, but it is not a catalog and will not become one. Write-back adapters that publish
+    quality into Collibra, Alation and DataHub are written and <em>not yet run</em> against a live server.
+- id: recon-ops
+  cap: Reconciliation operations at scale
+  ratings:
+    cat: 'No'
+    lin: 'No'
+    obs: 'No'
+    dq: 'No'
+    rec: 'Yes'
+    prama: Partial
+  problem: Reconciliation products have decades of break-management workflow and operations teams built
+    around them.
+  how:
+  - 'Prama''s reconciliation is data-quality grade: it matches, classifies and explains, and its verdicts
+    are evidence. It does not claim parity with a dedicated reconciliation operation''s workflow depth.'
+- id: identity
+  cap: 'Enterprise identity: single sign-on, MFA, custom roles'
+  ratings:
+    cat: 'Yes'
+    lin: 'Yes'
+    obs: 'Yes'
+    dq: 'Yes'
+    rec: 'Yes'
+    prama: Partial
+  problem: An enterprise buyer expects sign-in through its own identity provider.
+  how:
+  - Prama verifies OIDC ID tokens, but no console sign-in flow uses it yet; there is no MFA, and there
+    are four built-in roles rather than custom roles and groups. Scoped, expiring API keys and four-eyes
+    approval are built.
+- id: airgap
+  cap: On-premises and air-gapped deployment
+  ratings:
+    cat: Partial
+    lin: Partial
+    obs: 'No'
+    dq: Partial
+    rec: Partial
+    prama: Partial
+  problem: Much of this market is SaaS-first, and a regulated estate often cannot send data or metadata
+    out.
+  how:
+  - Every browser asset is vendored, a self-hosted model works through the gateway, and an offline bundle
+    is sealed with a manifest and SBOM and can be signed with Ed25519. An air-gapped install with a local
+    model has <em>not yet been verified end to end</em>, so this stays Partial until it has.
+- id: mdm
+  cap: 'Master data: golden records and survivorship'
+  ratings:
+    cat: Partial
+    lin: 'No'
+    obs: 'No'
+    dq: Partial
+    rec: 'No'
+    prama: 'No'
+  problem: Mastering is its own discipline, with its own steward tooling.
+  how:
+  - Prama does not master data, by choice. It treats entity resolution as a control and feeds a mastering
+    product rather than competing with one.
+- id: scale
+  cap: Deployments, references, ecosystem and support
+  ratings:
+    cat: 'Yes'
+    lin: 'Yes'
+    obs: 'Yes'
+    dq: 'Yes'
+    rec: 'Yes'
+    prama: 'No'
+  problem: The established products have customers, integrations, certifications and support desks.
+  how:
+  - 'Prama is one author''s work and has not been deployed at a supervised institution, and no competitor
+    has been benchmarked against it: configuring another tool fairly is not something the party who benefits
+    from the result should do. It is built to be inspected rather than taken on trust: the benchmark,
+    its ablations and the fifteen baselines it did <em>not</em> run are printed by <code>prama bench run</code>.'
