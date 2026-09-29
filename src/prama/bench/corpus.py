@@ -672,13 +672,26 @@ def classes_of(family: Family | None = None) -> tuple[DefectClass, ...]:
     return tuple(c for c in CLASSES if c.family is family)
 
 
+def _iban(country: str, bban: str) -> str:
+    """A valid IBAN: the ISO 13616 check digits, computed, not made up.
+
+    The corpus used to write ``GB29NWBK6016…`` with the account number
+    appended and the check digits left as they were, so every "clean" IBAN
+    failed a real mod-97 check. The check-digit defect class then meant
+    nothing: a validator that is right raised an alert on every window.
+    """
+    rearranged = f"{bban}{country}00"
+    digits = "".join(str(int(ch, 36)) for ch in rearranged)
+    return f"{country}{98 - int(digits) % 97:02d}{bban}"
+
+
 def _base_row(index: int, rng: random.Random, window: str) -> Row:
     return {
         "window": window,
         "account_id": f"ACC-{index:06d}",
         "counterparty_id": f"CPTY-{rng.randrange(1, 50):04d}",
         "party_name": rng.choice(("Acme Holdings", "Belmont Trading", "Cedar Finance")),
-        "iban": f"GB29NWBK6016{index:010d}",
+        "iban": _iban("GB", f"NWBK6016{index:010d}"),
         "country": "GB",
         "currency": rng.choice(("GBP", "EUR", "USD")),
         "product": rng.choice(("CURRENT", "SAVINGS", "LOAN")),

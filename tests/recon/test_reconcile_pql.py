@@ -257,3 +257,24 @@ def test_a_join_proposes_that_every_driving_row_finds_its_match() -> None:
     ]
     (held,) = [p for p in propose(inferred, []) if p.rule == "lineage_join"]
     assert "inferred" in held.deferred_because
+
+
+def test_a_looked_up_key_must_be_unique_and_a_composite_key_is_one_check() -> None:
+    """Two FX rates for one currency double every matching trade, and nothing fails."""
+    edges = [
+        _edge(
+            "stg.trades.ccy",
+            "mart.positions.*",
+            transform="join_key",
+            expression="inner join: stg.trades.ccy = ref.fx_rates.ccy",
+        ),
+        _edge(
+            "stg.trades.trade_date",
+            "mart.positions.*",
+            transform="join_key",
+            expression="inner join: stg.trades.trade_date = ref.fx_rates.as_of",
+        ),
+    ]
+    (unique,) = [p for p in propose(edges, []) if p.rule == "lineage_join_unique"]
+    assert unique.pql.startswith('CHECK "ref.fx_rates" HAS UNIQUE KEY (as_of, ccy)')
+    parse_control(unique.pql)

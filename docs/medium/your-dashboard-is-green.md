@@ -403,7 +403,21 @@ only where it entered. Building this also turned up a latent bug. sqlglot 30 kee
 clause under a different key, so Prama had been finding no CTEs at all.
 
 The principle still holds: **lineage carries a control downstream; it does not replace the
-control at the source.** Now it carries it across a join too.
+control at the source.** Now it carries it across a join too, in SQL and in PySpark.
+
+### Design idea: review the change before it merges
+
+The same machinery runs on a pull request:
+
+```bash
+prama code review --base origin/main --format markdown
+```
+
+It reads both versions from git through the same sandboxed reader. The comment it produces
+lists the lineage the change adds, removes or retypes, what that reaches downstream, and the
+checks the new code implies. A copy becoming a derivation is a change, even though both versions
+"use" the column. If a live control rests on lineage the change removed, the review names it and
+exits 3, so CI can refuse the merge.
 
 ---
 
@@ -463,7 +477,8 @@ The worker is sandboxed in layers:
 - **Always, an audit hook,** installed before the delegate is imported, that refuses sockets, processes,
   `exec`, `fork` and `ctypes`.
 
-The evidence records which layers applied. Testing it with delegates that misbehave on purpose found a real
+The server never imports a delegate at all: even admission (the scan and the probe runs) happens in
+the same sealed worker, one per file. The evidence records which layers applied. Testing it with delegates that misbehave on purpose found a real
 hole: a delegate that *slept* held the host forever, because sleeping uses no CPU and the deadline covered only
 the reply. The deadline now covers both pipes.
 
@@ -585,9 +600,8 @@ tenant each time.
 | Governance from metadata | 4 of 4 found, with no rule written by hand |
 | From code to impact | both defects traced to the dashboard; the FX join catches 3 of 1,882 |
 
-**A benchmark that reports bounds and ablations, not a league table.** `prama bench run --seed
-42` plants 28 defects across six families, from structural to semantic, and reports bounds and
-single-technique ablations:
+**A benchmark that reports bounds, ablations and Prama itself, not a league table.** `prama
+bench run --seed 42` plants 28 defects across six families, from structural to semantic:
 
 | Baseline | Found | Precision | Recall | Blind to |
 |---|---|---|---|---|
@@ -595,11 +609,17 @@ single-technique ablations:
 | schema only | 2/28 | 0.67 | 0.07 | five of six families |
 | patterns only | 5/28 | 0.83 | 0.18 | four families |
 | statistics only | 7/28 | 0.88 | 0.25 | relational defects |
+| **Prama, declared path** | **10/28** | **0.77** | **0.36** | relational, temporal, semantic |
 
-**It does not yet score Prama's own detector, and it runs none of the fifteen competitors it
-names.** Configuring a competitor is a job for someone incentivised to make it look good. What
-the table does show is the argument for layering: every single technique has blind spots, and a
-blind spot does not appear in an aggregate F1 at all.
+Prama's row is controls derived from an owner's declaration, written from the schema and not
+tuned to the defects. It beats every single technique, and it is still blind to three families:
+the ones that need a second dataset, a clock, or a meaning nobody declared. Its fairness test,
+that clean data raises nothing, found a bug in the benchmark itself: the corpus's IBANs had
+made-up check digits, so a correct validator alerted everywhere.
+
+**It runs none of the fifteen competitors it names.** Configuring a competitor is a job for
+someone incentivised to make it look good. What the table shows is the argument for layering:
+every detector has blind spots, and a blind spot does not appear in an aggregate F1 at all.
 
 **Guards as tests, not guidelines.** The build fails when any of these is broken:
 
@@ -611,7 +631,7 @@ blind spot does not appear in an aggregate F1 at all.
 - a document names a module that does not exist.
 
 **A paper that audits itself.** The accompanying research paper marks every formal claim with
-the test that carries it. Its claims register counts **50 claims that run, 11 that run in part,
+the test that carries it. Its claims register counts **53 claims that run, 11 that run in part,
 6 that are not built, and 5 stated but not executed**. The negative results are in the body, not
 an appendix.
 

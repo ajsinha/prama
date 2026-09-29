@@ -136,6 +136,7 @@ application code: receive a ZIP or a git ref, read its lineage
 |---|---|
 | `prama code add-git` | fetch one ref of a git repository and read its lineage (never executed) |
 | `prama code add-zip` | receive a ZIP of application code and read its lineage (never executed) |
+| `prama code review` | what a change to ETL code does to lineage and to the controls resting on it |
 | `prama code runs` | recent analysis runs |
 
 **`prama code add-git`**
@@ -155,6 +156,17 @@ application code: receive a ZIP or a git ref, read its lineage
 | `archive` **required** |  |
 | `--source` **required** | a name for this code |
 | `--dialect` |  |
+| `--tenant` | slug or id; defaults to the configured one |
+**`prama code review`**
+
+| Argument | Meaning |
+|---|---|
+| `--base` **required** | the ref the change is against |
+| `--head` | the ref with the change |
+| `--repo` | the repository (default: here) |
+| `--dialect` |  |
+| `--format` |  One of: text, markdown, json. |
+| `--offline` | do not read the estate's controls; report lineage and proposals only |
 | `--tenant` | slug or id; defaults to the configured one |
 **`prama code runs`**
 

@@ -23,8 +23,9 @@ from typing import Any
 import pytest
 
 from prama.core.errors import ValidationError
-from prama.delegates import host as host_module
-from prama.delegates.host import host_from_config, isolation_in_force, network_isolation
+from prama.delegates import sandbox as sandbox_module
+from prama.delegates.host import host_from_config
+from prama.delegates.sandbox import isolation_in_force, network_isolation
 from prama.ir.resolve import resolved
 from prama.pql import parse_control
 
@@ -144,7 +145,7 @@ def test_the_worker_gets_no_secrets_from_the_environment(
         seen.update(kwargs.get("env") or {})
         return real(*args, **kwargs)
 
-    monkeypatch.setattr(host_module.subprocess, "Popen", spy)
+    monkeypatch.setattr(sandbox_module.subprocess, "Popen", spy)
     good = Path(__file__).resolve().parents[1] / "fixtures" / "delegates" / "good"
     host = host_from_config({"delegates": {"paths": [str(good)], "entry_points": False}})
     plan = resolved(parse_control("CHECK payments USING DELEGATE 'test.over_limit@2'"))

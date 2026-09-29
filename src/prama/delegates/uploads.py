@@ -25,9 +25,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
-import subprocess
-import sys
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -39,31 +36,25 @@ MAX_BYTES = 256 * 1024
 
 
 def vet(filename: str, body: bytes, *, timeout_s: int = 120) -> dict[str, Any]:
-    """Run the conformance kit over one file, in a resource-limited subprocess."""
-    from prama.codeintake.worker import limit_resources
+    """Run the conformance kit over one file, in the delegate sandbox."""
+    from prama.delegates.sandbox import run_isolated
 
     with tempfile.TemporaryDirectory(prefix="prama-vet-") as scratch:
         (Path(scratch) / filename).write_bytes(body)
-
-        def limits() -> None:
-            limit_resources(cpu_seconds=timeout_s, memory_bytes=2 << 30)
-
+        Path(scratch).chmod(0o755)  # readable inside the worker's own namespace
         try:
-            completed = subprocess.run(
-                [sys.executable, "-m", "prama.delegates.vet", scratch],
-                capture_output=True,
-                timeout=timeout_s + 10,
-                check=False,
-                preexec_fn=limits if os.name == "posix" else None,
-                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
-            )
-        except subprocess.TimeoutExpired:
+            finished = run_isolated(["-m", "prama.delegates.vet", scratch], timeout_s=timeout_s)
+        except TimeoutError:
             return {"ok": False, "checks": [], "described": [], "error": "vetting timed out"}
     try:
-        return dict(json.loads(completed.stdout.decode("utf-8") or "{}"))
+        return dict(json.loads(finished.output.decode("utf-8") or "{}"))
     except json.JSONDecodeError:
-        tail = completed.stderr.decode("utf-8", "replace")[-300:]
-        return {"ok": False, "checks": [], "described": [], "error": tail or "vetting failed"}
+        return {
+            "ok": False,
+            "checks": [],
+            "described": [],
+            "error": finished.errors[-300:] or "vetting failed",
+        }
 
 
 async def submit(uow: Any, tenant_id: str, filename: str, body: bytes, *, by: str) -> Any:

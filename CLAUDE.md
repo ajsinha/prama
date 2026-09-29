@@ -175,13 +175,14 @@ prama llm eval run suite.yaml            # deterministic graders; gates activati
 prama llm verify                         # recompute the model-call ledger's hash chain
 prama lineage scan etl/ --source warehouse   # SQL -> column lineage store (sqlglot, regex fallback)
 prama lineage impact raw.trades.notional     # what a defect in this column reaches
+prama code review --base origin/main --format markdown   # a PR's effect on lineage and controls; exit 3 if one loses its basis
 prama lineage history snowflake rows.json    # lineage from warehouse query history (--query prints the export)
 prama lineage import export.json --from manta   # or alation; kept beside Prama's parse
 prama glossary import terms.json --from alation # or collibra; lists what it dropped
 prama metadata set trades.account_id mandatory=yes   # metadata; rules it implies go to Proposals
 prama metadata find "settlement currency"   # find data by business context and metadata
 prama metadata ask "trade amounts in USD"   # a discover model ranks and explains, if configured
-prama metadata correlate                   # same meaning across datasets; inconsistencies
+prama metadata correlate                   # same meaning across datasets; inconsistencies; queried-together hints
 prama comment trades.ccy "@bo lower case?" --as ada   # discussion; mentions reach queues
 prama queue --as bo --approver             # what is waiting on a person
 prama usage import snowflake history.json  # query history -> daily usage (--query prints the export)

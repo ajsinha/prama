@@ -226,7 +226,24 @@ BASELINES: Final[tuple[Baseline, ...]] = (
         ),
         detect=_detect_statistics_only,
     ),
+    Baseline(
+        name="prama-declared",
+        kind="system",
+        describes=(
+            "Prama's declared path: controls derived from an owner's declaration of "
+            "the dataset, run per window by the reference interpreter. Written from "
+            "the schema's domain, not tuned to the defects; no relationships, history "
+            "or monitors, so what it cannot see is stated rather than hidden."
+        ),
+        detect=lambda corpus: _declared(corpus),
+    ),
 )
+
+
+def _declared(corpus: Corpus) -> tuple[Alert, ...]:
+    from prama.bench.declared import detect
+
+    return detect(corpus)
 
 
 def baseline(name: str) -> Baseline:

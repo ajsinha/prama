@@ -88,11 +88,30 @@ def count(
     return {key: (n, len(users.get(key, ()))) for key, n in queries.items()}
 
 
+def pairs(warehouse: str, rows: Iterable[Mapping[str, Any]]) -> dict[tuple[str, str, str], int]:
+    """(dataset, dataset, day) -> queries that read both. Ordered pairs, each once."""
+    together: dict[tuple[str, str, str], int] = {}
+    for row in rows:
+        day = str(_get(row, "query_start_time", "creation_time", "event_time") or "")[:10]
+        read = sorted(set(_objects(row, warehouse)))
+        if not day or len(read) < 2:
+            continue
+        for i, first in enumerate(read):
+            for second in read[i + 1 :]:
+                key = (first, second, day)
+                together[key] = together.get(key, 0) + 1
+    return together
+
+
 async def ingest(uow: Any, tenant_id: str, warehouse: str, rows: list[Mapping[str, Any]]) -> int:
     """Record the export; a re-import of the same days replaces them. Returns days recorded."""
     counted = count(warehouse, rows)
     for (dataset, day), (n, who) in counted.items():
         await uow.usage.record(
             tenant_id, dataset=dataset[:255], day=day, source=warehouse, queries=n, users=who
+        )
+    for (first, second, day), n in pairs(warehouse, rows).items():
+        await uow.usage.record_pair(
+            tenant_id, pair=(first[:255], second[:255]), day=day, source=warehouse, queries=n
         )
     return len(counted)

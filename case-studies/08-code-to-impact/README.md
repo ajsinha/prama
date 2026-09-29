@@ -77,6 +77,10 @@ The lineage then proposes further controls:
   CHECK "stg.trades".ccy REFERENCES "ref.fx_rates".ccy DIMENSION integrity
   ```
 
+- **A looked-up key must be unique.** Two rates for one currency would count every matching
+  trade twice, again without failing. So the join also proposes
+  `CHECK "ref.fx_rates" HAS UNIQUE KEY (ccy)`. It passes: each currency has one rate.
+
 ## What is planted, and what is found
 
 | Planted in `raw.trades` | Rows | Found on `raw.trades` | Found on `stg.trades` |
