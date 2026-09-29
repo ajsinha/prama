@@ -219,3 +219,10 @@ TenantAdmin = scoped("tenant:admin")
 Uow = Annotated[UnitOfWork, Depends(get_uow)]
 Config = Annotated[Configuration, Depends(get_config)]
 Db = Annotated[Database, Depends(get_database)]
+
+
+# -- Knowledge and code: lineage, code intake, glossary, metadata, comments,
+# -- delegates, domain packs and connectors.
+ControlProposer = scoped("control:propose")
+ControlApprover = scoped("control:approve")
+Administrator = scoped("admin")

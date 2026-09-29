@@ -10,7 +10,7 @@ from typing import Annotated, Any
 
 from fastapi import Form, Request
 
-from prama.core.errors import PramaError, ValidationError
+from prama.core.errors import PramaError
 from prama.web.deps import Caller, Uow
 from prama.web.rendering import flash_error_and_log, redirect_to, render
 from prama.web.routes.base import UiRoutes
@@ -63,18 +63,10 @@ class GlossaryRoutes(UiRoutes):
         kind: Annotated[str, Form()] = "",
         ref: Annotated[str, Form()] = "",
     ) -> Any:
+        from prama.semantic.services.glossary import bind
+
         try:
-            if kind not in ("concept", "dataset", "attribute") or not ref.strip():
-                raise ValidationError("choose what to bind to", remedy="Pick a kind and name it.")
-            target = ref.strip()
-            if kind == "concept":
-                concept = await uow.concepts.by_name(caller.tenant_id, target)
-                if concept is None:
-                    raise ValidationError(f"no concept {target!r}", remedy="Declare it first.")
-                target = str(concept.concept_id)
-            await uow.glossary.bind(
-                caller.tenant_id, term, kind, target, by=caller.principal_id or None
-            )
+            await bind(uow, caller.tenant_id, term, kind, ref, by=caller.principal_id or None)
         except PramaError as exc:
             flash_error_and_log(request, "That binding was not made", exc)
             return redirect_to(request, "glossary")

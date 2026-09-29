@@ -132,13 +132,9 @@ class BindCommand(Command):
         )
 
         async def work(uow: Any, tenant: str) -> None:
-            if kind == "concept":
-                concept = await uow.concepts.by_name(tenant, ref)
-                if concept is None:
-                    raise ValidationError(f"no concept {ref!r}", remedy="Declare it first.")
-                await uow.glossary.bind(tenant, ctx.args.term, kind, str(concept.concept_id))
-            else:
-                await uow.glossary.bind(tenant, ctx.args.term, kind, ref)
+            from prama.semantic.services.glossary import bind
+
+            await bind(uow, tenant, ctx.args.term, kind, ref)
 
         _with_uow(ctx, work)
         ctx.emit(f"{ctx.args.term} bound to {kind} {ref}")

@@ -738,7 +738,7 @@ what a domain pack ships, and what it does not claim
 | Argument | Meaning |
 |---|---|
 | `path` **required** | file holding a single message |
-| `--format` | format; inferred from the content when omitted One of: fix, fpml, iso8583. |
+| `--format` | format; inferred from the content when omitted One of: camt053, fix, fpml, iso8583, pacs008, swift. |
 **`prama pack recognise`**
 
 | Argument | Meaning |

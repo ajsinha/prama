@@ -8,6 +8,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
 from collections.abc import Mapping
@@ -453,3 +454,63 @@ async def queried_together(
             }
         )
     return out
+
+
+async def author_rule(
+    uow: Any, tenant_id: str, slug: str, pql: str, *, by: str | None = None
+) -> dict[str, Any]:
+    """A rule written by hand against *slug*: proposed, active once somebody else approves it."""
+    from prama.pql import parse_control
+
+    text = pql.strip()
+    control = parse_control(text)
+    if control.target != slug:
+        raise ValidationError(
+            f"this rule is about {control.target or 'another dataset'}, not {slug}",
+            remedy=f"Write it against {slug}, as in CHECK {slug}.column IS NOT NULL.",
+        )
+    identity = "authored-" + hashlib.sha256(text.encode()).hexdigest()[:24]
+    row, version = await uow.controls.declare(
+        tenant_id=tenant_id,
+        identity=identity,
+        pql=text,
+        origin="declaration",
+        rule="authored.metadata_page",
+        status="proposed",
+        authored_by=by,
+        reason="written on the dataset's metadata page",
+    )
+    return {
+        "control_id": str(row.id),
+        "identity": identity,
+        "status": version.status,
+        "pql": text,
+    }
+
+
+async def templates(uow: Any, tenant_id: str) -> dict[str, Any]:
+    """The estate's metadata templates with their fields, and the starters on offer."""
+    out = []
+    for row in await uow.metadata.templates(tenant_id):
+        fields = [field_spec(f) for f in await uow.metadata.fields(row.id)]
+        out.append(
+            {
+                "name": row.name,
+                "applies_to": row.applies_to,
+                "description": row.description,
+                "status": row.status,
+                "fields": [
+                    {
+                        "name": f.name,
+                        "label": f.label,
+                        "kind": f.kind,
+                        "choices": list(f.choices),
+                        "required": f.required,
+                        "help": f.help,
+                        "rules": [dataclasses.asdict(r) for r in f.rules],
+                    }
+                    for f in fields
+                ],
+            }
+        )
+    return {"templates": out, "starters": sorted(STARTER)}
