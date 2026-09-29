@@ -219,3 +219,11 @@ TenantAdmin = scoped("tenant:admin")
 Uow = Annotated[UnitOfWork, Depends(get_uow)]
 Config = Annotated[Configuration, Depends(get_config)]
 Db = Annotated[Database, Depends(get_database)]
+
+
+# -- administration, identity, models and agents ----------------------------
+#: People, roles, every key in the estate, the model gateway's administration,
+#: steward agents, the effective configuration and the audit log. The console
+#: puts each of these behind ``admin``; the API asks for the same scope, so
+#: the two surfaces cannot disagree about who may do it.
+Administrator = scoped("admin")

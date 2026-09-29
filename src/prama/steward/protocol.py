@@ -146,9 +146,13 @@ async def ask(
 ) -> Any:
     """Park the task until a person grants or denies the action."""
     task, lease = await _held(uow, database, tenant_id, steward, task_id, token)
-    approval = await uow.stewards.request_approval(tenant_id, task, action, justification)
+    # Released before the approval is written, as `result` does: the lease is
+    # released on a connection of its own, and while this request's unit of
+    # work held a write it waited on it — "database is locked" on SQLite's
+    # single writer, and the agent's request for approval was a 500. Found by
+    # the SDK's first end-to-end test of asking.
     await database.lease_provider().release(lease)
-    return approval
+    return await uow.stewards.request_approval(tenant_id, task, action, justification)
 
 
 async def decide(uow: Any, tenant_id: str, approval_id: str, *, granted: bool, by: str) -> Any:
