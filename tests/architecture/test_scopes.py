@@ -111,8 +111,26 @@ class TestEveryApiRouteDeclaresAScope:
         ),
     }
 
+    #: POSTs that change nothing, and so rightly need only a read scope. Each
+    #: takes a control's text, which belongs in a body rather than a URL, and
+    #: stores nothing — checking a control is reading it, and an owner who
+    #: approves controls must be able to read one first. Listed with the reason,
+    #: like ANONYMOUS, so a POST copied from a GET still fails.
+    READ_ONLY_POSTS: ClassVar[dict[str, str]] = {
+        "/pql/check": "parses, type-checks and lints a text; stores nothing",
+        "/pql/explain": "renders a text as sentences; stores nothing",
+        "/pql/compile": "compiles a text to SQL; stores nothing, runs nothing",
+        "/pql/format": "renders a text canonically; stores nothing",
+        "/pql/completions": "answers an editor about a text; stores nothing",
+        "/pql/hover": "answers an editor about a text; stores nothing",
+        "/rule-builder": "assembles PQL from the builder's answers; stores nothing",
+    }
+
     def anonymous_paths(self) -> set[str]:
         return {API_PREFIX + path for path in self.ANONYMOUS}
+
+    def read_only_posts(self) -> set[str]:
+        return {API_PREFIX + path for path in self.READ_ONLY_POSTS}
 
     def test_there_are_routes_to_check(self, endpoints: list[Endpoint]) -> None:
         """Anti-vacuity, and not a formality: the first version of `walk` found
@@ -143,17 +161,22 @@ class TestEveryApiRouteDeclaresAScope:
         served = {e.path for e in endpoints}
         stale = sorted(path for path in self.anonymous_paths() if path not in served)
         assert not stale, f"declared anonymous but no longer routed: {stale}"
+        posted = {e.path for e in endpoints if "POST" in e.methods}
+        stale = sorted(path for path in self.read_only_posts() if path not in posted)
+        assert not stale, f"declared a read-only POST but no longer posted to: {stale}"
 
     def test_a_mutating_route_never_settles_for_a_read_scope(
         self, endpoints: list[Endpoint]
     ) -> None:
         """The commonest way this control goes quietly wrong: a POST annotated
         Reader because it was copied from the GET above it."""
+        exempt = self.read_only_posts()
         wrong = [
             f"{e} -> {scope_of(e)}"
             for e in endpoints
             if e.methods & {"POST", "PUT", "PATCH", "DELETE"}
             and (scope_of(e) or "").endswith(":read")
+            and not (e.methods == {"POST"} and e.path in exempt)
         ]
         assert not wrong, f"these change state under a read-only scope: {wrong}"
 

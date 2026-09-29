@@ -251,6 +251,10 @@ EvidenceAnchorer = scoped("admin")
 
 # -- Knowledge and code: lineage, code intake, glossary, metadata, comments,
 # -- delegates, domain packs and connectors.
+#: Authoring a control, which somebody else then approves: the maker half of
+#: maker-checker. Held by a steward; deliberately not by an owner.
 ControlProposer = scoped("control:propose")
+#: Activating, suppressing and retiring a control, deciding on a proposal, and
+#: running the estate: the checker half, held by an owner.
 ControlApprover = scoped("control:approve")
 #: Administrator is defined with administration, above.

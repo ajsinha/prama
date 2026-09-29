@@ -20,10 +20,8 @@ from typing import Annotated, Any
 
 from fastapi import Form, Request
 
-from prama.core.clock import utc_now
+from prama.controls import proposals
 from prama.core.errors import PramaError
-from prama.derive import ControlGenerator
-from prama.derive.persisted import dataset_declaration_of
 from prama.propose.proposal import RejectionReason
 from prama.web.deps import Caller, Uow
 from prama.web.rendering import flash_error_and_log, redirect_to, render
@@ -47,168 +45,9 @@ class ProposalRoutes(UiRoutes):
         self.page("/proposals/{dataset_id}", self.proposals_for, name="proposals_for")
 
     async def _generate(self, caller: Caller, uow: Uow, dataset_id: str | None = None) -> Any:
-        generator = ControlGenerator()
-        versions = await uow.datasets.list_current(caller.tenant_id, limit=5000)
-        if dataset_id:
-            versions = [v for v in versions if v.dataset_id == dataset_id]
-
-        proposals: list[dict[str, Any]] = []
-        unsatisfiable: list[dict[str, Any]] = []
-        deferred: list[dict[str, Any]] = []
-        accepted_already = 0
-        rejected_already = 0
-        for version in versions:
-            attributes = await uow.attributes.for_dataset(
-                version.dataset_id, tenant_id=caller.tenant_id
-            )
-            declaration = dataset_declaration_of(version, attributes)
-            try:
-                generation = generator.generate(declaration)
-            except PramaError as exc:
-                # One bad declaration must not empty the queue for the estate.
-                unsatisfiable.append(
-                    {
-                        "dataset": version.name,
-                        "dataset_id": version.dataset_id,
-                        "rule": "generation",
-                        "declared": version.slug,
-                        "reason": str(exc),
-                    }
-                )
-                continue
-
-            for control in generation.controls:
-                # Two reasons a proposal is not offered, and they are different
-                # answers. Already accepted: it is in the estate, and showing
-                # it again would invite somebody to accept it twice. Already
-                # rejected: a person said no to this exact text, and asking
-                # nightly is the fastest way to lose their attention.
-                if await uow.rejections.was_rejected(
-                    caller.tenant_id, control.identity, control.content_hash
-                ):
-                    rejected_already += 1
-                    continue
-                stored = await uow.controls.by_identity(caller.tenant_id, control.identity)
-                if stored is not None and stored.content_hash == control.content_hash:
-                    accepted_already += 1
-                    continue
-                proposals.append(
-                    {
-                        "dataset": version.name,
-                        "dataset_id": version.dataset_id,
-                        "identity": control.identity,
-                        "rule": control.rule,
-                        "sentence": control.describe(),
-                        "pql": control.content,
-                        "content_hash": control.content_hash,
-                        "criticality": version.criticality,
-                        # A proposal that changes an existing control is a
-                        # different decision from one that adds a new control,
-                        # and a queue that renders them identically gets the
-                        # first waved through.
-                        "amends": stored is not None,
-                    }
-                )
-            for item in generation.unsatisfiable:
-                unsatisfiable.append(
-                    {
-                        "dataset": version.name,
-                        "dataset_id": version.dataset_id,
-                        "rule": item.rule,
-                        "declared": item.declared,
-                        "reason": item.reason,
-                    }
-                )
-            for postponed in generation.deferred:
-                deferred.append(
-                    {
-                        "dataset": version.name,
-                        "dataset_id": version.dataset_id,
-                        "rule": getattr(postponed, "rule", ""),
-                        "reason": getattr(postponed, "reason", ""),
-                    }
-                )
-        # Proposals derived from lineage: controls carried downstream, and keys
-        # checked against where they were copied from. Held while the edge
-        # they rest on is only inferred.
-        import hashlib
-
-        from prama.derive.lineage_controls import propose as from_lineage
-
-        for mined in from_lineage(
-            await uow.lineage.edges(caller.tenant_id), await uow.controls.live(caller.tenant_id)
-        ):
-            if dataset_id:
-                continue  # a per-dataset view lists what that dataset's declaration implies
-            content_hash = hashlib.sha256(mined.pql.encode("utf-8")).hexdigest()
-            if await uow.rejections.was_rejected(caller.tenant_id, mined.identity, content_hash):
-                rejected_already += 1
-                continue
-            if await uow.controls.by_identity(caller.tenant_id, mined.identity) is not None:
-                accepted_already += 1
-                continue
-            if mined.deferred_because:
-                deferred.append(
-                    {
-                        "dataset": mined.dataset,
-                        "dataset_id": "",
-                        "rule": mined.rule,
-                        "reason": mined.deferred_because,
-                    }
-                )
-                continue
-            proposals.append(
-                {
-                    "dataset": mined.dataset,
-                    "dataset_id": "",
-                    "identity": mined.identity,
-                    "rule": mined.rule,
-                    "sentence": mined.sentence,
-                    "pql": mined.pql,
-                    "content_hash": content_hash,
-                    "criticality": 3,
-                    "amends": False,
-                }
-            )
-        # Proposals the estate's metadata implies: a field that carries a rule
-        # ("mandatory", "allowed values", "key") offers its check once a value
-        # is set. A rule that renders to PQL that does not parse is shown as
-        # unsatisfiable, not dropped.
-        from prama.semantic.services.metadata import proposals as from_metadata
-
-        criticality = {v.dataset_id: v.criticality for v in versions}
-        for implied in await from_metadata(uow, caller.tenant_id, dataset_id=dataset_id or ""):
-            if "error" in implied:
-                unsatisfiable.append(
-                    {
-                        "dataset": implied["dataset"],
-                        "dataset_id": "",
-                        "rule": "metadata",
-                        "declared": implied["pql"],
-                        "reason": implied["error"],
-                    }
-                )
-                continue
-            proposals.append({**implied, "criticality": criticality.get(implied["dataset_id"], 3)})
-        # References that follow from two attributes meaning the same thing, when
-        # one dataset owns that meaning as its key (`prama.semantic.correlate`).
-        if not dataset_id:
-            from prama.semantic.services.metadata import correlation
-
-            for referenced in (await correlation(uow, caller.tenant_id))["proposals"]:
-                proposals.append({**referenced, "criticality": 3})
-        # Tier 1 first, then by rule so a systematically bad rule is visible as
-        # a block rather than scattered through the list.
-        proposals.sort(key=lambda p: (p["criticality"], p["rule"], p["dataset"]))
+        """The queue (`prama.controls.proposals.queue`), with the form's reasons."""
         return {
-            "proposals": proposals,
-            "unsatisfiable": unsatisfiable,
-            "deferred": deferred,
-            # Counted and shown. An empty queue after a generator run means
-            # either "everything is already decided" or "nothing was
-            # generated", and those are opposite facts.
-            "accepted_already": accepted_already,
-            "rejected_already": rejected_already,
+            **await proposals.queue(uow, caller.tenant_id, dataset_id),
             "reasons": REJECTION_REASONS,
         }
 
@@ -248,24 +87,14 @@ class ProposalRoutes(UiRoutes):
         severity the text does not carry.
         """
         try:
-            control, _ = await uow.controls.declare(
-                tenant_id=caller.tenant_id,
+            await proposals.accept(
+                uow,
+                caller.tenant_id,
                 identity=identity,
                 pql=pql,
-                # Lineage-derived proposals are mined from the estate; the rule
-                # (lineage_propagated, lineage_referential) says which way.
-                origin="mining" if rule.startswith("lineage_") else "declaration",
                 rule=rule,
-                source_ref=dataset_id,
-                status="proposed",
-                authored_by=caller.principal_id,
-                reason="accepted from the proposal queue",
-            )
-            await uow.controls.activate(
-                str(control.id),
-                tenant_id=caller.tenant_id,
-                approved_by=caller.principal_id or "console",
-                reason="accepted from the proposal queue",
+                dataset_id=dataset_id,
+                by=caller.principal_id,
             )
         except PramaError as exc:
             flash_error_and_log(request, "That control could not be accepted", exc)
@@ -293,15 +122,19 @@ class ProposalRoutes(UiRoutes):
         that should never have been proposed — and without the record the same
         proposal returns tomorrow night.
         """
-        await uow.rejections.record(
-            tenant_id=caller.tenant_id,
-            identity=identity,
-            content_hash=content_hash,
-            reason=reason,
-            note=note,
-            rejected_by=caller.principal_id,
-            rejected_at=utc_now().isoformat(),
-        )
+        try:
+            await proposals.reject(
+                uow,
+                caller.tenant_id,
+                identity=identity,
+                content_hash=content_hash,
+                reason=reason,
+                note=note,
+                by=caller.principal_id,
+            )
+        except PramaError as exc:
+            flash_error_and_log(request, "That proposal could not be rejected", exc)
+            return redirect_to(request, "proposal_queue")
         return redirect_to(
             request,
             "proposal_queue",

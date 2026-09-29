@@ -101,6 +101,14 @@ scheduler:
   against: ""                       # a local .duckdb or .sqlite file
   dialect: duckdb                   # duckdb | sqlite
 
+runs:
+  # Directories a run requested over the API (POST /api/v1/runs) may read a
+  # registered connection's files from. Empty means no such run opens any file:
+  # a connection's path is data anybody with declaration:write can set, so the
+  # operator, not the connection, decides what the server may read. Must not
+  # contain Prama's own database — a run refuses if it does.
+  roots: []                         # e.g. [/data/landing, /data/warehouse]
+
 llm:
   # Providers and profiles live in the database (Models page, `prama llm`).
   offline: false                    # true: only self-hosted models on a local or private address

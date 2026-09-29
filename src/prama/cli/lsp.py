@@ -24,7 +24,7 @@ from pathlib import Path
 
 from prama.cli.base import EXIT_OK, Command, CommandContext, CommandGroup
 from prama.core.errors import ValidationError
-from prama.pql.types import Catalogue, Column, DatasetSchema
+from prama.pql.types import Catalogue
 
 
 class LspServeCommand(Command):
@@ -184,22 +184,9 @@ def load_catalogue(path: Path) -> Catalogue:
             remedy="Rewrite it with `prama lsp catalogue`.",
             context={"path": str(path)},
         ) from None
-    datasets = payload.get("datasets") if isinstance(payload, dict) else None
-    if not isinstance(datasets, dict):
-        raise ValidationError(
-            f"{path} has no 'datasets' object",
-            remedy="Rewrite it with `prama lsp catalogue`.",
-            context={"path": str(path)},
-        )
-    return Catalogue(
-        datasets={
-            name: DatasetSchema(
-                name=name,
-                columns=tuple(Column(c, str(t)) for c, t in (columns or {}).items()),
-            )
-            for name, columns in datasets.items()
-        }
-    )
+    from prama.controls.language import catalogue_from_payload
+
+    return catalogue_from_payload(payload, where=str(path))
 
 
 class LspCommand(CommandGroup):
