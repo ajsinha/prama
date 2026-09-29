@@ -219,3 +219,12 @@ TenantAdmin = scoped("tenant:admin")
 Uow = Annotated[UnitOfWork, Depends(get_uow)]
 Config = Annotated[Configuration, Depends(get_config)]
 Db = Annotated[Database, Depends(get_database)]
+
+# -- reconciliation, data contracts and usage ----------------------------------
+BreakReader = scoped("break:read")
+BreakWriter = scoped("break:write")
+#: A period-end reconciliation certificate is a signed statement, so issuing
+#: one takes the scope that signs statements.
+AttestationSigner = scoped("attestation:sign")
+ReportReader = scoped("report:read")
+ContractChecker = scoped("contract:check")

@@ -48,6 +48,25 @@ class UsageDao(Dao[UsUsage]):
         )
         return {str(d): (int(q or 0), int(u or 0)) for d, q, u in result.all()}
 
+    async def daily(
+        self, tenant_id: str, *, since: str, dataset: str = ""
+    ) -> list[tuple[str, str, str, int, int]]:
+        """(dataset, day, source, queries, users) rows since *since*, oldest day first.
+
+        One row per source: a dataset read through two warehouses has two
+        counts for a day, and adding them would count a person twice.
+        """
+        await self._session.flush()
+        stmt = select(
+            UsUsage.dataset, UsUsage.day, UsUsage.source, UsUsage.queries, UsUsage.users
+        ).where(UsUsage.tenant_id == tenant_id, UsUsage.day >= since)
+        if dataset:
+            stmt = stmt.where(UsUsage.dataset == dataset)
+        result = await self._session.execute(
+            stmt.order_by(UsUsage.day, UsUsage.dataset, UsUsage.source)
+        )
+        return [(str(d), str(day), str(s), int(q), int(u)) for d, day, s, q, u in result.all()]
+
     async def record_pair(
         self, tenant_id: str, *, pair: tuple[str, str], day: str, source: str, queries: int
     ) -> None:
