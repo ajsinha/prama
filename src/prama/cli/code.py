@@ -128,9 +128,51 @@ class RunsCommand(Command):
         return EXIT_OK
 
 
+class ReviewCommand(Command):
+    name = "review"
+    help = "what a change to ETL code does to lineage and to the controls resting on it"
+
+    def configure(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("--base", required=True, help="the ref the change is against")
+        parser.add_argument("--head", default="HEAD", help="the ref with the change")
+        parser.add_argument("--repo", default=".", help="the repository (default: here)")
+        parser.add_argument("--dialect", default="ansi")
+        parser.add_argument(
+            "--format", choices=["text", "markdown", "json"], default="text", dest="fmt"
+        )
+        parser.add_argument(
+            "--offline",
+            action="store_true",
+            help="do not read the estate's controls; report lineage and proposals only",
+        )
+        _tenant_flag(parser)
+
+    def run(self, ctx: CommandContext) -> int:
+        from prama.codeintake.review import review
+
+        live: list[Any] = []
+        if not ctx.args.offline:
+            live = list(_with_uow(ctx, lambda uow, t: uow.controls.live(t)))
+        result = review(
+            Path(ctx.args.repo),
+            ctx.args.base,
+            ctx.args.head,
+            dialect=ctx.args.dialect,
+            live=live,
+            timeout=float(ctx.config.get("codeintake.timeout", 300) or 300),
+        )
+        if ctx.args.fmt == "json" or ctx.json_output:
+            ctx.emit_json(result.to_dict())
+        else:
+            ctx.emit(result.to_markdown())
+        # Exit 3 when a live control loses its basis: a failure CI cannot
+        # mistake for success, as `prama contract check` does for a breach.
+        return 3 if result.fails else EXIT_OK
+
+
 class CodeCommand(CommandGroup):
     name = "code"
     help = "application code: receive a ZIP or a git ref, read its lineage"
 
     def commands(self) -> list[Command]:
-        return [AddZipCommand(), AddGitCommand(), RunsCommand()]
+        return [AddZipCommand(), AddGitCommand(), RunsCommand(), ReviewCommand()]

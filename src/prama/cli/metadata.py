@@ -190,6 +190,10 @@ class CorrelateCommand(Command):
             ctx.emit(f"  INCONSISTENT {f['aspect']}: {f['meaning']}: {f['detail']}")
         for p in result["proposals"]:
             ctx.emit(f"  proposed: {p['pql'].split(' BECAUSE')[0]}")
+        for hint in result.get("queried_together", []):
+            ctx.emit(f"  queried together: {hint['detail']}")
+            for pql in hint["suggested"]:
+                ctx.emit(f"    perhaps: {pql}")
         return EXIT_OK
 
 

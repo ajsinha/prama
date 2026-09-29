@@ -1759,6 +1759,26 @@ CREATE TABLE IF NOT EXISTS us_usage (
 );
 CREATE INDEX IF NOT EXISTS ix_us_usage_day ON us_usage (tenant_id, day);
 
+-- Pairs of datasets read by the same query, per day and source: which datasets
+-- are used together, from the same query-history export as us_usage. A hint
+-- for correlation (two datasets queried together, with a column in common and
+-- no declared relationship) and, like us_usage, never an input to a score.
+-- Snowflake and BigQuery list every table a query touched; Databricks records
+-- one table per event, so it contributes no pairs.
+CREATE TABLE IF NOT EXISTS us_coaccess (
+    id            VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id     VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    -- The pair, ordered, so (a, b) and (b, a) are one row.
+    dataset_a     VARCHAR(255)  NOT NULL,
+    dataset_b     VARCHAR(255)  NOT NULL,
+    day           VARCHAR(10)   NOT NULL,
+    source        VARCHAR(32)   NOT NULL,
+    queries       INTEGER       NOT NULL DEFAULT 0,
+    CONSTRAINT uq_us_coaccess UNIQUE (tenant_id, dataset_a, dataset_b, day, source),
+    CONSTRAINT ck_us_coaccess_order CHECK (dataset_a < dataset_b)
+);
+CREATE INDEX IF NOT EXISTS ix_us_coaccess_day ON us_coaccess (tenant_id, day);
+
 -- ===========================================================================
 -- SEMANTIC INDEX  (Wave 17)
 -- ===========================================================================

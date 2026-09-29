@@ -305,7 +305,7 @@ async def main(serve: bool) -> Any:
                         engine="duckdb",
                         execute=execute,
                         close=close,
-                        datasets={"raw.trades", "stg.trades", "mart.positions"},
+                        datasets={"raw.trades", "stg.trades", "mart.positions", "ref.fx_rates"},
                     ),
                 ]
             )

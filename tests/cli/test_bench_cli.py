@@ -98,7 +98,9 @@ class TestRun:
         assert payload["corpus"]["seed"] == 42
         assert payload["not_run"]
         assert payload["blind_families"]
-        assert len(payload["baselines"]) == 5
+        # Two bounds, three ablations, and Prama's declared path.
+        assert len(payload["baselines"]) == 6
+        assert payload["baselines"][-1]["name"] == "prama-declared"
 
     def test_the_group_without_a_subcommand_says_what_it_offers(self) -> None:
         code, text = run(["bench"])

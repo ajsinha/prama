@@ -158,7 +158,8 @@ false-discovery-rate selection. Every formal claim is marked with what carries i
 system the author built to this account: a named test, prose, or nothing. The markers are not uniformly
 favourable. Two results are negative and are reported in the body: a lineage graph of value flow alone
 cannot see a defect that acts through a join predicate (so \textsc{Prama} now records a join as a separate,
-row-population edge), and the labelled defect benchmark does not yet score \textsc{Prama} itself. \Cref{sec:register} counts what runs.
+row-population edge), and on its own labelled defect benchmark \textsc{Prama}'s declared path finds 10 of 28
+planted defects and none in the relational, temporal or semantic families. \Cref{sec:register} counts what runs.
 \end{abstract}
 
 \tableofcontents
@@ -888,10 +889,13 @@ applied. Each is exercised by a delegate that passes admission and misbehaves on
 Two findings came out of building the tests. The deadline had covered only the reply, so a delegate that
 slept (using no CPU, so the CPU limit never fired) held the host for ever. And the admission scan let
 \texttt{getattr(len.\_\_self\_\_, "\_\_imp" + "ort\_\_")} through; it now refuses \texttt{builtins}, the
-interpreter-internals attributes and \texttt{getattr} with a computed name. Two limits remain. An audit hook is
-not a boundary against native code already loaded. And delegates the operator installs (configured paths,
-entry points) are imported and probed in the server's own process at admission, which is the trust given to
-any installed package; uploads, the untrusted route, are vetted in a subprocess and never imported by the host.
+interpreter-internals attributes and \texttt{getattr} with a computed name. Admission is sandboxed as well:
+the server never imports delegate code. Each configured file is scanned, imported and probed by its own
+sealed worker, which returns a description and the implementation hash, and a delegate that hangs its
+admission is refused alone. One limit remains: an audit hook is not a boundary against native code already
+loaded.
+\runs{tests/delegates/test\_admission.py::test\_the\_server\_never\_imports\_a\_configured\_delegate}
+\runs{tests/delegates/test\_admission.py::test\_a\_delegate\_that\_hangs\_its\_admission\_is\_refused\_alone}
 \runs{tests/delegates/test\_sandbox.py::test\_what\_a\_delegate\_has\_no\_use\_for\_is\_refused}
 \runs{tests/delegates/test\_sandbox.py::test\_a\_sleeping\_delegate\_is\_stopped\_at\_its\_deadline}
 \runs{tests/delegates/test\_sandbox.py::test\_memory\_is\_limited}
@@ -1329,8 +1333,27 @@ radius now runs from staging to the mart's rows (80\%), the mart's exposure (80\
 (80\%) and its total (28\%). The filtered reconciliation of staging against the raw feed passes: the copy is
 faithful, and the defects are in what it faithfully copied. We still take the result to mean that controls
 belong at the source; lineage carries them downstream, and now carries them across a join.
-\absent{join-key edges from the PySpark reader, which records a join as a gap; population edges from
+The PySpark reader follows a join too: \texttt{on="k"}, a list of names, or an equality between the two
+frames. It records the key pairs with the same pairing text, and takes a column after the join from the
+side that provably has it. A name either side could hold is a gap, as in SQL.
+\runs{tests/lineage/test\_pyspark.py::test\_a\_join\_is\_followed\_to\_its\_keys\_and\_its\_columns}
+\runs{tests/lineage/test\_pyspark.py::test\_a\_pyspark\_join\_proposes\_the\_same\_check\_as\_a\_sql\_one}
+\absent{join-key edges from the pandas reader, where a \texttt{merge} is still a gap; population edges from
 \pql{EXISTS} and \pql{IN} subqueries.}
+
+\paragraph{Before it merges.} The same comparison run on a pull request answers the reviewer's questions.
+\texttt{prama code review} reads the base and the head from git, never checking either out, through the
+same sandboxed reader, and reports four things:
+\begin{itemize}[nosep]
+  \item the edges the change adds, removes or retypes (a copy becoming a derivation is a change);
+  \item the blast radius of each changed column;
+  \item the proposals new at the head;
+  \item the proposals present at the base and gone at the head.
+\end{itemize}
+A live control whose identity is among the last rests on lineage the change removed. The review names it
+and exits 3, so continuous integration can refuse the merge.
+\runs{tests/codeintake/test\_review.py::test\_a\_live\_control\_that\_loses\_its\_basis\_fails\_the\_review}
+\runs{tests/codeintake/test\_review.py::test\_a\_copy\_that\_becomes\_a\_derivation\_is\_a\_change\_with\_reach}
 
 % =============================================================================
 \section{Models author; the engine decides}\label{sec:ai}
@@ -1609,6 +1632,12 @@ types (currency, dates, country, boolean) group for consistency only and never y
 \runs{tests/semantic/test\_correlate.py::test\_a\_generic\_type\_groups\_for\_consistency\_but\_never\_proposes\_a\_reference}
 \runs{tests/semantic/test\_correlate.py::test\_an\_attribute\_joins\_only\_its\_strongest\_group}
 
+Query history adds a hint that meaning cannot: datasets the warehouse reads in the same query, with a column
+in common and no declared relationship. Where that column is a key on one side, the likely \pql{REFERENCES}
+is suggested to a steward. A shared name is not a shared meaning, so the hint never becomes a proposal, and
+like every usage signal it never enters a score.
+\runs{tests/semantic/test\_queried\_together.py::test\_datasets\_read\_together\_suggest\_the\_relationship}
+
 \begin{plain}
 \pt If two columns in two datasets are both ``the customer's LEI'', and one dataset is the customer master
 where the LEI is unique, then every LEI elsewhere should exist in that master. If nobody, or two datasets,
@@ -1729,6 +1758,8 @@ alert-on-everything & bound    & 28/28 & 0.08 & 1.00 & 0.14 \\
 schema-only         & ablation & 2/28  & 0.67 & 0.07 & 0.13 \\
 patterns-only       & ablation & 5/28  & 0.83 & 0.18 & 0.29 \\
 statistics-only     & ablation & 7/28  & 0.88 & 0.25 & 0.39 \\
+\midrule
+prama-declared      & system   & 10/28 & 0.77 & 0.36 & 0.49 \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -1743,14 +1774,24 @@ spots are the argument for whatever covers them, and they do not appear in an ag
 \runs{tests/bench/test\_scoring.py::TestTheMatchIsExact::test\_the\_wrong\_column\_does\_not}
 \runs{tests/cli/test\_bench\_cli.py::TestRun::test\_it\_names\_the\_baselines\_that\_were\_not\_run}
 
-\paragraph{The absence.} None of the five detectors is \textsc{Prama}. The benchmark does not yet score
-\textsc{Prama}'s own controls and monitors on the corpus, and none of the fifteen external systems it names
-(Great Expectations, Soda Core, Deequ, dbt tests, HoloClean/Raha/Baran/ZeroED and others) was run; the command
-prints them as not run. We regard publishing the bounds and ablations without the comparison as better than
-publishing a comparison configured by the party that benefits from it, but it means this paper makes
-\emph{no} claim about \textsc{Prama}'s detection quality relative to anything.
-\absent{\textsc{Prama} scored on its own benchmark; any external baseline; the banking-scale corpus; a blind
-evaluation with stewards (the blinding mechanism exists: \texttt{tests/bench/test\_shadow.py::TestTheBlinding::test\_what\_a\_steward\_sees\_carries\_no\_system}).}
+\paragraph{The system.} The last row is \textsc{Prama}'s declared path: controls $\Gam$ derives from an owner's
+declaration of the dataset, run on each window by the reference interpreter. The declaration is written from the
+schema's documented domain, not from the defect classes, and is not revised to catch what it misses. It uses
+no relationships (the corpus has one dataset), no history and no monitors, so it is one detector of several.
+It finds every structural defect, four of seven content defects and one statistical one. It finds nothing
+relational, temporal or semantic, which are the families that need a second dataset, a clock, or a meaning
+the schema does not state. Its fairness test, that no clean window raises an alert, found a defect in the
+corpus itself: the generator's IBANs had made-up check digits, so a correct IBAN validator alerted on every
+window. The generator now computes them.
+\runs{tests/bench/test\_declared.py::test\_clean\_windows\_raise\_nothing}
+\runs{tests/bench/test\_declared.py::test\_the\_declared\_path\_scores\_and\_names\_what\_it\_cannot\_see}
+
+\paragraph{The absence.} None of the fifteen external systems the benchmark names (Great Expectations, Soda
+Core, Deequ, dbt tests, HoloClean/Raha/Baran/ZeroED and others) was run; the command prints them as not run.
+We regard publishing bounds, ablations and our own score without a comparison as better than publishing a
+comparison configured by the party that benefits from it. It means this paper claims that the declared path
+beats every single-technique ablation here, and makes \emph{no} claim relative to any other product.
+\absent{any external baseline; the banking-scale corpus; a blind evaluation with stewards (the blinding mechanism exists: \texttt{tests/bench/test\_shadow.py::TestTheBlinding::test\_what\_a\_steward\_sees\_carries\_no\_system}).}
 
 \subsection{Measurements of the system itself}
 
@@ -1829,7 +1870,8 @@ Strongest path (\Cref{prop:strongest}) & runs & \texttt{test\_graph.py} \\
 Attenuation constants calibrated & stated & declared constants, not estimates \\
 What a copy justifies (\Cref{prop:copy}) & runs & \texttt{test\_lineage\_controls.py}, \texttt{test\_reconcile\_pql.py} \\
 Join predicates invisible (\Cref{prop:join}) & in part & case study 8 run; the repair is asserted \\
-Population-dependence edges & in part & SQL reader, \texttt{test\_joins.py}; PySpark records a gap \\
+Population-dependence edges & in part & SQL and PySpark readers; a pandas \texttt{merge} is a gap \\
+A change that removes a control's basis fails review & runs & \texttt{test\_review.py} \\
 Every driving row finds its match (join checks) & runs & \texttt{test\_reconcile\_pql.py} \\
 \multicolumn{3}{@{}l}{\emph{Models}} \\
 Architectural guard (\Cref{prop:guard}) & runs & \texttt{test\_layering.py}, with counterfactual \\
@@ -1854,17 +1896,19 @@ Calibration on real financial data & not built & synthetic only \\
 A value cannot become syntax (\Cref{prop:injection}) & runs & \texttt{test\_metadata.py} \\
 Correlation and key ownership (\Cref{def:correlate}) & runs & \texttt{test\_correlate.py} \\
 Fitness search names its evidence & runs & \texttt{test\_fitness.py} \\
+Queried-together hints stay hints & runs & \texttt{test\_queried\_together.py} \\
 Retrieval quality of fitness search & not built & not measured \\
 \multicolumn{3}{@{}l}{\emph{Evaluation}} \\
 Benchmark bounds and ablations & runs & \texttt{tests/bench} \\
-\textsc{Prama} scored on the benchmark; external baselines & not built & named, not run \\
+\textsc{Prama} scored on its own benchmark & runs & \texttt{test\_declared.py}; declared path only \\
+External baselines & not built & named, not run \\
 Case studies: planted against found (\Cref{tab:studies}) & in part & exit status asserted; counts printed \\
 \bottomrule
 \end{longtable}
 \end{center}
 
-Of seventy-two rows, fifty run, eleven run in part, five are stated without being executed, and six are
-not built.
+Of seventy-five rows, fifty-three run, eleven run in part, five are stated without being executed, and six
+are not built.
 
 The ratio is not flattering and is not meant to be. The claims that run are concentrated where the thesis
 lives: derivation, verdict semantics and evidence. The claims that do not are concentrated where a claim is
@@ -1927,7 +1971,8 @@ declarations that make $\Gam$ useful. If they do not, derivation has nothing to 
 falls back to mining and induction --- the proposals this paper ranks lowest.
 
 \paragraph{Planted defects are not defects.} Every defect in the evaluation was planted by the author, and the
-benchmark does not yet score \textsc{Prama}. The paper therefore makes no claim of superior detection. What it
+benchmark scores only \textsc{Prama}'s declared path against bounds and ablations. The paper therefore makes
+no claim of superior detection over any other product. What it
 claims is narrower: that a verdict \textsc{Prama} reports is justified in the sense of \Cref{sec:thesis}, and that
 what it cannot justify it reports as not established.
 
@@ -1968,7 +2013,7 @@ nothing'' can be reported as what it is; and a record an auditor can check with 
 base, reconciliation acquires a tolerance semantics and a timing law, lineage acquires a precise statement of
 which controls a copy justifies, and models acquire a boundary they cannot cross except through a person.
 
-The register counts fifty claims that run and twenty-two that do not, or do so only in part. The ones
+The register counts fifty-three claims that run and twenty-two that do not, or do so only in part. The ones
 that run are the ones the thesis depends on. The ones that do not are, for the most part, claims about people
 and data that the author does not own, and they are where the work goes next.
 

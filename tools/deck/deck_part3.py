@@ -234,7 +234,7 @@ SLIDES: list[dict[str, Any]] = [
         "sub": "Eight case studies, a labelled benchmark, and what Prama does not do.",
         "points": [
             "Eight case studies, planted against found",
-            "Bounds and ablations, not a league table",
+            "Bounds, ablations, and Prama itself",
             "What Prama does not do",
             "Where to start",
         ],
@@ -265,11 +265,11 @@ SLIDES: list[dict[str, Any]] = [
     {
         "kind": "stats",
         "kicker": "prama bench run --seed 42",
-        "title": "Bounds and ablations, not a league table",
+        "title": "Bounds, ablations, and Prama itself",
         "stats": [
             ("28", "scenarios of 200 rows, one defect each"),
             ("6", "defect families, from structural to semantic"),
-            ("0.39", "F1 of the best single-technique ablation"),
+            ("0.49", "F1 of Prama's declared path; 0.39 for the best single technique"),
             ("15", "named competitors not run, and said so"),
         ],
         "rows": [
@@ -278,6 +278,7 @@ SLIDES: list[dict[str, Any]] = [
             ["schema-only", "2/28", "0.67", "0.07", "five of six families"],
             ["patterns-only", "5/28", "0.83", "0.18", "four families"],
             ["statistics-only", "7/28", "0.88", "0.25", "relational"],
+            ["prama-declared (system)", "10/28", "0.77", "0.36", "relational, temporal, semantic"],
         ],
         "col_w": [1.8, 0.6, 0.7, 0.6, 1.3],
         "note": "Configuring a competitor is a job for someone incentivised to make it look "

@@ -23,6 +23,10 @@ Two deterministic rules, each stated so its proposal explains itself:
   neither case does anything fail. So the driving side's key gets a
   `REFERENCES` check against the side it is joined to: the defect case study 8
   found only at its source, now caught where it happens.
+* **A looked-up key must be unique** (`lineage_join_unique`). If the table a
+  join looks up holds two rows for one key, every matching row is counted
+  twice, and nothing fails either. The key is every column the statement joins
+  that table on, so a composite key is checked as one.
 
 Proposals from an `inferred` edge are held until a person confirms the edge;
 a proposal built on a guessed edge would propose a guessed control. Nothing
@@ -142,6 +146,7 @@ def propose(edges: Iterable[Any], controls: Iterable[Any]) -> list[LineagePropos
                 )
     out.update(_reconciliations(edges))
     out.update(_joins(edges))
+    out.update(_fan_outs(edges))
     return sorted(out.values(), key=lambda p: (p.dataset, p.rule, p.identity))
 
 
@@ -268,6 +273,50 @@ def _joins(edges: Iterable[Any]) -> dict[str, LineageProposal]:
             deferred_because=(
                 "a lineage edge it rests on is inferred; confirm it on the Lineage page first"
                 if any(e.status == "inferred" for e in found)
+                else ""
+            ),
+        )
+    return out
+
+
+def _fan_outs(edges: Iterable[Any]) -> dict[str, LineageProposal]:
+    """A uniqueness check on the columns each statement looks a table up by."""
+    keys: dict[tuple[str, str, str, str], set[str]] = {}
+    inferred: set[tuple[str, str, str, str]] = set()
+    for edge in edges:
+        match = _PAIRING.match(str(edge.expression)) if edge.transform == "join_key" else None
+        if match is None:
+            continue
+        driving = match["driving"].rpartition(".")[0]
+        looked_up, _, column = match["looked_up"].rpartition(".")
+        group = (edge.target_dataset, str(getattr(edge, "produced_by", "")), driving, looked_up)
+        keys.setdefault(group, set()).add(column)
+        if edge.status == "inferred":
+            inferred.add(group)
+    out: dict[str, LineageProposal] = {}
+    for group, columns in sorted(keys.items()):
+        target, _, driving, looked_up = group
+        key = ", ".join(sorted(columns))
+        pql = _checked(
+            f"CHECK {quote_dataset(looked_up)} HAS UNIQUE KEY ({key}) DIMENSION uniqueness "
+            f"BECAUSE 'lineage: {target} looks up {looked_up} on {key}; a second row per key "
+            f"would count every matching {driving} row twice'"
+        )
+        if pql is None:
+            continue
+        identity = _identity("join-unique", looked_up, key)
+        out[identity] = LineageProposal(
+            identity=identity,
+            rule="lineage_join_unique",
+            dataset=looked_up,
+            pql=pql,
+            sentence=(
+                f"{target} looks {looked_up} up on {key}. Two rows for one key would "
+                f"double every matching {driving} row, silently."
+            ),
+            deferred_because=(
+                "a lineage edge it rests on is inferred; confirm it on the Lineage page first"
+                if group in inferred
                 else ""
             ),
         )

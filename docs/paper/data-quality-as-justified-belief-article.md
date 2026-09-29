@@ -18,12 +18,11 @@
 > [`data-quality-as-justified-belief.tex`](data-quality-as-justified-belief.tex) ([PDF](data-quality-as-justified-belief.pdf)). The system it was built against is **Prama** 0.1.0. Where
 > a section says what a data quality system *should* do, it then says what Prama actually does. Often
 > that is less, sometimes it is different, and the differences are marked rather than smoothed over. The
-> paper's claims register has seventy-two rows: **fifty run** (a named test exercises them),
+> paper's claims register has seventy-five rows: **fifty-three run** (a named test exercises them),
 > **eleven run in part**, **five are mathematics the code does not execute**, and **six are not built**.
 > The negative results are in here too: value lineage cannot see a defect that acts through a join (and
-> the population edge that now repairs it), a
-> freshness control derived from a declaration cannot yet reach a verdict, and the benchmark does not yet
-> score Prama at all.
+> the population edge that now repairs it), and on its own benchmark Prama's declared path finds 10 of 28
+> planted defects, none in the relational, temporal or semantic families.
 
 ---
 
@@ -375,9 +374,9 @@ Building those tests found two holes:
   no CPU.
 - **The admission scan let an evasion through:** `getattr(len.__self__, "__imp" + "ort__")`.
 
-Both are closed. What remains: an audit hook is no boundary against native code already loaded. And delegates
-the operator installs are probed in the server's own process at admission, the trust given to any installed
-package. Uploads, the untrusted route, never are.
+Both are closed. Admission is sandboxed too. The server never imports delegate code: each configured file
+is loaded and probed by its own sealed worker, and a delegate that hangs its admission is refused alone. What
+remains is that an audit hook is no boundary against native code already loaded.
 
 ---
 
@@ -601,8 +600,12 @@ and nothing fails, so lineage proposes `CHECK "stg.trades".ccy REFERENCES "ref.f
 check fails on **3 of 1,882** staged trades, where the defect happens and not only where it entered.
 
 The lesson about where controls belong still stands. **Controls belong at the source; lineage carries them
-downstream**, and now it carries them across a join too. The PySpark reader still records a join as a gap,
-and that is where this goes next.
+downstream**, and now it carries them across a join too, in SQL and in PySpark. The pandas reader still
+reports a `merge` as a gap.
+
+**Before it merges.** `prama code review --base origin/main` runs the same comparison on a pull request.
+It reports the lineage the change adds, removes or retypes, what that reaches, and the controls it implies.
+Its exit code fails continuous integration when a live control loses the lineage it rests on.
 
 ---
 
@@ -796,15 +799,23 @@ detection counts only if dataset, column *and* window all match. My run:
 | schema-only | ablation | 2/28 | 0.67 | 0.07 | 0.13 |
 | patterns-only | ablation | 5/28 | 0.83 | 0.18 | 0.29 |
 | statistics-only | ablation | 7/28 | 0.88 | 0.25 | 0.39 |
+| **prama-declared** | **system** | **10/28** | **0.77** | **0.36** | **0.49** |
 
 The blind spots matter more than the F1s: statistics-only found nothing relational; patterns-only found nothing
 statistical, relational, temporal or semantic.
 
-And the absence: **none of those detectors is Prama.** The benchmark doesn't yet score Prama's own controls and
-monitors, and none of the fifteen external systems it names (Great Expectations, Soda Core, Deequ, dbt tests,
-HoloClean/Raha, and others) was run — the command prints them as *not run*. I think publishing bounds and
-ablations is better than publishing a comparison configured by the party that benefits from it. But it means
-**this work makes no claim about Prama's detection quality relative to anything.**
+The last row is **Prama's declared path**: controls derived from an owner's declaration of the dataset, run on
+each window. The declaration was written from the schema's domain, not from the defect list, and wasn't
+revised to catch what it misses.
+
+- **What it finds:** every structural defect, four of seven content defects and one statistical one.
+- **What it misses:** everything relational, temporal and semantic. Those need a second dataset, a clock, or
+  a meaning the schema doesn't state.
+- **What its fairness test found.** The test (clean windows must raise nothing) caught a bug in the corpus:
+  its IBANs had made-up check digits, so a *correct* validator alerted everywhere.
+
+None of the fifteen external systems it names was run. So the claim is narrow: the declared path beats every
+single technique here, and **nothing is claimed relative to any other product.**
 
 ---
 

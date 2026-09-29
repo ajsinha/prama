@@ -24,6 +24,7 @@ import dataclasses
 import hashlib
 import importlib.util
 import inspect
+import json
 import sys
 from collections.abc import Iterable
 from pathlib import Path
@@ -294,6 +295,87 @@ class DelegateRegistry:
                     ):
                         self._try(cls(), f"path:{path}", digest)
 
+    def load_isolated(
+        self,
+        paths: Iterable[str],
+        *,
+        disabled: Iterable[str] = (),
+        entry_points: bool = True,
+        timeout_s: float = 120,
+    ) -> None:
+        """Admit the configured delegates in the sandbox, and register stand-ins.
+
+        The server never imports them. A sandboxed worker scans, imports and
+        probes each one (`prama.delegates.vet --admit`) and returns its
+        description and its implementation hash; each is registered as it would
+        be in process, but runs only in the sandbox, where the worker loads it
+        again from its origin and refuses a file whose bytes have changed.
+        """
+        from prama.delegates.sandbox import run_isolated
+
+        # One worker per file, and one for the installed entry points: a
+        # delegate that hangs or crashes its admission is refused alone, and
+        # the others still load.
+        requests: list[tuple[str, dict[str, Any]]] = []
+        for directory in paths:
+            root = Path(directory).expanduser().resolve()
+            if not root.is_dir():
+                self.refused[str(root)] = "not a directory"
+                _log.error("delegates.paths: %s is not a directory", root)
+                continue
+            for path in sorted(root.glob("*.py")):
+                if not path.name.startswith("_"):
+                    requests.append((path.name, {"paths": [str(root)], "only": path.name}))
+        if entry_points:
+            requests.append(("(entry points)", {"entry_points": True}))
+        for label, request in requests:
+            request["disabled"] = list(disabled)
+            try:
+                finished = run_isolated(
+                    ["-m", "prama.delegates.vet", "--admit"],
+                    chunks=[json.dumps(request).encode("utf-8")],
+                    timeout_s=timeout_s,
+                )
+                answer = json.loads(finished.output.decode("utf-8") or "{}")
+            except TimeoutError:
+                self.refused[label] = f"its admission ran longer than {timeout_s:g}s"
+                _log.error("delegate %s: admission timed out in its sandbox", label)
+                continue
+            except json.JSONDecodeError:
+                self.refused[label] = f"its admission failed: {finished.errors[-200:]}"
+                continue
+            if answer.get("error"):
+                self.refused[label] = str(answer["error"])
+            self.refused.update({str(k): str(v) for k, v in (answer.get("refused") or {}).items()})
+            for described in answer.get("admitted") or []:
+                self._adopt_vetted(described)
+
+    def _adopt_vetted(self, described: dict[str, Any]) -> None:
+        from prama.delegates.spi import Parameter
+
+        name = str(described.get("name", ""))
+        if name in self._admitted:
+            self.refused[name] = f"two delegates are called {name}"
+            _log.error("refused a second delegate called %s", name)
+            return
+        attributes = {
+            "name": name,
+            "version": str(described.get("version", "1")),
+            "requires": tuple(described.get("requires") or ()),
+            "parameters": tuple(Parameter(**p) for p in described.get("parameters") or ()),
+            "unit": str(described.get("unit", "rows")),
+            "summary": str(described.get("summary", "")),
+        }
+        proxy = type("IsolatedDelegate", (_Uploaded,), attributes)()
+        self._admitted[name] = Admitted(
+            proxy,
+            str(described.get("origin", "")),
+            str(described.get("implementation_hash", "")),
+            str(described.get("source_hash", "")),
+            sandbox_only=True,
+        )
+        _log.info("admitted delegate %s in the sandbox, from %s", name, described.get("origin"))
+
     def load_entry_points(self, *, disabled: Iterable[str] = ()) -> None:
         from importlib.metadata import entry_points
 
@@ -316,6 +398,16 @@ def from_config(config: Any) -> DelegateRegistry:
     if not section.get("enabled", True):
         return registry
     disabled = section.get("disabled") or []
+    if section.get("sandbox", True):
+        # Admission in the sandbox too: the server never imports delegate code.
+        registry.load_isolated(
+            section.get("paths") or [],
+            disabled=disabled,
+            entry_points=bool(section.get("entry_points", True)),
+            timeout_s=float(section.get("timeout", 120)),
+        )
+        return registry
+    # sandbox: false, for development and tests: imported and probed here.
     registry.load_paths(section.get("paths") or [], disabled=disabled)
     if section.get("entry_points", True):
         registry.load_entry_points(disabled=disabled)

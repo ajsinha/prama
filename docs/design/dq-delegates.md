@@ -86,7 +86,7 @@ core dumps, via `prama.codeintake.worker.limit_resources`. It re-scans a path de
 importing it, because the file may have changed since admission. The request goes in on stdin and
 the answer comes out on stdout.
 
-**Isolation, in layers** (`prama.delegates.host.isolation_in_force` names what applied, and the
+**Isolation, in layers** (`prama.delegates.sandbox.isolation_in_force` names what applied, and the
 evidence records it as `delegate_isolation`):
 
 - **Clean environment.** The worker gets an allowlist (`LANG`, `PATH`, a private `HOME` and `TMPDIR`,
@@ -107,9 +107,17 @@ evidence records it as `delegate_isolation`):
 `tests/delegates/test_sandbox.py` exercises each layer with a delegate that passes admission and
 misbehaves only when a control asks it to.
 
-**Trust boundary.** Delegates the operator installs (configured `paths`, entry points) are imported
-and probed in the server's own process at admission: the trust given to any installed package.
-Uploads, the untrusted route, are vetted in a subprocess and never imported by the host.
+**Admission is sandboxed too.** With `delegates.sandbox: true` (the default), the server never
+imports delegate code:
+
+- **Configured delegates.** Each configured file, and the installed entry points together, is
+  scanned, imported and probed by its own sandboxed worker (`python -m prama.delegates.vet
+  --admit`, sealed before the import). The server registers a stand-in from the description, with the
+  real implementation hash, so the evidence is the same as it would be in process.
+- **Failures stay local.** A delegate that hangs or crashes its admission is refused alone, and the
+  others still load.
+- **Uploads** are vetted by the same launcher (`prama.delegates.sandbox.run_isolated`).
+- **Development mode.** `delegates.sandbox: false` imports and probes in process, as before.
 
 ## Remote agents
 

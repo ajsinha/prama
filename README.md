@@ -302,8 +302,14 @@ The intelligence layer adds these pieces:
 - **Code intake.** A ZIP or a git repository is read in a sandbox and never executed, re-reading
   only what a commit changed. A model may propose further edges, which are checked before a
   person confirms them.
+- **Change review on a pull request.** `prama code review --base origin/main` reads both versions
+  and reports:
+  - the lineage the change adds, removes or retypes;
+  - what that reaches downstream;
+  - the controls the change implies;
+  - the live controls that lose their basis. It exits 3 when there are any, so CI can gate on it.
 - **Metadata and business context.** Datasets and attributes carry a versioned business context and your own typed metadata fields. Rules grow from that metadata and are proposed for a person to accept, and datasets can be searched by meaning for the one fit for a purpose (embeddings if a model is configured, BM25 otherwise). Attributes that share a meaning across datasets are correlated: Prama proposes the reference checks that follow and flags where the same meaning is held inconsistently.
-- **Usage signals** from warehouse query history rank the work as "most used, least controlled". They never change a quality score.
+- **Usage signals** from warehouse query history rank the work as "most used, least controlled". Datasets often read by the same query, with a column in common and no declared relationship, are flagged to a steward with the likely `REFERENCES`. Neither signal ever changes a quality score.
 - **Discussion and steward queues.** Comment threads with @mentions sit on datasets, attributes, controls and terms, and each person has a queue of everything waiting on them.
 - **A business glossary**, imported from Alation or Collibra, with its terms bound to concepts, datasets and attributes. Lineage can also be imported from Manta or Alation, and is kept beside Prama's own parse, with any disagreements shown.
 - **Controls proposed from lineage,** including a check at every join that each driving row finds its match.

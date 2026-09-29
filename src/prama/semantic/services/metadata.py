@@ -379,4 +379,77 @@ async def correlation(uow: Any, tenant_id: str) -> dict[str, Any]:
         ],
         "findings": [f.to_dict() for g in found for f in findings(g)],
         "proposals": proposed,
+        "queried_together": await queried_together(uow, tenant_id, facts),
     }
+
+
+#: Queries in the window before two datasets read together are worth a steward's look.
+TOGETHER_AT_LEAST = 3
+
+
+async def queried_together(
+    uow: Any, tenant_id: str, facts: list[Any], *, days: int = 30
+) -> list[dict[str, Any]]:
+    """Datasets the warehouse reads together, with a column in common and no relationship.
+
+    A hint, never a proposal: two datasets in the same query share a name, not
+    necessarily a meaning. Where one side's column of that name is a key and the
+    other's is not, the likely relationship is suggested as PQL for a steward to
+    judge. Like every usage signal, it never touches a score.
+    """
+    from datetime import UTC, datetime, timedelta
+
+    from prama.semantic.services.priorities import _matches
+
+    since = (datetime.now(UTC) - timedelta(days=days)).date().isoformat()
+    together = await uow.usage.pairs(tenant_id, since=since)
+    if not together:
+        return []
+    versions = await uow.datasets.list_current(tenant_id, limit=5000)
+    related: set[frozenset[str]] = set()
+    for version in versions:
+        for rel in await uow.relationships.touching(tenant_id, version.dataset_id):
+            related.add(frozenset({rel.from_dataset_id, rel.to_dataset_id}))
+    by_slug = {v.slug: v for v in versions}
+    columns: dict[str, dict[str, Any]] = {}
+    for fact in facts:
+        columns.setdefault(fact.dataset, {})[fact.attribute] = fact
+
+    def slug_of(used: str) -> str:
+        return next((v.slug for v in versions if _matches(used, v.slug)), "")
+
+    out = []
+    for (first, second), queries in sorted(together.items(), key=lambda p: -p[1]):
+        a, b = slug_of(first), slug_of(second)
+        if queries < TOGETHER_AT_LEAST or not a or not b or a == b:
+            continue
+        if frozenset({by_slug[a].dataset_id, by_slug[b].dataset_id}) in related:
+            continue
+        shared = sorted(set(columns.get(a, {})) & set(columns.get(b, {})))
+        if not shared:
+            continue
+        suggested = []
+        for name in shared:
+            left, right = columns[a][name], columns[b][name]
+            if (
+                left.semantic_type
+                and right.semantic_type
+                and left.semantic_type != right.semantic_type
+            ):
+                continue
+            if left.is_key != right.is_key:
+                owner, other = (a, b) if left.is_key else (b, a)
+                suggested.append(f"CHECK {other}.{name} REFERENCES {owner}.{name}")
+        out.append(
+            {
+                "datasets": [a, b],
+                "queries": queries,
+                "shared": shared,
+                "suggested": suggested,
+                "detail": (
+                    f"{a} and {b} were read by the same query {queries} times in {days} days, "
+                    f"share {', '.join(shared)}, and have no declared relationship"
+                ),
+            }
+        )
+    return out
