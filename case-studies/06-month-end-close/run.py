@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 """Case study 6 — month-end close: the subledger against the general ledger.
 
-Finance closes the month when the subledger and the general ledger agree. They
-are two systems: the subledger books every entry in its own currency, the
-ledger holds a EUR balance per account, cost centre and day, and entries booked
-on the last evening reach the ledger the next morning. One `RECONCILE` says all
-of that, and the reconciliation engine does the matching, the currency
+Runs against **your** Prama, through the SDK. Finance closes the month when
+the subledger and the general ledger agree. They are two systems: the
+subledger books every entry in its own currency, the ledger holds a EUR
+balance per account, cost centre and day, and entries booked on the last
+evening reach the ledger the next morning. One `RECONCILE` says all of that,
+and the server's reconciliation engine does the matching, the currency
 conversion, the timing allowance and the classification of every difference.
+The breaks it finds are then read, and worked, on the break workbench.
 
 Usage:
-    python run.py                 build, run, and serve the console on :8806
-    python run.py --no-serve      build and run, then stop
+    python run.py                          the server config/application.yaml names
+    python run.py --config other.yaml      another server
+    python run.py --username ada --password …   as somebody else (default: the dev admin)
 
 Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 Proprietary; see LICENSE.
@@ -18,8 +21,6 @@ Proprietary; see LICENSE.
 
 from __future__ import annotations
 
-import argparse
-import asyncio
 import sqlite3
 import sys
 from datetime import date, timedelta
@@ -32,9 +33,7 @@ sys.path.insert(0, str(HERE.parent))
 
 from _common.defects import DefectLog  # noqa: E402
 from _common.estate import Attribute, Dataset  # noqa: E402
-from _common.harness import Harness, Source, banner, say, stage, use_config  # noqa: E402
-
-from prama.connect.sources.query import executor_for  # noqa: E402
+from _common.harness import Harness, Source, arguments, banner, say, stage  # noqa: E402
 
 #: To EUR, as the treasury publishes them at the close.
 RATES = {"EUR": Decimal("1.0"), "USD": Decimal("0.92"), "GBP": Decimal("1.16")}
@@ -202,70 +201,128 @@ def build(workspace: Path) -> tuple[Path, DefectLog, dict[str, int]]:
     return erp, log, {"subledger": len(entries), "general_ledger": len(ledger), "fx_rates": 3}
 
 
-async def _declare_reconciliation(harness: Harness) -> None:
+def _declare_reconciliation(harness: Harness) -> str:
     stage(4, "Write the reconciliation", "One statement: key, amount, tolerance, FX, timing.")
-    async with harness.database.unit_of_work() as uow:
-        entity, _ = await uow.controls.declare(
-            tenant_id=harness.tenant_id,
-            identity="close:subledger-ledger",
-            pql=RECONCILIATION,
-            rule="authored.reconcile",
-            criticality=1,
-            schedule="06:30",
-            authored_by="alice",
-        )
-        await uow.controls.activate(str(entity.id), tenant_id=harness.tenant_id, approved_by="bob")
-        harness.accepted += 1
+    checked = harness.sdk.pql.check(RECONCILIATION)
+    errors = [f for f in checked.get("findings") or [] if f.get("level") == "error"]
+    if checked.get("syntax_error") or errors:
+        say(f"  ! the reconciliation does not check: {checked.get('syntax_error') or errors}")
+        sys.exit(1)
     for line in RECONCILIATION.split(" SEVERITY")[0].replace(" ON ", "\n    ON ").split("\n"):
         say(f"  {line}")
+    for explained in harness.sdk.pql.explain(RECONCILIATION).get("controls") or []:
+        say()
+        say(f"  {explained['sentence']}")
+    control = harness.author(
+        RECONCILIATION, identity="close:subledger-ledger", reason="the month-end close"
+    )
+    return str(control["id"])
 
 
-async def _breaks(harness: Harness) -> None:
+def _workbench(harness: Harness, control_id: str) -> None:
     say()
     say("─" * 78)
     say("  THE BREAK WORKBENCH")
     say("─" * 78)
-    async with harness.database.unit_of_work() as uow:
-        rows = await uow.breaks.outstanding(harness.tenant_id, "subledger against general_ledger")
+    listed = harness.sdk.reconciliation.list()
+    mine = [r for r in listed.get("reconciliations") or [] if r.get("control_id") == control_id]
+    if not mine:
+        say("  ! the reconciliation is not listed; nothing below can be trusted")
+        return
+    (reconciliation,) = mine
+    definition = str(reconciliation["definition"])
+    latest = reconciliation.get("latest") or {}
+    match_rate = latest.get("match_rate")
+    say(f"  {definition}: {str(latest.get('verdict', 'not run')).upper()}")
+    say(
+        f"    match rate {'n/a' if match_rate is None else f'{match_rate:.2%}'}, "
+        f"{latest.get('breaks_needing_a_person', '?')} break(s) needing a person"
+    )
+    say()
+    bench = harness.sdk.breaks.workbench(definition)
+    rows = bench.get("rows") or []
     by_kind: dict[str, int] = {}
     for row in rows:
-        by_kind[row.kind] = by_kind.get(row.kind, 0) + 1
-        say(f"  {row.kind:<10} {row.break_key:<32} {row.because[:60]}")
+        by_kind[row["kind"]] = by_kind.get(row["kind"], 0) + 1
+        say(f"  {row['kind']:<10} {row['key']:<32} {str(row.get('because', ''))[:60]}")
     say()
     say("  " + ", ".join(f"{n} {k}" for k, n in sorted(by_kind.items())))
     say("  Each break is a piece of work with an owner: explain it, accept it, or fix it.")
     say("  A timing difference is not a failure: it clears when the ledger catches up.")
 
+    # Working the queue, as the ledger's controller would: the manual journals
+    # go to the team that posted them, and the ledger-only account is explained.
+    # Nothing is accepted here: accepting carries a difference, it does not
+    # make the books agree, and the study has no business deciding that.
+    say()
+    for row in rows:
+        if row["kind"] == "genuine":
+            harness.sdk.breaks.assign(row["id"], "gl-journals")
+        elif row["kind"] == "extra":
+            worked = harness.sdk.breaks.explain(
+                row["id"], "account 4999 is a suspense account the subledger does not book to"
+            )
+            say(f"  explained {row['key']}: {len(worked.get('comments') or [])} in its trail")
+    assigned = sum(1 for r in rows if r["kind"] == "genuine")
+    say(f"  assigned {assigned} genuine break(s) to gl-journals; none accepted")
 
-def _without_offset(erp: Path) -> None:
-    """The counterfactual: the same reconciliation with no timing allowance."""
-    from prama.backend import compile_for
-    from prama.ir.resolve import resolved
-    from prama.pql import parse_control
-    from prama.recon.pql import measure
+    certificate = harness.sdk.reconciliation.certify(definition, period_end=DAYS[-1].isoformat())
+    say()
+    say(f"  Close certificate for {DAYS[-1].isoformat()} (returned, not stored):")
+    say(
+        f"    outstanding {certificate.get('outstanding_total')}, "
+        f"accepted {certificate.get('accepted_total')}, "
+        f"unexplained {certificate.get('unexplained_total')}"
+    )
+    say(f"    content hash {certificate.get('content_hash')}")
 
-    plan = resolved(parse_control(RECONCILIATION.replace(" OFFSET BY 1 DAY", "")))
-    compiled = compile_for(plan, "sqlite")
-    execute, close = executor_for(erp, "sqlite")
+
+def _without_offset(harness: Harness, erp: Path) -> None:
+    """The counterfactual: the same reconciliation with no timing allowance.
+
+    Run for real, by the server's reconciliation engine, in an estate of its
+    own. In the close's estate it would file its breaks under the same
+    definition ("subledger against general_ledger") and leave a failing record
+    beside the real one; a separate estate keeps the close's evidence and its
+    break queue exactly as the close left them. (`controls.preview`, which
+    records nothing, is no substitute: it runs a control's metric query alone,
+    and for a RECONCILE that is not the matching engine.)
+    """
+    pql = RECONCILIATION.replace(" OFFSET BY 1 DAY", "")
+    slug = f"{harness.estate.get('slug', 'acme-finance')}-no-offset"
+    made = harness.sdk.tenants.create(slug, "Acme Markets — close, without the timing allowance")
+    counterfactual = harness.sdk.as_key(made["credentials"]["api_key"])
     try:
-        metrics, _ = measure(
-            plan,
-            execute(compiled.metric_query),
-            execute(compiled.counterpart_query),
-            business_date=DAYS[-1],
-            rates=execute(compiled.rates_query),
+        declared = counterfactual.controls.declare(
+            pql, identity="close:subledger-ledger-no-offset", criticality=1
         )
+        control = declared.get("control", declared)
+        counterfactual.controls.activate(control["id"], reason="the counterfactual")
+        connection = counterfactual.connections.create(
+            "the ERP (SQLite)", "sqlite", config={"path": str(erp)}
+        )
+        # The estate's only control; nothing else is declared here.
+        counterfactual.runs.start(connection["id"])
+        listed = counterfactual.reconciliation.list().get("reconciliations") or []
+        (reconciliation,) = [r for r in listed if r.get("control_id") == control["id"]]
+        latest = reconciliation.get("latest") or {}
+        bench = counterfactual.breaks.workbench(str(reconciliation["definition"]))
     finally:
-        close()
+        counterfactual.close()
+    kinds: dict[str, int] = {}
+    for row in bench.get("rows") or []:
+        kinds[row["kind"]] = kinds.get(row["kind"], 0) + 1
     say()
     say(
-        f"  Without OFFSET BY 1 DAY the same books show {int(metrics['violating_rows'])} "
-        "breaks needing a person, not 5:"
+        f"  Without OFFSET BY 1 DAY the same books show "
+        f"{latest.get('breaks_needing_a_person', '?')} breaks needing a person, not 5"
     )
+    say(f"  ({', '.join(f'{n} {k}' for k, n in sorted(kinds.items()))}; estate {slug}):")
     say("  each late entry becomes one missing on the last day and one extra the next.")
 
 
-async def main(serve: bool) -> Any:
+def main() -> None:
+    args = arguments(__doc__ or "")
     workspace = HERE / "workspace"
     banner(
         "Case study 6 — month-end close",
@@ -282,44 +339,26 @@ async def main(serve: bool) -> Any:
     say()
     say(planted.render())
 
-    harness = Harness(workspace, title="Month-end close")
-    await harness.start(tenant_slug="acme-finance", tenant_name="Acme Markets — finance")
+    harness = Harness(workspace, title="Month-end close", args=args)
+    harness.start(tenant_slug="acme-finance", tenant_name="Acme Markets — finance")
     try:
-        await harness.declare(ESTATE)
-        await harness.derive_and_accept()
-        await _declare_reconciliation(harness)
-        execute, close = executor_for(erp, "sqlite")
-        try:
-            await harness.run(
-                [
-                    Source(
-                        name="the ERP (SQLite)",
-                        engine="sqlite",
-                        execute=execute,
-                        close=close,
-                        datasets={"subledger", "general_ledger", "fx_rates"},
-                    ),
-                ]
-            )
-        finally:
-            close()
-        await harness.report(planted)
-        await _breaks(harness)
-        _without_offset(erp)
+        harness.declare(ESTATE)
+        harness.derive_and_accept()
+        control_id = _declare_reconciliation(harness)
+        erp_source = Source(
+            name="the ERP (SQLite)",
+            source_type="sqlite",
+            path=erp,
+            datasets={"subledger", "general_ledger", "fx_rates"},
+        )
+        harness.run([erp_source])
+        harness.report(planted)
+        _workbench(harness, control_id)
+        _without_offset(harness, erp)
+        harness.finish()
     finally:
-        await harness.stop()
-    return harness if serve else None
+        harness.close()
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--no-serve", action="store_true")
-    parser.add_argument(
-        "--config", default="", help="a Prama configuration file; defaults to the application's"
-    )
-    parser.add_argument("--port", type=int, default=8806)
-    args = parser.parse_args()
-    use_config(args.config)
-    started = asyncio.run(main(serve=not args.no_serve))
-    if started is not None:
-        started.serve(port=args.port)
+    main()
