@@ -92,6 +92,15 @@ DEFAULTS: dict[str, Any] = {
             "allowed_hosts": [],
         },
     },
+    "observability": {
+        # Prama's own operational metrics at GET /metrics, Prometheus format.
+        # A token, if one is wanted, goes in the untracked local configuration.
+        "metrics": {"enabled": True, "token": ""},
+        # Spans to an OpenTelemetry collector: none or otlp (the `otel` extra).
+        "tracing": {"exporter": "none", "endpoint": "", "service_name": "prama", "region": ""},
+        # OpenLineage run events to a collector (Marquez, say): off without a URL.
+        "openlineage": {"url": "", "namespace": "prama", "region": "", "timeout": 10},
+    },
     "evidence": {
         "anchor": {
             # A witness outside Prama for the chain head after each run: none

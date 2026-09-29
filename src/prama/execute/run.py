@@ -276,12 +276,43 @@ class ControlRun:
         skipped = (*skipped, *elsewhere)
         _log.info("run %s: %d of %d live control(s) selected", run_id, len(controls), len(live))
 
+        from prama.telemetry import metrics
+        from prama.telemetry.setup import lineage
+        from prama.telemetry.trace import CONTROL, RUN, current
+
+        metrics.RUNS.inc(trigger=self._triggered_by)
+        job = f"prama.run.{self._engine or 'engine'}"
+        lineage().started(
+            job=job, run_id=run_id, datasets=tuple(sorted({str(c.dataset) for c in controls}))
+        )
+        tracer = current()
         outcomes: list[Outcome] = []
-        for version in controls:
-            outcome = await self._run_one(version, run_id)
-            outcomes.append(outcome)
+        with (
+            metrics.RUN_SECONDS.time(trigger=self._triggered_by),
+            tracer.span(RUN, run=run_id, engine=self._engine, controls=len(controls)),
+        ):
+            for version in controls:
+                kind = _kind(str(version.pql or ""))
+                with (
+                    metrics.CONTROL_SECONDS.time(kind=kind),
+                    tracer.span(
+                        CONTROL,
+                        control=str(version.control_id),
+                        dataset=str(version.dataset),
+                        kind=kind,
+                    ) as span,
+                ):
+                    outcome = await self._run_one(version, run_id)
+                    verdict = str(getattr(outcome.record, "verdict", "") or "error")
+                    span.set(verdict=verdict)
+                metrics.VERDICTS.inc(verdict=verdict, kind=kind)
+                metrics.EVIDENCE.inc()
+                outcomes.append(outcome)
 
         report = RunReport(run_id=run_id, outcomes=tuple(outcomes), skipped=skipped)
+        records = [o.record for o in outcomes if o.record is not None]
+        if records:
+            lineage().finished(records, job=job, run_id=run_id)
         finished = self._clock.now()
         # Closed in its own transaction too, for the same reason the opening
         # was: a run marked complete inside a transaction that then fails to
@@ -622,3 +653,21 @@ def _parse_instant(stamp: str) -> datetime:
     """
     parsed = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+
+def _kind(pql: str) -> str:
+    """A coarse kind for a metric label: a handful of values, never one per control."""
+    text = " ".join(pql.upper().split())
+    if text.startswith("RECONCILE"):
+        return "reconcile"
+    for marker, kind in (
+        ("USING DELEGATE", "delegate"),
+        ("CUSTOM SQL", "custom_sql"),
+        ("IS FRESH", "freshness"),
+        ("REFERENCES", "referential"),
+        ("UNIQUE KEY", "unique_key"),
+        ("ROW COUNT", "row_count"),
+    ):
+        if marker in text:
+            return kind
+    return "check"

@@ -104,9 +104,27 @@ class MemoryTracer(Tracer):
         return len(self.spans)
 
 
+#: The tracer spans are recorded to. `NullTracer` unless observability
+#: configures an exporter (`prama.telemetry.configure`).
+_current: list[Tracer] = [NullTracer()]
+
+
+def current() -> Tracer:
+    """The process's tracer."""
+    return _current[0]
+
+
+def use(tracer: Tracer) -> Tracer:
+    """Make *tracer* the process's tracer; returns the one it replaced."""
+    previous, _current[0] = _current[0], tracer
+    return previous
+
+
 #: The span names Prama emits. Named here rather than at each call site, so a
 #: dashboard built against one deployment works against the next — and so
 #: renaming one is a change to a constant rather than a search.
+RUN = "prama.run"
+CONTROL = "prama.control"
 CLAIM = "prama.claim"
 COMPILE = "prama.compile"
 EXECUTE = "prama.execute"

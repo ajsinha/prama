@@ -94,6 +94,9 @@ class Scheduler:
         lease = await leases.acquire(LEASE, self._holder, max(self.interval * 2, 30.0))
         if lease is None:
             tick = Tick(started, "skipped", "another server holds the scheduler lease")
+            from prama.telemetry import metrics
+
+            metrics.SCHEDULER.inc(outcome="skipped")
             self.history.appendleft(tick)
             return tick
         try:
@@ -128,6 +131,9 @@ class Scheduler:
             tick = Tick(started, "failed", f"{type(exc).__name__}: {exc}"[:500])
         finally:
             await leases.release(lease)
+        from prama.telemetry import metrics
+
+        metrics.SCHEDULER.inc(outcome=tick.outcome)
         self.history.appendleft(tick)
         return tick
 

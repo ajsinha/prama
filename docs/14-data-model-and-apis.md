@@ -180,7 +180,9 @@ prama.platform.degraded | .model_rolled_back
 ```
 
 Also emitted: **OpenLineage** run events for every dataset Prama reads (`FR-LIN-005`), and
-**OpenTelemetry** traces/metrics for every execution (`FR-EXE-021`).
+**OpenTelemetry** traces for every run and control, over OTLP when `observability.tracing.exporter: otlp`
+(`FR-EXE-021`). Metrics are exported for **Prometheus** at `GET /metrics`, with `/livez` and `/readyz` probes
+([operations/observability.md](operations/observability.md)).
 
 ---
 

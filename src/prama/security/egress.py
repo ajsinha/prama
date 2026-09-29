@@ -103,6 +103,23 @@ EGRESS_POINTS: Final[tuple[EgressPoint, ...]] = (
         jurisdiction_from="the tenant's declared residency",
     ),
     EgressPoint(
+        name="telemetry-export",
+        module="prama.telemetry.otlp",
+        what=(
+            "Prama's own trace spans to an OpenTelemetry collector: span names, durations, "
+            "control ids, dataset names and verdicts; no row of data"
+        ),
+        destination_from="the collector's configured region",
+        jurisdiction_from="the operator's declared residency",
+    ),
+    EgressPoint(
+        name="lineage-export",
+        module="prama.telemetry.openlineage_http",
+        what="OpenLineage run events: dataset names and whether each assertion held",
+        destination_from="the collector's configured region",
+        jurisdiction_from="the operator's declared residency",
+    ),
+    EgressPoint(
         name="evidence-anchor",
         module="prama.evidence.anchor",
         what=(

@@ -14,8 +14,10 @@ For people running Prama rather than designing it.
 | [Troubleshooting](troubleshooting.md) | You are trying to make it work, or an error means something other than it says |
 | [CLI reference](cli-reference.md) | Every command and flag — *generated from the argument parser* |
 | [Configuration reference](configuration-reference.md) | Every setting and its default — *generated from the shipped YAML* |
+| [Observability](observability.md) | Probes, Prometheus metrics, traces, OpenLineage, the Helm values, alerts |
+| [Metrics reference](metrics-reference.md) | Every metric at `/metrics` — *generated from the registry* |
 
-The two references are generated. If one disagrees with the code, the gate fails
+The three references are generated. If one disagrees with the code, the gate fails
 — so a flag listed here exists, and one that is not listed does not.
 
 ## The shape of a Prama incident
