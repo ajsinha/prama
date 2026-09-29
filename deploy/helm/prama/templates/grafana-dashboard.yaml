@@ -1,0 +1,16 @@
+# Prama's operational dashboard, for the Grafana sidecar to load.
+# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE.
+{{- if .Values.metrics.grafanaDashboard.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "prama.fullname" . }}-dashboard
+  labels:
+    {{- include "prama.labels" . | nindent 4 }}
+    {{- with .Values.metrics.grafanaDashboard.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+data:
+  prama.json: |-
+{{ .Files.Get "dashboards/prama.json" | indent 4 }}
+{{- end }}

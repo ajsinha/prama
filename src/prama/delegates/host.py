@@ -114,11 +114,19 @@ class DelegateHost:
             )
         params = delegate.resolve(dict(detail.get("parameters") or {}))
         counter = _Counter(self.max_rows)
+        from prama.telemetry import metrics
+
         sandboxed = self.sandbox or admitted.sandbox_only
-        if sandboxed:
-            measurement = self._sandboxed(admitted, counter.lines(batches), params)
-        else:
-            measurement = delegate.measure(counter.rows(batches), params)
+        try:
+            if sandboxed:
+                measurement = self._sandboxed(admitted, counter.lines(batches), params)
+            else:
+                measurement = delegate.measure(counter.rows(batches), params)
+        except ValidationError as exc:
+            timed_out = "ran longer than" in str(exc)
+            metrics.DELEGATES.inc(outcome="timeout" if timed_out else "failed")
+            raise
+        metrics.DELEGATES.inc(outcome="measured")
         # Checked after the run as well as during it: a delegate that swallowed
         # the stop and reported on a truncated input must not be believed.
         counter.check()

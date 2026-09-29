@@ -181,9 +181,41 @@ def _flatten(node: Any, prefix: str = "") -> list[tuple[str, Any]]:
     return rows
 
 
+def metrics_reference() -> str:
+    """Every metric at GET /metrics, from the registry the code exports."""
+    import prama.telemetry.openlineage_http  # noqa: F401  (registers its counter)
+    from prama.telemetry import metrics
+
+    out = io.StringIO()
+    out.write(BANNER)
+    out.write(HEADER)
+    out.write("# Metrics reference\n\n")
+    out.write(
+        "Prama's own operational metrics, exported at `GET /metrics` in the Prometheus\n"
+        "text format. Labels name kinds (a verdict, an assertion kind, a route\n"
+        "template, a purpose), never a control, a dataset or a tenant, so the number\n"
+        "of series does not grow with the estate. Each metric caps its series at\n"
+        f"{metrics.MAX_SERIES}; past it, new label values fold into `other`, counted by\n"
+        "`prama_metric_series_folded_total`.\n\n"
+        "These measure Prama. None of them is ever an input to a data quality score.\n\n"
+        "See [observability.md](observability.md) for the endpoints, tracing and\n"
+        "OpenLineage, and the Helm values.\n\n"
+    )
+    out.write("| Metric | Type | Labels | Meaning |\n|---|---|---|---|\n")
+    for name, metric in sorted(metrics.REGISTRY._metrics.items()):
+        labels = ", ".join(f"`{label}`" for label in metric.labels) or "—"
+        out.write(f"| `{name}` | {metric.kind} | {labels} | {metric.help} |\n")
+    out.write(
+        "| `prama_metric_series_folded_total` | counter | — | Observations folded into "
+        "`other` because a metric reached its series cap. |\n"
+    )
+    return out.getvalue()
+
+
 TARGETS = {
     "docs/operations/cli-reference.md": cli_reference,
     "docs/operations/configuration-reference.md": configuration_reference,
+    "docs/operations/metrics-reference.md": metrics_reference,
 }
 
 

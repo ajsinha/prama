@@ -196,6 +196,9 @@ async def anchor_head(uow: Any, tenant_id: str, anchor: Anchor) -> Any:
     try:
         receipt = await asyncio.to_thread(anchor.anchor, head)
     except (PramaError, OSError) as exc:
+        from prama.telemetry import metrics
+
+        metrics.ANCHORS.inc(status="failed")
         return await uow.anchors.record(
             tenant_id=tenant_id,
             sequence=sequence,
@@ -206,6 +209,9 @@ async def anchor_head(uow: Any, tenant_id: str, anchor: Anchor) -> Any:
             requested_at=requested,
             detail=str(exc)[:2000],
         )
+    from prama.telemetry import metrics
+
+    metrics.ANCHORS.inc(status="anchored")
     return await uow.anchors.record(
         tenant_id=tenant_id,
         sequence=sequence,

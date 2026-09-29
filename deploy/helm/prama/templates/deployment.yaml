@@ -37,6 +37,23 @@ spec:
             {{- end }}
             - name: PRAMA_WEB__ENABLED
               value: {{ .Values.web.enabled | quote }}
+            {{- if .Values.metrics.tokenSecret }}
+            - name: PRAMA_OBSERVABILITY__METRICS__TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.metrics.tokenSecret }}
+                  key: metrics-token
+            {{- end }}
+            - name: PRAMA_OBSERVABILITY__TRACING__EXPORTER
+              value: {{ .Values.tracing.exporter | quote }}
+            {{- if .Values.tracing.endpoint }}
+            - name: PRAMA_OBSERVABILITY__TRACING__ENDPOINT
+              value: {{ .Values.tracing.endpoint | quote }}
+            {{- end }}
+            {{- if .Values.openlineage.url }}
+            - name: PRAMA_OBSERVABILITY__OPENLINEAGE__URL
+              value: {{ .Values.openlineage.url | quote }}
+            {{- end }}
             {{- if .Values.tenancy.defaultTenant }}
             - name: PRAMA_TENANCY__DEFAULT_TENANT
               value: {{ .Values.tenancy.defaultTenant | quote }}
@@ -58,16 +75,18 @@ spec:
                   key: password
             {{- end }}
             {{- end }}
-          # Liveness and readiness are the SAME endpoint deliberately, because
-          # Prama has no state that makes it live-but-not-ready: it either
-          # reaches its database or it does not. Two probes with different
-          # meanings invites one of them to be wrong.
+          # Two probes, meaning two things. Readiness asks whether the pod can
+          # do its job (the database answers, the schema matches) and takes it
+          # out of the Service when not. Liveness asks only whether the process
+          # answers. They used to share the database check, so a database
+          # outage had every healthy pod restarted, which cannot repair a
+          # database and turns one incident into two.
           readinessProbe:
-            httpGet: {path: /api/v1/health, port: http}
+            httpGet: {path: /readyz, port: http}
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
-            httpGet: {path: /api/v1/health, port: http}
+            httpGet: {path: /livez, port: http}
             initialDelaySeconds: 20
             periodSeconds: 20
           resources: {{- toYaml .Values.resources | nindent 12 }}

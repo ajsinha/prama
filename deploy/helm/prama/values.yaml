@@ -91,6 +91,29 @@ securityContext:
   capabilities:
     drop: ["ALL"]
 
+# Prama's own metrics, at GET /metrics in the Prometheus text format.
+metrics:
+  # A Secret holding key `metrics-token`; scrapers then send it as a bearer
+  # token. Empty leaves /metrics open inside the cluster, which is usual.
+  tokenSecret: ""
+  serviceMonitor:
+    enabled: false          # needs the Prometheus Operator's CRDs
+    interval: 30s
+    labels: {}              # e.g. release: kube-prometheus-stack
+  grafanaDashboard:
+    enabled: false          # a ConfigMap the Grafana sidecar picks up
+    labels:
+      grafana_dashboard: "1"
+
+# Spans to an OpenTelemetry collector (the image needs the `otel` extra).
+tracing:
+  exporter: none            # none | otlp
+  endpoint: ""              # e.g. http://otel-collector:4318/v1/traces
+
+# OpenLineage run events (verdicts per dataset) to a collector, e.g. Marquez.
+openlineage:
+  url: ""
+
 nodeSelector: {}
 tolerations: []
 affinity: {}

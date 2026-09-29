@@ -9,6 +9,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -33,6 +34,7 @@ from prama.api.routes import (
     llm,
     meta,
     metadata,
+    probes,
     semantic,
 )
 from prama.core.config import Configuration, load_configuration
@@ -121,6 +123,15 @@ def create_app(config: Configuration | None = None, *, database: Database | None
         redoc_url=None,
     )
 
+    # Set now as well as in the lifespan, so the probes can read it on an
+    # application whose lifespan has not run (a test transport, say).
+    app.state.config = config
+    from prama.telemetry import metrics
+    from prama.telemetry.setup import configure as configure_telemetry
+
+    metrics.BUILD.set(1, version=VERSION)
+    configure_telemetry(config)
+
     app.add_exception_handler(PramaError, prama_error_handler)
     # Starlette and FastAPI answer these two with their own handlers unless we
     # claim them, producing bare `{"detail": ...}` JSON. They are the errors a
@@ -138,6 +149,7 @@ def create_app(config: Configuration | None = None, *, database: Database | None
         the paths where everything else has gone wrong.
         """
         cid = new_correlation_id(request)
+        started = time.perf_counter()
         try:
             response: Response = await call_next(request)
         except Exception as exc:
@@ -154,6 +166,13 @@ def create_app(config: Configuration | None = None, *, database: Database | None
             # and not two that drift apart.
             response = await unexpected_error_handler(request, exc)
         response.headers["X-Correlation-Id"] = cid
+        # The route's template, never the raw path: /datasets/{id} is one
+        # series, and a series per dataset id is how a metrics system falls over.
+        route = getattr(request.scope.get("route"), "path", "") or "unmatched"
+        metrics.HTTP_REQUESTS.inc(
+            method=request.method, route=route, status=f"{response.status_code // 100}xx"
+        )
+        metrics.HTTP_SECONDS.observe(time.perf_counter() - started, route=route)
         return response
 
     # The console and the API author and check controls too, so the shipped
@@ -161,6 +180,7 @@ def create_app(config: Configuration | None = None, *, database: Database | None
     # CLI — see prama.packs.install_shipped.
     install_shipped(disabled_plugins=config.get_list("plugins.disabled", []))
 
+    app.include_router(probes.router)
     app.include_router(meta.router, prefix=API_PREFIX)
     app.include_router(semantic.router, prefix=API_PREFIX)
     app.include_router(graph.router, prefix=API_PREFIX)

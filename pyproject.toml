@@ -56,6 +56,9 @@ audit = ["playwright>=1.44"]
 # The deck generator (tools/deck). Separate because only somebody rebuilding
 # the presentation needs it; the deck tests skip without it.
 deck = ["python-pptx>=1.0"]
+# OpenTelemetry export of Prama's own spans (observability.tracing.exporter: otlp).
+# Optional: without it tracing is off, and asking for otlp refuses to start.
+otel = ["opentelemetry-sdk>=1.25", "opentelemetry-exporter-otlp-proto-http>=1.25"]
 # Single sign-on. Separate because most deployments start with local accounts,
 # and because this is the one place a wrong dependency choice is a security
 # decision rather than a packaging one: verifying an ID token's RS256 signature

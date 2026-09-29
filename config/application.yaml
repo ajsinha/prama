@@ -63,6 +63,21 @@ codeintake:
   git:
     allowed_hosts: []               # empty: any public host; or e.g. [git.bank.example]
 
+observability:
+  metrics:
+    enabled: true                   # GET /metrics, Prometheus text format
+    token: ""                       # a bearer token for scrapers: set it in application.local.yaml
+  tracing:
+    exporter: none                  # none | otlp (pip install 'prama[otel]')
+    endpoint: ""                    # the collector, e.g. http://otel-collector:4318/v1/traces
+    service_name: prama
+    region: ""                      # where the collector is, for the residency gate
+  openlineage:
+    url: ""                         # e.g. http://marquez:5000/api/v1/lineage; empty is off
+    namespace: prama
+    region: ""
+    timeout: 10
+
 evidence:
   anchor:
     # A witness outside Prama for the evidence chain head, after each run. A

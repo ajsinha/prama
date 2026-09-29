@@ -486,20 +486,24 @@ class LlmGateway:
                 "output_tokens": response.output_tokens,
                 "grammar_enforced": response.grammar_enforced,
             }
-        self._ledger.append(
-            CallRecord(
-                **base,
-                **extra,
-                started_at=started,
-                finished_at=_now(),
-                latency_ms=int((time.monotonic() - clock) * 1000),
-                attempts=attempts,
-                fallback_from=fell_from.provider_id if fell_from else None,
-                outcome=outcome,
-                outcome_detail=detail[:1000],
-                served_from=served_from,
-            )
+        record = CallRecord(
+            **base,
+            **extra,
+            started_at=started,
+            finished_at=_now(),
+            latency_ms=int((time.monotonic() - clock) * 1000),
+            attempts=attempts,
+            fallback_from=fell_from.provider_id if fell_from else None,
+            outcome=outcome,
+            outcome_detail=detail[:1000],
+            served_from=served_from,
         )
+        self._ledger.append(record)
+        from prama.telemetry import metrics
+
+        metrics.LLM_CALLS.inc(purpose=record.purpose, outcome=str(outcome))
+        if record.cost_micros:
+            metrics.LLM_COST.inc(record.cost_micros, purpose=record.purpose)
 
 
 def _template_of(request: Request) -> dict[str, Any]:

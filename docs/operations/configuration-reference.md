@@ -50,6 +50,16 @@ becomes `PRAMA_DATABASE__SQLITE__PATH`.
 | `codeintake.workdir` | `data/code` | extracted here while read; deleted after |
 | `codeintake.timeout` | `300` | seconds the sandboxed reader may take |
 | `codeintake.git.allowed_hosts` | *(empty)* | empty: any public host; or e.g. [git.bank.example] |
+| `observability.metrics.enabled` | `True` | GET /metrics, Prometheus text format |
+| `observability.metrics.token` | *(empty)* | a bearer token for scrapers: set it in application.local.yaml |
+| `observability.tracing.exporter` | `none` | none \| otlp (pip install 'prama[otel]') |
+| `observability.tracing.endpoint` | *(empty)* | the collector, e.g. http://otel-collector:4318/v1/traces |
+| `observability.tracing.service_name` | `prama` |  |
+| `observability.tracing.region` | *(empty)* | where the collector is, for the residency gate |
+| `observability.openlineage.url` | *(empty)* | e.g. http://marquez:5000/api/v1/lineage; empty is off |
+| `observability.openlineage.namespace` | `prama` |  |
+| `observability.openlineage.region` | *(empty)* |  |
+| `observability.openlineage.timeout` | `10` |  |
 | `evidence.anchor.kind` | `none` | none \| rfc3161 |
 | `evidence.anchor.url` | *(empty)* | the time-stamp authority, e.g. https://freetsa.org/tsr |
 | `evidence.anchor.region` | *(empty)* | where it is, for the residency gate |
