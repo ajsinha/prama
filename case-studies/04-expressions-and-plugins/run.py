@@ -7,20 +7,25 @@ The two halves of Wave 11, on data that makes both of them matter:
     and finding a class of defect that nothing else in these studies finds,
     because it is a disagreement between two systems' rounding rules.
   * A **plugin validator** for an identifier scheme Prama has never heard of,
-    admitted only after its purity is checked and its implementation hashed
-    into the plan.
+    admitted by the server only after its purity is checked and its
+    implementation hashed into the plan.
+
+Runs against **your** Prama, through the SDK; it starts no server of its own.
+The validator is admitted where controls run, which is the server, so install
+it into the server's environment first and restart the server:
+
+    uv pip install --no-deps -e case-studies/04-expressions-and-plugins
 
 Usage:
-    python run.py                 build, run, and serve the console on :8804
-    python run.py --no-serve      build and run, then stop
+    python run.py                          the server config/application.yaml names
+    python run.py --config other.yaml      another server
+    python run.py --username ada --password …   as somebody else (default: the dev admin)
 
 Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 """
 
 from __future__ import annotations
 
-import argparse
-import asyncio
 import csv
 import dataclasses
 import shutil
@@ -37,12 +42,10 @@ import duckdb  # noqa: E402
 from _common.bank import Book  # noqa: E402
 from _common.defects import DefectLog  # noqa: E402
 from _common.estate import Attribute, Dataset  # noqa: E402
-from _common.harness import Harness, Source, banner, say, stage, use_config  # noqa: E402
-from acme_validators import AcmeBookCode, book_code  # noqa: E402
+from _common.harness import Harness, Source, arguments, banner, say, stage  # noqa: E402
+from acme_validators import book_code  # noqa: E402
 
-from prama.classify.plugins import PLUGINS, scan_source  # noqa: E402
-from prama.classify.validators import REGISTRY as VALIDATORS  # noqa: E402
-from prama.connect.sources.query import executor_for  # noqa: E402
+import prama.sdk as prama  # noqa: E402
 
 #: The controls a business owner writes, in the syntax they already know.
 #: Every one of these compiles to SQL that runs inside the engine — which is
@@ -243,118 +246,133 @@ def build(workspace: Path) -> tuple[Path, DefectLog, int]:
     return catalogue, log, len(rows)
 
 
-async def main(serve: bool, port: int) -> Any:  # noqa: ARG001
+#: What the server is asked to compile, to learn whether it admitted the plugin.
+#: A server that does not know ``acme_book`` refuses the control outright rather
+#: than compiling a check that passes everything.
+PLUGIN_PROBE = (
+    "CHECK trade_blotter.book_code IS VALID acme_book "
+    "SEVERITY major DIMENSION validity BECAUSE 'the book code is Acme standard BK-4'"
+)
+
+
+def main() -> None:
+    args = arguments(__doc__ or "")
     workspace = HERE / "workspace"
     banner(
         "Case study 4 — Excel formulas, and a validator somebody else wrote",
-        "Six formulas a finance person would type, and one plugin identifier scheme.",
+        "Seven formulas a finance person would type, and one plugin identifier scheme.",
     )
 
     stage(1, "Build the blotter", "Five planted defects, one of them a rounding disagreement.")
-    catalogue, planted, rows = build(workspace)
+    _catalogue, planted, rows = build(workspace)
     say(f"  trade_blotter  {rows:,} rows")
     say()
     say(planted.render())
 
+    harness = Harness(workspace, title="Expressions and plugins", args=args)
+    harness.start(tenant_slug="acme-desk", tenant_name="Acme Markets — trading desk")
+    try:
+        admitted = _plugin(harness.sdk)
+        harness.declare(ESTATE)
+        harness.derive_and_accept()
+        _declare_formulas(harness)
+        harness.run(
+            [
+                Source(
+                    name="blotter (CSV)",
+                    source_type="files",
+                    path=workspace / "landing",
+                    datasets=set(harness.dataset_ids),
+                    config={"tables": {"trade_blotter": "blotter/*.csv"}},
+                )
+            ]
+        )
+        harness.report(planted)
+        if not admitted:
+            say()
+            say("  ! acme_book was not admitted on this server, so the book-code defect")
+            say("    above had no control at all. Install the plugin and rerun.")
+        _explain_the_half_cent()
+        harness.finish()
+    finally:
+        harness.close()
+
+
+def _plugin(sdk: prama.Client) -> bool:
+    """Ask the server whether it admitted the plugin, by compiling a control naming it.
+
+    The validator is admitted where controls run: the server loads every
+    ``prama.validators`` entry point when it starts, scans the module's source
+    for a clock, a socket, the filesystem or a model client, runs it twice on
+    the same probes, and folds a hash of its implementation into the plan of
+    every control that names it. That happens in the server's process, so the
+    study cannot do it for the server, and it does not pretend to by admitting a
+    copy in its own.
+    """
     stage(
         2,
-        "Admit the plugin validator",
+        "Is the plugin validator admitted?",
         "Purity checked before it is usable, and its code hashed into every plan.",
     )
-    source = HERE / "acme_validators.py"
-    say(f"  scanning {source.name} without importing it…")
-    findings = scan_source(str(source))
-    if findings:
-        for module, reason in findings:
-            say(f"    REFUSED  {module}: {reason}")
-        say("  A plugin is scanned from its source before it is imported, because")
-        say("  importing runs its top-level code — a gate that had to run the thing")
-        say("  it was gating would already have run it.")
-        return None
-    say("    clean: no clock, no network, no filesystem, no model")
-
-    validator = AcmeBookCode()
-    provenance = PLUGINS.admit(validator, distribution="acme-pack (local)")
-    VALIDATORS.register(validator)
-    say(f"    admitted {provenance.name} — implementation {provenance.implementation_hash}")
-    say("    ran twice on the same inputs and agreed both times")
+    compiled = sdk.pql.compile(PLUGIN_PROBE, dialect="duckdb")
+    plan = (compiled.get("plans") or [{}])[0]
+    if plan.get("error"):
+        say("  NOT ADMITTED. The server refused a control naming acme_book:")
+        say(f"    {str(plan['error']).split(' | ')[0]}")
+        say()
+        say("  A plugin is admitted by the server that runs the controls, at start-up,")
+        say("  from the `prama.validators` entry point. Install it into the server's")
+        say("  environment and restart the server:")
+        say("      uv pip install --no-deps -e case-studies/04-expressions-and-plugins")
+        say("  The study goes on without it: the book-code declaration is then one")
+        say("  Γ cannot satisfy, and says so below.")
+        return False
+    residuals = [r for r in plan.get("residual_validators") or [] if isinstance(r, dict)]
+    say("  admitted by the server: a control naming acme_book compiles.")
+    say(f"    plan            {plan.get('plan_id', '?')}")
+    for residual in residuals:
+        say(
+            f"    residual        {residual.get('validator', '?')} on "
+            f"{residual.get('column', '?')}, after the SQL screen"
+        )
     say()
-    say("  Every control naming acme_book now carries that hash in its plan id.")
-    say("  Edit the check-digit routine and the control changes identity, rather")
-    say("  than silently changing what last month's evidence meant.")
-
-    harness = Harness(workspace, title="Expressions and plugins")
-    await harness.start(tenant_slug="acme-desk", tenant_name="Acme Markets — trading desk")
-    try:
-        await harness.declare(ESTATE)
-        await _declare_formulas(harness)
-        await harness.derive_and_accept()
-
-        execute, close = executor_for(catalogue, "duckdb")
-        try:
-            await harness.run(
-                [
-                    Source(
-                        name="blotter (CSV, via DuckDB)",
-                        engine="duckdb",
-                        execute=execute,
-                        close=close,
-                        datasets=set(harness.dataset_ids),
-                    )
-                ]
-            )
-        finally:
-            close()
-
-        await harness.report(planted)
-        _explain_the_half_cent()
-    finally:
-        await harness.stop()
-
-    # Returned rather than served here. `harness.serve` calls `uvicorn.run`,
-    # which calls `asyncio.run`, and this function is already inside one — so
-    # the console never started and the study died on
-    # "asyncio.run() cannot be called from a running event loop". Found by a QA
-    # pass; nothing under tests/ exercises case-studies/.
-    return harness if serve else None
+    say("  When it started, the server loaded acme_validators through its entry point,")
+    say("  scanned its source and any sibling module it imports (no clock, no network,")
+    say("  no filesystem, no model), ran it twice on the same probes, and hashed its")
+    say("  implementation into the plan of every control naming acme_book. Edit the")
+    say("  check-character routine, restart the server, and the plan id changes: the")
+    say("  control changes identity rather than silently changing what last month's")
+    say("  evidence meant.")
+    say()
+    say("  The plan id above is what the API returns. The implementation hash inside")
+    say("  it is not returned on its own, and no endpoint lists the plugins a server")
+    say("  admitted, so this study cannot print the hash the way it once did.")
+    return True
 
 
-async def _declare_formulas(harness: Harness) -> None:
-    """The formulas, as controls, with the SQL each becomes."""
-    from prama.backend import compile_for
-    from prama.ir.resolve import resolved
-    from prama.pql import parse_control
-
+def _declare_formulas(harness: Harness) -> None:
+    """The formulas, as controls, with the SQL the server compiles each to."""
     stage(
-        4,
+        3,
         "Write the controls as formulas",
         "The syntax a finance person already knows, compiled to SQL that runs in the engine.",
     )
-    async with harness.database.unit_of_work() as uow:
-        for name, formula, dimension, because in FORMULAS:
-            pql = (
-                f"CHECK trade_blotter SATISFIES EXCEL '{formula}' "
-                f"SEVERITY major DIMENSION {dimension} BECAUSE '{because}'"
-            )
-            control = parse_control(pql)
-            compiled = compile_for(resolved(control), "duckdb", table="trade_blotter")
-            say(f"  {formula}")
-            predicate = compiled.metric_query.split("WHERE NOT COALESCE((", 1)
-            if len(predicate) > 1:
-                say(f"     → {predicate[1].split('), FALSE)')[0][:100]}")
-            entity, _ = await uow.controls.declare(
-                tenant_id=harness.tenant_id,
-                identity=f"formula:{name}",
-                pql=pql,
-                rule="authored.excel",
-                criticality=1,
-                schedule="06:30",
-                authored_by="alice",
-            )
-            await uow.controls.activate(
-                str(entity.id), tenant_id=harness.tenant_id, approved_by="bob"
-            )
-            harness.accepted += 1
+    for name, formula, dimension, because in FORMULAS:
+        pql = (
+            f"CHECK trade_blotter SATISFIES EXCEL '{formula}' "
+            f"SEVERITY major DIMENSION {dimension} BECAUSE '{because}'"
+        )
+        compiled: dict[str, Any] = harness.sdk.pql.compile(pql, dialect="duckdb")
+        plan = (compiled.get("plans") or [{}])[0]
+        say(f"  {formula}")
+        predicate = str(plan.get("metric_query", "")).split("WHERE NOT COALESCE((", 1)
+        if len(predicate) > 1:
+            say(f"     → {predicate[1].split('), FALSE)')[0][:100]}")
+        harness.author(
+            pql, identity=f"formula:{name}", reason="the desk's formula, reviewed for the study"
+        )
+    say()
+    say(f"  {len(FORMULAS)} formula control(s) declared and activated.")
 
 
 def _explain_the_half_cent() -> None:
@@ -393,15 +411,4 @@ def _explain_the_half_cent() -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--no-serve", action="store_true")
-    parser.add_argument(
-        "--config", default="", help="a Prama configuration file; defaults to the application's"
-    )
-    parser.add_argument("--port", type=int, default=8804)
-    args = parser.parse_args()
-    use_config(args.config)
-    started = asyncio.run(main(serve=not args.no_serve, port=args.port))
-    if started is not None:
-        # Outside the loop, where uvicorn can own one of its own.
-        started.serve(port=args.port)
+    main()
