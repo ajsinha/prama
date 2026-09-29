@@ -248,3 +248,9 @@ AttestationReader = scoped("attestation:read")
 #: receipt. It changes no evidence, but it is an outbound call on the estate's
 #: behalf, which is an operator's decision rather than a reader's.
 EvidenceAnchorer = scoped("admin")
+
+# -- Knowledge and code: lineage, code intake, glossary, metadata, comments,
+# -- delegates, domain packs and connectors.
+ControlProposer = scoped("control:propose")
+ControlApprover = scoped("control:approve")
+#: Administrator is defined with administration, above.

@@ -15,11 +15,14 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import argparse
-from datetime import MAXYEAR, MINYEAR, date
+from datetime import date
 from typing import Any
 
 from prama.cli.base import EXIT_OK, Command, CommandContext, CommandGroup
 from prama.core.errors import ValidationError
+
+#: The message formats `pack parse` reads, from the one list the API reads too.
+from prama.packs.banking.readout import PARSERS as _PARSERS
 
 
 class PackListCommand(Command):
@@ -32,24 +35,10 @@ class PackListCommand(Command):
     def run(self, ctx: CommandContext) -> int:
         from prama.packs.banking import calendars, obligations, reconciliations
         from prama.packs.banking.crossfield import BANKING_FUNCTIONS
+        from prama.packs.banking.readout import inventory
 
-        formats = [
-            "SWIFT MT (MT940, MT103)",
-            "ISO 20022 (pacs.008, camt.053)",
-            "COBOL copybook over EBCDIC",
-            "FIX 4.2-4.4 (tag=value, repeating groups kept)",
-            "ISO 8583 (bitmap-driven, PAN masked)",
-            "FpML 5 (both legs, direction kept)",
-        ]
-        regimes = sorted({o.regime for o in obligations.ALL_OBLIGATIONS})
-        payload: dict[str, Any] = {
-            "calendars": [spec.name for spec in calendars.SPECS],
-            "cross_field_functions": [fn.name for fn in BANKING_FUNCTIONS],
-            "obligations": len(obligations.ALL_OBLIGATIONS),
-            "regimes": regimes,
-            "reconciliations": list(reconciliations.identities()),
-            "message_formats": formats,
-        }
+        payload = inventory()
+        formats, regimes = payload["message_formats"], payload["regimes"]
         if ctx.json_output:
             ctx.emit_json(payload)
             return EXIT_OK
@@ -93,22 +82,14 @@ class PackClaimsCommand(Command):
             DISCHARGEABLE_PRINCIPLES,
             SUPPORTED_NOT_DISCHARGED,
         )
+        from prama.packs.banking.readout import claims
         from prama.packs.banking.regimes import REGIME_SCOPE
 
         partial = [o for o in ALL_OBLIGATIONS if not o.is_fully_discharged]
         unconfirmed = [o for o in ALL_OBLIGATIONS if not o.citation.confirmed]
 
         if ctx.json_output:
-            ctx.emit_json(
-                {
-                    "discharged": list(DISCHARGEABLE_PRINCIPLES),
-                    "supported_not_discharged": SUPPORTED_NOT_DISCHARGED,
-                    "regime_scope": REGIME_SCOPE,
-                    "partly_discharged": [o.identity for o in partial],
-                    "unconfirmed_citations": [o.identity for o in unconfirmed],
-                    "obligations": [o.to_dict() for o in ALL_OBLIGATIONS],
-                }
-            )
+            ctx.emit_json(claims())
             return EXIT_OK
 
         ctx.emit("Discharged by controls — testable properties of data:")
@@ -162,34 +143,12 @@ class PackCalendarCommand(Command):
         parser.add_argument("--year", type=int, default=date.today().year)
 
     def run(self, ctx: CommandContext) -> int:
-        from prama.packs.banking.calendars import spec
-        from prama.packs.banking.holidays import observed
+        from prama.packs.banking.readout import calendar, calendar_spec
 
-        try:
-            wanted = spec(ctx.args.name)
-        except KeyError:
-            raise ValidationError(
-                f"no calendar called {ctx.args.name!r} is in this pack",
-                remedy="TARGET2, FederalReserve, London or NYSE.",
-                context={"calendar": ctx.args.name},
-            ) from None
-
-        # A year outside `datetime`'s range reaches `date(year, ...)` deep in
-        # the rule evaluation and raises a bare ValueError, which escapes the
-        # CLI's translation as a stack trace. Refused here, where the argument
-        # arrives, beside the calendar-name refusal above. QA round 3, Q-68.
-        if not MINYEAR <= ctx.args.year <= MAXYEAR:
-            raise ValidationError(
-                f"year {ctx.args.year} is outside the range a calendar can be computed for",
-                remedy=(
-                    f"Pass --year between {MINYEAR} and {MAXYEAR}. "
-                    "A closure calendar is only meaningful for years the regime existed."
-                ),
-                context={"year": ctx.args.year},
-            )
-
-        closures = sorted(observed(wanted.rules, [ctx.args.year]))
-        rows = [{"date": day.isoformat(), "weekday": day.strftime("%A")} for day in closures]
+        wanted = calendar_spec(ctx.args.name)
+        computed = calendar(ctx.args.name, ctx.args.year)
+        rows = computed["closures"]
+        closures = rows
         if ctx.json_output:
             ctx.emit_json({"calendar": wanted.name, "year": ctx.args.year, "closures": rows})
             return EXIT_OK
@@ -333,14 +292,17 @@ class PackParseCommand(Command):
             )
         raw = source.read_text(encoding="utf-8", errors="replace")
 
-        chosen = ctx.args.format or _infer(raw)
-        if chosen is None:
+        from prama.packs.banking.readout import infer, parse_message
+
+        if not ctx.args.format and infer(raw) is None:
             raise ValidationError(
                 "could not tell which format this is",
                 remedy=(f"Pass --format explicitly; one of {', '.join(sorted(_PARSERS))}."),
             )
-
-        summary = _PARSERS[chosen](raw)
+        parsed = parse_message(raw, ctx.args.format)
+        chosen = parsed.pop("format")
+        parsed.pop("inferred")
+        summary = parsed
         if ctx.json_output:
             ctx.emit_json({"format": chosen, **summary})
             return EXIT_OK
@@ -378,68 +340,6 @@ def _wrap(text: str, width: int) -> list[str]:
     return textwrap.wrap(text, width=width) or [""]
 
 
-def _infer(raw: str) -> str | None:
-    """Which format this is, or nothing.
-
-    Guessing wrong is worse than declining: every one of these parsers reports
-    defects, so a misidentified message comes back as a page of findings about
-    a file that was never in that format.
-    """
-    stripped = raw.lstrip()
-    if stripped.startswith("<") and "fpml" in raw[:400].lower():
-        return "fpml"
-    if stripped.startswith("8=FIX"):
-        return "fix"
-    if stripped[:4].isdigit() and len(stripped) > 20:
-        return "iso8583"
-    return None
-
-
-def _fix_summary(raw: str) -> dict[str, Any]:
-    from prama.packs.banking import fix
-
-    message = fix.parse(raw)
-    return {
-        "type": message.msg_type,
-        "fields": len(message.tags),
-        "groups": len(message.groups),
-        "delimiter": "display" if message.arrived_display_delimited else "SOH",
-        "defects": [d.render() for d in message.defects],
-    }
-
-
-def _iso8583_summary(raw: str) -> dict[str, Any]:
-    from prama.packs.banking import iso8583
-
-    message = iso8583.parse(raw.strip())
-    return {
-        "mti": message.mti,
-        "fields": len(message.present),
-        "amount": str(message.amount()) if message.amount() is not None else "-",
-        "defects": [d.problem for d in message.defects],
-    }
-
-
-def _fpml_summary(raw: str) -> dict[str, Any]:
-    from prama.packs.banking import fpml
-
-    trade = fpml.parse(raw)
-    return {
-        "trade": trade.trade_id or "-",
-        "version": trade.version or "-",
-        "legs": len(trade.legs),
-        "legs directed": trade.is_two_sided,
-        "defects": list(trade.defects),
-    }
-
-
-_PARSERS = {
-    "fix": _fix_summary,
-    "iso8583": _iso8583_summary,
-    "fpml": _fpml_summary,
-}
-
-
 class PackConceptsCommand(Command):
     name = "concepts"
     help = "the business concept model, and where each concept ends"
@@ -454,21 +354,9 @@ class PackConceptsCommand(Command):
             return self._one(ctx, concepts.concept(ctx.args.concept))
 
         if ctx.json_output:
-            ctx.emit_json(
-                {
-                    "concepts": [
-                        {
-                            "name": c.name,
-                            "description": c.description,
-                            "identifying": [p.name for p in c.identifying],
-                            "properties": len(c.properties),
-                            "semantic_types": list(c.semantic_types),
-                            "boundary": c.boundary,
-                        }
-                        for c in concepts.CONCEPTS
-                    ]
-                }
-            )
+            from prama.packs.banking.readout import concepts as listed
+
+            ctx.emit_json({"concepts": listed()})
             return EXIT_OK
 
         ctx.emit(f"{len(concepts.CONCEPTS)} concepts. A starter ontology; a tenant's own wins.")
@@ -483,23 +371,9 @@ class PackConceptsCommand(Command):
 
     def _one(self, ctx: CommandContext, entry: Any) -> int:
         if ctx.json_output:
-            ctx.emit_json(
-                {
-                    "name": entry.name,
-                    "description": entry.description,
-                    "boundary": entry.boundary,
-                    "relevance": entry.relevance,
-                    "properties": [
-                        {
-                            "name": p.name,
-                            "role": p.role.value,
-                            "semantic_type": p.semantic_type,
-                            "aliases": list(p.aliases),
-                        }
-                        for p in entry.properties
-                    ],
-                }
-            )
+            from prama.packs.banking.readout import concept
+
+            ctx.emit_json(concept(entry.name))
             return EXIT_OK
 
         ctx.emit(f"{entry.name} — {entry.description}")

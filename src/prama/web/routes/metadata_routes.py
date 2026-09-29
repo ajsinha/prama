@@ -5,7 +5,6 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
-import hashlib
 from typing import Annotated, Any
 
 from fastapi import Form, Request
@@ -172,26 +171,8 @@ class MetadataRoutes(UiRoutes):
         pql: Annotated[str, Form()] = "",
     ) -> Any:
         """A rule written by hand: proposed, and active once somebody else approves it."""
-        from prama.pql import parse_control
-
         try:
-            control = parse_control(pql.strip())
-            if control.target != slug:
-                raise ValidationError(
-                    f"this rule is about {control.target or 'another dataset'}, not {slug}",
-                    remedy=f"Write it against {slug}, as in CHECK {slug}.column IS NOT NULL.",
-                )
-            identity = "authored-" + hashlib.sha256(pql.strip().encode()).hexdigest()[:24]
-            await uow.controls.declare(
-                tenant_id=caller.tenant_id,
-                identity=identity,
-                pql=pql.strip(),
-                origin="declaration",
-                rule="authored.metadata_page",
-                status="proposed",
-                authored_by=caller.principal_id,
-                reason="written on the dataset's metadata page",
-            )
+            await service.author_rule(uow, caller.tenant_id, slug, pql, by=caller.principal_id)
         except PramaError as exc:
             flash_error_and_log(request, "That rule was not recorded", exc)
             return redirect_to(request, "metadata_dataset", slug=slug)

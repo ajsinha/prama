@@ -47,7 +47,8 @@ class Call:
     path: str
     params: dict[str, Any] = dataclasses.field(default_factory=dict)
     json_body: Any = None
-    files: dict[str, Any] | None = None
+    #: A mapping, or a list of (field, file) pairs when one field carries several files.
+    files: dict[str, Any] | list[tuple[str, Any]] | None = None
     data: dict[str, Any] | None = None
     #: Return the body as bytes, for a download.
     raw: bool = False
