@@ -36,7 +36,7 @@ from prama.api.schemas import (
     RelationshipKindOut,
     RelationshipOut,
 )
-from prama.core.errors import NotFoundError
+from prama.core.errors import NotFoundError, ValidationError
 from prama.semantic.relationships import (
     MatchKey,
     RelationshipDeclaration,
@@ -44,7 +44,7 @@ from prama.semantic.relationships import (
     Tolerance,
 )
 from prama.semantic.services import DatasetService, RelationshipService, relationship_kinds
-from prama.semantic.values import Grain, Rhythm
+from prama.semantic.values import Grain, Rhythm, ValueDomain, ValueDomainKind
 
 router = APIRouter(tags=["semantic"])
 
@@ -220,8 +220,35 @@ async def declare_attribute(
         sensitivity=body.sensitivity,
         concept_property_id=body.concept_property_id,
         glossary_term=body.glossary_term,
+        # Validated as a value object first, so a code list with no values or a
+        # range with no bound is refused before it is stored — and stored in
+        # exactly the shape Γ reads back (`ValueDomain.to_dict`).
+        value_domain_json=(
+            ValueDomain(
+                kind=_domain_kind(body.value_domain.kind),
+                codelist_ref=body.value_domain.codelist_ref,
+                allowed_values=tuple(body.value_domain.allowed_values),
+                minimum=body.value_domain.minimum,
+                maximum=body.value_domain.maximum,
+                pattern=body.value_domain.pattern,
+                case_sensitive=body.value_domain.case_sensitive,
+            ).to_dict()
+            if body.value_domain is not None
+            else None
+        ),
     )
     return attribute_out(version, dataset_id=dataset_id)
+
+
+def _domain_kind(kind: str) -> ValueDomainKind:
+    try:
+        return ValueDomainKind(kind)
+    except ValueError:
+        raise ValidationError(
+            f"{kind!r} is not a kind of value domain",
+            remedy="One of: " + ", ".join(k.value for k in ValueDomainKind) + ".",
+            context={"kind": kind},
+        ) from None
 
 
 @router.get("/datasets/{dataset_id}/attributes", response_model=list[AttributeOut])

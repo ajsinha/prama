@@ -157,7 +157,11 @@ def register_regexp(connection: Any) -> None:
 def _sqlite(path: Path) -> tuple[Callable[[str], list[dict[str, Any]]], Callable[[], None]]:
     import sqlite3
 
-    connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    # Not tied to the opening thread: the studio's preview opens the source on
+    # the event loop and queries it from `asyncio.to_thread`, which the default
+    # check refuses outright — so a SQLite preview source never worked. One
+    # caller uses the connection at a time, and it is read-only.
+    connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True, check_same_thread=False)
     connection.row_factory = sqlite3.Row
     register_regexp(connection)
 

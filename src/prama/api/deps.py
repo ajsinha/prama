@@ -219,3 +219,16 @@ TenantAdmin = scoped("tenant:admin")
 Uow = Annotated[UnitOfWork, Depends(get_uow)]
 Config = Annotated[Configuration, Depends(get_config)]
 Db = Annotated[Database, Depends(get_database)]
+
+
+# ---------------------------------------------------------------------------
+# Controls, proposals, derivation and runs
+# ---------------------------------------------------------------------------
+#: Authoring a control, which somebody else then approves: the maker half of
+#: maker-checker. Held by a steward; deliberately not by an owner.
+ControlProposer = scoped("control:propose")
+#: Activating, suppressing and retiring a control, deciding on a proposal, and
+#: running the estate: the checker half, held by an owner.
+ControlApprover = scoped("control:approve")
+#: Reading runs and the evidence they recorded.
+EvidenceReader = scoped("evidence:read")

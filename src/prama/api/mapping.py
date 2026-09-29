@@ -78,6 +78,8 @@ def attribute_out(version: Any, *, dataset_id: str) -> AttributeOut:
         obligations=list(version.obligations_json or []),
         sensitivity=version.sensitivity,
         concept_property_id=version.concept_property_id,
+        currency_attribute=version.currency_attribute,
+        value_domain=version.value_domain_json or None,
         meta=version_meta(version),
     )
 
