@@ -1,35 +1,164 @@
+{# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{# About, laid out as Maya's: what it is, the problems it solves, what makes it
+   different, capabilities, this installation beside the honest limits, the
+   competitive landscape, technology, and the author and licence. #}
 {% extends "base.html" %}
 {% block title %}About — Prama{% endblock %}
-{% block heading %}About Prama{% endblock %}
 {% block content %}
-<div class="help-doc">
-  <p class="lead"><strong>Prama</strong> is a business-owned, evidence-first data quality control
-    plane. {{ app_tagline }}</p>
+<section class="about-hero">
+  <img src="{{ url_for('static', filename='img/prama-mark-white.svg') }}" alt="The Prama prism mark">
+  <h1>PRAMA</h1>
+  <p class="fs-5">Evidence-first data quality</p>
+  <p><em>{{ app_tagline }}</em></p>
+  <span class="version-badge">Version {{ app_version }}</span>
+  <div class="d-flex flex-wrap gap-2 justify-content-center mt-4 position-relative">
+    {% if signed_in %}<a class="btn btn-light btn-lg" href="{{ url_for('estate_map') }}"><i class="bi bi-grid" aria-hidden="true"></i> Console</a>
+    {% else %}<a class="btn btn-light btn-lg" href="{{ url_for('sign_in') }}"><i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> Sign in</a>{% endif %}
+    <a class="btn btn-outline-light btn-lg" href="{{ url_for('help_index') }}"><i class="bi bi-book" aria-hidden="true"></i> Documentation</a>
+    <a class="btn btn-outline-light btn-lg" href="{{ url_for('competitive') }}"><i class="bi bi-bar-chart-steps" aria-hidden="true"></i> Competitive landscape</a>
+  </div>
+</section>
 
-  <p><em>pramā</em> (Sanskrit <span lang="sa">प्रमा</span>) means <em>valid knowledge: a cognition
-    that is both true and arrived at by a reliable means</em>. Its companion <em>pramāṇa</em> is the
-    instrument by which valid knowledge is obtained. Prama is that instrument for an organisation's
-    data: it does not decide what is true, it keeps the record of how anybody knows.</p>
+<section class="card mb-4">
+  <div class="card-header"><i class="bi bi-info-circle" aria-hidden="true"></i> What is Prama?</div>
+  <div class="card-body">
+    <p class="lead">Prama is a business-owned, evidence-first <strong>data quality control plane</strong>: the
+      business <strong>declares</strong> what its data must be, Prama <strong>derives</strong> the controls,
+      runs them where the data lives, and keeps <strong>evidence</strong> an auditor can verify without Prama
+      installed.</p>
+    <p><em>pramā</em> (Sanskrit <span lang="sa">प्रमा</span>) means <em>valid knowledge: a cognition that is
+      both true and arrived at by a reliable means</em>. Its companion <em>pramāṇa</em> is the instrument by
+      which valid knowledge is obtained. Prama is that instrument for an organisation's data: it does not
+      decide what is true, it keeps the record of how anybody knows.</p>
+    <p class="mb-0 small-muted">Built for data owners, stewards and control functions in regulated firms, where
+      "the dashboard was green" is not an answer an examiner accepts.</p>
+  </div>
+</section>
 
-  <h2 class="h5 mt-4">What it holds to</h2>
-  <ul>
-    <li><strong>The business declares; the platform derives.</strong> Controls, scores and reports are
-      derived from declarations and evidence, never restated.</li>
-    <li><strong>Evidence, not assertion.</strong> Every verdict leaves a sealed, append-only record that
-      a verifier with no Prama installed can check.</li>
-    <li><strong>AI never adjudicates.</strong> Models draft, rank, explain and summarise. A deterministic,
-      versioned engine decides every pass or fail, and the build enforces it.</li>
-    <li><strong>Air-gap ready.</strong> Every asset is vendored; nothing is fetched at run time.</li>
-  </ul>
+<section class="card mb-4 about-problem">
+  <div class="card-header"><i class="bi bi-bullseye" aria-hidden="true"></i> The problems it solves</div>
+  <div class="card-body"><div class="row g-3">
+    {% for bad, fix in [
+      ('The owner says what the data must be in a policy document; an engineer writes rules in a tool; the two drift apart and neither notices.',
+       'Declarations in the business\'s words, versioned and owned, from which controls are derived rather than restated.'),
+      ('Monitoring raises hundreds of alerts, nobody knows how many are false, and the answer to fatigue is muting.',
+       'Conformal p-values and a false-discovery budget: a threshold is a false-alarm rate you set.'),
+      ('When a return is challenged, the proof that a control ran is a screenshot, a log with a retention window, or somebody\'s memory.',
+       'A hash-chained evidence ledger, anchored outside Prama, replayable, and checked by a verifier with no Prama installed.'),
+      ('The GL and the sub-ledger disagree, and the break lives in a different product from the quality score of the return that uses both.',
+       'Reconciliation as a control like any other: the same language, the same evidence, the same scorecard.'),
+    ] %}
+    <div class="col-md-6"><p class="mb-1"><i class="bi bi-x-circle bad" aria-hidden="true"></i> {{ bad }}</p>
+      <p class="fix mb-0"><i class="bi bi-arrow-return-right" aria-hidden="true"></i> {{ fix }}</p></div>
+    {% endfor %}
+  </div></div>
+</section>
 
-  <h2 class="h5 mt-4">This installation</h2>
-  <table class="table table-sm w-auto">
-    <tr><th scope="row">Version</th><td>{{ app_version }}</td></tr>
-    <tr><th scope="row">API</th><td><a href="/api/v1/docs">/api/v1</a></td></tr>
-    <tr><th scope="row">Help</th><td><a href="{{ url_for('help_index') }}">Help centre</a></td></tr>
-  </table>
+<h2 class="mb-3"><i class="bi bi-stars" aria-hidden="true"></i> What makes it different</h2>
+<div class="row g-3 mb-4">
+  {% for icon, title, text in [
+    ('journal-text', 'The business declares; the platform derives', 'Owners declare meaning, relationships and metadata. Controls, scores and reports are derived from those declarations and from evidence, never typed in a second place.'),
+    ('code-square', 'One language, several engines', 'PQL compiles through a typed IR to SQL for SQLite, DuckDB and PostgreSQL, and a conformance suite compares the executed verdicts on the real engines, not the SQL text.'),
+    ('speedometer2', 'Calibrated, not just clever', 'Monitors emit conformal p-values; a Benjamini–Hochberg budget sets the false-discovery rate across the estate; an uncalibrated monitor says so.'),
+    ('link-45deg', 'Evidence that travels', 'A hash-chained ledger, time-stamped by an RFC 3161 authority, replayable, and verified by a script that does not import Prama.'),
+    ('arrow-left-right', 'Reconciliation is a control', 'Keyed and n-way matching, break classification and a workbench, with verdicts in the same ledger and scorecards as every other check.'),
+    ('bezier2', 'Lineage that acts', 'Column lineage from SQL, pandas, PySpark, Airflow, Power BI and query history, used to say what a defect reaches and to carry controls downstream.'),
+    ('git', 'Change review in CI', 'A pull request is parsed for its effect on lineage, and a control that loses its basis blocks the merge.'),
+    ('cpu', 'AI never adjudicates', 'Models draft, rank, explain and summarise through one budgeted, ledgered gateway. A deterministic engine decides every pass or fail, and the build enforces it.'),
+    ('bank', 'A banking pack', 'FIX, ISO 8583, ISO 20022, SWIFT and FpML parsing, market calendars computed from rules, business concepts, and a statement of what the pack does not claim.'),
+  ] %}
+  <div class="col-md-6 col-xl-4"><div class="card about-feature"><div class="card-body">
+    <div class="fi"><i class="bi bi-{{ icon }}" aria-hidden="true"></i></div>
+    <h3>{{ title }}</h3><p>{{ text }}</p></div></div></div>
+  {% endfor %}
+</div>
 
-  <p class="text-muted small mt-4">Copyright &copy; 2026 Ashutosh Sinha &lt;ajsinha@gmail.com&gt;.
-    All rights reserved.</p>
+<section class="card mb-4">
+  <div class="card-header"><i class="bi bi-grid-3x3-gap" aria-hidden="true"></i> Capabilities</div>
+  <div class="card-body"><div class="row g-4">
+    {% for icon, group, items in [
+      ('journal-text', 'Declare and derive', ['Datasets, attributes, concepts and relationships, versioned and owned', 'Metadata whose implied rules arrive as proposals', 'Glossary import from Alation and Collibra, with what was dropped', 'Finding data by business meaning across datasets', 'Profiling that proposes controls with no declarations']),
+      ('shield-check', 'Controls', ['PQL with a language server, explain and fused compilation', 'Pushdown to SQLite, DuckDB and PostgreSQL; JDBC dialects', 'A rule builder for people who do not write PQL', 'Import from dbt, Great Expectations and Soda', 'Python delegates, sandboxed; controls read out of existing code']),
+      ('activity', 'Monitor and reconcile', ['Freshness, volume and distribution monitors', 'Conformal calibration and a false-discovery budget', 'Reconciliation, keyed and n-way, with a break workbench', 'Data contracts and diffs as CI gates', 'Incidents grouped, owned and triaged']),
+      ('patch-check', 'Evidence and assurance', ['Hash-chained ledger with external time-stamp anchors', 'Replay, and an independent verifier script', 'Owner attestations and RDARR / BCBS 239 packs', 'Scorecards derived from evidence, never typed', 'Prama\'s own SOC 2 readiness, gaps first']),
+    ] %}
+    <div class="col-md-6 col-xl-3"><div class="cap-group"><i class="bi bi-{{ icon }}" aria-hidden="true"></i> {{ group }}</div>
+      <ul class="cap-list">{% for i in items %}<li>{{ i }}</li>{% endfor %}</ul></div>
+    {% endfor %}
+  </div></div>
+</section>
+
+<div class="row g-3 mb-4">
+  <div class="col-lg-6"><section class="card h-100">
+    <div class="card-header"><i class="bi bi-hdd-stack" aria-hidden="true"></i> This installation</div>
+    <div class="card-body">
+      <dl class="kv mb-3">
+        <dt>Version</dt><dd>{{ app_version }}</dd>
+        <dt>Evidence schema</dt><dd>{{ facts.schema }}</dd>
+        <dt>Themes</dt><dd>{{ facts.themes }}</dd>
+        <dt>Help topics</dt><dd><a href="{{ url_for('help_index') }}">{{ facts.help }}</a></dd>
+        <dt>Case studies</dt><dd><a href="{{ url_for('help_case_studies') }}">{{ facts.studies }}</a></dd>
+        <dt>API</dt><dd><a href="/api/v1/docs">/api/v1</a></dd>
+      </dl>
+      <p class="small-muted mb-0">Counted from this build, never typed: <code>prama/version.py</code> is the single
+        authority for the version.</p>
+    </div></section></div>
+  <div class="col-lg-6"><section class="card h-100">
+    <div class="card-header"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Honest limits</div>
+    <div class="card-body">
+      <p class="small-muted">Stated so nobody has to discover them.</p>
+      <ul class="cap-list mb-0">
+        <li>No reference customers yet, and no competitor has been benchmarked against Prama; the external baselines are named and not run.</li>
+        <li>Console single sign-on is not wired: OIDC ID tokens are verified, no sign-in flow uses them, there is no MFA, and there are four built-in roles.</li>
+        <li>Snowflake has never run against an account, several JDBC dialects are code-complete but unverified, and there is no ODBC connector.</li>
+        <li>ETL export shapes for lineage are configurable and unverified against real exports; mainframe code, DataStage, Talend, Ab Initio and SAS are out of scope.</li>
+        <li>Catalog write-back has not run against a live Collibra, Alation or DataHub.</li>
+        <li>An air-gapped install with a local model has not been verified end to end, and no screen-reader pass has been done.</li>
+      </ul>
+    </div></section></div>
+</div>
+
+<section class="card mb-4 about-compete">
+  <div class="card-header"><i class="bi bi-bar-chart-steps" aria-hidden="true"></i> Competitive landscape</div>
+  <div class="card-body">
+    <p>Catalogs know what data means without checking it; lineage tools know where it came from without
+      measuring it; observability tools notice change without being able to prove anything; DQ suites check
+      it without the owner's words; reconciliation products agree two systems in isolation. Prama keeps one
+      record that joins them for the question each is hired for and none completes: <em>can I trust this
+      number, and prove it?</em></p>
+    <p class="mb-3">It is not a catalog, a lineage scanner or a mastering product, by design. It sits beside
+      them, imports what they know, and executes and evidences the controls.</p>
+    <a class="btn btn-sm btn-primary" href="{{ url_for('competitive') }}"><i class="bi bi-arrow-right" aria-hidden="true"></i>
+      The comparison, row by row, and how Prama does each</a>
+  </div>
+</section>
+
+<section class="card mb-4">
+  <div class="card-header"><i class="bi bi-code-square" aria-hidden="true"></i> Technology</div>
+  <div class="card-body">
+    {% for t in ['Python 3.13', 'FastAPI', 'SQLAlchemy 2.0', 'SQLite', 'PostgreSQL', 'DuckDB', 'Apache Arrow', 'sqlglot', 'Jinja2', 'Bootstrap 5', 'jQuery', 'Sigma.js', 'Graphology', 'CodeMirror', 'RFC 3161 time-stamps', 'Ed25519 signatures', 'Prometheus', 'OpenTelemetry', 'OpenLineage', 'Helm'] %}<span class="tech-badge">{{ t }}</span>{% endfor %}
+    <p class="small-muted mt-3 mb-0">Every browser library is vendored, so the console works on an air-gapped
+      network. Optional components sit behind extras, and Prama refuses to start rather than silently doing
+      nothing when one is asked for and missing.</p>
+  </div>
+</section>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-5"><section class="card h-100 about-author">
+    <div class="avatar"><i class="bi bi-person" aria-hidden="true"></i></div>
+    <h3>Ashutosh Sinha</h3>
+    <p class="small-muted">Designer and author of Prama and its specification.</p>
+    <a class="btn btn-outline-primary btn-sm" href="https://github.com/ajsinha/prama"><i class="bi bi-github" aria-hidden="true"></i> github.com/ajsinha/prama</a>
+  </section></div>
+  <div class="col-md-7"><section class="card h-100">
+    <div class="card-header"><i class="bi bi-file-earmark-text" aria-hidden="true"></i> Licence and copyright</div>
+    <div class="card-body small">
+      <p>&copy; 2026 Ashutosh Sinha &lt;ajsinha@gmail.com&gt;. All rights reserved. Prama — including its source
+        code, specification and design documents, data models, algorithms, build tooling, brand assets, the Prama
+        name and the Prama mark — is the exclusive property of Ashutosh Sinha.</p>
+      <p class="mb-0">This software is <strong>proprietary and confidential</strong>. Unauthorised copying,
+        modification, distribution or use, in whole or in part, is strictly prohibited without express written
+        permission. See the <a href="{{ url_for('legal') }}">licence and legal notice</a>.</p>
+    </div></section></div>
 </div>
 {% endblock %}

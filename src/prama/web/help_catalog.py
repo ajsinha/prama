@@ -252,6 +252,13 @@ SECTIONS: tuple[HelpSection, ...] = (
                 "bi-signpost-split",
             ),
             _d(
+                "competitive-analysis",
+                "Competitive analysis, vendor by vendor",
+                "Who Prama meets in a deal, where each is better today, and how Prama wins.",
+                "docs/20-competitive-analysis.md",
+                "bi-bar-chart-steps",
+            ),
+            _d(
                 "roadmap-intelligence",
                 "Intelligence and lineage roadmap",
                 "LLM gateway, lineage workbench, code-to-lineage, steward agents.",
