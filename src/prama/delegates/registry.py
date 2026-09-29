@@ -39,6 +39,10 @@ _log = get_logger(__name__)
 ENTRY_POINT_GROUP = "prama.delegates"
 
 
+#: How an approved upload's origin begins. Everything else was configured.
+UPLOAD_ORIGIN = "upload:"
+
+
 @dataclasses.dataclass(frozen=True, slots=True)
 class Admitted:
     """A delegate that passed the gate, and what it was when it did."""
@@ -179,8 +183,14 @@ class DelegateRegistry:
         return admitted
 
     def drop_uploads(self) -> None:
-        """Forget every adopted upload, so a retired one stops running on the next pass."""
-        for name in [n for n, a in self._admitted.items() if a.sandbox_only]:
+        """Forget every adopted upload, so a retired one stops running on the next pass.
+
+        By origin, not by ``sandbox_only``. Delegates from ``delegates.paths``
+        also run only in the sandbox, and selecting on that flag dropped them
+        at the start of every run, so a configured delegate never ran at all:
+        each control that named one errored "not installed on this host".
+        """
+        for name in [n for n, a in self._admitted.items() if a.origin.startswith(UPLOAD_ORIGIN)]:
             del self._admitted[name]
 
     def adopt_described(

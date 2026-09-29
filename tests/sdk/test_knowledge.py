@@ -321,3 +321,41 @@ async def test_a_mention_reaches_a_queue_and_leaves_it_when_the_thread_resolves(
     with pytest.raises(prama.ForbiddenError, match="admin"):
         await bo.comments.queue(person="ada")
     await bo.close()
+
+
+async def test_an_accepted_metadata_proposal_is_not_offered_again(client: AsyncClient) -> None:
+    """Once accepted, a proposal is a control, and the queue must stop offering it.
+
+    It compared the raw text's hash with the stored control's hash of the
+    *rendered* control, which never matched, so every accepted proposal came
+    back forever. Found converting case study 7 to the SDK.
+    """
+    await _trades(client)
+    (proposal,) = (await client.metadata.set("trades.account_id", mandatory="yes"))["proposals"]
+    await client.proposals.accept(
+        proposal["identity"],
+        proposal["pql"],
+        rule=proposal["rule"],
+        dataset_id=proposal["dataset_id"],
+        reason="the owner says it is mandatory",
+    )
+    assert await client.metadata.proposals() == []
+
+
+async def test_a_lineage_proposal_once_accepted_is_not_offered_again(client: AsyncClient) -> None:
+    """The lineage queue is what waits on a person, not what is already running.
+
+    It re-listed every accepted control, inviting somebody to accept it twice.
+    Found converting case study 8 to the SDK.
+    """
+    await client.lineage.scan("warehouse", [STAGE.format(notional="t.notional_amt"), MART])
+    offered = (await client.lineage.proposals())["controls"]
+    ready = [p for p in offered if not p["deferred_because"]]
+    assert ready, "the join in MART implies at least one control"
+    first = ready[0]
+    await client.proposals.accept(
+        first["identity"], first["pql"], rule=first["rule"], reason="the join must find its match"
+    )
+    again = [p["identity"] for p in (await client.lineage.proposals())["controls"]]
+    assert first["identity"] not in again
+    assert len(again) == len(offered) - 1  # only the accepted one left the queue

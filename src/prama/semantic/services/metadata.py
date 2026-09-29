@@ -15,6 +15,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from prama.core.errors import NotFoundError, PramaError, ValidationError
+from prama.core.provenance import content_hash as rendered_hash
 from prama.semantic.metadata import STARTER, FieldSpec, Rule, coerce, parse_template, render
 
 
@@ -203,7 +204,7 @@ async def proposals(uow: Any, tenant_id: str, *, dataset_id: str = "") -> list[d
             if pql is None:
                 continue
             try:
-                parse_control(pql)
+                parsed = parse_control(pql)
             except PramaError as exc:
                 out.append({"dataset": version.name, "pql": pql, "error": str(exc)[:200]})
                 continue
@@ -213,7 +214,11 @@ async def proposals(uow: Any, tenant_id: str, *, dataset_id: str = "") -> list[d
             )
             content_hash = hashlib.sha256(pql.encode("utf-8")).hexdigest()
             stored = await uow.controls.by_identity(tenant_id, identity)
-            if stored is not None and stored.content_hash == content_hash:
+            # Compared with the stored version's own hash, which is of the
+            # *rendered* control (prama.db.dao.control). Comparing the raw
+            # text's hash never matched, so every accepted proposal was offered
+            # again, forever. Found converting case study 7 to the SDK.
+            if stored is not None and stored.content_hash == rendered_hash(parsed.render()):
                 continue
             if await uow.rejections.was_rejected(tenant_id, identity, content_hash):
                 continue

@@ -133,3 +133,28 @@ async def test_the_page_lists_uploads_and_the_upload_form(ui: Any) -> None:
     page = await ui.get("/delegates")
     assert page.status_code == 200
     assert "Upload and vet" in page.text and "Configured on this server" in page.text
+
+
+def test_dropping_uploads_keeps_the_configured_delegates() -> None:
+    """A run refreshes the uploads it adopts; it must not forget configured ones.
+
+    Both kinds run only in the sandbox, and selecting on that flag dropped the
+    delegates from ``delegates.paths`` at the start of every run, so a control
+    naming one errored "not installed on this host". Found converting case
+    study 5 to the SDK.
+    """
+    from prama.delegates.registry import UPLOAD_ORIGIN, DelegateRegistry
+
+    registry = DelegateRegistry()
+    described = {"name": "acme.configured", "version": "1", "requires": ["amount"]}
+    registry.adopt_described(described, origin="/srv/delegates/configured.py", source_hash="a")
+    uploaded = {"name": "acme.uploaded", "version": "1", "requires": ["amount"]}
+    registry.adopt_described(uploaded, origin=f"{UPLOAD_ORIGIN}acme.uploaded", source_hash="b")
+
+    registry.drop_uploads()
+
+    assert registry.get("acme.configured").name == "acme.configured"
+    import pytest as _pytest
+
+    with _pytest.raises(Exception, match=r"acme\.uploaded"):
+        registry.get("acme.uploaded")

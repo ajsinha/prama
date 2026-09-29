@@ -213,6 +213,12 @@ async def proposals(caller: RelationshipReader, uow: Uow) -> dict[str, Any]:
     rows = await uow.lineage.edges(caller.tenant_id)
     sources = {s.id: s.name for s in await uow.lineage.sources(caller.tenant_id)}
     implied = propose(rows, await uow.controls.live(caller.tenant_id))
+    # What waits on a person, so not what is already in the estate: a control
+    # accepted under this identity is not offered again, as the proposals
+    # queue does. It was, and invited somebody to accept it twice.
+    waiting = [
+        p for p in implied if await uow.controls.by_identity(caller.tenant_id, p.identity) is None
+    ]
     return {
         "edges": [_edge(r, sources) for r in rows if r.status == "inferred"],
         "controls": [
@@ -224,7 +230,7 @@ async def proposals(caller: RelationshipReader, uow: Uow) -> dict[str, Any]:
                 "sentence": p.sentence,
                 "deferred_because": p.deferred_because,
             }
-            for p in implied
+            for p in waiting
         ],
     }
 

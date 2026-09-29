@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any
 
 from prama.core.errors import ForbiddenError, NotFoundError, ValidationError
+from prama.delegates.registry import UPLOAD_ORIGIN
 
 #: The largest delegate file accepted. A check is a page or two of Python.
 MAX_BYTES = 256 * 1024
@@ -144,7 +145,9 @@ async def adopt(uow: Any, tenant_id: str, host: Any) -> int:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(body)
         if host.registry.adopt_described(
-            json.loads(row.described), origin=f"upload:{target}", source_hash=row.source_hash
+            json.loads(row.described),
+            origin=f"{UPLOAD_ORIGIN}{target}",
+            source_hash=row.source_hash,
         ):
             adopted += 1
     return adopted

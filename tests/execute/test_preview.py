@@ -342,3 +342,17 @@ class TestTheRateIsNeverFlattering:
         )
         assert result.is_a_lower_bound
         assert "at least 1 alert(s)" in result.describe()
+
+
+def test_a_reconciliation_is_refused_rather_than_previewed_as_clean(book) -> None:
+    """A preview of RECONCILE ran one metric query and read as zero breaks.
+
+    The matching engine judges a reconciliation over both sides, so a preview
+    cannot establish anything about it, and must say so rather than pass.
+    Found converting case study 6 to the SDK.
+    """
+    trial = Preview(execute=book, engine="duckdb").once(
+        "RECONCILE positions AGAINST ledger ON (account) COMPARING qty = quantity"
+    )
+    assert "cannot be previewed" in trial.error
+    assert not trial.ran and trial.verdict != "pass"
