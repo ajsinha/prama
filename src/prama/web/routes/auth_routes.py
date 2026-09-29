@@ -39,7 +39,7 @@ from fastapi.responses import RedirectResponse
 from prama.core.clock import utc_now
 from prama.core.log import get_logger
 from prama.web.deps import Uow
-from prama.web.rendering import render
+from prama.web.rendering import render, url_for
 from prama.web.routes.base import UiRoutes
 
 _log = get_logger(__name__)
@@ -162,7 +162,9 @@ class AuthRoutes(UiRoutes):
             if principal is not None:
                 principal.updated_at = utc_now()
                 await uow.flush()
-        return RedirectResponse(url="/sign-in", status_code=303)
+        # To the landing page, as Maya does: somebody who has just signed out
+        # is leaving, and a sign-in form reads as being asked to come back.
+        return RedirectResponse(url=url_for(request, "home"), status_code=303)
 
 
 #: Characters a browser removes from a URL before resolving it. Left in place,
