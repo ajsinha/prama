@@ -270,7 +270,7 @@ class ChangeIn(BaseModel):
 
 
 @router.post("/lineage/change")
-async def change(body: ChangeIn, caller: RelationshipWriter, uow: Uow) -> dict[str, Any]:
+async def change(body: ChangeIn, caller: RelationshipReader, uow: Uow) -> dict[str, Any]:
     """What a change between two versions of a SQL file puts at risk.
 
     `at_risk` is true when a control or attestation sits downstream — what

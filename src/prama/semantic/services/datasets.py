@@ -13,6 +13,24 @@ from prama.db.temporal import Provenance
 from prama.semantic.services.base import SemanticService, slugify
 from prama.semantic.values import Grain, Rhythm
 
+#: Fields only the approval step sets. Accepted in ``changes`` they would let an
+#: amendment or a correction declare itself approved, which is the whole of what
+#: maker-checker exists to prevent.
+PROTECTED = frozenset({"lifecycle_state", "approved_by", "approved_at", "authored_by"})
+
+
+def refuse_protected(changes: dict[str, Any]) -> None:
+    named = sorted(PROTECTED & set(changes))
+    if named:
+        raise ValidationError(
+            f"{', '.join(named)} cannot be changed directly",
+            remedy=(
+                "A held declaration takes effect when somebody else approves it "
+                "(POST /datasets/{id}/approve); authorship is recorded, not edited."
+            ),
+            context={"fields": ",".join(named)},
+        )
+
 
 class DatasetService(SemanticService):
     """Declaring, amending and retiring datasets."""
@@ -109,6 +127,7 @@ class DatasetService(SemanticService):
                     "declaration is an audit finding."
                 ),
             )
+        refuse_protected(changes)
         current = await self._uow.datasets.require_current(dataset_id, tenant_id=tenant_id)
         self._policy.check(
             criticality=changes.get("criticality", current.criticality),
@@ -116,6 +135,9 @@ class DatasetService(SemanticService):
             approved_by=approved_by,
             what="dataset amendment",
         )
+        if self._policy.held(changes.get("criticality", current.criticality), approved_by):
+            # Recorded, and held until somebody approves it (`approve`).
+            changes["lifecycle_state"] = "proposed"
         version = await self._uow.datasets.amend(
             dataset_id,
             tenant_id=tenant_id,
@@ -130,6 +152,53 @@ class DatasetService(SemanticService):
             object_id=dataset_id,
             actor_id=authored_by,
             detail={"reason": reason, "fields": sorted(changes)},
+        )
+        return version
+
+    async def approve(
+        self, *, tenant_id: str, dataset_id: str, approved_by: str, reason: str = ""
+    ) -> Any:
+        """Approve a held declaration or amendment: it takes effect.
+
+        The approval is a correction, not an amendment: what the declaration
+        says, and when it is true of the world, do not change; what is now
+        known is that somebody signed it off. The author is kept as the author,
+        so the version says both who wrote it and who agreed, and a Tier-1
+        author cannot be their own approver.
+        """
+        from prama.core.clock import utc_now
+
+        current = await self._uow.datasets.require_current(dataset_id, tenant_id=tenant_id)
+        if current.lifecycle_state != "proposed":
+            raise ConflictError(
+                f"{current.name} is {current.lifecycle_state}, not awaiting approval",
+                remedy="Only a declaration or amendment that is held (proposed) is approved.",
+                context={"dataset_id": dataset_id, "state": current.lifecycle_state},
+            )
+        self._policy.check_approver(
+            criticality=current.criticality,
+            authored_by=current.authored_by,
+            approver=approved_by,
+            what="dataset declaration",
+        )
+        version = await self._uow.datasets.correct(
+            dataset_id,
+            tenant_id=tenant_id,
+            provenance=Provenance(
+                authored_by=current.authored_by,
+                approved_by=approved_by,
+                approved_at=utc_now(),
+                reason=reason or "approved",
+            ),
+            lifecycle_state="active",
+        )
+        self._audit(
+            tenant_id=tenant_id,
+            action="dataset.approved",
+            object_kind="dataset",
+            object_id=dataset_id,
+            actor_id=approved_by,
+            detail={"author": current.authored_by, "criticality": current.criticality},
         )
         return version
 
@@ -148,6 +217,7 @@ class DatasetService(SemanticService):
                 "a correction must say what was wrong",
                 remedy="State the error being corrected; the record is permanent.",
             )
+        refuse_protected(changes)
         version = await self._uow.datasets.correct(
             dataset_id,
             tenant_id=tenant_id,

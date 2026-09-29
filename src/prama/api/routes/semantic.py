@@ -15,6 +15,7 @@ from datetime import datetime
 from fastapi import APIRouter, Query, Response, status
 
 from prama.api.deps import (
+    DeclarationApprover,
     Reader,
     RelationshipReader,
     RelationshipWriter,
@@ -23,6 +24,7 @@ from prama.api.deps import (
 )
 from prama.api.mapping import attribute_out, dataset_out, relationship_out
 from prama.api.schemas import (
+    ApprovalIn,
     AttributeIn,
     AttributeOut,
     DatasetAmendIn,
@@ -44,6 +46,7 @@ from prama.semantic.relationships import (
     Tolerance,
 )
 from prama.semantic.services import DatasetService, RelationshipService, relationship_kinds
+from prama.semantic.services.datasets import refuse_protected
 from prama.semantic.values import Grain, Rhythm, ValueDomain, ValueDomainKind
 
 router = APIRouter(tags=["semantic"])
@@ -73,7 +76,6 @@ async def declare_dataset(body: DatasetIn, caller: Writer, uow: Uow) -> DatasetO
         sensitivity=body.sensitivity,
         tags=body.tags,
         authored_by=caller.principal_id,
-        approved_by=body.approved_by,
         reason=body.reason,
         valid_from=body.valid_from,
     )
@@ -149,12 +151,14 @@ async def amend_dataset(
     dataset_id: str, body: DatasetAmendIn, caller: Writer, uow: Uow
 ) -> DatasetOut:
     """The world changed: close one validity period and open the next."""
+    # Before unpacking: a key named approved_by would otherwise bind to the
+    # service's own parameter and approve the amendment on the caller's word.
+    refuse_protected(body.changes)
     version = await DatasetService(uow).amend(
         tenant_id=caller.tenant_id,
         dataset_id=dataset_id,
         reason=body.reason,
         authored_by=caller.principal_id,
-        approved_by=body.approved_by,
         effective_from=body.effective_from,
         **body.changes,
     )
@@ -166,12 +170,34 @@ async def correct_dataset(
     dataset_id: str, body: DatasetCorrectIn, caller: Writer, uow: Uow
 ) -> DatasetOut:
     """We were wrong: supersede the belief, leave validity untouched."""
+    refuse_protected(body.changes)
     version = await DatasetService(uow).correct(
         tenant_id=caller.tenant_id,
         dataset_id=dataset_id,
         reason=body.reason,
         authored_by=caller.principal_id,
         **body.changes,
+    )
+    return dataset_out(version)
+
+
+@router.post("/datasets/{dataset_id}/approve", response_model=DatasetOut)
+async def approve_dataset(
+    dataset_id: str, body: ApprovalIn, caller: DeclarationApprover, uow: Uow
+) -> DatasetOut:
+    """Approve a held declaration or amendment. The approver is the caller.
+
+    Nobody names an approver on a declaration any more: that was a claim any
+    caller could make about anybody. A Tier-1 or Tier-2 change without one is
+    held (``lifecycle_state`` ``proposed``), and takes effect when somebody
+    holding ``declaration:approve`` approves it — at Tier 1, somebody other
+    than its author.
+    """
+    version = await DatasetService(uow).approve(
+        tenant_id=caller.tenant_id,
+        dataset_id=dataset_id,
+        approved_by=caller.require_principal(),
+        reason=body.reason,
     )
     return dataset_out(version)
 
@@ -303,7 +329,6 @@ async def declare_relationship(
         owner_id=body.owner_id,
         criticality=body.criticality,
         authored_by=caller.principal_id,
-        approved_by=body.approved_by,
         reason=body.reason,
     )
     return relationship_out(version)

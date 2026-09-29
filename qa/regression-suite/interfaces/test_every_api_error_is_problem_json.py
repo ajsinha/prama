@@ -42,6 +42,7 @@ from prama.api import create_app
 from prama.core.config import Configuration
 from prama.db import Database
 from prama.db.security import ApiKeyIssuer
+from prama.security.accounts import grant_roles
 
 PROBLEM = "application/problem+json"
 
@@ -61,6 +62,8 @@ async def api_client(
     async with estate.unit_of_work() as uow:
         person = uow.principals.create(tenant_id=ours, username="api", display_name="api")
         await uow.flush()
+        # A person's key is bounded by their roles; this one may do anything.
+        await grant_roles(uow, ours, person, ["admin"])
         uow.api_keys.create(
             tenant_id=ours,
             principal_id=str(person.id),

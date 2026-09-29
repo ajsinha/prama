@@ -51,10 +51,7 @@ class AcmeBookCode(SemanticValidator):
             return Judgement(valid=True)
         return Judgement(
             valid=False,
-            reason=(
-                f"the check character is {given}, and {value[:-1]}{expected} "
-                f"would be valid"
-            ),
+            reason=(f"the check character is {given}, and {value[:-1]}{expected} would be valid"),
         )
 
 

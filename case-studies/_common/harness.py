@@ -134,12 +134,21 @@ class Harness:
         #: The estate's business owner, a second person: Tier-1 and Tier-2
         #: declarations need an approver who is not their author.
         self.owner_id = ""
+        #: The owner, signed in: they approve what the administrator declares.
+        self.owner: prama.Client | None = None
         self.accepted = 0
         self.unsatisfiable: list[dict[str, str]] = []
         #: Comparisons PQL cannot say yet: declared and shown, not run, not claimed.
         self.comparisons: list[dict[str, str]] = []
 
     # -- sign in -------------------------------------------------------------
+
+    @property
+    def approver(self) -> prama.Client:
+        """The owner's client: the second person, who approves."""
+        if self.owner is None:
+            raise RuntimeError("start() the study before approving anything")
+        return self.owner
 
     @property
     def sdk(self) -> prama.Client:
@@ -182,11 +191,17 @@ class Harness:
         self.client = operator.as_key(made["credentials"]["api_key"])
         operator.close()
         # A second person, because maker-checker is a control and not a formality:
-        # the study authors as the administrator and names the owner as approver.
+        # the administrator declares, and the owner, signed in as themselves,
+        # approves. Nobody names somebody else as approver: over the API that
+        # is no longer possible, because it was a claim anyone could make.
+        secret = secrets.token_urlsafe(18)
         owner = self.sdk.principals.create(
-            "owner", roles=["owner"], display_name="Olu Adeyemi (business owner)"
+            "owner", roles=["owner"], password=secret, display_name="Olu Adeyemi (business owner)"
         )
         self.owner_id = str(owner["id"])
+        self.owner = prama.connect(
+            self.sdk.base_url, username="owner", password=secret, tenant=slug
+        )
         say(f"  Prama server: {self.sdk.base_url}  (signed in as {me['username']})")
         say(f"  This run's estate: {slug} — {tenant_name}")
 
@@ -199,10 +214,11 @@ class Harness:
             "In business terms. Not one line of SQL is written in this step.",
         )
         for dataset in datasets:
-            declared = self.sdk.datasets.declare(
-                dataset.name, approved_by=self.owner_id, **dataset.to_api()
-            )
+            declared = self.sdk.datasets.declare(dataset.name, **dataset.to_api())
             self.dataset_ids[declared["slug"]] = declared["id"]
+            if declared["lifecycle_state"] == "proposed":
+                # Held until approved: the owner signs it off, as themselves.
+                self.approver.datasets.approve(declared["id"], reason="reviewed for the study")
             for attribute in dataset.attributes:
                 self.sdk.datasets.add_attribute(
                     declared["id"], attribute.name, **attribute.to_api()
@@ -262,10 +278,10 @@ class Harness:
             "Facts about two datasets. Neither declaration alone implies them.",
         )
         for relationship in relationships:
-            declared = self.sdk.relationships.declare(
-                approved_by=self.owner_id, **relationship.to_api(self.dataset_ids)
-            )
-            self.sdk.relationships.confirm(declared["id"], reason="confirmed for the study")
+            declared = self.sdk.relationships.declare(**relationship.to_api(self.dataset_ids))
+            # Confirming a Tier-1 relationship is approving it, by somebody other
+            # than its author: the owner.
+            self.approver.relationships.confirm(declared["id"], reason="confirmed for the study")
             derived = self.sdk.derive.relationship(
                 declared["id"], declare=True, accept=True, reason="accepted for the study"
             )
@@ -432,9 +448,10 @@ class Harness:
         self.close()
 
     def close(self) -> None:
-        if self.client is not None:
-            self.client.close()
-            self.client = None
+        for client in (self.client, self.owner):
+            if client is not None:
+                client.close()
+        self.client = self.owner = None
 
 
 def _records(latest: Any) -> list[dict[str, Any]]:

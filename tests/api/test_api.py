@@ -119,12 +119,29 @@ class TestDatasets:
         assert problem["remedy"]  # what to do next, not just what went wrong
         assert response.headers["content-type"].startswith("application/problem+json")
 
-    async def test_tier_one_without_approval_is_422_naming_the_requirement(
+    async def test_tier_one_is_held_until_somebody_approves_it(
         self, client: httpx.AsyncClient
     ) -> None:
         response = await client.post("/datasets", json={"name": "FRTB Feeder", "criticality": 1})
+        assert response.status_code == 201, response.text
+        assert response.json()["lifecycle_state"] == "proposed"
+
+    async def test_a_caller_cannot_name_their_own_approver(self, client: httpx.AsyncClient) -> None:
+        """The approver is whoever approves; a declaration no longer names one."""
+        response = await client.post(
+            "/datasets", json={"name": "FRTB Feeder", "criticality": 1, "approved_by": "bob"}
+        )
         assert response.status_code == 422
-        assert "approval" in response.json()["title"]
+        # Nor through an amendment's free-form changes, where approved_by would
+        # otherwise bind to the service's own parameter.
+        held = await client.post("/datasets", json={"name": "FRTB Feeder", "criticality": 1})
+        for changes in ({"approved_by": "bob"}, {"lifecycle_state": "active"}):
+            response = await client.post(
+                f"/datasets/{held.json()['id']}/amend",
+                json={"reason": "trying", "changes": changes},
+            )
+            assert response.status_code == 422, changes
+            assert "cannot be changed directly" in response.json()["title"]
 
     async def test_an_unknown_field_is_rejected_not_silently_dropped(
         self, client: httpx.AsyncClient

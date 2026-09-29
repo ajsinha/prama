@@ -17,6 +17,24 @@
 {% endblock %}
 
 {% block content %}
+{% if held %}
+{# Held: recorded, not in effect, until somebody approves it. Said at the top,
+   because a controls page derived from an unapproved declaration is the first
+   thing a reader would otherwise trust. #}
+<div class="alert alert-warning d-flex flex-wrap align-items-center gap-3" role="status">
+  <div class="me-auto">
+    <strong>Awaiting approval.</strong> This declaration is recorded and not yet in effect.
+    {% if dataset.criticality == 1 %}At Tier 1 somebody other than its author must approve it.{% endif %}
+  </div>
+  {% if can_approve %}
+  <form method="post" action="{{ url_for('dataset_approve', dataset_id=dataset.id) }}" class="d-flex gap-2">
+    <label class="visually-hidden" for="approve-reason">Reason</label>
+    <input class="form-control form-control-sm" id="approve-reason" name="reason" placeholder="Why (optional)">
+    <button class="btn btn-sm btn-primary" type="submit"><i class="bi bi-check2-circle" aria-hidden="true"></i> Approve</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
 <div class="row g-3">
   <div class="col-lg-8">
     <div class="card mb-3">

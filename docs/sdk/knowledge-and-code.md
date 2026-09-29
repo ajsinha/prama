@@ -22,13 +22,13 @@ The examples use the synchronous client. Every method works unchanged on
 
 | Namespace | What it does | Scope it needs |
 |---|---|---|
-| `client.lineage` | Scan SQL, import exports and query history, decide edges, impact, gaps | `relationship:read`; `relationship:write` to add, decide or assess a change |
-| `client.code` | Receive a ZIP or a git ref and read its lineage; review a change | `relationship:read`; `relationship:write` to receive or review |
+| `client.lineage` | Scan SQL, import exports and query history, decide edges, impact, gaps | `relationship:read`; `relationship:write` to add or decide (assessing a change is a read) |
+| `client.code` | Receive a ZIP or a git ref and read its lineage; review a change | `relationship:read`; `relationship:write` to receive (reviewing a change is a read) |
 | `client.glossary` | Terms, imports from Alation or Collibra, bindings | `declaration:read`; `declaration:write` to import or bind |
 | `client.metadata` | Templates, values, business context, implied rules, search | `declaration:read`; `declaration:write`; `control:propose` for a hand-written rule |
 | `client.comments` | Comments, threads, resolving, the queue | `declaration:read`; `comment:write` to post or resolve |
 | `client.delegates` | Upload a Python check, vet it, decide it with four eyes, try it | `control:read`; `control:propose` to upload or try; `control:approve` to decide |
-| `client.packs` | The banking pack: inventory, claims, calendars, message parsing, concepts; SOC 2 | `declaration:read`; `declaration:write` to parse a message |
+| `client.packs` | The banking pack: inventory, claims, calendars, message parsing, concepts; SOC 2 | `declaration:read`, parsing a message included |
 | `client.connectors` | Installed connectors and their forms; test, browse, profile a connection | `declaration:read`; `declaration:write` to test or profile |
 
 A refusal raises Prama's own error class — `ForbiddenError` for a missing scope,

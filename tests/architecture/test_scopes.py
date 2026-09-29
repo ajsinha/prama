@@ -124,6 +124,14 @@ class TestEveryApiRouteDeclaresAScope:
         "/pql/completions": "answers an editor about a text; stores nothing",
         "/pql/hover": "answers an editor about a text; stores nothing",
         "/rule-builder": "assembles PQL from the builder's answers; stores nothing",
+        # Read-only by what they do, and needed by people who may only read: an
+        # auditor reviewing a change's effect, or comparing a repository with
+        # the estate, changes nothing by doing so.
+        "/code/review": "diffs the lineage of two uploaded archives; stores nothing",
+        "/code/review/git": "diffs the lineage of two git refs; stores nothing",
+        "/lineage/change": "reports what a proposed change to lineage reaches; stores nothing",
+        "/packs/banking/parse": "parses a financial message and says what is wrong; stores nothing",
+        "/estate/diff": "compares supplied estate files with the store; resolves nothing",
     }
 
     def anonymous_paths(self) -> set[str]:

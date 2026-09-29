@@ -291,21 +291,21 @@ class TestDeclarationForm:
         assert "End-of-day positions." in clash.text
         assert "one position per account" in clash.text
 
-    async def test_a_tier_one_declaration_is_refused_without_an_approver(
-        self, ui: httpx.AsyncClient
-    ) -> None:
+    async def test_a_tier_one_declaration_is_held_for_approval(self, ui: httpx.AsyncClient) -> None:
         """Maker-checker, surfaced where it is typed rather than swallowed.
 
-        The refusal carries the policy's own remedy, so the person reading it
-        learns what to do next instead of retrying the same form.
+        It used to be refused, with a remedy promising it would be "held as
+        proposed until an approver signs it off", which nothing did. Now it is
+        held, the page says so, and somebody else approves it.
         """
         response = await ui.post(
             "/declarations/new",
             data={"name": "Regulatory Return", "shape": "table", "criticality": "1"},
         )
-        assert response.status_code == 422
-        assert "requires approval" in response.text
-        assert "held as proposed" in response.text
+        assert response.status_code == 303
+        page = await ui.get(response.headers["location"])
+        assert "held until somebody approves it" in page.text
+        assert "Awaiting approval" in page.text
 
     async def test_the_list_puts_tier_one_first(
         self, ui: httpx.AsyncClient, started_database: Database, tenant_id: str

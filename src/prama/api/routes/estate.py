@@ -14,7 +14,7 @@ from typing import Any
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
-from prama.api.deps import Reader, Uow, Writer
+from prama.api.deps import Reader, Uow
 from prama.api.schemas import ConflictOut, MaturityOut
 from prama.semantic.services import EstateService, estate_files
 
@@ -73,12 +73,12 @@ async def export_estate(caller: Reader, uow: Uow) -> dict[str, Any]:
 
 
 @router.post("/diff")
-async def diff_estate(body: EstateFilesIn, caller: Writer, uow: Uow) -> dict[str, Any]:
+async def diff_estate(body: EstateFilesIn, caller: Reader, uow: Uow) -> dict[str, Any]:
     """Where a set of files disagrees with the store, in both directions. Never resolved.
 
-    Changes nothing. A POST only because it carries the files, and so it asks
-    for ``declaration:write`` — the permission of whoever keeps the declarations
-    in a repository and acts on the drift — rather than a read scope a POST
-    must never settle for (`tests/architecture/test_scopes.py`).
+    Changes nothing: a POST only because it carries the files, so it asks for
+    the read scope, and is listed as a read-only POST, with its reason, in
+    `tests/architecture/test_scopes.py`. An auditor may compare a repository
+    with the estate.
     """
     return await estate_files.diff_against(uow, caller.tenant_id, body.files)

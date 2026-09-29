@@ -11,13 +11,15 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import Request
+from fastapi import Form, Request
 
+from prama.core.errors import PramaError
+from prama.security.scopes import permits
 from prama.semantic.services import EstateService
 from prama.web.deps import Caller, Uow
-from prama.web.rendering import render
+from prama.web.rendering import flash_error_and_log, redirect_to, render
 from prama.web.routes.base import UiRoutes
 from prama.web.viewmodels import DatasetCard, RelationshipEdge
 
@@ -30,6 +32,13 @@ class EstateRoutes(UiRoutes):
         self.page("/estate/graph.json", self.estate_graph, name="estate_graph")
         self.page("/estate/gaps", self.estate_gaps, name="estate_gaps")
         self.page("/estate/{dataset_id}", self.dataset_detail, name="dataset_detail")
+        self.page(
+            "/estate/{dataset_id}/approve",
+            self.approve_dataset,
+            name="dataset_approve",
+            methods=["POST"],
+            scope="declaration:approve",
+        )
 
     async def estate_map(self, request: Request, caller: Caller, uow: Uow) -> Any:
         """The map shell. The graph itself arrives separately.
@@ -123,4 +132,42 @@ class EstateRoutes(UiRoutes):
             attributes=attributes,
             relationships=[RelationshipEdge.of(r) for r in relationships],
             history_count=len(await uow.datasets.history(dataset_id, tenant_id=caller.tenant_id)),
+            # Held, and whether this person may approve it: the approve scope,
+            # and at Tier 1 not being its author (the service refuses anyway;
+            # hiding a button that would be refused is courtesy).
+            held=version.lifecycle_state == "proposed",
+            author=version.authored_by,
+            can_approve=(
+                version.lifecycle_state == "proposed"
+                and permits(caller.scopes, "declaration:approve")
+                and not (version.criticality == 1 and version.authored_by == caller.principal_id)
+            ),
+        )
+
+    async def approve_dataset(
+        self,
+        request: Request,
+        dataset_id: str,
+        caller: Caller,
+        uow: Uow,
+        reason: Annotated[str, Form()] = "",
+    ) -> Any:
+        """Approve a held declaration, as the signed-in person."""
+        from prama.semantic.services import DatasetService
+
+        try:
+            version = await DatasetService(uow).approve(
+                tenant_id=caller.tenant_id,
+                dataset_id=dataset_id,
+                approved_by=caller.require_principal(),
+                reason=reason.strip() or "approved in the console",
+            )
+        except PramaError as exc:
+            flash_error_and_log(request, "That declaration could not be approved", exc)
+            return redirect_to(request, "dataset_detail", dataset_id=dataset_id)
+        return redirect_to(
+            request,
+            "dataset_detail",
+            dataset_id=dataset_id,
+            flash_message=f"{version.name} approved; it is now in effect.",
         )

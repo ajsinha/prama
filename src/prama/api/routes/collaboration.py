@@ -12,7 +12,6 @@ from pydantic import BaseModel
 
 from prama.api.deps import Commenter, Reader, Uow
 from prama.core.errors import ForbiddenError, NotFoundError, ValidationError
-from prama.security.scopes import permits
 from prama.semantic.services import collaboration
 
 router = APIRouter(tags=["collaboration"])
@@ -107,7 +106,7 @@ async def my_queue(
     """
     whom = _person(caller, "a queue")
     if person:
-        if not permits(caller.scopes, "admin"):
+        if not caller.allows("admin"):
             raise ForbiddenError(
                 "reading somebody else's queue needs the 'admin' scope",
                 remedy="Read your own queue, or use an administrator's key.",
@@ -116,7 +115,7 @@ async def my_queue(
         if found is None:
             raise NotFoundError(f"nobody is called {person}", remedy="Pass an existing username.")
         whom = str(found.id)
-    may_approve = permits(caller.scopes, "control:approve")
+    may_approve = caller.allows("control:approve")
     if approver and not may_approve:
         raise ForbiddenError(
             "approvals are listed only for a credential that may approve",

@@ -17,7 +17,7 @@ print packs. Six namespaces:
 | `client.scorecards` | Scores per dataset and for the estate, by dimension | `report:read` |
 | `client.attestations` | The register, drafts, signing, the attestation pack | `attestation:read` (signing: `attestation:sign`) |
 | `client.reports` | The declaration and control packs, as HTML or JSON | `report:read` |
-| `client.estate` | Also: export the declared estate as YAML, and diff files against it | `declaration:read` (diff: `declaration:write`) |
+| `client.estate` | Also: export the declared estate as YAML, and diff files against it | `declaration:read`, the diff included |
 
 The examples use the synchronous client. With `AsyncClient` every call is the same, awaited.
 

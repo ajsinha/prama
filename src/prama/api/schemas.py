@@ -74,9 +74,6 @@ class DatasetIn(PramaModel):
     authoritativeness: str = "unknown"
     sensitivity: str = "internal"
     tags: list[str] = Field(default_factory=list)
-    approved_by: str | None = Field(
-        default=None, description="Required for Tier-1 and Tier-2 declarations."
-    )
     reason: str = ""
     valid_from: datetime | None = Field(
         default=None,
@@ -92,7 +89,6 @@ class DatasetIn(PramaModel):
 class DatasetAmendIn(PramaModel):
     reason: str = Field(min_length=1, description="Why the world changed. Required.")
     effective_from: datetime | None = None
-    approved_by: str | None = None
     changes: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -172,11 +168,16 @@ class RelationshipIn(PramaModel):
     description: str = ""
     owner_id: str | None = None
     criticality: int = Field(default=4, ge=1, le=4)
-    approved_by: str | None = None
     reason: str = ""
 
 
 class RelationshipDecisionIn(PramaModel):
+    reason: str = ""
+
+
+class ApprovalIn(PramaModel):
+    """Approving a held declaration. The approver is whoever sends it."""
+
     reason: str = ""
 
 
@@ -393,7 +394,6 @@ class JourneyIn(PramaModel):
     criticality: int = Field(default=4, ge=1, le=4)
     sla: dict[str, Any] | None = None
     steps: list[JourneyStepIn] = Field(default_factory=list)
-    approved_by: str | None = None
 
 
 class JourneyStepsIn(PramaModel):

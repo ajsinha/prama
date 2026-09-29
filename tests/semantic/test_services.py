@@ -54,9 +54,21 @@ class TestApprovalPolicy:
             policy.check(criticality=1, authored_by="alice", approved_by="alice")
         policy.check(criticality=1, authored_by="alice", approved_by="bob")
 
-    def test_tier_one_without_any_approver_is_refused(self) -> None:
-        with pytest.raises(ValidationError, match="requires approval"):
-            ApprovalPolicy().check(criticality=1, authored_by="alice", approved_by=None)
+    def test_tier_one_without_an_approver_is_held_not_refused(self) -> None:
+        """Held until approved. Refusing it, with a remedy promising the hold,
+        meant a Tier-1 declaration could only be made by naming an approver,
+        and over the API a caller could name anybody."""
+        policy = ApprovalPolicy()
+        policy.check(criticality=1, authored_by="alice", approved_by=None)  # not refused
+        assert policy.held(1, None) and policy.held(2, None)
+        assert not policy.held(1, "bob") and not policy.held(4, None)
+
+    def test_a_tier_one_author_cannot_approve_their_own(self) -> None:
+        with pytest.raises(ValidationError, match="its own author"):
+            ApprovalPolicy().check_approver(criticality=1, authored_by="alice", approver="alice")
+        ApprovalPolicy().check_approver(criticality=1, authored_by="alice", approver="bob")
+        # Tier 2 needs a review, not necessarily a second person.
+        ApprovalPolicy().check_approver(criticality=2, authored_by="alice", approver="alice")
 
     def test_lower_tiers_are_deliberately_permissive(self) -> None:
         # Demanding two signatures for a Tier-4 comment trains people to click
@@ -95,21 +107,51 @@ class TestDatasetService:
     ) -> None:
         async with started_database.unit_of_work() as uow:
             service = DatasetService(uow)
-            with pytest.raises(ValidationError, match="requires approval"):
-                await service.declare(
-                    tenant_id=tenant_id,
-                    name="FRTB Feeder",
-                    criticality=1,
-                    authored_by="alice",
-                )
-            _, version = await service.declare(
-                tenant_id=tenant_id,
-                name="FRTB Feeder",
-                criticality=1,
-                authored_by="alice",
-                approved_by="bob",
+            _, held = await service.declare(
+                tenant_id=tenant_id, name="FRTB Feeder", criticality=1, authored_by="alice"
             )
-            assert version.lifecycle_state == "active"
+            assert held.lifecycle_state == "proposed"  # recorded, not in effect
+            dataset_id = str(held.dataset_id)
+            with pytest.raises(ValidationError, match="its own author"):
+                await service.approve(
+                    tenant_id=tenant_id, dataset_id=dataset_id, approved_by="alice"
+                )
+            approved = await service.approve(
+                tenant_id=tenant_id, dataset_id=dataset_id, approved_by="bob"
+            )
+            assert approved.lifecycle_state == "active"
+            assert (approved.authored_by, approved.approved_by) == ("alice", "bob")
+            assert approved.valid_from == held.valid_from  # a correction, not an amendment
+            with pytest.raises(ConflictError, match="not awaiting approval"):
+                await service.approve(
+                    tenant_id=tenant_id, dataset_id=dataset_id, approved_by="carol"
+                )
+
+    async def test_an_amendment_cannot_approve_itself(
+        self, started_database: Database, tenant_id: str
+    ) -> None:
+        """``changes`` is free-form, and would otherwise carry lifecycle_state."""
+        async with started_database.unit_of_work() as uow:
+            service = DatasetService(uow)
+            _, held = await service.declare(
+                tenant_id=tenant_id, name="FRTB Feeder", criticality=1, authored_by="alice"
+            )
+            for field in ("lifecycle_state", "approved_at"):
+                with pytest.raises(ValidationError, match="cannot be changed directly"):
+                    await service.correct(
+                        tenant_id=tenant_id,
+                        dataset_id=str(held.dataset_id),
+                        reason="trying",
+                        **{field: "active"},
+                    )
+            with pytest.raises(ValidationError, match="cannot be changed directly"):
+                await service.amend(
+                    tenant_id=tenant_id,
+                    dataset_id=str(held.dataset_id),
+                    reason="trying",
+                    authored_by="alice",
+                    lifecycle_state="active",
+                )
 
     async def test_an_unapproved_declaration_stays_proposed(
         self, started_database: Database, tenant_id: str

@@ -69,7 +69,13 @@ class RelationshipService(SemanticService):
             filter_expression=declaration.filter_expression,
             owner_id=owner_id,
             criticality=criticality,
-            status="confirmed" if confirmed else "proposed",
+            # Held as proposed when the tier needs an approver and none signed
+            # it: confirming it (`confirm`) is the approval.
+            status=(
+                "confirmed"
+                if confirmed and not self._policy.held(criticality, approved_by)
+                else "proposed"
+            ),
             provenance=Provenance(
                 authored_by=authored_by,
                 approved_by=approved_by,
@@ -131,12 +137,20 @@ class RelationshipService(SemanticService):
         )
         if current.status == "confirmed":
             return current
+        # Confirming is approving, so a Tier-1 relationship is not confirmed by
+        # the person who declared it. A discovered one has no author to refuse.
+        self._policy.check_approver(
+            criticality=current.criticality,
+            authored_by=current.authored_by,
+            approver=confirmed_by,
+            what="relationship declaration",
+        )
         version = await self._uow.relationships.amend(
             relationship_id,
             tenant_id=tenant_id,
             status="confirmed",
             provenance=Provenance(
-                authored_by=confirmed_by,
+                authored_by=current.authored_by or confirmed_by,
                 approved_by=confirmed_by,
                 reason=reason or "confirmed by steward",
             ),

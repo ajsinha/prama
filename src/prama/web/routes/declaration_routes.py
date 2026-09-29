@@ -187,5 +187,9 @@ class DeclarationRoutes(UiRoutes):
             request,
             "dataset_detail",
             dataset_id=version.dataset_id,
-            flash_message=f"{name} declared.",
+            flash_message=(
+                f"{name} declared, and held until somebody approves it."
+                if version.lifecycle_state == "proposed" and criticality <= 2
+                else f"{name} declared."
+            ),
         )

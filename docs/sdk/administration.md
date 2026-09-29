@@ -79,6 +79,19 @@ steward.api_keys.create("ci", ["control:approve"])
 # prama.ValidationError: you cannot grant control:approve
 ```
 
+**Nor its holder as they are now.** A key keeps the scopes it was minted with, but a person's
+roles change, and a person's key is only ever worth what their roles grant *today*. Take
+somebody's owner role and every key they hold stops approving at once, while still doing
+whatever their remaining roles allow; nothing needs revoking. `client.auth.me()` shows both
+the key's `scopes` and its `effective_scopes`. A service account — a steward agent — holds no
+roles, so its key is its grant.
+
+```python
+client.principals.set_roles("olu", ["steward"])
+olu.datasets.approve(dataset_id)
+# prama.ForbiddenError: your roles no longer grant 'declaration:approve', though this key was issued with it
+```
+
 An administrator sees and revokes every key in the estate, and can mint a key that acts as a
 service principal. Its scopes are explicit, not inherited from roles:
 
