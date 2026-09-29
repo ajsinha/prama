@@ -49,6 +49,15 @@ class Criticality(enum.IntEnum):
         }[int(self)]
 
 
+#: How the console and the print packs name each tier, short enough for a badge.
+TIER_LABELS: dict[int, str] = {
+    1: "Tier 1 · regulatory",
+    2: "Tier 2 · material",
+    3: "Tier 3 · operational",
+    4: "Tier 4 · informational",
+}
+
+
 class Sensitivity(enum.Enum):
     """What may be shown, and to whom.
 

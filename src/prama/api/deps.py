@@ -219,3 +219,18 @@ TenantAdmin = scoped("tenant:admin")
 Uow = Annotated[UnitOfWork, Depends(get_uow)]
 Config = Annotated[Configuration, Depends(get_config)]
 Db = Annotated[Database, Depends(get_database)]
+
+
+# -- evidence and assurance ----------------------------------------------------
+#: The ledger, incidents, scorecards and reports, attestations. Each names the
+#: scope the console's matching screen already requires, so a key and a
+#: browser session holding the same permissions see the same things.
+EvidenceReader = scoped("evidence:read")
+IncidentReader = scoped("incident:read")
+ReportReader = scoped("report:read")
+AttestationReader = scoped("attestation:read")
+AttestationSigner = scoped("attestation:sign")
+#: Anchoring sends the chain head to a witness outside Prama and records the
+#: receipt. It changes no evidence, but it is an outbound call on the estate's
+#: behalf, which is an operator's decision rather than a reader's.
+EvidenceAnchorer = scoped("admin")

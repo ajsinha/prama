@@ -211,3 +211,13 @@ class Estate(Resource):
     @endpoint("GET", "/estate/coverage-gaps")
     def coverage_gaps(self) -> Any:
         return self._get("/estate/coverage-gaps")
+
+    @endpoint("GET", "/estate/export")
+    def export(self) -> Any:
+        """The declared estate as YAML: ``{"files": {path: text}}``, to write under a directory."""
+        return self._get("/estate/export")
+
+    @endpoint("POST", "/estate/diff")
+    def diff(self, files: dict[str, str]) -> Any:
+        """Where these files (path -> YAML, as ``export`` gives them) disagree with the store."""
+        return self._post("/estate/diff", body(files=dict(files)))
