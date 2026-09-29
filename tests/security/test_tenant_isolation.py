@@ -920,7 +920,7 @@ UNSWEPT: dict[str, str] = {
     ),
     "SampleDao": (
         "no tenant-scoped read exists. `get(digest)` is content-addressed and "
-        "the tenant check lives in the caller — `triage_routes._sample` compares "
+        "the tenant check lives in the caller — `prama.incident.triage._sample` compares "
         "`stored.tenant_id` itself — which is the shape finding S2 was about. "
         "`forget(digest)` takes no tenant at all, so a known digest deletes "
         "another estate's samples. Covered today by "

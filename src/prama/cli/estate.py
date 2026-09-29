@@ -21,7 +21,8 @@ from typing import Any
 
 from prama.cli.base import EXIT_DRIFT, EXIT_OK, Command, CommandContext, CommandGroup
 from prama.db import Database
-from prama.semantic.gitops import DriftDetector, EstateSerialiser
+from prama.semantic.gitops import DriftDetector
+from prama.semantic.services import estate_files
 
 
 class EstateExportCommand(Command):
@@ -40,15 +41,20 @@ class EstateExportCommand(Command):
         root = Path(ctx.args.out)
         if not ctx.args.dry_run:
             for relative, text in files.items():
-                path = root / Path(relative).relative_to("prama")
+                path = root / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(text, encoding="utf-8")
         if ctx.json_output:
-            ctx.emit_json({"written": not ctx.args.dry_run, "files": sorted(files)})
+            ctx.emit_json(
+                {
+                    "written": not ctx.args.dry_run,
+                    "files": sorted(f"{estate_files.ROOT}/{r}" for r in files),
+                }
+            )
         else:
             verb = "would write" if ctx.args.dry_run else "wrote"
             for relative in sorted(files):
-                ctx.emit(f"  {relative}")
+                ctx.emit(f"  {estate_files.ROOT}/{relative}")
             ctx.emit(f"{verb} {len(files)} file(s) under {root}")
         return EXIT_OK
 
@@ -63,19 +69,12 @@ class EstateDiffCommand(Command):
 
     def run(self, ctx: CommandContext) -> int:
         files = asyncio.run(_collect(ctx, ctx.args.tenant))
-        serialiser = EstateSerialiser()
         root = Path(ctx.args.dir)
-
-        store: dict[str, dict[str, Any]] = {}
-        repository: dict[str, dict[str, Any]] = {}
-        for relative, text in files.items():
-            key = str(Path(relative).relative_to("prama"))
-            store[key] = serialiser.load(text).get("spec", {})
-        for path in sorted(root.rglob("*.yaml")):
-            key = str(path.relative_to(root))
-            repository[key] = serialiser.load(path.read_text(encoding="utf-8")).get("spec", {})
-
-        drifts = DriftDetector().compare(store, repository, kind="Document")
+        repository = {
+            str(path.relative_to(root)): path.read_text(encoding="utf-8")
+            for path in sorted(root.rglob("*.yaml"))
+        }
+        drifts = estate_files.diff(files, repository)
         if ctx.json_output:
             ctx.emit_json({"in_sync": not drifts, "drifts": [d.to_dict() for d in drifts]})
         else:
@@ -128,36 +127,11 @@ class EstateCommand(CommandGroup):
 
 
 async def _collect(ctx: CommandContext, tenant_id: str) -> dict[str, str]:
-    """Render every declared object to its documented path."""
-    serialiser = EstateSerialiser()
+    """Render every declared object, by path relative to the export directory."""
     database = Database.from_config(ctx.config)
     await database.start()
     try:
         async with database.unit_of_work() as uow:
-            datasets = await uow.datasets.list_current(tenant_id, limit=10_000)
-            slugs = {d.dataset_id: d.slug for d in datasets}
-            files: dict[str, str] = {}
-
-            for dataset in datasets:
-                attributes = await uow.attributes.for_dataset(
-                    dataset.dataset_id, tenant_id=tenant_id
-                )
-                files[serialiser.path_for("Dataset", dataset.slug)] = serialiser.dump(
-                    serialiser.dataset_document(dataset, attributes, slug_of=slugs)
-                )
-            for relationship in await uow.relationships.list_current(tenant_id, limit=10_000):
-                name = f"{relationship.kind}_{relationship.relationship_id[-8:].lower()}"
-                files[serialiser.path_for("Relationship", name)] = serialiser.dump(
-                    serialiser.relationship_document(relationship, slug_of=slugs)
-                )
-            for journey in await uow.journeys.list_current(tenant_id, limit=10_000):
-                files[serialiser.path_for("Journey", journey.slug)] = serialiser.dump(
-                    serialiser.journey_document(journey, slug_of=slugs)
-                )
-            for connection in await uow.connections.list_current(tenant_id, limit=10_000):
-                files[serialiser.path_for("Connection", connection.slug)] = serialiser.dump(
-                    serialiser.connection_document(connection)
-                )
-            return files
+            return await estate_files.export(uow, tenant_id)
     finally:
         await database.stop()

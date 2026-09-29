@@ -235,3 +235,16 @@ ContractChecker = scoped("contract:check")
 #: puts each of these behind ``admin``; the API asks for the same scope, so
 #: the two surfaces cannot disagree about who may do it.
 Administrator = scoped("admin")
+
+# -- evidence and assurance ----------------------------------------------------
+#: The ledger, incidents, scorecards and reports, attestations. Each names the
+#: scope the console's matching screen already requires, so a key and a
+#: browser session holding the same permissions see the same things.
+EvidenceReader = scoped("evidence:read")
+IncidentReader = scoped("incident:read")
+AttestationReader = scoped("attestation:read")
+#: ReportReader and AttestationSigner are defined with reconciliation, above.
+#: Anchoring sends the chain head to a witness outside Prama and records the
+#: receipt. It changes no evidence, but it is an outbound call on the estate's
+#: behalf, which is an operator's decision rather than a reader's.
+EvidenceAnchorer = scoped("admin")

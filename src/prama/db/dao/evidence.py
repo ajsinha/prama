@@ -349,6 +349,46 @@ class EvidenceDao(Dao[EvRecord]):
         )
         return [_to_record(row) for row in (await self._session.execute(stmt)).scalars()]
 
+    async def search(
+        self,
+        tenant_id: str,
+        *,
+        control_id: str | None = None,
+        dataset: str | None = None,
+        verdict: str | None = None,
+        run_id: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[EvidenceRecord]:
+        """This estate's records matching every filter given, newest first.
+
+        ``since`` and ``until`` bound ``finished_at``, inclusively, as ISO-8601
+        text — which sorts chronologically, so the comparison is the database's.
+        """
+        await self._session.flush()
+        stmt = select(EvRecord).where(EvRecord.tenant_id == tenant_id)
+        if control_id:
+            stmt = stmt.where(EvRecord.control_id == control_id)
+        if dataset:
+            stmt = stmt.where(EvRecord.dataset == dataset)
+        if verdict:
+            stmt = stmt.where(EvRecord.verdict == verdict)
+        if run_id:
+            stmt = stmt.where(EvRecord.run_id == run_id)
+        if since:
+            stmt = stmt.where(EvRecord.finished_at >= since)
+        if until:
+            stmt = stmt.where(EvRecord.finished_at <= until)
+        stmt = stmt.order_by(EvRecord.sequence.desc()).limit(limit).offset(offset)
+        return [_to_record(row) for row in (await self._session.execute(stmt)).scalars()]
+
+    async def at(self, tenant_id: str, sequence: int) -> EvidenceRecord | None:
+        """This estate's record at one position, for reading; None if there is none."""
+        row = await self.row_at(tenant_id, sequence)
+        return None if row is None else _to_record(row)
+
     async def failing(self, tenant_id: str, *, limit: int = 200) -> list[EvidenceRecord]:
         """Records whose verdict is not a pass.
 
