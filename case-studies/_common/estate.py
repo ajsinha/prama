@@ -5,6 +5,10 @@ how often it arrives, how much a defect matters — and *nothing* is written in
 SQL. That is the claim these studies exist to test: the controls come from the
 declaration, not from somebody who already knew what to check.
 
+These are plain descriptions, with no Prama import: the harness turns each into
+the body of an SDK call. A study is a client of Prama like any other program,
+and what it declares is exactly what a person could declare over the API.
+
 Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 """
 
@@ -13,16 +17,6 @@ from __future__ import annotations
 import dataclasses
 from typing import Any
 
-from prama.semantic.services import DatasetService
-from prama.semantic.values import (
-    Frequency,
-    Grain,
-    Optionality,
-    Rhythm,
-    ValueDomain,
-    ValueDomainKind,
-)
-
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Attribute:
@@ -30,18 +24,40 @@ class Attribute:
 
     name: str
     definition: str
-    #: A semantic type drives a validator: ``isin``, ``lei``, ``currency``.
-    #: This is what turns "it is an ISIN" into a checksum control.
     semantic_type: str = ""
     unit: str = ""
     mandatory: bool = False
     is_cde: bool = False
-    #: A closed set of permitted values, when there is one.
     codelist: tuple[str, ...] = ()
     minimum: float | None = None
     maximum: float | None = None
     currency_attribute: str = ""
     obligations: tuple[str, ...] = ()
+
+    def to_api(self) -> dict[str, Any]:
+        """The fields of ``client.datasets.add_attribute``."""
+        fields: dict[str, Any] = {
+            "definition": self.definition,
+            "is_cde": self.is_cde,
+            "optionality": "mandatory" if self.mandatory else "optional",
+            "obligations": list(self.obligations),
+        }
+        for key, value in (
+            ("semantic_type", self.semantic_type),
+            ("unit", self.unit),
+            ("currency_attribute", self.currency_attribute),
+        ):
+            if value:
+                fields[key] = value
+        if self.codelist:
+            fields["value_domain"] = {"kind": "codelist", "allowed_values": list(self.codelist)}
+        elif self.minimum is not None or self.maximum is not None:
+            fields["value_domain"] = {
+                "kind": "range",
+                "minimum": self.minimum,
+                "maximum": self.maximum,
+            }
+        return fields
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -56,10 +72,6 @@ class Dataset:
 
     name: str
     description: str
-    #: What one row represents, in the owner's own words. The single most
-    #: valuable sentence in the whole study: it becomes uniqueness,
-    #: duplication and completeness controls, and it is quoted back in every
-    #: one of them.
     grain_statement: str
     grain: tuple[str, ...]
     criticality: int
@@ -69,70 +81,60 @@ class Dataset:
     frequency: str = "daily"
     obligations: tuple[str, ...] = ()
 
+    def to_api(self) -> dict[str, Any]:
+        """The fields of ``client.datasets.declare``, after the name."""
+        fields: dict[str, Any] = {
+            "description": self.description,
+            "criticality": self.criticality,
+            "shape": self.shape,
+            "tags": list(self.obligations),
+            "reason": "declared for the case study",
+        }
+        if self.grain:
+            fields["grain"] = {"attributes": list(self.grain), "statement": self.grain_statement}
+        if self.arrival_by:
+            fields["rhythm"] = {"frequency": self.frequency, "arrival_by": self.arrival_by}
+        return fields
 
-def _domain(attribute: Attribute) -> ValueDomain:
-    if attribute.codelist:
-        return ValueDomain(kind=ValueDomainKind.CODELIST, allowed_values=tuple(attribute.codelist))
-    if attribute.minimum is not None or attribute.maximum is not None:
-        return ValueDomain(
-            kind=ValueDomainKind.RANGE,
-            minimum=attribute.minimum,
-            maximum=attribute.maximum,
-        )
-    return ValueDomain()
 
+@dataclasses.dataclass(frozen=True, slots=True)
+class Relationship:
+    """What is true *between* two datasets, named by their slugs.
 
-async def declare_estate(
-    uow: Any, tenant_id: str, datasets: list[Dataset], *, author: str, approver: str
-) -> dict[str, str]:
-    """Record every declaration, and return the dataset ids by slug."""
-    service = DatasetService(uow)
-    ids: dict[str, str] = {}
-    for dataset in datasets:
-        _, version = await service.declare(
-            tenant_id=tenant_id,
-            name=dataset.name,
-            description=dataset.description,
-            criticality=dataset.criticality,
-            shape=dataset.shape,
-            grain=(
-                Grain(attributes=dataset.grain, statement=dataset.grain_statement)
-                if dataset.grain
-                else None
-            ),
-            rhythm=(
-                Rhythm(
-                    frequency=Frequency(dataset.frequency),
-                    arrival_by=dataset.arrival_by or None,
-                )
-                if dataset.arrival_by
-                else None
-            ),
-            tags=list(dataset.obligations),
-            authored_by=author,
-            approved_by=approver,
-        )
-        ids[version.slug] = str(version.dataset_id)
+    ``kind`` is one of ``client.relationships.kinds()``: ``references``,
+    ``reconciles_with`` and so on. ``match_keys`` pairs a column on the left with
+    one on the right; ``compare`` states what must agree once rows are matched.
+    """
 
-        for attribute in dataset.attributes:
-            # ``**extra`` lands on the ORM columns, so these are column names
-            # rather than the value objects the service takes for a dataset.
-            await service.declare_attribute(
-                tenant_id=tenant_id,
-                dataset_id=str(version.dataset_id),
-                name=attribute.name,
-                definition=attribute.definition,
-                semantic_type=attribute.semantic_type or None,
-                is_cde=attribute.is_cde,
-                obligations=list(attribute.obligations),
-                authored_by=author,
-                unit=attribute.unit or None,
-                currency_attribute=attribute.currency_attribute or None,
-                value_domain_json=_domain(attribute).to_dict(),
-                optionality=(
-                    Optionality.MANDATORY.value
-                    if attribute.mandatory
-                    else Optionality.OPTIONAL.value
-                ),
-            )
-    return ids
+    kind: str
+    left: str
+    right: str
+    match_keys: tuple[tuple[str, str], ...] = ()
+    compare: tuple[str, ...] = ()
+    cardinality: str = "many_to_many"
+    tolerance: dict[str, Any] | None = None
+    offset: dict[str, Any] | None = None
+    description: str = ""
+
+    def to_api(self, ids: dict[str, str]) -> dict[str, Any]:
+        """The fields of ``client.relationships.declare``, with slugs made ids."""
+        fields: dict[str, Any] = {
+            "kind": self.kind,
+            "from_dataset_id": ids[self.left],
+            "to_dataset_id": ids[self.right],
+            "match_keys": [{"left": left, "right": right} for left, right in self.match_keys],
+            "compare": list(self.compare),
+            "cardinality": self.cardinality,
+            "description": self.description,
+            "criticality": 1,
+            "reason": "declared for the case study",
+        }
+        if self.tolerance:
+            fields["tolerance"] = self.tolerance
+        if self.offset:
+            fields["offset"] = self.offset
+        return fields
+
+    def render(self) -> str:
+        keys = ", ".join(f"{a} = {b}" for a, b in self.match_keys)
+        return f"{self.left} {self.kind} {self.right} on {keys}"
