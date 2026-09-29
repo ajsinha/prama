@@ -34,11 +34,26 @@ Here the relationships are declared, and the same defects are found.
 
 ## Run it
 
+The study is a client of **your** Prama server: it signs in through the SDK
+(`prama.sdk`), creates an estate of its own for the run, and transacts into it —
+datasets, relationships, controls, two connections and two runs. It starts no
+server and opens no Prama database.
+
 ```bash
+prama serve                               # or python run_prama_web.py, if not already running
 cd case-studies/03-mixed-estate
-python run.py                 # build, run, and serve the console on :8803
-python run.py --no-serve      # build and run, print the report, stop
+python run.py                             # the server config/application.yaml names
+python run.py --config other.yaml         # another server: its server.host and server.port
+python run.py --username ada --password … # as somebody else (default: the dev admin)
 ```
+
+**The server reads both sources, not the study**, so the server must be allowed
+to: add this checkout's `case-studies` directory to `runs.roots` in the server's
+`application.yaml` (or `application.local.yaml`) and restart it. Without that,
+the run stops at stage 4 and says which setting to change.
+
+Every run rebuilds both sources from the same seed and gets a fresh estate
+(`acme-group-<timestamp>`), so a rerun starts clean and the numbers below repeat.
 
 ## What was planted, and what happened
 
@@ -53,14 +68,19 @@ Defects 1 and 2 are the ones the first two studies could not touch. They are
 found here for one reason: somebody declared what is true between the datasets.
 
 ```python
-RelationshipDeclaration(
-    kind=RelationshipKind.REFERENCES,
-    from_dataset_id="trade_feed",
-    to_dataset_id="instrument_master",
-    match_keys=(MatchKey(left="isin", right="isin"),),
+Relationship(
+    kind="references",
+    left="trade_feed",
+    right="instrument_master",
+    match_keys=(("isin", "isin"),),
+    cardinality="many_to_one",
     description="Every trade names an instrument the master knows about.",
 )
 ```
+
+The study declares it with `client.relationships.declare`, the owner confirms
+it (`client.relationships.confirm`), and `client.derive.relationship` derives
+and accepts what it implies.
 
 Γ turns that into:
 
@@ -70,7 +90,7 @@ CHECK trade_feed.isin REFERENCES instrument_master.isin
   BECAUSE 'records here point at records there'
 ```
 
-## ⚠️ The reconciliation is declared and not executed
+## ⚠️ The reconciliation: proposed by Γ, completed and activated by a person
 
 The ledger break needs a reconciliation, and this study **declares** one:
 positions against the book of record, matched on book, comparing market value,
@@ -87,7 +107,9 @@ RECONCILE position_feed AGAINST general_ledger ON (book)
   SEVERITY critical DIMENSION consistency
 ```
 
-The reconciliation engine (`prama.recon`) runs it like any other control. It
+The study authors it with `client.controls.declare` and activates it with
+`client.controls.activate`; the server's reconciliation engine (`prama.recon`)
+runs it like any other control. It
 matches positions to ledger rows on the book, sums each book's positions in USD,
 compares them within the tolerance, and classifies each difference. Breaks that
 need a person fail the control, and each one lands in the break workbench.
@@ -116,10 +138,26 @@ than quietly fixed.
 
 ## Two passes, one ledger
 
+Each source is registered as a connection and run by the server
+(`client.runs.start`), scoped to the datasets it holds:
+
 ```
 warehouse (SQLite)                      instrument_master, counterparty_master, general_ledger
 landing zone (CSV + Parquet, DuckDB)    trade_feed, position_feed, + the published masters
 ```
+
+The landing zone is a `duckdb` connection to `workspace/landing.duckdb`, the
+catalogue of views over the files, rather than a `files` connection to the
+directory: the treasury's rates the reconciliation normalises with (`fx_rates`)
+are a view in that catalogue, not a file.
+
+```
+warehouse (SQLite)                      22 control(s), 3 indeterminate, 19 pass, 35 on another source
+landing zone (CSV + Parquet, via DuckDB) 57 control(s), 4 fail, 9 indeterminate, 44 pass
+```
+
+**44 passing · 4 failing · 9 not established · 0 could not run.** The same,
+number for number, as when the study ran Prama in its own process.
 
 Scoping each pass matters. Running every control against every source would
 produce a table-not-found error for each control that lives elsewhere, and forty
@@ -127,14 +165,15 @@ of those bury the findings that are real.
 
 ## What to look at in the console
 
-`http://127.0.0.1:8803`
+The study ends by printing where to look, in the console of the server it used
+(it starts none of its own): sign in with the run's estate, `acme-group-<timestamp>`.
 
 | Page | What is worth seeing here |
 |---|---|
 | `/relationships` | The four declarations, and which are confirmed |
 | `/estate` | Five datasets across two sources, one map |
 | `/incidents` | The two orphan findings, with counts |
-| `/evidence` | 80 records from **two** passes, one chain, verified |
+| `/evidence` | 79 records from **two** passes, one chain, verified |
 
 ## Files
 

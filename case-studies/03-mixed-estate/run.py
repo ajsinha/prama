@@ -10,36 +10,30 @@ orphans and a ledger break and decline to claim them, because neither is
 visible from either dataset alone. Here the relationships are declared, and the
 same defects are found.
 
+Runs against **your** Prama, through the SDK; it starts no server of its own.
+
 Usage:
-    python run.py                 build, run, and serve the console on :8803
-    python run.py --no-serve      build and run, then stop
+    python run.py                          the server config/application.yaml names
+    python run.py --config other.yaml      another server
+    python run.py --username ada --password …   as somebody else (default: the dev admin)
+
+The server reads both sources itself, so this checkout's ``case-studies``
+directory must be in its ``runs.roots`` (application.yaml or .local.yaml).
 
 Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 """
 
 from __future__ import annotations
 
-import argparse
-import asyncio
 import sys
 from pathlib import Path
-from typing import Any
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 
-from _common.estate import Attribute, Dataset  # noqa: E402
-from _common.harness import Harness, Source, banner, say, stage, use_config  # noqa: E402
+from _common.estate import Attribute, Dataset, Relationship  # noqa: E402
+from _common.harness import Harness, Source, arguments, banner, say, stage  # noqa: E402
 from generate import build  # noqa: E402
-
-from prama.connect.sources.query import executor_for  # noqa: E402
-from prama.semantic.relationships import (  # noqa: E402
-    Cardinality,
-    MatchKey,
-    RelationshipDeclaration,
-    RelationshipKind,
-    Tolerance,
-)
 
 CURRENCIES = ("USD", "EUR", "GBP", "CHF", "JPY")
 
@@ -204,51 +198,45 @@ LANDING = [
     ),
 ]
 
-
-def relationships(ids: dict[str, str]) -> list[RelationshipDeclaration]:  # noqa: ARG001
-    """What is true *between* the datasets.
-
-    Written against the physical names because that is what a control has to
-    say; the declaration carries the business meaning in its ``description``.
-    """
-    return [
-        RelationshipDeclaration(
-            kind=RelationshipKind.REFERENCES,
-            from_dataset_id="trade_feed",
-            to_dataset_id="instrument_master",
-            match_keys=(MatchKey(left="isin", right="isin"),),
-            cardinality=Cardinality.MANY_TO_ONE,
-            description="Every trade names an instrument the master knows about.",
-        ),
-        RelationshipDeclaration(
-            kind=RelationshipKind.REFERENCES,
-            from_dataset_id="trade_feed",
-            to_dataset_id="counterparty_master",
-            match_keys=(MatchKey(left="counterparty_lei", right="lei"),),
-            cardinality=Cardinality.MANY_TO_ONE,
-            description="Every trade names a counterparty we have on file.",
-        ),
-        RelationshipDeclaration(
-            kind=RelationshipKind.REFERENCES,
-            from_dataset_id="position_feed",
-            to_dataset_id="instrument_master",
-            match_keys=(MatchKey(left="isin", right="isin"),),
-            cardinality=Cardinality.MANY_TO_ONE,
-            description="Every position names an instrument the master knows about.",
-        ),
-        RelationshipDeclaration(
-            kind=RelationshipKind.RECONCILES_WITH,
-            from_dataset_id="position_feed",
-            to_dataset_id="general_ledger",
-            match_keys=(MatchKey(left="book", right="book"),),
-            # The ledger states the same amount as balance_usd, one row per book.
-            compare=("market_value = balance_usd",),
-            cardinality=Cardinality.MANY_TO_ONE,
-            tolerance=Tolerance(absolute=1.0, currency="USD", relative=0.0001),
-            description="Positions must agree with the book of record, within a dollar.",
-        ),
-    ]
-
+#: What is true *between* the datasets, named by their slugs. Written against
+#: the names a control has to say; the business meaning is in ``description``.
+RELATIONSHIPS = [
+    Relationship(
+        kind="references",
+        left="trade_feed",
+        right="instrument_master",
+        match_keys=(("isin", "isin"),),
+        cardinality="many_to_one",
+        description="Every trade names an instrument the master knows about.",
+    ),
+    Relationship(
+        kind="references",
+        left="trade_feed",
+        right="counterparty_master",
+        match_keys=(("counterparty_lei", "lei"),),
+        cardinality="many_to_one",
+        description="Every trade names a counterparty we have on file.",
+    ),
+    Relationship(
+        kind="references",
+        left="position_feed",
+        right="instrument_master",
+        match_keys=(("isin", "isin"),),
+        cardinality="many_to_one",
+        description="Every position names an instrument the master knows about.",
+    ),
+    Relationship(
+        kind="reconciles_with",
+        left="position_feed",
+        right="general_ledger",
+        match_keys=(("book", "book"),),
+        # The ledger states the same amount as balance_usd, one row per book.
+        compare=("market_value = balance_usd",),
+        cardinality="many_to_one",
+        tolerance={"absolute": 1.0, "currency": "USD", "relative": 0.0001},
+        description="Positions must agree with the book of record, within a dollar.",
+    ),
+]
 
 #: The reconciliation, as the finance controller completes Γ's proposal: the
 #: positions are in their instruments' currencies and the ledger is in USD, so
@@ -262,23 +250,8 @@ RECONCILIATION = (
 )
 
 
-async def _reconciliation(harness: Harness) -> None:
-    async with harness.database.unit_of_work() as uow:
-        entity, _ = await uow.controls.declare(
-            tenant_id=harness.tenant_id,
-            identity="reconcile:positions-ledger",
-            pql=RECONCILIATION,
-            rule="authored.reconcile",
-            criticality=1,
-            schedule="06:30",
-            authored_by="alice",
-        )
-        await uow.controls.activate(str(entity.id), tenant_id=harness.tenant_id, approved_by="bob")
-        harness.accepted += 1
-    say("  authored: " + RECONCILIATION[:96] + "…")
-
-
-async def main(serve: bool, port: int) -> Any:  # noqa: ARG001
+def main() -> None:
+    args = arguments(__doc__ or "")
     workspace = HERE / "workspace"
     banner(
         "Case study 3 — a mixed estate",
@@ -298,73 +271,53 @@ async def main(serve: bool, port: int) -> Any:  # noqa: ARG001
     say()
     say(planted.render())
 
-    harness = Harness(workspace, title="Mixed estate")
-    await harness.start(tenant_slug="acme-group", tenant_name="Acme Markets Group")
+    harness = Harness(workspace, title="Mixed estate", args=args)
+    harness.start(tenant_slug="acme-group", tenant_name="Acme Markets Group")
     try:
-        await harness.declare(WAREHOUSE + LANDING)
-        await harness.relate(relationships(harness.dataset_ids))
-        await harness.derive_and_accept()
-        await _reconciliation(harness)
-
-        warehouse_execute, warehouse_close = executor_for(warehouse, "sqlite")
-        landing_execute, landing_close = executor_for(catalogue, "duckdb")
-        try:
-            await harness.run(
-                [
-                    Source(
-                        name="warehouse (SQLite)",
-                        engine="sqlite",
-                        execute=warehouse_execute,
-                        close=warehouse_close,
-                        # The warehouse holds only its own three datasets. A
-                        # control on the landing zone run here would be a
-                        # table-not-found error, and forty of those bury the
-                        # findings that are real.
-                        datasets={"instrument_master", "counterparty_master", "general_ledger"},
-                    ),
-                    Source(
-                        name="landing zone (CSV + Parquet, via DuckDB)",
-                        engine="duckdb",
-                        execute=landing_execute,
-                        close=landing_close,
-                        # The feeds *and* the published masters, so the
-                        # cross-dataset controls have both sides to hand.
-                        datasets={
-                            "trade_feed",
-                            "position_feed",
-                            "instrument_master",
-                            "counterparty_master",
-                            "general_ledger",
-                        },
-                    ),
-                ]
-            )
-        finally:
-            warehouse_close()
-            landing_close()
-
-        await harness.report(planted)
+        harness.declare(WAREHOUSE + LANDING)
+        harness.relate(RELATIONSHIPS)
+        harness.derive_and_accept()
+        harness.author(
+            RECONCILIATION,
+            identity="reconcile:positions-ledger",
+            reason="the finance controller completed Γ's proposal with the normalisation",
+        )
+        say("  authored: " + RECONCILIATION[:96] + "…")
+        harness.run(
+            [
+                Source(
+                    name="warehouse (SQLite)",
+                    source_type="sqlite",
+                    path=warehouse,
+                    # The warehouse holds only its own three datasets. A control
+                    # on the landing zone run here would be a table-not-found
+                    # error, and forty of those bury the findings that are real.
+                    datasets={"instrument_master", "counterparty_master", "general_ledger"},
+                ),
+                Source(
+                    # A DuckDB catalogue of views over the files rather than a
+                    # ``files`` connection, because the treasury's rates the
+                    # reconciliation normalises with are a view, not a file.
+                    name="landing zone (CSV + Parquet, via DuckDB)",
+                    source_type="duckdb",
+                    path=catalogue,
+                    # The feeds *and* the published masters, so the
+                    # cross-dataset controls have both sides to hand.
+                    datasets={
+                        "trade_feed",
+                        "position_feed",
+                        "instrument_master",
+                        "counterparty_master",
+                        "general_ledger",
+                    },
+                ),
+            ]
+        )
+        harness.report(planted)
+        harness.finish()
     finally:
-        await harness.stop()
-
-    # Returned rather than served here. `harness.serve` calls `uvicorn.run`,
-    # which calls `asyncio.run`, and this function is already inside one — so
-    # the console never started and the study died on
-    # "asyncio.run() cannot be called from a running event loop". Found by a QA
-    # pass; nothing under tests/ exercises case-studies/.
-    return harness if serve else None
+        harness.close()
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--no-serve", action="store_true")
-    parser.add_argument(
-        "--config", default="", help="a Prama configuration file; defaults to the application's"
-    )
-    parser.add_argument("--port", type=int, default=8803)
-    args = parser.parse_args()
-    use_config(args.config)
-    started = asyncio.run(main(serve=not args.no_serve, port=args.port))
-    if started is not None:
-        # Outside the loop, where uvicorn can own one of its own.
-        started.serve(port=args.port)
+    main()

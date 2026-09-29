@@ -1,29 +1,34 @@
 #!/usr/bin/env python3
-"""Case study 2 — daily feeds, CSV and Parquet.
+"""Case study 2 — daily feeds: CSV, Parquet and JSON Lines.
+
+Runs against **your** Prama, through the SDK: builds a landing zone of files,
+declares five feeds in business terms, lets Γ derive the controls, accepts
+them, registers the landing zone as a ``files`` connection, has the server read
+the files itself and run the controls, and prints what was found against what
+was planted. It starts no server of its own.
 
 Usage:
-    python run.py                 build, run, and serve the console on :8802
-    python run.py --no-serve      build and run, then stop
+    python run.py                          the server config/application.yaml names
+    python run.py --config other.yaml      another server
+    python run.py --username ada --password …   as somebody else (default: the dev admin)
+
+The server reads the landing zone itself, so this checkout's ``case-studies``
+directory must be in its ``runs.roots`` (application.yaml or .local.yaml).
 
 Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 """
 
 from __future__ import annotations
 
-import argparse
-import asyncio
 import sys
 from pathlib import Path
-from typing import Any
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 
 from _common.estate import Attribute, Dataset  # noqa: E402
-from _common.harness import Harness, Source, banner, say, stage, use_config  # noqa: E402
+from _common.harness import Harness, Source, arguments, banner, say, stage  # noqa: E402
 from generate import build  # noqa: E402
-
-from prama.connect.sources.query import executor_for  # noqa: E402
 
 #: Feeds, not tables. The difference is in the declaration: a feed has a
 #: *rhythm* — it arrives daily, by a time — and that is what turns "the file
@@ -216,8 +221,21 @@ ESTATE = [
     ),
 ]
 
+#: Each feed as the table a control names, and the files in the landing zone
+#: that make it up. A ``files`` connection reads them in place, on the server,
+#: with DuckDB: nothing is copied or loaded, and a glob is how a feed that
+#: lands one file a day becomes one table.
+TABLES = {
+    "trade_feed": "trades/*.csv",
+    "position_feed": "positions/*.parquet",
+    "instrument_feed": "instruments/*.parquet",
+    "counterparty_feed": "counterparties/*.csv",
+    "settlement_feed": "settlements/*.jsonl",
+}
 
-async def main(serve: bool, port: int) -> Any:  # noqa: ARG001
+
+def main() -> None:
+    args = arguments(__doc__ or "")
     workspace = HERE / "workspace"
     banner(
         "Case study 2 — daily feeds: CSV, Parquet and JSON Lines",
@@ -227,118 +245,74 @@ async def main(serve: bool, port: int) -> Any:  # noqa: ARG001
     stage(
         1, "Build the landing zone", "CSV where a vendor writes it, Parquet where a platform does."
     )
-    landing, catalogue, planted, counts = build(workspace)
+    landing, _catalogue, planted, counts = build(workspace)
     say(f"  {landing}")
     for name, count in counts.items():
         say(f"    {name:<26} {count:>8,} rows")
     say()
-    say("  DuckDB reads both formats in place — nothing is copied, and the files")
-    say("  on disk stay the source of truth. Only the views are created.")
+    say("  The server reads CSV, Parquet and JSON Lines in place — nothing is copied,")
+    say("  and the files on disk stay the source of truth.")
     say()
     say(planted.render())
 
-    harness = Harness(workspace, title="Feeds (CSV + Parquet)")
-    await harness.start(tenant_slug="acme-feeds", tenant_name="Acme Markets — landing zone")
+    harness = Harness(workspace, title="Feeds (CSV + Parquet + JSON Lines)", args=args)
+    harness.start(tenant_slug="acme-feeds", tenant_name="Acme Markets — landing zone")
     try:
-        await harness.declare(ESTATE)
-        await harness.derive_and_accept()
-
-        execute, close = executor_for(catalogue, "duckdb")
-        try:
-            await harness.run(
-                [
-                    Source(
-                        name="landing zone (CSV + Parquet, via DuckDB)",
-                        engine="duckdb",
-                        execute=execute,
-                        close=close,
-                        datasets=set(harness.dataset_ids),
-                    )
-                ]
-            )
-        finally:
-            close()
-
-        await harness.report(planted)
-        await _arrival_report(harness, landing)
+        harness.declare(ESTATE)
+        harness.derive_and_accept()
+        harness.run(
+            [
+                Source(
+                    name="landing zone (CSV + Parquet + JSON Lines)",
+                    source_type="files",
+                    path=landing,
+                    datasets=set(harness.dataset_ids),
+                    config={"tables": TABLES},
+                )
+            ]
+        )
+        harness.report(planted)
+        _arrival(harness)
+        harness.finish()
     finally:
-        await harness.stop()
-
-    # Returned rather than served here. `harness.serve` calls `uvicorn.run`,
-    # which calls `asyncio.run`, and this function is already inside one — so
-    # the console never started and the study died on
-    # "asyncio.run() cannot be called from a running event loop". Found by a QA
-    # pass; nothing under tests/ exercises case-studies/.
-    return harness if serve else None
+        harness.close()
 
 
-async def _arrival_report(harness: Harness, landing: Path) -> None:  # noqa: ARG001
-    """What arrived, and what did not.
+def _arrival(harness: Harness) -> None:
+    """What arrived, and what did not — and why this run does not say.
 
     Content controls cannot see a missing file: there is nothing wrong with the
-    rows, because there are no rows. Arrival is a property of the *feed*, and
-    Prama's feed machinery reads it from the filenames — which is why a feed
-    declaration names its filename pattern.
+    rows, because there are no rows. Arrival is a property of the *feed*, judged
+    from the filenames against a filename pattern and a business calendar.
+    Prama has that judgement (``prama.connect.feed``), and before this study
+    drove the server through the SDK it ran it in-process and reported the
+    missing 2026-09-03 file and the duplicated 2026-09-07 delivery from the
+    filenames. The server exposes no arrival judgement over its API, so a
+    client cannot ask for one, and this study does not compute one itself: a
+    verdict worked out by the study would be the study's, not Prama's.
     """
-    from datetime import date
-
-    from prama.connect.feed import FeedDefinition, FilenamePattern
-    from prama.core.calendars import WEEKDAYS
-
-    stage(
-        6,
-        "What arrived, and what did not",
-        "A missing file is invisible to every content check: there are no rows to be wrong.",
-    )
-    # The calendar is the whole point. Without it every Saturday is a missing
-    # delivery, and a report that cries wolf twice a week is a report nobody
-    # reads by the third week. Weekdays here rather than TARGET2 because these
-    # studies ship no holiday file, and pretending otherwise would make this
-    # lie on Good Friday.
-    feed = FeedDefinition(
-        name="trade_feed",
-        landing_path=str(landing / "trades"),
-        filename_pattern=FilenamePattern("TRADES_{YYYYMMDD}_{SEQ:3}.csv"),
-        calendar=WEEKDAYS,
-        files_per_day=1,
-    )
-    landed: dict[str, list[str]] = {}
-    for path in sorted((landing / "trades").glob("*.csv")):
-        parsed = feed.filename_pattern.parse(path.name)
-        if parsed and parsed.business_date:
-            landed.setdefault(parsed.business_date.isoformat(), []).append(path.name)
-
-    if not landed:
-        say("  nothing parsed")
-        return
-    days = sorted(landed)
-    expected = feed.expected_dates(date.fromisoformat(days[0]), date.fromisoformat(days[-1]))
-    for day in expected:
-        key = day.isoformat()
-        files = landed.get(key, [])
-        if not files:
-            say(f"    MISSING    {key}  nothing arrived")
-        elif len(files) > 1:
-            say(f"    DUPLICATE  {key}  {len(files)} files: {', '.join(files)}")
-        else:
-            say(f"    ok         {key}  {files[0]}")
     say()
-    say("  Read from the filenames, which is why a feed declaration carries a")
-    say("  filename pattern: the business date lives there and nowhere else.")
-    say("  Weekends are not expected, because the feed declares a calendar — a")
-    say("  report that cried wolf every Saturday would not be read by week three.")
+    say("─" * 78)
+    say("  WHAT ARRIVED, AND WHAT DID NOT")
+    say("  A missing file is invisible to every content check: there are no rows to be wrong.")
+    say("─" * 78)
+    derived = [u for u in harness.unsatisfiable if "arrives" in u["reason"]]
+    say("  NOT CLAIMED IN THIS RUN — the missing 2026-09-03 delivery.")
+    say()
+    say("  Arrival is judged from the filenames, against the feed's filename pattern")
+    say("  (TRADES_{YYYYMMDD}_{SEQ:3}.csv) and its business calendar, and that")
+    say("  judgement is not reachable through the SDK: the server has no endpoint")
+    say("  that says which expected deliveries arrived. A report worked out here,")
+    say("  in the study, would be the study's finding and not Prama's, so there is")
+    say("  none. The planted list above still counts it, and nothing above found it.")
+    say()
+    say("  The duplicated 2026-09-07 delivery IS found above, by content: the")
+    say("  declared grain (one row per trade_id) sees every trade twice.")
+    if derived:
+        say()
+        say(f"  Nor could Γ derive a freshness control for {len(derived)} feed(s): each")
+        say("  declares when it arrives, but no column records the arrival.")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--no-serve", action="store_true")
-    parser.add_argument(
-        "--config", default="", help="a Prama configuration file; defaults to the application's"
-    )
-    parser.add_argument("--port", type=int, default=8802)
-    args = parser.parse_args()
-    use_config(args.config)
-    started = asyncio.run(main(serve=not args.no_serve, port=args.port))
-    if started is not None:
-        # Outside the loop, where uvicorn can own one of its own.
-        started.serve(port=args.port)
+    main()
