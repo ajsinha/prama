@@ -52,6 +52,12 @@ SCOPES: dict[str, str] = {
     "agent:work": "claim, report on and ask approval for steward agent tasks",
     "llm:use": "send prompts to a model through the gateway (budgeted, audited)",
     "comment:write": "comment on governed objects, mention colleagues, resolve threads",
+    # Its own scope rather than `declaration:read`, because the requests upload
+    # files and so are POSTs, and a POST under a read scope is what
+    # `tests/architecture/test_scopes.py` exists to catch; and rather than
+    # `declaration:write`, because a CI key that gates a build on a contract
+    # must not be able to amend the estate.
+    "contract:check": "read a data contract, check rows against it, diff two versions of data",
     "admin": "manage principals, roles and API keys",
     "tenant:admin": "list the estates on this installation and create new ones",
 }

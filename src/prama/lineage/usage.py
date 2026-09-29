@@ -16,8 +16,11 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+import csv
+import io
 import json
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from prama.core.errors import ValidationError
@@ -103,7 +106,9 @@ def pairs(warehouse: str, rows: Iterable[Mapping[str, Any]]) -> dict[tuple[str, 
     return together
 
 
-async def ingest(uow: Any, tenant_id: str, warehouse: str, rows: list[Mapping[str, Any]]) -> int:
+async def ingest(
+    uow: Any, tenant_id: str, warehouse: str, rows: Sequence[Mapping[str, Any]]
+) -> int:
     """Record the export; a re-import of the same days replaces them. Returns days recorded."""
     counted = count(warehouse, rows)
     for (dataset, day), (n, who) in counted.items():
@@ -115,3 +120,58 @@ async def ingest(uow: Any, tenant_id: str, warehouse: str, rows: list[Mapping[st
             tenant_id, pair=(first[:255], second[:255]), day=day, source=warehouse, queries=n
         )
     return len(counted)
+
+
+def rows_from_text(text: str, *, name: str) -> list[dict[str, Any]]:
+    """An export's rows: CSV when *name* ends in ``.csv``, otherwise a JSON list."""
+    if name.lower().endswith(".csv"):
+        return list(csv.DictReader(io.StringIO(text, newline="")))
+    try:
+        rows = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValidationError(
+            f"{name} is not valid JSON: {exc.msg} at line {exc.lineno}, column {exc.colno}",
+            remedy="Give the export as a JSON list of rows, or as a .csv.",
+            context={"path": name},
+        ) from None
+    if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+        raise ValidationError(
+            f"{name} does not hold a list of rows",
+            remedy="Give the export as a JSON list of objects, one per query, or as a .csv.",
+            context={"path": name},
+        )
+    return rows
+
+
+def _since(days: int) -> str:
+    if days < 1:
+        raise ValidationError(
+            f"a window of {days} day(s) holds no usage", remedy="Ask for one day or more."
+        )
+    return (datetime.now(UTC) - timedelta(days=days)).date().isoformat()
+
+
+async def daily(uow: Any, tenant_id: str, *, days: int = 30, dataset: str = "") -> dict[str, Any]:
+    """Usage by dataset, day and source, over the last *days* days."""
+    since = _since(days)
+    rows = await uow.usage.daily(tenant_id, since=since, dataset=dataset.lower())
+    return {
+        "since": since,
+        "days": [
+            {"dataset": d, "day": day, "source": source, "queries": q, "users": u}
+            for d, day, source, q, u in rows
+        ],
+    }
+
+
+async def coaccess(uow: Any, tenant_id: str, *, days: int = 30) -> dict[str, Any]:
+    """Pairs of datasets read by the same query, busiest first. A hint, never a score."""
+    since = _since(days)
+    together = await uow.usage.pairs(tenant_id, since=since)
+    return {
+        "since": since,
+        "pairs": [
+            {"datasets": [first, second], "queries": n}
+            for (first, second), n in sorted(together.items(), key=lambda p: (-p[1], p[0]))
+        ],
+    }

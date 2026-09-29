@@ -6,9 +6,6 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import argparse
-import csv
-import io
-import json
 from pathlib import Path
 from typing import Any
 
@@ -28,7 +25,7 @@ class ImportCommand(Command):
         _tenant_flag(parser)
 
     def run(self, ctx: CommandContext) -> int:
-        from prama.lineage.usage import QUERIES, ingest
+        from prama.lineage.usage import QUERIES, ingest, rows_from_text
 
         if ctx.args.query or not ctx.args.rows:
             ctx.emit(QUERIES[ctx.args.warehouse])
@@ -36,12 +33,7 @@ class ImportCommand(Command):
         path = Path(ctx.args.rows)
         if not path.is_file():
             raise ValidationError(f"there is no file at {path}", remedy="Pass the export.")
-        text = path.read_text(encoding="utf-8")
-        rows = (
-            list(csv.DictReader(io.StringIO(text)))
-            if path.suffix.lower() == ".csv"
-            else json.loads(text)
-        )
+        rows = rows_from_text(path.read_text(encoding="utf-8"), name=str(path))
         days = _with_uow(ctx, lambda uow, t: ingest(uow, t, ctx.args.warehouse, rows))
         ctx.emit(f"{len(rows)} history row(s) -> {days} dataset-day(s) of usage")
         return EXIT_OK
