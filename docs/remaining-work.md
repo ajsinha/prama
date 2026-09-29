@@ -88,7 +88,24 @@ Ordered by what I would take first. Each item says why it matters.
 
   Adopting any of these will first need a sweep of existing code to get under the new limit.
 
-## 7. Intelligence roadmap (docs/23), still open
+## 7. The SDK and the API: gaps the case studies found (2026-09-29)
+
+Every endpoint has an SDK method (`tests/sdk/test_parity.py`), but not everything Prama does
+has an endpoint yet. Converting the eight case studies to the SDK found these:
+
+| # | Gap | Why it matters |
+|---|---|---|
+| 7.1 | **`approved_by` is free text.** A Tier-1/2 declaration over the API names its approver, and nothing checks that the approver exists, holds a role that may approve, or agreed. | Maker-checker over the API is a claim, not a control. Needs an approval step the second person performs. |
+| 7.2 | **Changing someone's roles does not narrow the keys they hold.** A key keeps the scopes it was minted with until it expires. Intersecting with current roles would lock out steward agents and scoped service keys, whose principals hold no roles. | A policy decision: revoke keys on a role change, or check principals with roles against them. |
+| 7.3 | No endpoint judges **feed arrival** (`prama.connect.feed`); study 2 no longer claims the missing delivery. | Arrival is half of a feed's quality. |
+| 7.4 | The **data-plane agent** (`prama.agent`: assignment, `fits`, residency) has no API; study 5 shows its try-out instead. | Remote execution beside the data is not scriptable. |
+| 7.5 | No call creates **one glossary term**; study 7 imports a one-term export. | Small, but a gap. |
+| 7.6 | `lineage.impact` returns reach and hops but not the **path**. | The route is what an engineer follows. |
+| 7.7 | `pql.compile` returns follow-up checks without the validator's **implementation hash**, and `SELECT *` for a delegate control where a run fetches only `requires`. | The plan shown differs from the plan run. |
+| 7.8 | **Validator plugins** are admitted only by installing a package into the server's environment, and nothing lists which were admitted. | An operator cannot see what the server trusts. |
+| 7.9 | A run cannot be scoped to a RECONCILE counterpart that is not itself a declared dataset. | The counterfactual in study 6 runs unscoped. |
+
+## 8. Intelligence roadmap (docs/23), still open
 
 - **Wave 15:** Tableau lineage, only if a design partner asks.
 - **PQL:** `CLASSIFY` rules on `RECONCILE` (the engine's built-in classification is used today),

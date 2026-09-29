@@ -144,10 +144,12 @@ yourself. The paper's table puts the declared and the emitted side by side.
 ### A worked example
 
 Case study 1 is a trading book in SQLite: six datasets, 5,000 trades, nine planted defects. When I ran it,
-Γ produced **65 controls**. It also reported three declarations that produced *nothing*, each with a reason:
-*"Prama has no validator or code list called 'currency'"*.
+Γ produced **59 controls**. It also reported nine declarations that produced *nothing*, each with a reason.
+Six declare when a dataset arrives but name no column that records arrival, so there is nothing to measure
+freshness on; three name a validator Prama does not have: *"Prama has no validator or code list called
+'currency'"*.
 
-The 65 controls gave 44 passes, 5 failures and 16 "not established". The five failures are exactly the
+The 59 controls gave 44 passes, 5 failures and 10 "not established". The five failures are exactly the
 planted defects that a single-dataset declaration *can* see:
 
 - 12 duplicated positions (the grain forbids them),

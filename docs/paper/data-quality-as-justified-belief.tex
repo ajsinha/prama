@@ -462,9 +462,11 @@ a check --- a grain naming a column that is not there --- the system says so ins
 \begin{worked}
 \wk{a trading book}
 Case study 1 (\texttt{case-studies/01-trading-book-sqlite}) declares six datasets over one SQLite database,
-with 5,000 trades and nine planted defects. In our run, $\Gam$ produced 65 controls and reported three
-declarations that produced none, each with a reason: \emph{``Prama has no validator or code list called
-`currency'\,''}. Executed, the 65 controls gave 44 passes, 5 failures and 16 not established. The five
+with 5,000 trades and nine planted defects. In our run, $\Gam$ produced 59 controls and reported nine
+declarations that produced none, each with a reason: six declare when a dataset arrives but no column that
+records arrival, so there is nothing to measure freshness on, and three name a validator Prama does not have
+(\emph{``Prama has no validator or code list called `currency'\,''}). Executed, the 59 controls gave 44
+passes, 5 failures and 10 not established. The five
 failures are exactly the five planted defects that a single-dataset declaration can see: the duplicated
 positions (grain), 60 missing notionals (a mandatory CDE), 7 negative quantities (a range), and the currency
 \texttt{'EURO'} (a code list, reported twice, as validity and consistency). The four it did not find are
