@@ -28,6 +28,12 @@ from contextlib import contextmanager
 
 #: Past this many label combinations, new ones fold into "other".
 MAX_SERIES = 200
+#: The cap for the HTTP metrics, whose route label is a route *template*. Those
+#: are bounded by the routing table rather than by the estate, and the table
+#: now holds several hundred templates across the API and the console; at 200
+#: the cap folded real routes into "other" and the per-route series went dark.
+#: Templates x methods x five status classes stays well under this.
+MAX_ROUTE_SERIES = 4000
 #: Seconds. Control and HTTP durations sit between a millisecond and a few minutes.
 DEFAULT_BUCKETS: tuple[float, ...] = (
     0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 300.0,
@@ -49,8 +55,17 @@ def _format(value: float) -> str:
 class _Metric:
     kind = ""
 
-    def __init__(self, name: str, help: str, labels: Sequence[str] = ()) -> None:  # noqa: A002
+    def __init__(
+        self,
+        name: str,
+        help: str,  # noqa: A002
+        labels: Sequence[str] = (),
+        *,
+        max_series: int | None = None,
+    ) -> None:
         self.name, self.help, self.labels = name, help, tuple(labels)
+        #: None means the module's MAX_SERIES, read when it applies.
+        self.max_series = max_series
         self._lock = threading.Lock()
         self._folded = 0
 
@@ -58,7 +73,8 @@ class _Metric:
         if set(values) != set(self.labels):
             raise ValueError(f"{self.name} takes labels {self.labels}, not {sorted(values)}")
         key = tuple(str(values[label]) for label in self.labels)
-        if key not in known and len(known) >= MAX_SERIES:
+        cap = self.max_series if self.max_series is not None else MAX_SERIES
+        if key not in known and len(known) >= cap:
             self._folded += 1
             return tuple("other" for _ in self.labels)
         return key
@@ -78,8 +94,15 @@ class Counter(_Metric):
 
     kind = "counter"
 
-    def __init__(self, name: str, help: str, labels: Sequence[str] = ()) -> None:  # noqa: A002
-        super().__init__(name, help, labels)
+    def __init__(
+        self,
+        name: str,
+        help: str,  # noqa: A002
+        labels: Sequence[str] = (),
+        *,
+        max_series: int | None = None,
+    ) -> None:
+        super().__init__(name, help, labels, max_series=max_series)
         self._values: dict[Labels, float] = {}
 
     def inc(self, amount: float = 1.0, **labels: str) -> None:
@@ -131,8 +154,10 @@ class Histogram(_Metric):
         help: str,  # noqa: A002
         labels: Sequence[str] = (),
         buckets: Sequence[float] = DEFAULT_BUCKETS,
+        *,
+        max_series: int | None = None,
     ) -> None:
-        super().__init__(name, help, labels)
+        super().__init__(name, help, labels, max_series=max_series)
         self.buckets = tuple(sorted(buckets))
         self._counts: dict[Labels, list[int]] = {}
         self._sums: dict[Labels, float] = {}
@@ -186,8 +211,15 @@ class Registry:
             self._metrics[metric.name] = metric
             return metric
 
-    def counter(self, name: str, help: str, labels: Sequence[str] = ()) -> Counter:  # noqa: A002
-        metric = self._add(Counter(name, help, labels))
+    def counter(
+        self,
+        name: str,
+        help: str,  # noqa: A002
+        labels: Sequence[str] = (),
+        *,
+        max_series: int | None = None,
+    ) -> Counter:
+        metric = self._add(Counter(name, help, labels, max_series=max_series))
         assert isinstance(metric, Counter)
         return metric
 
@@ -202,8 +234,10 @@ class Registry:
         help: str,  # noqa: A002
         labels: Sequence[str] = (),
         buckets: Sequence[float] = DEFAULT_BUCKETS,
+        *,
+        max_series: int | None = None,
     ) -> Histogram:
-        metric = self._add(Histogram(name, help, labels, buckets))
+        metric = self._add(Histogram(name, help, labels, buckets, max_series=max_series))
         assert isinstance(metric, Histogram)
         return metric
 
@@ -261,8 +295,9 @@ LLM_COST = REGISTRY.counter(
 )  # fmt: skip
 HTTP_REQUESTS = REGISTRY.counter(
     "prama_http_requests_total", "HTTP requests, by method, route template and status class.",
-    ("method", "route", "status"),
+    ("method", "route", "status"), max_series=MAX_ROUTE_SERIES,
 )  # fmt: skip
 HTTP_SECONDS = REGISTRY.histogram(
-    "prama_http_request_duration_seconds", "HTTP request latency, by route template.", ("route",)
-)
+    "prama_http_request_duration_seconds", "HTTP request latency, by route template.", ("route",),
+    max_series=MAX_ROUTE_SERIES,
+)  # fmt: skip

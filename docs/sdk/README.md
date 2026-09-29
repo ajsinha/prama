@@ -98,11 +98,49 @@ except prama.NotFoundError as error:
 
 ## The namespaces
 
-Each area of Prama is a namespace on the client. The pages beside this one describe each area
-with worked examples.
+Forty-one namespaces cover 238 endpoints: everything the console and the CLI do, except what is
+purely local to one machine (`prama db init`, `prama serve`, `prama lsp serve`). The pages beside
+this one describe each area with worked examples.
 
-| Namespace | What it is for |
-|---|---|
-| `auth`, `tenants`, `system` | signing in, who you are, estates, health |
-| `datasets`, `relationships`, `concepts`, `journeys`, `connections`, `estate` | the semantic layer and where data lives |
-| `metadata`, `comments`, `lineage`, `llm`, `agents`, `delegates` | business context, discussion, lineage, models, agents, Python checks |
+| Area | Namespaces | Page |
+|---|---|---|
+| Signing in, estates, the server | `auth`, `tenants`, `system` | this page |
+| The semantic layer | `datasets`, `relationships`, `concepts`, `journeys`, `connections`, `estate` | this page |
+| Controls and runs | `controls`, `pql`, `proposals`, `derive`, `runs`, `schedule` | [controls](controls.md) |
+| Evidence and assurance | `evidence`, `incidents`, `scorecards`, `attestations`, `reports` | [evidence](evidence.md) |
+| Reconciliation | `reconciliation`, `breaks` | [reconciliation](reconciliation.md) |
+| Data contracts | `contracts` | [contracts](contracts.md) |
+| Usage | `usage` | [usage](usage.md) |
+| People and administration | `principals`, `roles`, `api_keys`, `account`, `models`, `agents`, `config`, `audit` | [administration](administration.md) |
+| Knowledge and code | `lineage`, `code`, `glossary`, `metadata`, `comments`, `delegates`, `packs`, `connectors`, `llm` | [knowledge and code](knowledge-and-code.md) |
+
+## A whole estate, from Python
+
+The case studies (`case-studies/*/run.py`) are the long worked examples: each signs in to your
+running server, creates an estate, declares it, derives and accepts controls, has the server run
+them against the study's data, and reads back what the evidence says. The core of it:
+
+```python
+import prama.sdk as prama
+
+admin = prama.connect(username="admin", password="prama-dev-admin", tenant="default")
+made = admin.tenants.create("acme-markets", "Acme Markets")
+client = admin.as_key(made["credentials"]["api_key"])
+
+trades = client.datasets.declare(
+    "Trades", description="Executed trades, as booked.", criticality=3,
+    grain={"attributes": ["trade_id"], "statement": "one row per executed trade"},
+)
+client.datasets.add_attribute(trades["id"], "trade_id", optionality="mandatory")
+client.datasets.add_attribute(trades["id"], "ccy", codelist=["USD", "EUR", "GBP"])
+
+client.derive.dataset(trades["id"], declare=True, accept=True, reason="reviewed")
+
+book = client.connections.create("book", "sqlite", config={"path": "/data/landing/book.db"})
+report = client.runs.start(book["id"], datasets=["trades"])
+print(report["summary"])
+print(client.evidence.verify()["intact"])
+```
+
+The server reads the source itself, so its path must be under one of the server's `runs.roots`
+(`config/application.yaml`); Prama's own database never may be.

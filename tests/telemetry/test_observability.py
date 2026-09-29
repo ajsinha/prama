@@ -235,3 +235,26 @@ def test_every_metric_the_dashboard_queries_exists() -> None:
     }
     exported = set(metrics.REGISTRY._metrics) | {"prama_metric_series_folded_total"}
     assert queried and queried <= exported, sorted(queried - exported)
+
+
+def test_the_http_metrics_have_room_for_every_route_template(
+    sqlite_config: Configuration,
+) -> None:
+    """The route label is bounded by the routing table, and the cap must exceed it.
+
+    At the old cap of 200 a long-running server folded real routes into "other"
+    once the API grew past a few hundred endpoints, and per-route latency and
+    error counts went dark. Three series per template (methods and status
+    classes) is the least a route needs; the cap must cover that for every
+    template the application serves, the console's included.
+    """
+    from starlette.routing import Route
+
+    app = create_app(sqlite_config)
+    templates = set(app.openapi()["paths"]) | {
+        route.path for route in app.routes if isinstance(route, Route)
+    }
+    assert len(templates) > 200 // 3  # the counterfactual: the old cap could not hold them
+    for metric in (metrics.HTTP_REQUESTS, metrics.HTTP_SECONDS):
+        assert metric.max_series is not None
+        assert metric.max_series >= 3 * len(templates), metric.name
