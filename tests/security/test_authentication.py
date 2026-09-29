@@ -262,7 +262,7 @@ class TestTheSignInPage:
         await ui.post("/sign-in", data={"username": "alice", "password": PASSWORD})
         response = await ui.post("/sign-out")
         assert response.status_code == 303
-        assert response.headers["location"] == "/sign-in"
+        assert response.headers["location"] == "/"  # the landing page, not the form
 
     @pytest.mark.parametrize(
         "target",
