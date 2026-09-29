@@ -53,6 +53,7 @@ SCOPES: dict[str, str] = {
     "llm:use": "send prompts to a model through the gateway (budgeted, audited)",
     "comment:write": "comment on governed objects, mention colleagues, resolve threads",
     "admin": "manage principals, roles and API keys",
+    "tenant:admin": "list the estates on this installation and create new ones",
 }
 
 #: Held by a key that is deliberately unrestricted. Spelled out because an

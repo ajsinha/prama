@@ -87,6 +87,8 @@ class AuthRoutes(UiRoutes):
             single_tenant=bool(config.get_str("tenancy.default_tenant", "")),
             public_nav=True,
             no_principals=await _no_way_in(uow, request),
+            ask_estate=await _several_estates(uow, request),
+            tenant=request.query_params.get("tenant", ""),
         )
 
     async def sign_in(
@@ -117,6 +119,8 @@ class AuthRoutes(UiRoutes):
                 single_tenant=bool(config.get_str("tenancy.default_tenant", "")),
                 public_nav=True,
                 no_principals=await _no_way_in(uow, request),
+                ask_estate=await _several_estates(uow, request),
+                tenant=tenant,
                 status_code=401,
             )
 
@@ -124,6 +128,8 @@ class AuthRoutes(UiRoutes):
         # merely amended afterwards is one somebody could have fixed in advance.
         request.session.clear()
         request.session["tenant_id"] = principal.tenant_id
+        estate = await uow.tenants.get(str(principal.tenant_id))
+        request.session["tenant_name"] = estate.display_name if estate is not None else ""
         request.session["principal_id"] = str(principal.id)
         request.session["username"] = principal.username
         request.session["display_name"] = principal.display_name
@@ -229,6 +235,18 @@ def _safe_next(target: str) -> str:
     if not candidate.startswith("/") or candidate.startswith("//"):
         return ""
     return candidate
+
+
+async def _several_estates(uow: Any, request: Request) -> bool:
+    """Whether the form must ask which estate: more than one, and no default.
+
+    A single-estate install never sees the field. Once a second estate exists
+    (a case study makes one per run) a sign-in that cannot name its estate is
+    refused, however right the password, so the form has to ask.
+    """
+    if str(request.app.state.config.get_str("tenancy.default_tenant", "")).strip():
+        return False
+    return len(await uow.tenants.list_active(limit=2)) > 1
 
 
 async def _no_way_in(uow: Any, request: Request) -> bool:

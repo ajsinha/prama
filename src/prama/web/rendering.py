@@ -357,6 +357,7 @@ def render(request: Request, template: str, status_code: int = 200, **context: A
         {
             "username": session.get("username", ""),
             "display_name": session.get("display_name", ""),
+            "estate": session.get("tenant_name", ""),
             # For the menu only. Every admin page is guarded by its own scope
             # check; hiding a link is courtesy, not control.
             "is_admin": bool({"admin", "*"} & set(session.get("scopes", []))),
