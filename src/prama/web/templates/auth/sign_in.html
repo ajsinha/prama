@@ -1,53 +1,65 @@
 {# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{# The sign-in page, laid out as Maya's login.html: the mark, name, tagline and
+   slogan over the theme's gradient, then one card with the form. #}
 {% extends "base.html" %}
 {% block title %}Sign in — Prama{% endblock %}
-{% block heading %}Sign in{% endblock %}
+{% block body_class %}maya-public{% endblock %}
 
 {% block content %}
-<div style="max-width: 26rem">
+<div class="row justify-content-center mt-4">
+  <div class="col-md-6 col-lg-5 col-xl-4">
+    <div class="text-center mb-4 maya-hero">
+      <img src="{{ url_for('static', filename='img/prama-mark-white.svg') }}" alt="The Prama prism mark" class="login-mark">
+      <div class="login-name">PRAMA</div>
+      <div class="on-gradient">Evidence-first data quality</div>
+      <div class="fst-italic on-gradient">{{ app_tagline }}</div>
+    </div>
+    <div class="card"><div class="card-body p-4">
+      <h1 class="h3 mb-3">Sign in</h1>
 
-  {% if error %}
-  {# One message for every failure. "No such user" is a username oracle, and
-     "that account is disabled" confirms the account exists to exactly the
-     person who should not be told. #}
-  <div class="alert alert-danger" role="alert">{{ error }}</div>
-  {% endif %}
+      {% if error %}
+      {# One message for every failure. "No such user" is a username oracle, and
+         "that account is disabled" confirms the account exists to exactly the
+         person who should not be told. #}
+      <div class="alert alert-danger py-2" role="alert">{{ error }}</div>
+      {% endif %}
 
-  {% if no_principals %}
-  <div class="uncalibrated mb-3">
-    <strong>Nobody has been created on this installation yet.</strong>
-    This form cannot succeed until somebody exists to sign in as:
-    <pre class="rounded small mt-2 mb-0"><code>prama principal create alice --admin</code></pre>
+      {% if no_principals %}
+      <div class="uncalibrated mb-3">
+        <strong>Nobody has been created on this installation yet.</strong>
+        This form cannot succeed until somebody exists to sign in as:
+        <pre class="rounded small mt-2 mb-0"><code>prama principal create alice --admin</code></pre>
+      </div>
+      {% endif %}
+
+      <form method="post" action="{{ url_for('sign_in') }}">
+        <input type="hidden" name="next" value="{{ next }}">
+        <div class="mb-2">
+          <label class="form-label" for="username">Username</label>
+          <input class="form-control" id="username" name="username" required
+                 autocomplete="username" autofocus value="{{ username }}">
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="password">Password</label>
+          <input class="form-control" id="password" name="password" type="password"
+                 required autocomplete="current-password">
+        </div>
+        <button class="btn btn-primary w-100" type="submit">Sign in</button>
+      </form>
+
+      {% if single_tenant %}
+      <div class="small-muted mt-3">
+        <strong>This deployment names a default estate.</strong>
+        Pages are readable without signing in, which is how the case studies and a
+        first evaluation run. Signing in attributes what you do — an approval, a
+        suppression, an attestation — to a person rather than to the deployment.
+      </div>
+      {% endif %}
+    </div></div>
+    <p class="small text-center mt-3 on-gradient">
+      <a class="on-gradient fw-semibold" href="{{ url_for('help_index') }}">Help</a> ·
+      <a class="on-gradient fw-semibold" href="{{ url_for('about') }}">About</a> ·
+      Prama {{ app_version }} · database authentication</p>
   </div>
-  {% endif %}
-
-  <form method="post" action="{{ url_for('sign_in') }}" class="row g-3">
-    <input type="hidden" name="next" value="{{ next }}">
-
-    <div class="col-12">
-      <label class="form-label" for="username">Username</label>
-      <input class="form-control" id="username" name="username" required
-             autocomplete="username" autofocus value="{{ username }}">
-    </div>
-
-    <div class="col-12">
-      <label class="form-label" for="password">Password</label>
-      <input class="form-control" id="password" name="password" type="password"
-             required autocomplete="current-password">
-    </div>
-
-    <div class="col-12">
-      <button class="btn btn-primary" type="submit">Sign in</button>
-    </div>
-  </form>
-
-  {% if single_tenant %}
-  <div class="small text-muted mt-4">
-    <strong>This deployment names a default estate.</strong>
-    Pages are readable without signing in, which is how the case studies and a
-    first evaluation run. Signing in attributes what you do — an approval, a
-    suppression, an attestation — to a person rather than to the deployment.
-  </div>
-  {% endif %}
 </div>
 {% endblock %}

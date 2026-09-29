@@ -84,6 +84,14 @@ def create_app(config: Configuration | None = None, *, database: Database | None
             await db.start()
         app.state.config = config
         app.state.database = db
+        # A way in on a fresh installation, and a refusal to start with the
+        # shipped password where it must not be used (prama.security.bootstrap).
+        from prama.security import bootstrap
+
+        async with db.unit_of_work() as uow:
+            await bootstrap.seed(uow, config)
+            active = await bootstrap.default_password_active(uow, config)
+        bootstrap.refuse_outside_development(active, config)
         _log.info("prama %s ready on %s", VERSION, db.dialect.name)
         # The always-on scheduler, supervised: it lives exactly as long as the
         # application and is cancelled with it, never a free-running task.

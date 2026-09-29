@@ -142,11 +142,11 @@ class TestThePublicPages:
 
 
 class TestTheThemeMenu:
-    async def test_it_offers_every_theme_including_mayas_four(self, ui: Any) -> None:
+    async def test_it_offers_exactly_mayas_four_themes(self, ui: Any) -> None:
         text = (await ui.get("/estate")).text
         offered = set(re.findall(r'data-theme-choice="([\w-]+)"', text))
         assert offered == {t.name for t in THEMES}
-        assert {"maya-crimson", "maya-dark", "maya-blue", "maya-green"} <= offered
+        assert offered == {"light", "dark", "blue", "green"}
 
 
 class TestMyAccount:

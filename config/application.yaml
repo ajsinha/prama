@@ -25,6 +25,11 @@ security:
   # clone can never run on a value that is in a public repository.
   session_secret: ""
   cookies_https_only: true          # false only for local http development
+  # A fresh installation gets the `admin` account with the documented default
+  # password (QUICKSTART.md), bannered on every page until changed. Outside
+  # development the server refuses to start while that default is in force;
+  # security.allow_default_admin_password (default false) overrides, knowingly.
+  bootstrap_admin: true
 
 tenancy:
   # Name the single tenant here and the console needs no sign-in to read.

@@ -17,6 +17,15 @@ everything vendored, no build step: `prama.web`. Sign-in, the estate map,
 declaration and relationship editing, the control workbench, triage drill-down,
 the break workbench, attestation, and the preview/backtest surface all exist.
 
+The shell speaks **Maya's design language**, so the two products read as one family on the same
+desk: a fixed gradient top bar whose menus (Estate, Controls, Assurance, Admin, Help) open into
+mega-menu panels of titled columns, defined as data in `prama.web.rendering.MENU`; Maya's brand
+block, search box, queue, theme and user menus; Maya's cards, forms and footer
+(`static/css/shell.css`); and exactly Maya's four themes under Maya's names — Crimson (the
+default), Dark, Blue and Green. A fresh installation seeds an `admin` account with the password
+`prama-dev-admin`, bannered until changed and refused outside development
+(`prama.security.bootstrap`).
+
 Colour is **derived, not picked**. `prama.report.themes` computes WCAG 2.2 AA
 contrast against three grounds — surface, body and raised — and
 `scripts/generate_themes.py` emits the variants; a hand-chosen colour that fails

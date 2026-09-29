@@ -13,122 +13,14 @@
  * Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
  */
 
-/* Prama light — The default. Prama Indigo on a cool white ground. */
+/* Crimson — The default: Harvard crimson over indigo on warm paper. */
 :root, [data-theme="light"] {
-    --bg-body: #F6F7FB;
-    --bg-card: #FFFFFF;
-    --bg-header: linear-gradient(135deg, #0E1A46 0%, #1B2A63 50%, #0E1A46 100%);
-    --text-primary: #14182E;
-    --text-muted: #636A85;
-    --text-link: #2B3FA8;
-    --accent: #2B3FA8;
-    --border-color: #DFE3EF;
-
-    /* Marks: bars, rings, dots. 3:1 against this theme's card. */
-    --dim-accuracy: #00998D;
-    --dim-completeness: #289A62;
-    --dim-consistency: #6C9330;
-    --dim-timeliness: #A9822B;
-    --dim-uniqueness: #C87132;
-    --dim-validity: #D9534F;
-    --dim-integrity: #2B3FA8;
-    --dim-conformity: #5A6480;
-
-    /* Words: dimension names, verdicts. 4.5:1 against the same. */
-    --dim-accuracy-text: #00786E;
-    --dim-completeness-text: #1F794C;
-    --dim-consistency-text: #567526;
-    --dim-timeliness-text: #856722;
-    --dim-uniqueness-text: #9F5928;
-    --dim-validity-text: #B64542;
-    --dim-integrity-text: #2B3FA8;
-    --dim-conformity-text: #5A6480;
-
-    /* Reserved for 'stale or not yet examined'. Nothing else may use it. */
-    --unverified-grey: #7F88A0;
-    --unverified-grey-text: #656B7D;
-}
-
-/* Prama dark — The same palette on a night ground, for long sessions. */
-[data-theme="dark"] {
-    --bg-body: #0B0F21;
-    --bg-card: #141A33;
-    --bg-header: linear-gradient(135deg, #080D20 0%, #141C3F 50%, #080D20 100%);
-    --text-primary: #E8EBF5;
-    --text-muted: #8891AD;
-    --text-link: #7D8FE0;
-    --accent: #7D8FE0;
-    --border-color: #262E50;
-
-    /* Marks: bars, rings, dots. 3:1 against this theme's card. */
-    --dim-accuracy: #2AD4C5;
-    --dim-completeness: #4FD693;
-    --dim-consistency: #A8DB5F;
-    --dim-timeliness: #F2C65C;
-    --dim-uniqueness: #F29A5C;
-    --dim-validity: #EA726E;
-    --dim-integrity: #7D8FE0;
-    --dim-conformity: #9AA3BD;
-
-    /* Words: dimension names, verdicts. 4.5:1 against the same. */
-    --dim-accuracy-text: #2AD4C5;
-    --dim-completeness-text: #4FD693;
-    --dim-consistency-text: #A8DB5F;
-    --dim-timeliness-text: #F2C65C;
-    --dim-uniqueness-text: #F29A5C;
-    --dim-validity-text: #EA726E;
-    --dim-integrity-text: #7D8FE0;
-    --dim-conformity-text: #9AA3BD;
-
-    /* Reserved for 'stale or not yet examined'. Nothing else may use it. */
-    --unverified-grey: #9AA3BD;
-    --unverified-grey-text: #9AA3BD;
-}
-
-/* BMO blue — BMO Blue on cool grey. A retail-banking register. */
-[data-theme="bmo"] {
-    --bg-body: #F1F5F9;
-    --bg-card: #FFFFFF;
-    --bg-header: linear-gradient(135deg, #0B2545 0%, #0A4D86 55%, #0079C0 100%);
-    --text-primary: #0B2545;
-    --text-muted: #586C82;
-    --text-link: #0A4D86;
-    --accent: #E11B22;
-    --border-color: #D8E3EE;
-
-    /* Marks: bars, rings, dots. 3:1 against this theme's card. */
-    --dim-accuracy: #00978C;
-    --dim-completeness: #289961;
-    --dim-consistency: #6B9230;
-    --dim-timeliness: #A7802A;
-    --dim-uniqueness: #C97132;
-    --dim-validity: #D9534F;
-    --dim-integrity: #2B3FA8;
-    --dim-conformity: #5A6480;
-
-    /* Words: dimension names, verdicts. 4.5:1 against the same. */
-    --dim-accuracy-text: #00786E;
-    --dim-completeness-text: #1F794D;
-    --dim-consistency-text: #557426;
-    --dim-timeliness-text: #846621;
-    --dim-uniqueness-text: #9E5928;
-    --dim-validity-text: #B64542;
-    --dim-integrity-text: #2B3FA8;
-    --dim-conformity-text: #5A6480;
-
-    /* Reserved for 'stale or not yet examined'. Nothing else may use it. */
-    --unverified-grey: #7F879F;
-    --unverified-grey-text: #636A7C;
-}
-
-/* Maya crimson — Maya's default: crimson over indigo on warm paper. */
-[data-theme="maya-crimson"] {
     --bg-body: #F7F5F2;
     --bg-card: #FFFFFF;
-    --bg-header: linear-gradient(135deg, #5C0E1B 0%, #A51C30 55%, #293352 100%);
+    --bg-header: linear-gradient(100deg, #5C0E1B 0%, #A51C30 48%, #293352 100%);
     --text-primary: #1A1A1A;
     --text-muted: #636B76;
-    --text-link: #6E1120;
+    --text-link: #A51C30;
     --accent: #A51C30;
     --border-color: #E3DED7;
 
@@ -155,16 +47,40 @@
     /* Reserved for 'stale or not yet examined'. Nothing else may use it. */
     --unverified-grey: #7F879F;
     --unverified-grey-text: #636A7C;
+
+    /* Maya's tokens: the chrome — navigation, menus, cards, footer. */
+    --maya-crimson: #A51C30;
+    --maya-crimson-strong: #8A1626;
+    --maya-crimson-deep: #6E1120;
+    --maya-crimson-tint: #FBEEF0;
+    --maya-ink: #1A1A1A;
+    --maya-slate: #636B76;
+    --maya-surface: #FFFFFF;
+    --maya-canvas: #F7F5F2;
+    --maya-indigo: #293352;
+    --maya-on-crimson: #FFFFFF;
+    --maya-border: #E3DED7;
+    --maya-ok: #1E6B3A;
+    --maya-warn: #7A5200;
+    --maya-bad: #8A1626;
+    --maya-highlight: #F4DDA0;
+    --maya-heading: #6E1120;
+    --maya-nav-from: #5C0E1B;
+    --maya-nav-via: #A51C30;
+    --maya-nav-to: #293352;
+    --maya-on-nav: #FFFFFF;
+    --maya-glow: #F3C6CF;
+    color-scheme: light;
 }
 
-/* Maya dark — Maya's night ground, with a rose accent. */
-[data-theme="maya-dark"] {
+/* Dark — Maya's night ground, with a rose accent, for long sessions. */
+[data-theme="dark"] {
     --bg-body: #151517;
     --bg-card: #1F1F23;
-    --bg-header: linear-gradient(135deg, #2E0810 0%, #6E1120 55%, #1B2138 100%);
+    --bg-header: linear-gradient(100deg, #2E0810 0%, #6E1120 48%, #1B2138 100%);
     --text-primary: #ECECEF;
     --text-muted: #8996A0;
-    --text-link: #E473AE;
+    --text-link: #DE6B81;
     --accent: #E473AE;
     --border-color: #34343A;
 
@@ -191,16 +107,40 @@
     /* Reserved for 'stale or not yet examined'. Nothing else may use it. */
     --unverified-grey: #9AA3BD;
     --unverified-grey-text: #9AA3BD;
+
+    /* Maya's tokens: the chrome — navigation, menus, cards, footer. */
+    --maya-crimson: #DE6B81;
+    --maya-crimson-strong: #D4526A;
+    --maya-crimson-deep: #E07A8E;
+    --maya-crimson-tint: #2A1A1E;
+    --maya-ink: #ECECEF;
+    --maya-slate: #8996A0;
+    --maya-surface: #1F1F23;
+    --maya-canvas: #151517;
+    --maya-indigo: #A9B6D6;
+    --maya-on-crimson: #151517;
+    --maya-border: #34343A;
+    --maya-ok: #7FD39B;
+    --maya-warn: #E8C26A;
+    --maya-bad: #F08A9C;
+    --maya-highlight: #5A4712;
+    --maya-heading: #DE6B81;
+    --maya-nav-from: #2E0810;
+    --maya-nav-via: #6E1120;
+    --maya-nav-to: #1B2138;
+    --maya-on-nav: #FFFFFF;
+    --maya-glow: #4A2530;
+    color-scheme: dark;
 }
 
-/* Maya blue — Maya's blue register on a cool ground. */
-[data-theme="maya-blue"] {
+/* Blue — SAJHA's blue on a cool ground. */
+[data-theme="blue"] {
     --bg-body: #F0F5FA;
     --bg-card: #FFFFFF;
-    --bg-header: linear-gradient(135deg, #002654 0%, #0079C1 55%, #003168 100%);
+    --bg-header: linear-gradient(100deg, #002654 0%, #0079C1 48%, #003168 100%);
     --text-primary: #1E293B;
     --text-muted: #536578;
-    --text-link: #003168;
+    --text-link: #006FB2;
     --accent: #0079C1;
     --border-color: #DCE4EE;
 
@@ -227,16 +167,40 @@
     /* Reserved for 'stale or not yet examined'. Nothing else may use it. */
     --unverified-grey: #7F879F;
     --unverified-grey-text: #636A7C;
+
+    /* Maya's tokens: the chrome — navigation, menus, cards, footer. */
+    --maya-crimson: #006FB2;
+    --maya-crimson-strong: #00609A;
+    --maya-crimson-deep: #003168;
+    --maya-crimson-tint: #E6F2FA;
+    --maya-ink: #1E293B;
+    --maya-slate: #536578;
+    --maya-surface: #FFFFFF;
+    --maya-canvas: #F0F5FA;
+    --maya-indigo: #003168;
+    --maya-on-crimson: #FFFFFF;
+    --maya-border: #DCE4EE;
+    --maya-ok: #1E6B3A;
+    --maya-warn: #7A5200;
+    --maya-bad: #B42318;
+    --maya-highlight: #CDE8F7;
+    --maya-heading: #003168;
+    --maya-nav-from: #002654;
+    --maya-nav-via: #0079C1;
+    --maya-nav-to: #003168;
+    --maya-on-nav: #FFFFFF;
+    --maya-glow: #CBE6F7;
+    color-scheme: light;
 }
 
-/* Maya green — Maya's green register on warm paper. */
-[data-theme="maya-green"] {
+/* Green — Deep green and house gold on a cream ground. */
+[data-theme="green"] {
     --bg-body: #F7F5EF;
     --bg-card: #FFFFFF;
-    --bg-header: linear-gradient(135deg, #00261A 0%, #006039 55%, #1C3A2E 100%);
+    --bg-header: linear-gradient(100deg, #00261A 0%, #006039 48%, #1C3A2E 100%);
     --text-primary: #1A1A1A;
     --text-muted: #5E6A64;
-    --text-link: #004D2E;
+    --text-link: #006039;
     --accent: #006039;
     --border-color: #E3DECF;
 
@@ -263,40 +227,28 @@
     /* Reserved for 'stale or not yet examined'. Nothing else may use it. */
     --unverified-grey: #7F879F;
     --unverified-grey-text: #636A7C;
-}
 
-/* Wall Street — Amber on black, as a terminal. For a desk that lives in one. */
-[data-theme="wallstreet"] {
-    --bg-body: #0A0A0A;
-    --bg-card: #141210;
-    --bg-header: linear-gradient(135deg, #000000 0%, #14120C 50%, #000000 100%);
-    --text-primary: #FFB43D;
-    --text-muted: #9A835A;
-    --text-link: #FFCF80;
-    --accent: #FFA028;
-    --border-color: #332D20;
-
-    /* Marks: bars, rings, dots. 3:1 against this theme's card. */
-    --dim-accuracy: #2AD4C5;
-    --dim-completeness: #4FD693;
-    --dim-consistency: #A8DB5F;
-    --dim-timeliness: #F2C65C;
-    --dim-uniqueness: #F29A5C;
-    --dim-validity: #EA726E;
-    --dim-integrity: #7D8FE0;
-    --dim-conformity: #9AA3BD;
-
-    /* Words: dimension names, verdicts. 4.5:1 against the same. */
-    --dim-accuracy-text: #2AD4C5;
-    --dim-completeness-text: #4FD693;
-    --dim-consistency-text: #A8DB5F;
-    --dim-timeliness-text: #F2C65C;
-    --dim-uniqueness-text: #F29A5C;
-    --dim-validity-text: #EA726E;
-    --dim-integrity-text: #7D8FE0;
-    --dim-conformity-text: #9AA3BD;
-
-    /* Reserved for 'stale or not yet examined'. Nothing else may use it. */
-    --unverified-grey: #9AA3BD;
-    --unverified-grey-text: #9AA3BD;
+    /* Maya's tokens: the chrome — navigation, menus, cards, footer. */
+    --maya-crimson: #006039;
+    --maya-crimson-strong: #004D2E;
+    --maya-crimson-deep: #00331F;
+    --maya-crimson-tint: #E8F3EC;
+    --maya-ink: #1A1A1A;
+    --maya-slate: #5E6A64;
+    --maya-surface: #FFFFFF;
+    --maya-canvas: #F7F5EF;
+    --maya-indigo: #1C3A2E;
+    --maya-on-crimson: #FFFFFF;
+    --maya-border: #E3DECF;
+    --maya-ok: #3A6B1E;
+    --maya-warn: #7A5200;
+    --maya-bad: #A4161A;
+    --maya-highlight: #EBDDB2;
+    --maya-heading: #004D2E;
+    --maya-nav-from: #00261A;
+    --maya-nav-via: #006039;
+    --maya-nav-to: #1C3A2E;
+    --maya-on-nav: #FFFFFF;
+    --maya-glow: #E6D7A8;
+    color-scheme: light;
 }

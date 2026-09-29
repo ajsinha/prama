@@ -125,6 +125,16 @@ export PRAMA_SECURITY__SESSION_SECRET="$(python -c 'import secrets;print(secrets
 
 ### Signing in
 
+**A fresh installation has one account: `admin`, password `prama-dev-admin`.**
+It is created the first time the server starts against an estate with nobody
+in it, and every page then carries a banner until the password is changed
+(user menu → **Change password**). `/metrics` reports
+`prama_default_admin_password 1` while it has not been. Outside development
+(`app.environment` other than `development` or `test`) the server refuses to
+start while the default is still in force, unless
+`security.allow_default_admin_password: true` says so knowingly. Set
+`security.bootstrap_admin: false` to create nobody.
+
 The console is readable without signing in when `tenancy.default_tenant` is
 set — that is how the case studies and a first evaluation run. To attribute
 approvals, suppressions and attestations to a person rather than to the
@@ -144,11 +154,11 @@ machine can read it. A provisioning script pipes it instead:
 printf '%s' "$PASSWORD" | prama principal create svc-loader --role steward
 ```
 
-Then sign in at `/sign-in`. The user menu (top right) then offers **My
+Then sign in at `/sign-in`. The user menu (the avatar, top right) offers **My
 account**, **My API keys** (mint a scoped, expiring key for a program; it is
-shown once) and **Change password**. An `admin` also gets **People & roles**
-(`/admin/users`: add people, set roles, reset passwords, disable) and **All API
-keys** (`/admin/keys`). The help centre at `/help` explains each of these.
+shown once), **Change password** and **My queue**. An `admin` also gets the
+**Admin** menu: **People & roles** (`/admin/users`: add people, set roles, reset
+passwords, disable), **All API keys** (`/admin/keys`), **Models** and **Agents**. The help centre at `/help` explains each of these.
 
 ### Make the estate stick
 
@@ -162,11 +172,8 @@ tenancy:
 
 Then `python run_prama_web.py` on its own is enough.
 
-Without it, **every console page redirects to a sign-in that does not exist
-yet** — there is no authentication in this build, and the console reads its
-caller from configuration. A blank page that redirects is what a missing tenant
-looks like; the server says so at startup rather than leaving you to find out by
-clicking.
+Without it, every console page asks you to sign in first — as `admin` on a
+fresh installation, above.
 
 ---
 

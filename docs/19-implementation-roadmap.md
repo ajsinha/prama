@@ -722,7 +722,7 @@ configuration or the error taxonomy.
 | Relationships end to end: declare, confirm, reject; pick-then-pick on the map | Attribute-level relationship editing |
 | Charts as server-rendered SVG (`prama.report`), one renderer for screen and print | Wiring them into scorecards, which have no measurements to draw |
 | Contrast measured, not eyeballed; every derived colour legible on all three grounds — card, page, striped row | Keyboard-only walkthroughs and a screen-reader pass, which are judgement rather than a rule engine |
-| **`axe-core` in Chrome** over sixteen pages and every theme (Maya's four included), WCAG 2.2 AA, with a counterfactual proving the audit can fail, **run in CI** on a runner with Chromium installed | Screen-reader testing, which needs a person with NVDA or VoiceOver |
+| **`axe-core` in Chrome** over sixteen pages and every theme (exactly Maya's four: Crimson, Dark, Blue, Green), WCAG 2.2 AA, with a counterfactual proving the audit can fail, **run in CI** on a runner with Chromium installed | Screen-reader testing, which needs a person with NVDA or VoiceOver |
 | Print artefacts: declaration pack, control pack and **attestation pack**, self-contained, coverage stated on every one | Batch export of a period's packs as one bundle |
 | `prama mcp` — the MCP server on the assistant's own registry, fenced and scanned | Streamable-HTTP transport; stdio only for now |
 | Proposal queue with accept and reject, `Unsatisfiable` first, rejections recorded so nothing is re-proposed | Batch approve; backtest and expected alert volume beside each proposal |

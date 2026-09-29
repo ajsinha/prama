@@ -1,0 +1,8 @@
+{# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{# The brand, as Maya sets it: the mark, the name, what it is, and the slogan in
+   italics as a third line — a hierarchy rather than three equal labels. #}
+<a class="navbar-brand maya-brand" href="{{ url_for('home') }}">
+  <img class="brand-mark" src="{{ url_for('static', filename='img/prama-mark-white.svg') }}" alt="The Prama prism mark">
+  <span><span class="name">PRAMA</span><small>Evidence-first data quality</small>
+    <small class="creed">{{ app_tagline }}</small></span>
+</a>

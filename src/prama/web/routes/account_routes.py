@@ -135,6 +135,7 @@ class AccountRoutes(UiRoutes):
         # password is not signed out for doing so.
         await uow.flush()
         request.session["issued_at"] = (principal.updated_at or utc_now()).isoformat()
+        request.session.pop("default_password", None)
         return redirect_to(
             request,
             "account_home",
