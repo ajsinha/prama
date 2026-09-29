@@ -9,33 +9,33 @@ before asking an administrator for a role.
 signed-in principal already holds; a steward cannot mint a key that approves
 controls. The plaintext is rendered once, in the response to the POST that
 created it — never put in the session cookie, never redirected through, and
-never retrievable afterwards. Only its prefix and hash are stored.
+never retrievable afterwards. Only its prefix and hash are stored. The rules
+live in `prama.security.people`, which the HTTP API calls too.
 
 Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 """
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import Form, Request
 
 from prama.core.clock import utc_now
-from prama.core.errors import NotFoundError, PramaError, ValidationError
-from prama.core.log import get_logger
-from prama.db.security import ApiKeyIssuer
-from prama.security.scopes import SCOPES, WILDCARD, permits
+from prama.core.errors import ForbiddenError, NotFoundError, PramaError, ValidationError
+from prama.security.people import (
+    DEFAULT_KEY_DAYS,
+    MAX_KEY_DAYS,
+    change_own_password,
+    grantable_scopes,
+    issue_key,
+)
+from prama.security.people import revoke_key as revoke
+from prama.security.scopes import SCOPES
 from prama.web.deps import Caller, NotSignedIn, Uow
 from prama.web.rendering import flash_error_and_log, redirect_to, render
 from prama.web.routes.base import UiRoutes
-
-_log = get_logger(__name__)
-
-#: After Maya: 90 days unless asked otherwise, and never more than a year. A
-#: key that never expires is a key nobody remembers to revoke.
-DEFAULT_KEY_DAYS = 90
-MAX_KEY_DAYS = 365
 
 
 def require_principal(caller: Any) -> str:
@@ -47,11 +47,6 @@ def require_principal(caller: Any) -> str:
     if not caller.principal_id:
         raise NotSignedIn("these pages belong to a signed-in account", remedy="Sign in.")
     return str(caller.principal_id)
-
-
-def grantable_scopes(held: tuple[str, ...]) -> list[str]:
-    """The scopes a principal holding *held* may put on a key of their own."""
-    return [scope for scope in SCOPES if permits(held, scope)]
 
 
 class AccountRoutes(UiRoutes):
@@ -115,25 +110,16 @@ class AccountRoutes(UiRoutes):
 
         if new != confirm:
             return refuse("The new password and its confirmation differ.")
-        checked = await uow.principals.authenticate(caller.tenant_id, principal.username, current)
-        if checked is None:
-            return refuse("The current password is not right.")
         try:
-            uow.principals.set_password(principal, new)
+            await change_own_password(uow, caller.tenant_id, principal, current=current, new=new)
+        except ForbiddenError:
+            return refuse("The current password is not right.")
         except ValidationError as exc:
             return refuse(f"{exc} {exc.remedy or ''}".strip())
-        uow.audit.record(
-            tenant_id=caller.tenant_id,
-            action="principal.password.change",
-            object_kind="principal",
-            object_id=str(principal.id),
-            actor_id=str(principal.id),
-        )
         # Changing the password moves `updated_at`, which invalidates every
         # session issued before it — including this one. That is right for the
         # others; this one is re-stamped so the person who just changed their
         # password is not signed out for doing so.
-        await uow.flush()
         request.session["issued_at"] = (principal.updated_at or utc_now()).isoformat()
         request.session.pop("default_password", None)
         return redirect_to(
@@ -168,7 +154,7 @@ class AccountRoutes(UiRoutes):
         principal_id = require_principal(caller)
         wanted = sorted(set(scopes or []))
         try:
-            issued = issue_key(
+            issued = await issue_key(
                 uow,
                 tenant_id=caller.tenant_id,
                 principal_id=principal_id,
@@ -207,74 +193,12 @@ class AccountRoutes(UiRoutes):
         return redirect_to(request, "account_keys", flash_message=f"Key {key.key_prefix}… revoked.")
 
 
-def issue_key(
-    uow: Any,
-    *,
-    tenant_id: str,
-    principal_id: str,
-    created_by: str,
-    name: str,
-    wanted: list[str],
-    days: int,
-    ceiling: tuple[str, ...],
-) -> dict[str, Any]:
-    """Mint a key, record it, and return the one copy of its plaintext.
-
-    *ceiling* is what the minting caller holds; no scope beyond it is granted.
-    """
-    name = name.strip()
-    if not name:
-        raise ValidationError("a key needs a name", remedy="Say what program will use it.")
-    if not wanted:
-        raise ValidationError(
-            "a key with no scopes can do nothing",
-            remedy="Tick at least one scope. An empty list means nothing, not everything.",
-        )
-    beyond = [s for s in wanted if s == WILDCARD or s not in SCOPES or not permits(ceiling, s)]
-    if beyond:
-        raise ValidationError(
-            f"you cannot grant {', '.join(beyond)}",
-            remedy="A key can only carry scopes its creator already holds.",
-            context={"scopes": beyond},
-        )
-    if not 1 <= days <= MAX_KEY_DAYS:
-        raise ValidationError(
-            f"a key lives between 1 and {MAX_KEY_DAYS} days",
-            remedy=f"Choose an expiry up to {MAX_KEY_DAYS} days; renew it by minting another.",
-            context={"days": str(days)},
-        )
-    issued = ApiKeyIssuer().issue()
-    row = uow.api_keys.create(
-        tenant_id=tenant_id,
-        principal_id=principal_id,
-        name=name,
-        key_prefix=issued.prefix,
-        key_hash=issued.hash,
-        scopes=wanted,
-        expires_at=datetime.now(UTC) + timedelta(days=days),
-        created_by=created_by,
-    )
-    uow.audit.record(
-        tenant_id=tenant_id,
-        action="api_key.create",
-        object_kind="api_key",
-        object_id=str(row.id),
-        actor_id=created_by,
-        detail={"prefix": issued.prefix, "scopes": wanted, "days": days},
-    )
-    _log.info("api key %s issued to %s", issued.prefix, principal_id)
-    return {"plaintext": issued.plaintext, "prefix": issued.prefix, "name": name}
-
-
-def revoke(uow: Any, key: Any, *, tenant_id: str, actor_id: str | None) -> None:
-    """Revoke a key. Idempotent: revoking twice keeps the first time."""
-    if key.revoked_at is None:
-        key.revoked_at = utc_now()
-        uow.audit.record(
-            tenant_id=tenant_id,
-            action="api_key.revoke",
-            object_kind="api_key",
-            object_id=str(key.id),
-            actor_id=actor_id,
-            detail={"prefix": key.key_prefix},
-        )
+__all__ = [
+    "DEFAULT_KEY_DAYS",
+    "MAX_KEY_DAYS",
+    "AccountRoutes",
+    "grantable_scopes",
+    "issue_key",
+    "require_principal",
+    "revoke",
+]

@@ -228,3 +228,10 @@ BreakWriter = scoped("break:write")
 AttestationSigner = scoped("attestation:sign")
 ReportReader = scoped("report:read")
 ContractChecker = scoped("contract:check")
+
+# -- administration, identity, models and agents ----------------------------
+#: People, roles, every key in the estate, the model gateway's administration,
+#: steward agents, the effective configuration and the audit log. The console
+#: puts each of these behind ``admin``; the API asks for the same scope, so
+#: the two surfaces cannot disagree about who may do it.
+Administrator = scoped("admin")
