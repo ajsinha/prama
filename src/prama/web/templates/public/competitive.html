@@ -1,0 +1,106 @@
+{# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{# The competitive landscape, laid out as Maya's /about/competitive: a hero, the
+   categories and a comparison table, then a note per capability saying the
+   problem and how Prama does it — where it shines first, then where it is
+   partial or behind, and why. The rows are data (prama.web.about). Categories,
+   not vendors: docs/20 is the vendor-by-vendor long form. #}
+{% extends "base.html" %}
+{% block title %}Competitive landscape — Prama{% endblock %}
+{% block content %}
+<section class="about-hero compete-hero">
+  <h1><i class="bi bi-bar-chart-steps" aria-hidden="true"></i> Competitive landscape</h1>
+  <p>Where Prama sits among the products that touch data quality, and how it does the things the others do not.</p>
+  <div class="d-flex flex-wrap gap-2 justify-content-center mt-3 position-relative">
+    <a class="btn btn-outline-light" href="{{ url_for('about') }}"><i class="bi bi-info-circle" aria-hidden="true"></i> About Prama</a>
+    <a class="btn btn-outline-light" href="{{ url_for('help_index') }}"><i class="bi bi-book" aria-hidden="true"></i> Help</a>
+    <a class="btn btn-outline-light" href="{{ url_for('help_topic', slug=long_form) }}"><i class="bi bi-journal-text" aria-hidden="true"></i> Vendor by vendor</a>
+  </div>
+</section>
+
+<section class="card mb-4 about-compete">
+  <div class="card-body">
+    <p>Five families of product touch the problem Prama addresses, and each is good at what it does.
+      {% for c in categories %}<strong>{{ c.label }}</strong> ({{ c.examples }}){{ ', ' if not loop.last else '.' }}{% endfor %}
+      Catalogs know what data means without checking it. Lineage tools know where it came from without
+      measuring it. Observability tools notice that something changed, but cannot say how often they are
+      wrong or prove anything afterwards. DQ suites check data without the owner's words. Reconciliation
+      products agree two systems, in a product of their own.</p>
+    <p class="mb-3">The pattern is consistent: each answers one part of <em>can I trust this number, and prove
+      it?</em> Prama keeps one record for the whole question: the meaning, declared by its owner; the
+      controls, derived and executed at the source; the alert rate, calibrated; and the evidence, verifiable
+      without Prama.</p>
+
+    <div class="mt-wrap mb-3"><div class="mt-scroll">
+      <table class="cmp-table">
+        <caption class="visually-hidden">How the product categories compare. Each capability links to how Prama does it.</caption>
+        <thead><tr>
+          <th scope="col">Capability</th>
+          {% for c in categories %}<th scope="col" title="{{ c.examples }}">{{ c.short }}</th>{% endfor %}
+          <th scope="col" class="cmp-us">Prama</th>
+        </tr></thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <th scope="row" class="fw-normal"><a href="#{{ r.id }}">{{ r.cap }}</a></th>
+            {% for c in categories %}<td><span class="cmp cmp-{{ r.ratings[c.key] | lower }}">{{ r.ratings[c.key] }}</span></td>{% endfor %}
+            <td class="cmp-us"><span class="cmp cmp-{{ r.prama | lower }}"><strong>{{ r.prama }}</strong></span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div></div>
+
+    <div class="cmp-legend mb-2">
+      {% for c in categories %}<span><strong>{{ c.short }}</strong> — {{ c.label }}: {{ c.examples }}</span>{% endfor %}
+    </div>
+    <p class="small-muted mb-0">Categories, not vendors. Each row says where a category's centre of gravity
+      sits as understood in September 2026. Individual products differ, change between releases, and some
+      cross these lines. Nothing here is a statement about any one vendor's current offering.</p>
+  </div>
+</section>
+
+{% macro note(r) %}
+<article class="card mb-3 cmp-note" id="{{ r.id }}">
+  <div class="card-body">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+      <h3 class="h5 mb-0">{{ r.cap }}</h3>
+      <div class="d-flex flex-wrap gap-1 small">
+        {% for c in categories %}<span class="cmp cmp-{{ r.ratings[c.key] | lower }}" title="{{ c.label }}">{{ c.short }} {{ r.ratings[c.key] }}</span>{% endfor %}
+        <span class="cmp cmp-{{ r.prama | lower }}" title="Prama"><strong>Prama {{ r.prama }}</strong></span>
+      </div>
+    </div>
+    <p class="small-muted mb-2"><strong>The problem.</strong> {{ r.problem }}</p>
+    {% for para in r.how %}<p class="{{ 'mb-0' if loop.last else 'mb-2' }}">{% if loop.first %}<strong>How Prama does it.</strong> {% endif %}{{ para | safe }}</p>{% endfor %}
+  </div>
+</article>
+{% endmacro %}
+
+<h2 class="mb-3"><i class="bi bi-stars" aria-hidden="true"></i> Where Prama shines, and how</h2>
+{% for r in shines %}{{ note(r) }}{% endfor %}
+
+<h2 class="mb-3 mt-4"><i class="bi bi-signpost-split" aria-hidden="true"></i> Where Prama is partial or behind, and why</h2>
+{% for r in behind %}{{ note(r) }}{% endfor %}
+
+<section class="card mb-4 mt-4">
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div class="cap-group">What the rows have in common</div>
+        <ul class="cap-list">
+          <li>It derives what others ask somebody to type: controls from declarations, scores from evidence,
+            and an alert threshold from a false-alarm rate.</li>
+          <li>It executes, not only describes. A lineage map, a glossary term or a policy becomes a control
+            that ran, with a verdict.</li>
+          <li>Its evidence leaves with a verifier, so an auditor does not have to trust the platform under audit.</li>
+        </ul>
+      </div>
+      <div class="col-md-6">
+        <div class="cap-group">The practical reading</div>
+        <p class="mb-0">Prama is a complement, not a replacement. Keep the catalog, the lineage scanner and the
+          reconciliation desk: Prama imports what they know, executes and evidences the controls, and publishes
+          quality back to where people already look.</p>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -22,7 +22,8 @@ from fastapi.responses import FileResponse, RedirectResponse
 from prama.core.errors import NotFoundError
 from prama.report.themes import THEMES
 from prama.security.scopes import SCOPES
-from prama.web import help_catalog
+from prama.version import SCHEMA_VERSION
+from prama.web import about, help_catalog
 from prama.web.rendering import NAVIGATION, render
 from prama.web.routes.base import UiRoutes
 
@@ -70,6 +71,7 @@ class PublicRoutes(UiRoutes):
     def register(self) -> None:
         self.page("/", self.landing, name="home", scope=None)
         self.page("/about", self.about, name="about", scope=None)
+        self.page("/about/competitive", self.competitive, name="competitive", scope=None)
         self.page("/legal", self.legal, name="legal", scope=None)
         self.page("/help", self.help_index, name="help_index", scope=None)
         self.page("/help/assets/{name}", self.help_asset, name="help_asset", scope=None)
@@ -100,7 +102,30 @@ class PublicRoutes(UiRoutes):
         )
 
     async def about(self, request: Request) -> Any:
-        return render(request, "public/about.html", public_nav=True)
+        from prama.web import case_studies
+
+        # Counted from this build, never typed: a figure restated on a page is
+        # wrong the day after it is written.
+        facts = {
+            "schema": SCHEMA_VERSION,
+            "themes": ", ".join(theme.label for theme in THEMES),
+            "help": len(help_catalog.BY_SLUG),
+            "studies": len(case_studies.catalog()),
+        }
+        return render(request, "public/about.html", public_nav=True, facts=facts)
+
+    async def competitive(self, request: Request) -> Any:
+        """Where Prama sits among the categories, after Maya's /about/competitive."""
+        return render(
+            request,
+            "public/competitive.html",
+            public_nav=True,
+            categories=about.CATEGORIES,
+            rows=about.ROWS,
+            shines=about.SHINES,
+            behind=about.BEHIND,
+            long_form="competitive-analysis",
+        )
 
     async def legal(self, request: Request) -> Any:
         """The licence and the legal notice, read from the files that are the

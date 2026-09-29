@@ -169,6 +169,8 @@ HELP_MENU = NavGroup("Help", "bi-question-circle", (
         NavItem("Case studies", "help_case_studies", "/help/case-studies", "bi-journals",
                 "Worked estates, end to end"),
         NavItem("About", "about", "/about", "bi-info-circle", "What Prama is, and why"),
+        NavItem("Competitive landscape", "competitive", "/about/competitive",
+                "bi-bar-chart-steps", "Where Prama sits, and how it does what others do not"),
     )),
 ))  # fmt: skip
 

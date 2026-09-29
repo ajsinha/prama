@@ -28,6 +28,12 @@ trustworthy and proving it.**
 
 ## As built
 
+The console carries the category-level summary at **About → Competitive landscape**
+(`/about/competitive`): five categories and a row per capability, each rated Yes, Partial or No
+on what is built today, with the problem and how Prama does it. Its rows are data in
+`prama.web.about`, and a test fails if a rating falls outside that set. This document stays
+the vendor-by-vendor long form, and is linked from that page.
+
 Nothing in this document is code, and that is the point: a competitive claim is
 only worth what its measurement is worth.
 

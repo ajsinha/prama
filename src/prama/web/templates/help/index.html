@@ -3,8 +3,21 @@
    card opens a document rendered from its Markdown source. #}
 {% extends "base.html" %}
 {% block title %}Help — Prama{% endblock %}
-{% block heading %}Help centre{% endblock %}
 {% block content %}
+{# The hero, as Maya's help index: the ways out of Help that are not topics. #}
+<section class="help-hero">
+  <i class="bi bi-book hero-ico" aria-hidden="true"></i>
+  <h1>Help &amp; documentation</h1>
+  <p>Everything about Prama, with worked estates. Search, or browse by section.</p>
+  <div class="d-flex flex-wrap gap-2 justify-content-center mt-3 position-relative">
+    <a class="btn btn-light" href="{{ url_for('help_topic', slug='console-tour') }}"><i class="bi bi-flag" aria-hidden="true"></i> Getting started</a>
+    <a class="btn btn-outline-light" href="{{ url_for('help_case_studies') }}"><i class="bi bi-journal-code" aria-hidden="true"></i> Case studies</a>
+    <a class="btn btn-outline-light" href="{{ url_for('about') }}"><i class="bi bi-info-circle" aria-hidden="true"></i> About Prama</a>
+    <a class="btn btn-outline-light" href="{{ url_for('competitive') }}"><i class="bi bi-bar-chart-steps" aria-hidden="true"></i> Competitive landscape</a>
+    <a class="btn btn-outline-light" href="/api/v1/docs"><i class="bi bi-code-square" aria-hidden="true"></i> API reference</a>
+  </div>
+</section>
+
 <p class="text-muted" style="max-width: 46rem">Every page here is rendered from the document that is
   the authority for it — the console guides shipped with Prama, and the design corpus in
   <code>docs/</code> — so the help and the documentation cannot disagree.</p>
