@@ -1,22 +1,24 @@
 #!/usr/bin/env python3
 """Case study 5 — DQ delegates: Python checks the bank writes, under Prama's rules.
 
-Two checks PQL cannot say, written as delegates by Acme's own engineers, named
-from PQL, and run in two places:
+Runs against **your** Prama, through the SDK. Two checks PQL cannot say,
+written as delegates by Acme's own engineers, uploaded to Prama, approved by a
+second administrator (four eyes), named from PQL, and run by the server:
 
-  * **acme.settlement_cycle**, on the control plane. Every trade settles its
-    market's cycle of *business days* after trading: US T+1 since May 2024,
-    EU T+2, each on its own holiday calendar.
-  * **acme.benford_first_digit**, on a remote agent in the payments zone,
-    configured with its own `delegates:` section. The payment rows never leave
-    the zone; the finding does.
+  * **acme.settlement_cycle**. Every trade settles its market's cycle of
+    *business days* after trading: US T+1 since May 2024, EU T+2, each on its
+    own holiday calendar.
+  * **acme.benford_first_digit**. Whether amounts' first digits follow
+    Benford's law, on the receipts ledger the server can read; the payments
+    ledger lives in a PCI zone the control plane cannot reach.
 
 And one delegate that must be refused, because it fetches FX rates from the
-internet: it is refused from its source, before it is imported.
+internet: the upload is refused from its source, before it is imported.
 
 Usage:
-    python run.py                 build, run, and serve the console on :8805
-    python run.py --no-serve      build and run, then stop
+    python run.py                          the server config/application.yaml names
+    python run.py --config other.yaml      another server
+    python run.py --username ada --password …   as somebody else (default: the dev admin)
 
 Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 Proprietary; see LICENSE.
@@ -24,10 +26,9 @@ Proprietary; see LICENSE.
 
 from __future__ import annotations
 
-import argparse
-import asyncio
 import csv
 import random
+import secrets
 import shutil
 import sys
 from datetime import date, timedelta
@@ -40,15 +41,14 @@ sys.path.insert(0, str(HERE.parent))
 import duckdb  # noqa: E402
 from _common.defects import DefectLog  # noqa: E402
 from _common.estate import Attribute, Dataset  # noqa: E402
-from _common.harness import Harness, Source, banner, say, stage, use_config  # noqa: E402
+from _common.harness import Harness, Source, arguments, banner, say, stage  # noqa: E402
 
-from prama.connect.sources.query import executor_for  # noqa: E402
-from prama.delegates.host import host_from_config  # noqa: E402
+import prama.sdk as prama  # noqa: E402
 
 DELEGATES = HERE / "acme_delegates"
+REJECTED = HERE / "rejected"
 #: Control ids by the identity they were declared under, for the comparison.
 DECLARED: dict[str, str] = {}
-REJECTED = HERE / "rejected"
 
 #: The generator's own calendar, written independently of the delegate's so
 #: the study does not grade the delegate against itself.
@@ -259,141 +259,147 @@ def _write(path: Path, rows: list[dict[str, Any]]) -> None:
         writer.writerows(rows)
 
 
-def _admit() -> Any:
-    """The control plane's delegates, from its own configuration."""
+def _reviewer(harness: Harness) -> prama.Client:
+    """A second administrator, signed in as themselves: the delegate's four eyes.
+
+    Code that will run against the estate's data is approved by somebody other
+    than the person who uploaded it. The server enforces that; this is the
+    second person it asks for.
+    """
+    password = secrets.token_urlsafe(18)
+    harness.sdk.principals.create(
+        "reviewer",
+        roles=["admin"],
+        password=password,
+        display_name="Rui Costa (reviews delegate code)",
+    )
+    return prama.connect(
+        harness.sdk.base_url,
+        username="reviewer",
+        password=password,
+        tenant=str(harness.estate.get("slug", "")),
+    )
+
+
+def _admit(harness: Harness, reviewer: prama.Client) -> None:
+    """Upload each delegate, have the second administrator approve it, and try the bad one."""
     stage(
-        2,
-        "Admit the delegates",
-        "Scanned before import, run twice on probe rows, and hashed.",
+        "3b",
+        "Upload the delegates, and approve them with four eyes",
+        "Vetted in the server's sandbox before import; approved by somebody else.",
     )
-    say("  delegates:                      # the control plane's application.yaml")
-    say(f"    paths: [{DELEGATES.name}, {REJECTED.name}]")
-    say("    sandbox: true")
-    host = host_from_config(
-        {"delegates": {"paths": [str(DELEGATES), str(REJECTED)], "entry_points": False}}
-    )
+    for path in sorted(DELEGATES.glob("*.py")):
+        upload = harness.sdk.delegates.upload(path)
+        described = upload.get("described") or {}
+        checks = upload.get("findings") or []
+        passed = sum(1 for c in checks if c.get("passed"))
+        say(f"  uploaded  {upload['name']}@{upload['version']}  ({path.name}) — {upload['state']}")
+        reads = ", ".join(described.get("requires") or [])
+        say(f"            counts {described.get('unit', '?')}; reads {reads}")
+        say(f"            vetting: {passed} of {len(checks)} conformance check(s) passed")
+        say(f"            source {str(described.get('implementation_hash', ''))[:32]}")
+        try:
+            harness.sdk.delegates.approve(upload["id"])
+            say("            ! the uploader approved their own delegate: four eyes did not hold")
+        except prama.ForbiddenError as error:
+            say(f"            the uploader cannot approve it: {error.message}")
+        decided = reviewer.delegates.approve(upload["id"], note="read the source; approved")
+        say(f"            approved by the reviewer — {decided['state']}")
     say()
-    for admitted in host.registry.all():
-        say(f"  admitted  {admitted.name}@{admitted.version}  counts {admitted.delegate.unit}")
-        say(f"            reads {', '.join(admitted.delegate.requires)}")
-        say(f"            source {admitted.implementation_hash}")
-    for name, why in sorted(host.registry.refused.items()):
-        say(f"  REFUSED   {name}")
-        say(f"            {why}")
+    for path in sorted(REJECTED.glob("*.py")):
+        try:
+            upload = harness.sdk.delegates.upload(path)
+        except prama.ValidationError as error:
+            say(f"  REFUSED   {path.name}")
+            say(f"            {error.message}")
+            continue
+        say(f"  ! {path.name} was accepted for review ({upload['state']}); it should not have been")
     say()
     say("  live_fx.py was refused from its source. It was never imported, so its")
     say("  top-level urlopen() never ran: a gate that had to run the thing it was")
     say("  gating would already have let it out.")
-    return host
-
-
-async def _declare(harness: Harness) -> None:
-    from prama.backend import compile_for
-    from prama.ir.resolve import resolved
-    from prama.pql import parse_control
-
     say()
-    say("  The controls, as written:")
+    say("  The server needs no configuration for this: an approved upload is written")
+    say("  to its delegates.upload_dir (default data/delegates) when a run starts, and")
+    say("  runs only in the sandbox, which re-hashes the file before importing it.")
+
+
+def _declare(harness: Harness) -> None:
+    say()
+    say("  The controls, as written, checked and explained by the server:")
     written = [
         ("delegate:settlement_cycle", SETTLEMENT),
         ("naive:settles_after_trading", NAIVE),
         ("delegate:benford_payments", BENFORD.format(dataset="payments_ledger")),
         ("delegate:benford_receipts", BENFORD.format(dataset="receipts_ledger")),
     ]
-    async with harness.database.unit_of_work() as uow:
-        for identity, pql in written:
-            control = parse_control(pql)
-            say(f"    {control.describe()}")
-            if identity.startswith("delegate:settlement"):
-                query = compile_for(
-                    resolved(control),
-                    "duckdb",
-                    table="trade_blotter",
-                    columns=("trade_id", "market", "trade_date", "settlement_date"),
-                ).metric_query
-                say(f"      the engine's part: {' '.join(query.split())}")
-            entity, _ = await uow.controls.declare(
-                tenant_id=harness.tenant_id,
-                identity=identity,
-                pql=pql,
-                rule="authored.delegate" if identity.startswith("delegate") else "authored.excel",
-                criticality=1,
-                schedule="06:30",
-                authored_by="alice",
-            )
-            await uow.controls.activate(
-                str(entity.id), tenant_id=harness.tenant_id, approved_by="bob"
-            )
-            DECLARED[identity] = str(entity.id)
-            harness.accepted += 1
+    for identity, pql in written:
+        checked = harness.sdk.pql.check(pql)
+        errors = [f for f in checked.get("findings") or [] if f.get("level") == "error"]
+        if checked.get("syntax_error") or errors:
+            say(f"    ! {identity} does not check: {checked.get('syntax_error') or errors}")
+            sys.exit(1)
+        for explained in harness.sdk.pql.explain(pql).get("controls") or []:
+            say(f"    {explained['sentence']}")
+        if identity.startswith("delegate:settlement"):
+            (plan,) = harness.sdk.pql.compile(pql, dialect="duckdb").get("plans") or [{}]
+            say(f"      the engine's part: {' '.join(str(plan.get('metric_query', '')).split())}")
+            say("      (a run narrows it to the columns the delegate declares it reads)")
+        control = harness.author(pql, identity=identity, reason="written by the data owner")
+        DECLARED[identity] = str(control["id"])
 
 
-def _remote_agent(catalogue: Path) -> None:
-    """The payments ledger's check, run by an agent inside the payments zone."""
-    from prama.agent import Agent, AgentCapabilities, Assignment, ResidencyPolicy, fits
-    from prama.agent.residency import SampleDisposition
-    from prama.ir.resolve import resolved
-    from prama.pql import parse_control
-
+def _payments(harness: Harness, landing: Path) -> None:
+    """The payments ledger's check: what an agent in the zone would run, and what the SDK can."""
     stage(
         "4b",
-        "Run the payments check on a remote agent",
-        "Configured with its own delegates: section; rows stay in the zone.",
+        "The payments ledger, in the PCI zone",
+        "The control plane cannot read it, so the server's run did not reach it.",
     )
-    plan = resolved(parse_control(BENFORD.format(dataset="payments_ledger")))
-    bare = AgentCapabilities(engines=("duckdb",))
-    verdict = fits(plan, bare, engine="duckdb")
-    say("  an agent in eu-frankfurt, with no delegates configured:")
-    say(f"    {verdict.render()}")
-    say(f"    → {verdict.remedy}")
+    say("  The check belongs on an agent inside the zone, configured with its own")
+    say("  delegates: section, so the rows never leave and only the finding does.")
+    say("  That agent is not something the SDK drives: Prama's data-plane agent")
+    say("  protocol (prama.agent) has no HTTP endpoint, so this study, a client of")
+    say("  the server, cannot enrol one or hand it the control. Its evidence would")
+    say("  be the agent's, and none is claimed below.")
     say()
-
-    say("  the agent in pci-zone, whose own application.yaml says:")
-    say("    delegates:")
-    say(f"      paths: [/opt/acme/{DELEGATES.name}]")
-    say("      sandbox: true")
-    host = host_from_config({"delegates": {"paths": [str(DELEGATES)], "entry_points": False}})
-    execute, close = executor_for(catalogue, "duckdb")
-    try:
-        agent = Agent(
-            "agent-pci-01",
-            b"k" * 32,
-            executor=lambda sql: list(execute(sql)),
-            residency=ResidencyPolicy(
-                zone="pci-zone",
-                samples=SampleDisposition.WITHHOLD,
-                investigate_at="the AP investigations workstation in pci-zone",
-            ),
-            capabilities=bare,
-            delegates=host,
-        )
-        hello, _ = agent.hello()
-        say(f"    advertises: {', '.join(hello.capabilities.delegates)}")
-        say(f"    fits: {fits(plan, hello.capabilities, engine='duckdb').render()}")
-        outcome = agent.run(Assignment.for_plan(plan, "duckdb", control_id="benford_payments"))
-    finally:
-        close()
-    record = outcome.record
-    assert record is not None
-    metrics = record.metrics
+    say("  What the SDK can do is try the approved delegate on rows, in the server's")
+    say("  sandbox, exactly as a control would measure them. A try-out records no")
+    say("  evidence, and it sends the rows to the control plane: acceptable for a")
+    say("  study's synthetic payments, and the very thing a real PCI zone forbids.")
+    with (landing / "payments.csv").open(newline="", encoding="utf-8") as handle:
+        rows = [
+            {"payment_id": r["payment_id"], "amount": float(r["amount"])}
+            for r in csv.DictReader(handle)
+        ]
+    tried = harness.sdk.delegates.test("acme.benford_first_digit@1", rows, min_rows=300)
+    metrics = tried.get("metrics") or {}
     say()
-    findings = int(metrics.get("violating_rows", 0))
-    say(f"    verdict   {record.verdict.upper()}  ({findings} finding(s))")
+    say(f"  try-out over {len(rows):,} payments")
+    say(
+        f"    verdict   {str(tried.get('verdict', '?')).upper()}  "
+        f"({int(metrics.get('violating_rows', 0))} finding(s))"
+    )
     say(
         f"    MAD {metrics.get('mad', 0):.4f}   χ² {metrics.get('chi_square', 0):.1f}   "
         f"share of 4s {metrics.get('share_digit_4', 0):.1%} (Benford: 9.7%)"
     )
-    say(f"    {record.detail}")
+    if tried.get("note"):
+        say(f"    {tried['note']}")
+    delegate = tried.get("delegate") or {}
     say(
-        f"    ran {record.parameters['delegate']}, source {record.parameters['delegate_hash'][:16]}"
+        f"    ran {delegate.get('delegate', '?')}, source "
+        f"{str(delegate.get('delegate_hash', ''))[:16]}, {delegate.get('delegate_isolation', '')}"
     )
-    say(
-        f"    {record.sample_count} example payments kept in the zone; "
-        f"{'none' if not record.samples_digest else 'masked copies'} sent to the control plane"
-    )
+    TRIED["payments"] = tried
 
 
-async def main(serve: bool) -> Any:
+#: What the payments try-out returned, for the comparison.
+TRIED: dict[str, Any] = {}
+
+
+def main() -> None:
+    args = arguments(__doc__ or "")
     workspace = HERE / "workspace"
     banner(
         "Case study 5 — DQ delegates",
@@ -406,43 +412,50 @@ async def main(serve: bool) -> Any:
     say()
     say(planted.render())
 
-    host = _admit()
-
-    harness = Harness(workspace, title="DQ delegates")
-    await harness.start(tenant_slug="acme-ops", tenant_name="Acme Markets — operations")
+    harness = Harness(workspace, title="DQ delegates", args=args)
+    harness.start(tenant_slug="acme-ops", tenant_name="Acme Markets — operations")
+    reviewer = _reviewer(harness)
     try:
-        await harness.declare(ESTATE)
-        await harness.derive_and_accept()
-        await _declare(harness)
-        execute, close = executor_for(catalogue, "duckdb")
-        try:
-            await harness.run(
-                [
-                    Source(
-                        name="control plane (DuckDB)",
-                        engine="duckdb",
-                        execute=execute,
-                        close=close,
-                        # The payments ledger lives in the PCI zone; the
-                        # control plane cannot reach it, and says so.
-                        datasets={"trade_blotter", "receipts_ledger"},
-                        delegates=host,
-                    )
-                ]
-            )
-        finally:
-            close()
-        _remote_agent(catalogue)
-        await harness.report(planted)
-        await _compare(harness)
+        harness.declare(ESTATE)
+        harness.derive_and_accept()
+        _admit(harness, reviewer)
+        _declare(harness)
+        harness.run(
+            [
+                Source(
+                    name="control plane (DuckDB)",
+                    source_type="duckdb",
+                    path=catalogue,
+                    # The payments ledger lives in the PCI zone; the control
+                    # plane cannot reach it, and the run says so.
+                    datasets={"trade_blotter", "receipts_ledger"},
+                )
+            ]
+        )
+        _payments(harness, workspace / "landing")
+        harness.report(planted)
+        _compare(harness)
+        harness.finish()
     finally:
-        await harness.stop()
-    return harness if serve else None
+        reviewer.close()
+        harness.close()
 
 
-async def _compare(harness: Harness) -> None:
-    async with harness.database.unit_of_work() as uow:
-        latest = await uow.evidence.latest_per_control(harness.tenant_id)
+def _latest(harness: Harness) -> dict[str, dict[str, Any]]:
+    """The latest evidence record per control id."""
+    latest = harness.sdk.evidence.latest()
+    if isinstance(latest, dict):
+        records = next(
+            (latest[k] for k in ("records", "items", "latest") if isinstance(latest.get(k), list)),
+            [v for v in latest.values() if isinstance(v, dict)],
+        )
+    else:
+        records = list(latest or [])
+    return {str(r.get("control_id")): r for r in records}
+
+
+def _compare(harness: Harness) -> None:
+    latest = _latest(harness)
     by_identity = {
         identity: latest[control_id]
         for identity, control_id in DECLARED.items()
@@ -456,19 +469,26 @@ async def _compare(harness: Harness) -> None:
     cycle = by_identity.get("delegate:settlement_cycle")
     if naive is not None and cycle is not None:
         say(
-            f"  settlement_date >= trade_date      {naive.verdict.upper():<5} "
-            f"{int(naive.metrics.get('violating_rows', 0))} violation(s)"
+            f"  settlement_date >= trade_date      {str(naive['verdict']).upper():<5} "
+            f"{int((naive.get('metrics') or {}).get('violating_rows', 0))} violation(s)"
         )
         say(
-            f"  acme.settlement_cycle              {cycle.verdict.upper():<5} "
-            f"{int(cycle.metrics.get('violating_rows', 0))} violation(s)"
+            f"  acme.settlement_cycle              {str(cycle['verdict']).upper():<5} "
+            f"{int((cycle.get('metrics') or {}).get('violating_rows', 0))} violation(s)"
         )
-        say(f"    {cycle.detail}")
+        if cycle.get("detail"):
+            say(f"    {cycle['detail']}")
     receipts = by_identity.get("delegate:benford_receipts")
     if receipts is not None:
         say(
-            f"  benford on receipts (clean)        {receipts.verdict.upper():<5} "
-            f"MAD {receipts.metrics.get('mad', 0):.4f}"
+            f"  benford on receipts (clean)        {str(receipts['verdict']).upper():<5} "
+            f"MAD {(receipts.get('metrics') or {}).get('mad', 0):.4f}"
+        )
+    payments = TRIED.get("payments")
+    if payments is not None:
+        say(
+            f"  benford on payments (try-out)      {str(payments.get('verdict')).upper():<5} "
+            f"MAD {(payments.get('metrics') or {}).get('mad', 0):.4f}   no evidence recorded"
         )
     say()
     say("  Every trade planted here settles after it trades, so the column")
@@ -479,14 +499,4 @@ async def _compare(harness: Harness) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--no-serve", action="store_true")
-    parser.add_argument(
-        "--config", default="", help="a Prama configuration file; defaults to the application's"
-    )
-    parser.add_argument("--port", type=int, default=8805)
-    args = parser.parse_args()
-    use_config(args.config)
-    started = asyncio.run(main(serve=not args.no_serve))
-    if started is not None:
-        started.serve(port=args.port)
+    main()
