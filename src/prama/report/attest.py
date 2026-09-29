@@ -14,8 +14,11 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+import dataclasses
 from typing import Any
 
+from prama.core.clock import utc_now
+from prama.core.errors import ValidationError
 from prama.report.attestation import Attestation, Coverage, Exception_
 
 #: Verdicts that are not a pass, and what each means for a sign-off. An
@@ -114,6 +117,144 @@ async def build(
         signed_at=signed_at,
         tenant_id=tenant_id,
     )
+
+
+def sealing_key(config: Any) -> bytes:
+    """The key an attestation is sealed with.
+
+    The session secret, which a deployment must set and which is refused
+    empty. A dedicated signing key belongs to Wave 10's key management; the
+    distinction matters and is stated on the screen rather than implied by the
+    word "signed".
+    """
+    secret: str = config.require_secret("security.session_secret")
+    return secret.encode()
+
+
+def default_period(start: str = "", end: str = "") -> tuple[str, str]:
+    """The period a draft covers when none is given: this month, to today."""
+    now = utc_now()
+    return start or now.replace(day=1).date().isoformat(), end or now.date().isoformat()
+
+
+async def draft(
+    uow: Any, tenant_id: str, *, attester_id: str, scope: str, start: str = "", end: str = ""
+) -> Attestation:
+    """What would be attested to, before anybody signs it."""
+    period_start, period_end = default_period(start, end)
+    return await build(
+        uow,
+        tenant_id,
+        scope=scope,
+        period_start=period_start,
+        period_end=period_end,
+        attester_id=attester_id,
+        attester_name="",
+        statement="",
+        signed_at="",
+    )
+
+
+async def sign(
+    uow: Any,
+    tenant_id: str,
+    *,
+    key: bytes,
+    attester_id: str,
+    attester_name: str,
+    statement: str,
+    scope: str,
+    period_start: str,
+    period_end: str,
+    dispositions: dict[str, str] | None = None,
+    supersedes: str = "",
+    supersedes_because: str = "",
+) -> Any:
+    """Derive the attestation again, seal it, and record it.
+
+    Rebuilt from the ledger rather than from whatever the caller was shown, so
+    what is signed is what the evidence says at the moment of signing — not
+    what a page rendered some minutes earlier and a browser posted back.
+    """
+    if not attester_name.strip():
+        raise ValidationError(
+            "an attestation needs the name of the person signing it",
+            remedy=(
+                "A control attested by 'the team' is a control nobody "
+                "attested. Give the name of the person accountable."
+            ),
+        )
+    if not statement.strip():
+        raise ValidationError(
+            "an attestation needs a statement",
+            remedy=(
+                "Say what you are attesting to, in your own words. It is "
+                "printed on the artefact and quoted back at review."
+            ),
+        )
+    attestation = await build(
+        uow,
+        tenant_id,
+        scope=scope,
+        period_start=period_start,
+        period_end=period_end,
+        attester_id=attester_id,
+        attester_name=attester_name.strip(),
+        statement=statement.strip(),
+        signed_at=utc_now().isoformat(),
+        dispositions=dispositions,
+    )
+    if supersedes:
+        # Checked against the caller's own estate before it is recorded.
+        # Signing from one estate while naming another estate's attestation id
+        # used to succeed, and the record then claimed to supersede an
+        # attestation its signer had no standing over (QA finding UI-122).
+        # `in_tenant` raises a not-found for an id outside the estate, which is
+        # the right answer twice over — it refuses, and it does not confirm
+        # that the id exists somewhere else.
+        await uow.attestations.in_tenant(supersedes, tenant_id)
+        if not supersedes_because.strip():
+            # The one record that says "what I previously attested no longer
+            # stands" could once be written with nothing at all: an audit trail
+            # with a hole in exactly the interesting place. QA round 4, UI-123.
+            raise ValidationError(
+                "superseding an attestation needs a reason",
+                remedy=(
+                    "Say why the earlier attestation no longer stands. "
+                    "A withdrawal nobody explained is the one an examiner "
+                    "will ask about first."
+                ),
+            )
+        attestation = dataclasses.replace(
+            attestation, supersedes=supersedes, supersedes_because=supersedes_because
+        )
+    return await uow.attestations.sign(
+        attestation, seal=attestation.seal(key), supersedes=supersedes or None
+    )
+
+
+def row_view(row: Any) -> dict[str, Any]:
+    """A signed attestation's register entry."""
+    return {
+        "id": str(row.id),
+        "attester_id": row.attester_id,
+        "attester_name": row.attester_name,
+        "statement": row.statement,
+        "scope": row.scope,
+        "period_start": row.period_start,
+        "period_end": row.period_end,
+        "coverage": dict(row.coverage_json or {}),
+        "exceptions": list(row.exceptions_json or []),
+        "evidence_root": row.evidence_root,
+        "evidence_records": row.evidence_records,
+        "content_hash": row.content_hash,
+        "seal": row.seal,
+        "signed_at": row.signed_at,
+        "supersedes": row.supersedes,
+        "supersedes_because": row.supersedes_because,
+        "superseded_by": row.superseded_by,
+        "version": row.version,
+    }
 
 
 def _counts(metrics: dict[str, float]) -> str:

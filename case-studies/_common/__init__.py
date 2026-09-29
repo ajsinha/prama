@@ -2,7 +2,8 @@
 
 Nothing here is part of Prama. These are the pieces a case study needs and a
 product does not: fabricated data with defects planted on purpose, and a
-harness that drives Prama end to end so the reader can watch it work.
+harness that drives *your* running Prama end to end, through the SDK, so the
+reader can watch it work in the console they already have open.
 
 The one rule that matters across all three studies: **every planted defect is
 declared up front, in the README and in the code, before Prama is pointed at
@@ -16,14 +17,15 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 from _common.defects import Defect, DefectLog
-from _common.estate import Dataset, declare_estate
-from _common.harness import Harness, configure
+from _common.estate import Attribute, Dataset, Relationship
+from _common.harness import Harness, Source
 
 __all__ = [
+    "Attribute",
     "Dataset",
     "Defect",
     "DefectLog",
     "Harness",
-    "configure",
-    "declare_estate",
+    "Relationship",
+    "Source",
 ]

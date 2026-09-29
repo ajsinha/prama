@@ -8,12 +8,14 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
 from collections.abc import Mapping
 from typing import Any
 
 from prama.core.errors import NotFoundError, PramaError, ValidationError
+from prama.core.provenance import content_hash as rendered_hash
 from prama.semantic.metadata import STARTER, FieldSpec, Rule, coerce, parse_template, render
 
 
@@ -202,7 +204,7 @@ async def proposals(uow: Any, tenant_id: str, *, dataset_id: str = "") -> list[d
             if pql is None:
                 continue
             try:
-                parse_control(pql)
+                parsed = parse_control(pql)
             except PramaError as exc:
                 out.append({"dataset": version.name, "pql": pql, "error": str(exc)[:200]})
                 continue
@@ -212,7 +214,11 @@ async def proposals(uow: Any, tenant_id: str, *, dataset_id: str = "") -> list[d
             )
             content_hash = hashlib.sha256(pql.encode("utf-8")).hexdigest()
             stored = await uow.controls.by_identity(tenant_id, identity)
-            if stored is not None and stored.content_hash == content_hash:
+            # Compared with the stored version's own hash, which is of the
+            # *rendered* control (prama.db.dao.control). Comparing the raw
+            # text's hash never matched, so every accepted proposal was offered
+            # again, forever. Found converting case study 7 to the SDK.
+            if stored is not None and stored.content_hash == rendered_hash(parsed.render()):
                 continue
             if await uow.rejections.was_rejected(tenant_id, identity, content_hash):
                 continue
@@ -453,3 +459,63 @@ async def queried_together(
             }
         )
     return out
+
+
+async def author_rule(
+    uow: Any, tenant_id: str, slug: str, pql: str, *, by: str | None = None
+) -> dict[str, Any]:
+    """A rule written by hand against *slug*: proposed, active once somebody else approves it."""
+    from prama.pql import parse_control
+
+    text = pql.strip()
+    control = parse_control(text)
+    if control.target != slug:
+        raise ValidationError(
+            f"this rule is about {control.target or 'another dataset'}, not {slug}",
+            remedy=f"Write it against {slug}, as in CHECK {slug}.column IS NOT NULL.",
+        )
+    identity = "authored-" + hashlib.sha256(text.encode()).hexdigest()[:24]
+    row, version = await uow.controls.declare(
+        tenant_id=tenant_id,
+        identity=identity,
+        pql=text,
+        origin="declaration",
+        rule="authored.metadata_page",
+        status="proposed",
+        authored_by=by,
+        reason="written on the dataset's metadata page",
+    )
+    return {
+        "control_id": str(row.id),
+        "identity": identity,
+        "status": version.status,
+        "pql": text,
+    }
+
+
+async def templates(uow: Any, tenant_id: str) -> dict[str, Any]:
+    """The estate's metadata templates with their fields, and the starters on offer."""
+    out = []
+    for row in await uow.metadata.templates(tenant_id):
+        fields = [field_spec(f) for f in await uow.metadata.fields(row.id)]
+        out.append(
+            {
+                "name": row.name,
+                "applies_to": row.applies_to,
+                "description": row.description,
+                "status": row.status,
+                "fields": [
+                    {
+                        "name": f.name,
+                        "label": f.label,
+                        "kind": f.kind,
+                        "choices": list(f.choices),
+                        "required": f.required,
+                        "help": f.help,
+                        "rules": [dataclasses.asdict(r) for r in f.rules],
+                    }
+                    for f in fields
+                ],
+            }
+        )
+    return {"templates": out, "starters": sorted(STARTER)}

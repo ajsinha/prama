@@ -288,6 +288,15 @@ class LlmDao(Dao[LlmProvider]):
         await self._session.flush()
         return price
 
+    async def prices(self, tenant_id: str) -> list[LlmModel]:
+        """Every dated price, by model and then newest first."""
+        await self._session.flush()
+        return await self._all_of(
+            select(LlmModel)
+            .where(LlmModel.tenant_id == tenant_id)
+            .order_by(LlmModel.provider_id, LlmModel.model, LlmModel.effective_from.desc())
+        )
+
     async def price_for(
         self, tenant_id: str, provider_id: str, model: str, at: str
     ) -> LlmModel | None:

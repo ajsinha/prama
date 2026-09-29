@@ -7,8 +7,11 @@ Proprietary and confidential. No licence is granted except by separate written a
 ---
 
 Eight runnable studies over fabricated banking and trading data. Each builds its
-own data, declares an estate in business terms, lets Prama derive the controls,
-runs them, and serves the console — all on localhost, nothing external.
+own data, then drives **your running Prama** through the Python SDK: it signs in,
+creates an estate of its own, declares it in business terms, lets Prama derive the
+controls, has the server run them against the study's data, and reads back what the
+evidence says. A study starts no server of its own; everything it does appears in
+the console you already have open. Nothing external is involved.
 
 The same studies are in the console under **Help → Case studies**: one card per study, and
 each study's README rendered in full.
@@ -26,35 +29,49 @@ each study's README rendered in full.
 
 ## Run one
 
+Start Prama first (the studies are clients of it), then run a study:
+
 ```bash
+python run_prama_web.py                       # or: prama serve — the server on :5900
 cd case-studies/01-trading-book-sqlite
-python run.py                 # build, run, then serve the console
-python run.py --no-serve      # build, run, print the report, stop
+python run.py                                 # against the server config/application.yaml names
 ```
 
-The consoles are on `:8801` to `:8808`, one per study, so all eight
-can run at once. The data is seeded, so two runs produce the same numbers and
+A study finds its server the way the SDK does: it reads `config/application.yaml`
+(`server.host`, `server.port`). To use another server, write another configuration and pass it:
+
+```bash
+python run.py --config /path/to/other/application.yaml
+python run.py --url https://prama.example.com --username ada --password …
+```
+
+It signs in as the development bootstrap admin (`admin` / `prama-dev-admin`, in the estate
+`default`) unless told otherwise: `--username`, `--password`, `--estate`, or `PRAMA_USERNAME`,
+`PRAMA_PASSWORD`, `PRAMA_TENANT`. The data is seeded, so two runs produce the same numbers and
 the figures in each README are checkable rather than decorative.
 
-**Where things are kept.** Two kinds of storage are involved, and they are kept apart:
+**Where things are kept.**
 
-- **The data a study checks** lives under the study's `workspace/`. That is its SQLite book, and
-  its CSV, Parquet and JSON Lines landing zone. It stands in for a customer's source systems,
-  which in a real deployment are remote and stay where they are.
-- **Prama's own records** go to the application's one database: the database configured in
-  `config/application.yaml`, or in `--config` if you pass one. That covers declarations,
-  controls and evidence. No study creates a database of its own.
-- **Tenants.** Each run creates a fresh tenant there (for example `acme-desk-20260928-141230`),
-  so a rerun starts clean without deleting anybody's evidence, which is append-only.
+- **The data a study checks** lives under the study's `workspace/`: its SQLite book, its CSV,
+  Parquet and JSON Lines landing zone. It stands in for a customer's source systems. The study
+  registers it with Prama as a **connection**, and the server reads it itself.
+- **The server reads only what its operator allows.** A run opens a connection's files only
+  under `runs.roots` in the server's configuration. The shipped `config/application.yaml` lists
+  `case-studies`, so a server started from the repository root can read the studies' data and
+  nothing else. A server with another configuration needs the same line.
+- **Prama's own records** stay in the server's one database. Each run creates a fresh estate
+  there (for example `acme-markets-20260929-141230`) with you as its administrator and a second
+  person, the business owner, as approver, so a rerun starts clean without deleting anybody's
+  evidence, which is append-only. In the console, sign-in asks which estate; the user menu has
+  **Switch estate**.
 
-```bash
-python run.py --no-serve --config /path/to/other.yaml   # use a different configuration
-```
+Two studies need something on the server beyond that. **Study 4**'s validator plugin is admitted
+only by installing it into the server's environment (`uv pip install --no-deps -e
+case-studies/04-expressions-and-plugins`, then restart); without it the study still runs and says
+what it could not check. **Study 5** uploads its delegates through the SDK and has a second
+administrator approve them, which needs no server configuration.
 
-If your application database predates a schema change, `prama db verify` says so and the study
-stops. Recreate the database with `prama db init` on a fresh file.
-
-Requires the dev install: `pip install -e ".[dev,serve]"`.
+Requires the dev install: `uv sync --extra dev --extra serve`.
 
 ## The rule these studies follow
 

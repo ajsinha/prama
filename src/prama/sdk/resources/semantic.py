@@ -18,8 +18,10 @@ class Datasets(Resource):
     @endpoint("POST", "/datasets")
     def declare(self, name: str, **fields: Any) -> Any:
         """Declare a dataset. Fields: description, purpose, domain_id, owner_id,
-        steward_id, criticality, shape, grain, rhythm, temporality,
-        authoritativeness, sensitivity, tags, approved_by, reason, valid_from."""
+        steward_id, criticality, shape, grain ({"attributes": [...], "statement": "one
+        row is …"}), rhythm ({"frequency": "daily", "arrival_by": "07:00", …}),
+        temporality, authoritativeness, sensitivity, tags, approved_by (required for
+        tiers 1 and 2), reason, valid_from."""
         return self._post("/datasets", body(name=name, **fields))
 
     @endpoint("GET", "/datasets")
@@ -63,9 +65,26 @@ class Datasets(Resource):
         )
 
     @endpoint("POST", "/datasets/{dataset_id}/attributes")
-    def add_attribute(self, dataset_id: str, name: str, **fields: Any) -> Any:
-        """Fields: definition, interpretation, semantic_type, unit, currency_attribute,
-        optionality, is_cde, obligations, sensitivity, concept_property_id, glossary_term."""
+    def add_attribute(
+        self,
+        dataset_id: str,
+        name: str,
+        *,
+        codelist: Sequence[str] | None = None,
+        minimum: float | None = None,
+        maximum: float | None = None,
+        **fields: Any,
+    ) -> Any:
+        """Declare an attribute. ``codelist`` (the permitted values) or ``minimum`` /
+        ``maximum`` (a range) set its value domain, which Γ turns into a control; or pass
+        ``value_domain`` whole ({kind, allowed_values, codelist_ref, minimum, maximum,
+        pattern, case_sensitive}). Other fields: definition, interpretation,
+        semantic_type, unit, currency_attribute, optionality ("mandatory"), is_cde,
+        obligations, sensitivity, concept_property_id, glossary_term."""
+        if codelist is not None:
+            fields["value_domain"] = {"kind": "codelist", "allowed_values": list(codelist)}
+        elif minimum is not None or maximum is not None:
+            fields["value_domain"] = body(kind="range", minimum=minimum, maximum=maximum)
         return self._post(f"/datasets/{seg(dataset_id)}/attributes", body(name=name, **fields))
 
     @endpoint("GET", "/datasets/{dataset_id}/attributes")
@@ -211,3 +230,13 @@ class Estate(Resource):
     @endpoint("GET", "/estate/coverage-gaps")
     def coverage_gaps(self) -> Any:
         return self._get("/estate/coverage-gaps")
+
+    @endpoint("GET", "/estate/export")
+    def export(self) -> Any:
+        """The declared estate as YAML: ``{"files": {path: text}}``, to write under a directory."""
+        return self._get("/estate/export")
+
+    @endpoint("POST", "/estate/diff")
+    def diff(self, files: dict[str, str]) -> Any:
+        """Where these files (path -> YAML, as ``export`` gives them) disagree with the store."""
+        return self._post("/estate/diff", body(files=dict(files)))

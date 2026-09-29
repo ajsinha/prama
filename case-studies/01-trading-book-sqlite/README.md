@@ -24,17 +24,21 @@ why** — which is the part that makes this checkable rather than a brochure.
 
 ## Run it
 
+With Prama running (`python run_prama_web.py`, or `prama serve`):
+
 ```bash
 cd case-studies/01-trading-book-sqlite
-python run.py                 # build, run, then serve the console on :8801
-python run.py --no-serve      # build and run, print the report, stop
-python run.py --port 9000     # serve somewhere else
+python run.py                          # against the server config/application.yaml names
+python run.py --config other.yaml      # against another server
 ```
 
-Everything is local. The data being checked is one SQLite file under `workspace/`. Prama's own
-records go to the application's database (`config/application.yaml`, or `--config`), under a
-fresh tenant each run. Every run rebuilds the data from scratch, seeded, so the numbers are the
-same every time.
+The study is a client of your server, through the Python SDK. It signs in, creates an estate
+of its own for the run, declares the six datasets, derives and accepts the controls, registers
+the SQLite book as a **connection**, and asks the server to run the controls against it. The
+server reads the book itself (it lies under `runs.roots`, which the shipped configuration sets
+to `case-studies`) and records the evidence. The study then reads the evidence back and prints
+where to look in your console. It starts no server of its own. Every run rebuilds the data from
+scratch, seeded, so the numbers are the same every time.
 
 ## The five stages
 
@@ -42,11 +46,11 @@ same every time.
 |---|---|---|
 | 1 | **Build** | 5,000 trades, seeded, with nine defects planted and logged |
 | 2 | **Declare** | Six datasets described in business terms. No SQL. |
-| 3 | **Derive (Γ) and accept** | 65 controls follow from the declarations |
-| 4 | **Run** | One pass against SQLite; evidence into the ledger |
+| 3 | **Derive (Γ) and accept** | 59 controls follow from the declarations, and 9 declarations are named as producing none |
+| 4 | **Run** | The server reads the book and records 59 verdicts: 44 pass, 5 fail, 10 not established |
 | 5 | **Report** | Planted against found, and the chain verified |
 
-Then the console at `http://127.0.0.1:8801`.
+Then your console, signed in to the run's estate: the study prints the links.
 
 ## What was planted, and what happened
 

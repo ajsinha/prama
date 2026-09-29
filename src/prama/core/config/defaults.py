@@ -131,6 +131,13 @@ DEFAULTS: dict[str, Any] = {
         "against": "",
         "dialect": "duckdb",
     },
+    "runs": {
+        # Directories a run requested over the API may read a registered
+        # connection's files from. Empty: no such run opens any file, which is
+        # the safe default for a server whose operator has not decided. Must
+        # not contain Prama's own database; a run refuses if it does.
+        "roots": [],
+    },
     "llm": {
         # Providers and profiles are data (the Models page, `prama llm`); this
         # is deployment policy only. Offline builds only self-hosted providers

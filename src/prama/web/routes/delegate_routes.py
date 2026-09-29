@@ -103,10 +103,6 @@ class DelegateRoutes(UiRoutes):
 
 def _configured(request: Request) -> Any:
     """The server's configured delegates, loaded once per process."""
-    host = getattr(request.app.state, "delegate_host", None)
-    if host is None:
-        from prama.delegates.host import host_from_config
+    from prama.delegates.host import server_host
 
-        host = host_from_config(request.app.state.config)
-        request.app.state.delegate_host = host
-    return host
+    return server_host(request.app.state, request.app.state.config)

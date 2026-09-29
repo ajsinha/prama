@@ -92,4 +92,11 @@ def measure(
         "missing_here": float(len(report.unmatched_right)),
         "breaks": float(len(run.population)),
     }
+    # The headline number, recorded so a reader of the evidence — the
+    # reconciliation list, a period-end certificate — does not have to
+    # reconstruct it from counts that measure something else (`scanned_rows`
+    # counts left rows, not both sides). Absent rather than 1.0 over two empty
+    # sides: a reconciliation over nothing has not matched anything.
+    if report.match_rate is not None:
+        metrics["match_rate"] = float(report.match_rate)
     return metrics, run

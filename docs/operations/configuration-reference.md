@@ -69,6 +69,7 @@ becomes `PRAMA_DATABASE__SQLITE__PATH`.
 | `scheduler.interval` | `60s` |  |
 | `scheduler.against` | *(empty)* | a local .duckdb or .sqlite file |
 | `scheduler.dialect` | `duckdb` | duckdb \| sqlite |
+| `runs.roots` | `case-studies` | e.g. [/data/landing, /data/warehouse] |
 | `llm.offline` | `False` | true: only self-hosted models on a local or private address |
 | `llm.per_principal_rpm` | `60` | requests per minute per principal through /api/v1/llm |
 | `llm.audit.payloads` | `none` | none \| redacted \| full: what of each exchange is kept |

@@ -10,29 +10,19 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 from typing import Any
 
 from prama.cli.base import EXIT_OK, Command, CommandContext, CommandGroup
 from prama.cli.llm import _tenant_flag, _with_uow
-from prama.core.errors import PramaError, ValidationError
 
 EXIT_NOT_ANCHORED = 3
 
 
 def _row(anchor: Any) -> dict[str, Any]:
-    return {
-        "sequence": anchor.sequence,
-        "digest": anchor.digest,
-        "kind": anchor.kind,
-        "authority": anchor.authority,
-        "status": anchor.status,
-        "requested_at": anchor.requested_at,
-        "witnessed_at": anchor.witnessed_at,
-        "token": anchor.token,
-        "detail": anchor.detail,
-    }
+    from prama.evidence.service import anchor_view
+
+    return anchor_view(anchor)
 
 
 class AnchorCommand(Command):
@@ -43,19 +33,9 @@ class AnchorCommand(Command):
         _tenant_flag(parser)
 
     def run(self, ctx: CommandContext) -> int:
-        from prama.evidence.anchor import anchor_from, anchor_head
+        from prama.evidence.service import anchor_now
 
-        async def work(uow: Any, tenant_id: str) -> Any:
-            tenant = await uow.tenants.get(tenant_id)
-            anchor = anchor_from(ctx.config, residency=getattr(tenant, "residency", None))
-            if anchor is None:
-                raise ValidationError(
-                    "evidence anchoring is off",
-                    remedy="Set evidence.anchor.kind to rfc3161 and evidence.anchor.url.",
-                )
-            return await anchor_head(uow, tenant_id, anchor)
-
-        row = _with_uow(ctx, work)
+        row = _with_uow(ctx, lambda uow, tenant_id: anchor_now(uow, tenant_id, ctx.config))
         if row is None:
             ctx.emit("The chain is empty: nothing to anchor.")
             return EXIT_OK
@@ -100,29 +80,13 @@ class ExportCommand(Command):
         _tenant_flag(parser)
 
     def run(self, ctx: CommandContext) -> int:
-        from prama.evidence.retention import Archivist
+        from prama.evidence.service import bundle_files, export_bundle
 
-        async def work(uow: Any, tenant_id: str) -> tuple[Any, list[Any]]:
-            records = await uow.evidence.chain(tenant_id, limit=10_000_000)
-            if not records:
-                raise PramaError(
-                    "there is no evidence to export",
-                    code="EVIDENCE.EMPTY",
-                    remedy="Run some controls first: prama control run.",
-                )
-            bundle = Archivist().bundle(records, tenant_id=tenant_id)
-            anchors = await uow.anchors.for_tenant(
-                tenant_id, first=records[0].sequence, last=records[-1].sequence
-            )
-            return bundle, anchors
-
-        bundle, anchors = _with_uow(ctx, work)
+        bundle, receipts = _with_uow(ctx, export_bundle)
         out = Path(ctx.args.out)
         out.mkdir(parents=True, exist_ok=True)
-        for name, content in bundle.files().items():
+        for name, content in bundle_files(bundle, receipts).items():
             (out / name).write_text(content, encoding="utf-8")
-        receipts = [_row(a) for a in anchors if a.status == "anchored"]
-        (out / "anchors.json").write_text(json.dumps(receipts, indent=2), encoding="utf-8")
         ctx.emit(
             f"{bundle.manifest.records} record(s) and {len(receipts)} anchor receipt(s) -> {out}"
         )

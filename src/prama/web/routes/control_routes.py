@@ -24,17 +24,16 @@ from typing import Annotated, Any
 from fastapi import Form, Request
 from fastapi.responses import JSONResponse
 
-from prama.backend import DIALECTS, compile_for
+from prama.backend import DIALECTS
+from prama.controls.language import catalogue_of, check, compile_source
 from prama.core.clock import utc_now
 from prama.core.errors import PramaError
 from prama.core.provenance import content_hash
 from prama.ir.resolve import resolved
-from prama.pql import parse
+from prama.pql import builder
 from prama.pql.analysis import LanguageService
-from prama.pql.errors import PqlError
-from prama.pql.types import Catalogue, Column, DatasetSchema
+from prama.pql.types import Catalogue
 from prama.schedule import describe as describe_schedule
-from prama.web import builder
 from prama.web.deps import Caller, Uow
 from prama.web.rendering import flash_error_and_log, redirect_to, render
 from prama.web.routes.base import UiRoutes
@@ -128,27 +127,8 @@ class ControlRoutes(UiRoutes):
         )
 
     async def _catalogue(self, caller: Caller, uow: Uow) -> Catalogue:
-        """The checker's catalogue, derived from declarations.
-
-        Derived, never restated: what the editor checks against is what the
-        business declared. A separately maintained catalogue would drift, and
-        the drift would surface as a control that checks clean and then fails
-        at execution — the worst possible place to find it.
-        """
-        catalogue = Catalogue()
-        for version in await uow.datasets.list_current(caller.tenant_id, limit=5000):
-            attributes = await uow.attributes.for_dataset(
-                version.dataset_id, tenant_id=caller.tenant_id
-            )
-            catalogue = catalogue.with_dataset(
-                DatasetSchema(
-                    name=version.slug,
-                    columns=tuple(
-                        Column(a.name, getattr(a, "physical_type", "") or "") for a in attributes
-                    ),
-                )
-            )
-        return catalogue
+        """The checker's catalogue, derived from declarations (`catalogue_of`)."""
+        return await catalogue_of(uow, caller.tenant_id)
 
     async def control_studio(self, request: Request, caller: Caller, uow: Uow) -> Any:
         datasets = await uow.datasets.list_current(caller.tenant_id, limit=5000)
@@ -360,30 +340,14 @@ class ControlRoutes(UiRoutes):
         an editor comes to underline something the compiler accepts, and the
         first time that happens people stop reading the underlines.
         """
-        service = LanguageService(await self._catalogue(caller, uow))
-        diagnostics = service.diagnostics(source)
-        syntax = next((d for d in diagnostics if d.level == "error" and not d.control), None)
-        if syntax is not None:
-            # A text that will not parse has one finding and no controls; the
-            # panel says so rather than listing an empty result beside it.
-            return render(
-                request,
-                "controls/_findings.html",
-                syntax_error=syntax.to_dict(),
-                findings=[],
-                explanations=[],
-                error_count=1,
-            )
+        result = check(source, await self._catalogue(caller, uow))
         return render(
             request,
             "controls/_findings.html",
-            syntax_error=None,
-            findings=[d.to_dict() for d in diagnostics],
-            # Explained here rather than by the language service: explaining
-            # means lowering, and the language layer may not depend on the
-            # lowerer. The console already compiles a control on this screen.
-            explanations=_explanations(parse(source).controls),
-            error_count=sum(1 for d in diagnostics if d.level == "error"),
+            syntax_error=result["syntax_error"],
+            findings=result["findings"],
+            explanations=result["explanations"],
+            error_count=result["errors"],
         )
 
     async def control_completions(
@@ -427,82 +391,11 @@ class ControlRoutes(UiRoutes):
         target: Annotated[str, Form()] = "postgresql",
     ) -> Any:
         """The SQL, its plan id, and what it does not test."""
-        try:
-            program = parse(source)
-        except PqlError as exc:
-            return render(
-                request,
-                "controls/_plans.html",
-                syntax_error=_position_of(exc),
-                plans=[],
-                target=target,
-            )
-
-        plans: list[dict[str, Any]] = []
-        for index, control in enumerate(program.controls):
-            label = control.name or f"control {index + 1}"
-            try:
-                plan = resolved(control)
-                compiled = compile_for(plan, target)
-            except PramaError as exc:
-                # Named, not swallowed. "This dialect cannot express this
-                # control" is a real answer and a useful one; a blank panel is
-                # not, and a silently omitted control is a lie.
-                plans.append({"name": label, "error": str(exc)})
-                continue
-            plans.append(
-                {
-                    "name": label,
-                    "plan_id": plan.plan_id,
-                    "description": plan.description,
-                    "metric_query": compiled.metric_query,
-                    "sample_query": compiled.sample_query,
-                    "metric_names": list(compiled.metric_names),
-                    "parameters": list(compiled.parameters),
-                    "is_complete": compiled.is_complete,
-                    # The residual: what SQL screened but did not decide. A
-                    # pass reported from an incomplete screen is a false
-                    # assurance, and this is where the reader is told.
-                    "residual_validators": [
-                        {"validator": v, "column": c} for v, c in compiled.residual_validators
-                    ],
-                }
-            )
+        result = compile_source(source, target)
         return render(
-            request, "controls/_plans.html", syntax_error=None, plans=plans, target=target
+            request,
+            "controls/_plans.html",
+            syntax_error=result["syntax_error"],
+            plans=result["plans"],
+            target=target,
         )
-
-
-def _position_of(exc: PqlError) -> dict[str, Any]:
-    """A syntax error the editor can point at.
-
-    Line and column, or nothing — never a guess. CodeMirror will happily
-    underline line 1 column 1 and send the reader to the wrong place, which is
-    worse than underlining nothing at all.
-    """
-    position = getattr(exc, "position", None)
-    return {
-        "message": str(exc),
-        "remedy": getattr(exc, "remedy", ""),
-        "line": getattr(position, "line", None),
-        "column": getattr(position, "column", None),
-    }
-
-
-def _explanations(controls: Any) -> list[dict[str, str]]:
-    """Each control as the sentence a data owner approves.
-
-    Taken from the lowered plan's ``description``, which is generated from the
-    IR — so the sentence is derived from the same structure the SQL is derived
-    from, and the two cannot describe different controls. Writing a second
-    English renderer here is how a UI ends up explaining one thing and running
-    another.
-    """
-    out = []
-    for index, control in enumerate(controls):
-        label = control.name or f"control {index + 1}"
-        try:
-            out.append({"name": label, "sentence": resolved(control).description})
-        except PramaError as exc:
-            out.append({"name": label, "sentence": f"cannot be explained: {exc}"})
-    return out

@@ -19,15 +19,11 @@ from __future__ import annotations
 import dataclasses
 from typing import Any
 
-#: Criticality is 1-4 in the schema, and 1 is the most critical. Rendering that
-#: as the bare number invites the reader to assume bigger is worse, which is
-#: backwards, so it is never shown without its word.
-TIER_LABELS: dict[int, str] = {
-    1: "Tier 1 · regulatory",
-    2: "Tier 2 · material",
-    3: "Tier 3 · operational",
-    4: "Tier 4 · informational",
-}
+# Criticality is 1-4 in the schema, and 1 is the most critical. Rendering that
+# as the bare number invites the reader to assume bigger is worse, which is
+# backwards, so it is never shown without its word. The words live beside
+# `Criticality`, because the print packs name tiers too.
+from prama.semantic.values import TIER_LABELS
 
 TIER_CLASSES: dict[int, str] = {
     1: "text-bg-danger",

@@ -22,11 +22,11 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import argparse
-import dataclasses
 from pathlib import Path
 from typing import Any
 
 from prama.cli.base import EXIT_ERROR, EXIT_OK, EXIT_USAGE, Command, CommandContext, CommandGroup
+from prama.controls.language import divergences, function_coverage
 from prama.core.errors import PramaError, ValidationError
 from prama.importers import IMPORTERS, importer
 from prama.pql import parse
@@ -133,7 +133,7 @@ class ControlExplainCommand(Command):
                     {
                         "control": _head(c),
                         "describes": c.describe(),
-                        "divergences": _divergences(c),
+                        "divergences": divergences(c),
                     }
                     for c in controls
                 ]
@@ -146,85 +146,10 @@ class ControlExplainCommand(Command):
             # a divergence discovered in production is worth less than one
             # stated on the control the day it is written — and the author of an
             # Excel formula has a spreadsheet open beside them.
-            for note in _divergences(control):
+            for note in divergences(control):
                 ctx.emit(f"    {note}")
             ctx.emit("")
         return EXIT_OK
-
-
-def _divergences(control: Any) -> list[str]:
-    """How this control's functions differ from a spreadsheet, and where.
-
-    Both kinds are reported: a function whose *semantics* differ from Excel, and
-    one an engine cannot run at all. The second matters as much as the first —
-    an author writing a formula that will be refused on the estate's own engine
-    should learn it now rather than at the first execution.
-    """
-    from prama.pql.library import FUNCTIONS
-
-    notes: list[str] = []
-    for name in sorted(_function_names(control)):
-        function = FUNCTIONS.find(name)
-        if function is None:
-            continue
-        if function.excel_divergence:
-            notes.append(f"{name} differs from Excel: {function.excel_divergence}")
-        if function.unsupported_on:
-            notes.append(
-                f"{name} cannot run on "
-                + ", ".join(sorted(function.unsupported_on))
-                + " — the control will be refused there rather than approximated"
-            )
-    return notes
-
-
-def _function_names(node: Any) -> set[str]:
-    """Every function called anywhere in a control, however deeply nested."""
-    from prama.pql import ast as pql_ast
-
-    found: set[str] = set()
-    stack: list[Any] = [node]
-    seen: set[int] = set()
-    while stack:
-        current = stack.pop()
-        if id(current) in seen:
-            continue
-        seen.add(id(current))
-        if isinstance(current, pql_ast.FunctionCall):
-            found.add(current.name.upper())
-        for value in getattr(current, "__slots__", ()) or ():
-            child = getattr(current, value, None)
-            if isinstance(child, pql_ast.Node):
-                stack.append(child)
-            elif isinstance(child, (tuple, list)):
-                stack.extend(item for item in child if isinstance(item, pql_ast.Node))
-    return found
-
-
-@dataclasses.dataclass(frozen=True, slots=True)
-class _Coverage:
-    """One engine's share of the function catalogue."""
-
-    engine: str
-    total: int
-    refused: tuple[str, ...] = ()
-
-    @property
-    def pushes_down(self) -> int:
-        return self.total - len(self.refused)
-
-    @property
-    def share(self) -> float:
-        return self.pushes_down / self.total if self.total else 0.0
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "engine": self.engine,
-            "total": self.total,
-            "pushes_down": self.pushes_down,
-            "share": self.share,
-            "refused": list(self.refused),
-        }
 
 
 class ControlFunctionsCommand(Command):
@@ -245,26 +170,7 @@ class ControlFunctionsCommand(Command):
         approximating it would make the same control mean two things on two
         engines, and nothing would notice.
         """
-        from prama.backend import DIALECTS
-        from prama.pql.library import FUNCTIONS
-
-        names = FUNCTIONS.names()
-        engines = sorted(DIALECTS) if not ctx.args.engine else [ctx.args.engine]
-        if ctx.args.engine and ctx.args.engine not in DIALECTS:
-            raise ValidationError(
-                f"no engine called {ctx.args.engine!r}",
-                remedy=f"One of: {', '.join(sorted(DIALECTS))}.",
-                context={"engine": ctx.args.engine},
-            )
-
-        rows: list[_Coverage] = []
-        for engine in engines:
-            refused = sorted(
-                name
-                for name in names
-                if (found := FUNCTIONS.find(name)) is not None and not found.supports(engine)
-            )
-            rows.append(_Coverage(engine=engine, total=len(names), refused=tuple(refused)))
+        names, rows = function_coverage(ctx.args.engine)
 
         if ctx.json_output:
             ctx.emit_json({"functions": list(names), "coverage": [row.to_dict() for row in rows]})

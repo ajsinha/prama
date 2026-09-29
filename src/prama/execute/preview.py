@@ -341,6 +341,21 @@ class Preview:
         )
 
     def _trial(self, control: Control, *, label: str) -> Trial:
+        from prama.pql.ast import ReconcileAssertion
+
+        if isinstance(control.assertion, ReconcileAssertion):
+            # A reconciliation is judged by the matching engine over both sides,
+            # not by one metric query. Previewing it ran only the metric query,
+            # answered "no data", and read as zero breaks — a pass nobody had
+            # established. Said instead. Found converting case study 6 to the SDK.
+            return Trial(
+                label=label,
+                error=(
+                    "a RECONCILE control cannot be previewed: the matching engine judges it "
+                    "over both sides. Run it (a run records its breaks), or check it with "
+                    "`pql.check` and read it with `pql.explain`."
+                ),
+            )
         started = time.monotonic()
         try:
             plan = resolved(control)

@@ -1,0 +1,30 @@
+# The Acme validator as a distribution, so the Prama *server* can admit it.
+#
+# A validator is admitted where controls run, and a server-side run happens in
+# the server's process: the server loads every `prama.validators` entry point at
+# start-up, scans and probes each one, and hashes its implementation into the
+# plan of every control that names it. Install this into the server's
+# environment and restart the server:
+#
+#     uv pip install --no-deps -e case-studies/04-expressions-and-plugins
+#
+# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "acme-pack"
+version = "1.0.0"
+description = "Acme Markets' trading-book code validator, a Prama plugin (case study 4)."
+requires-python = ">=3.12"
+# Prama itself, deliberately not declared: the plugin is installed into the
+# environment Prama already runs in, and must not pull a second copy.
+dependencies = []
+
+[project.entry-points."prama.validators"]
+acme_book = "acme_validators:AcmeBookCode"
+
+[tool.setuptools]
+py-modules = ["acme_validators"]

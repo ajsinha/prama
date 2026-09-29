@@ -9,11 +9,14 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Query
+from typing import Any
 
-from prama.api.deps import Reader, Uow
+from fastapi import APIRouter, Query
+from pydantic import BaseModel
+
+from prama.api.deps import Reader, Uow, Writer
 from prama.api.schemas import ConflictOut, MaturityOut
-from prama.semantic.services import EstateService
+from prama.semantic.services import EstateService, estate_files
 
 router = APIRouter(prefix="/estate", tags=["estate"])
 
@@ -52,3 +55,30 @@ async def coverage_gaps(caller: Reader, uow: Uow) -> dict[str, list[str]]:
     only knows about things it managed to crawl.
     """
     return await EstateService(uow).coverage_gaps(caller.tenant_id)
+
+
+# -- export and diff (evidence and assurance area) -------------------------------
+
+
+class EstateFilesIn(BaseModel):
+    #: Path (relative to the export directory) -> YAML text, as `export` returns them.
+    files: dict[str, str]
+
+
+@router.get("/export")
+async def export_estate(caller: Reader, uow: Uow) -> dict[str, Any]:
+    """The declared estate as reviewable YAML, by path — what `prama estate export` writes."""
+    files = await estate_files.export(uow, caller.tenant_id)
+    return {"files": dict(sorted(files.items()))}
+
+
+@router.post("/diff")
+async def diff_estate(body: EstateFilesIn, caller: Writer, uow: Uow) -> dict[str, Any]:
+    """Where a set of files disagrees with the store, in both directions. Never resolved.
+
+    Changes nothing. A POST only because it carries the files, and so it asks
+    for ``declaration:write`` — the permission of whoever keeps the declarations
+    in a repository and acts on the drift — rather than a read scope a POST
+    must never settle for (`tests/architecture/test_scopes.py`).
+    """
+    return await estate_files.diff_against(uow, caller.tenant_id, body.files)

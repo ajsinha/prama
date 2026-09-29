@@ -29,8 +29,8 @@ from pathlib import Path
 from typing import Any
 
 from prama.cli.base import EXIT_DRIFT, EXIT_OK, Command, CommandContext, CommandGroup
-from prama.contract import odcs, quality
-from prama.contract.diff import compare, compare_schema
+from prama.contract import gate, odcs, quality
+from prama.contract.diff import compare
 from prama.core.errors import ValidationError
 
 
@@ -54,34 +54,7 @@ def _load(path: str, what: str) -> Any:
             remedy=f"Give the path of a {what} file, not a directory.",
             context={"path": str(target)},
         ) from None
-    try:
-        if target.suffix in (".yaml", ".yml"):
-            import yaml
-
-            parsed = yaml.safe_load(text)
-        else:
-            parsed = json.loads(text)
-    except Exception as exc:
-        syntax = "YAML" if target.suffix in (".yaml", ".yml") else "JSON"
-        raise ValidationError(
-            f"{target} could not be read as {syntax}",
-            remedy="Check the syntax.",
-            context={"path": str(target)},
-            cause=exc,
-        ) from exc
-    if not isinstance(parsed, dict):
-        # A bare scalar parses cleanly and is then used as a mapping downstream:
-        # `'str' object has no attribute 'get'`, several frames from here, with
-        # nothing naming the file. QA round 4, `CTR-060`.
-        raise ValidationError(
-            f"{target} does not hold a {what}",
-            remedy=(
-                f"A {what} is an object with named fields. This file parses, but "
-                f"it holds a {type(parsed).__name__} — check it is the right file."
-            ),
-            context={"path": str(target)},
-        )
-    return parsed
+    return gate.document_from_text(text, name=str(target), what=what)
 
 
 def _rows(path: str) -> list[dict[str, Any]]:
@@ -100,48 +73,11 @@ def _rows(path: str) -> list[dict[str, Any]]:
             context={"path": str(target)},
         )
     if target.suffix == ".csv":
-        import csv
-
+        # Opened with newline="" so a quoted field holding a line break stays
+        # one field, as the csv module requires.
         with target.open(newline="") as handle:
-            return list(csv.DictReader(handle))
-    # `_contract` above already refuses unreadable JSON in the taxonomy; this
-    # path did not, so a truncated or hand-edited data file reached the terminal
-    # as a json.decoder stack trace. The position is the useful part of that
-    # trace and is the part kept. QA round 3, Q-68.
-    if target.suffix in (".jsonl", ".ndjson"):
-        rows: list[dict[str, Any]] = []
-        for number, line in enumerate(target.read_text().splitlines(), start=1):
-            if not line.strip():
-                continue
-            try:
-                rows.append(json.loads(line))
-            except json.JSONDecodeError as exc:
-                raise ValidationError(
-                    f"{target} line {number} is not valid JSON: {exc.msg} at column {exc.colno}",
-                    remedy=(
-                        "Each line of a .jsonl file is one complete JSON object. "
-                        "A trailing comma or an unclosed brace makes the line unreadable."
-                    ),
-                    context={"path": str(target), "line": number},
-                ) from None
-        return rows
-    try:
-        payload = json.loads(target.read_text())
-    except json.JSONDecodeError as exc:
-        raise ValidationError(
-            f"{target} is not valid JSON: {exc.msg} at line {exc.lineno}, column {exc.colno}",
-            remedy="Give a JSON array of rows, a .jsonl file, or a .csv.",
-            context={"path": str(target), "line": exc.lineno, "column": exc.colno},
-        ) from None
-    if isinstance(payload, dict):
-        payload = payload.get("rows", [])
-    if not isinstance(payload, list):
-        raise ValidationError(
-            f"{target} does not hold a list of rows",
-            remedy="Give a JSON array, a .jsonl file, or a .csv.",
-            context={"path": str(target)},
-        )
-    return payload
+            return gate.rows_from_text(handle.read(), name=str(target))
+    return gate.rows_from_text(target.read_text(), name=str(target))
 
 
 class ContractImportCommand(Command):
@@ -161,7 +97,7 @@ class ContractImportCommand(Command):
         result = odcs.load(document)
         checks = quality.controls_from(document)
         if ctx.json_output:
-            ctx.emit_json({**result.to_dict(), "quality": checks.to_dict()})
+            ctx.emit_json(gate.imported(document))
             return EXIT_OK if result.declaration else EXIT_DRIFT
         ctx.emit(result.describe())
         if result.declaration is None:
@@ -200,7 +136,6 @@ class ContractExportCommand(Command):
         import asyncio
 
         from prama.db import Database
-        from prama.derive.persisted import dataset_declaration_of
 
         tenant = ctx.args.tenant or ctx.config.get_str("tenancy.default_tenant", "")
         if not tenant:
@@ -214,25 +149,11 @@ class ContractExportCommand(Command):
             await database.start()
             try:
                 async with database.unit_of_work() as uow:
-                    versions = await uow.datasets.list_current(tenant, limit=5000)
-                    version = next((v for v in versions if v.slug == ctx.args.dataset), None)
-                    if version is None:
-                        return None
-                    attributes = await uow.attributes.for_dataset(
-                        version.dataset_id, tenant_id=tenant
-                    )
-                    return dataset_declaration_of(version, attributes)
+                    return await gate.exported(uow, tenant, ctx.args.dataset)
             finally:
                 await database.stop()
 
-        declaration = asyncio.run(go())
-        if declaration is None:
-            raise ValidationError(
-                f"no dataset called {ctx.args.dataset!r} is declared",
-                remedy="Check the slug against `prama estate export`.",
-                context={"dataset": ctx.args.dataset},
-            )
-        document = odcs.dump(declaration)
+        document = asyncio.run(go())
         rendered = json.dumps(document, indent=2) + "\n"
         if ctx.args.out:
             Path(ctx.args.out).write_text(rendered)
@@ -302,64 +223,17 @@ class ContractCheckCommand(Command):
         )
 
     def run(self, ctx: CommandContext) -> int:
-        result = odcs.load(_load(ctx.args.contract, "contract"))
-        if result.declaration is None:
-            raise ValidationError(
-                "that contract declares no schema, so there is nothing to check against",
-                remedy="Check the file.",
-                context={"contract": ctx.args.contract},
-            )
-
-        promised = {a.name: a for a in result.declaration.attributes}
-        rows = _rows(ctx.args.data)
-        present = {column for row in rows for column in row}
-
-        schema = compare_schema(list(promised), present)
-        # Missing is a breach; extra is a warning unless the contract is closed.
-        missing = schema.removed
-        extra = schema.added
-
-        # A promised-mandatory column that is null anywhere is a breach too: the
-        # contract's `required` is a promise about values, not only about the
-        # column existing, and checking only the header would pass a table of
-        # nulls.
-        empty_mandatory = tuple(
-            sorted(
-                name
-                for name, attribute in promised.items()
-                if attribute.optionality.name == "MANDATORY"
-                and name in present
-                and any(row.get(name) in (None, "") for row in rows)
-            )
+        payload = gate.check(
+            _load(ctx.args.contract, "contract"),
+            _rows(ctx.args.data),
+            allow_additions=ctx.args.allow_additions,
+            contract=ctx.args.contract,
         )
-
-        # An empty file establishes nothing, so it is never a pass. This has to
-        # be decided before the output branches: the check used to live after
-        # the `--json` early return, so `prama contract check` refused an empty
-        # file and `prama --json contract check` — the spelling a build uses —
-        # let it through with exit 0. The gate was open on exactly the path it
-        # exists to guard. It is also reported as its own field, because a
-        # caller parsing the JSON cannot otherwise tell "nothing was checked"
-        # from "checked, and every promise held".
-        checked = bool(rows)
-        breached = (
-            not checked
-            or bool(missing or empty_mandatory)
-            or (bool(extra) and not ctx.args.allow_additions)
-        )
-
-        payload = {
-            "contract": ctx.args.contract,
-            "rows": len(rows),
-            # With no rows the column comparison is vacuous — every promised
-            # column looks absent because there is nothing for it to be in — so
-            # reporting it as a schema breach would name the wrong cause.
-            "missing_columns": list(missing) if checked else [],
-            "unexpected_columns": list(extra) if checked else [],
-            "mandatory_with_nulls": list(empty_mandatory) if checked else [],
-            "checked": checked,
-            "breached": breached,
-        }
+        checked, breached = payload["checked"], payload["breached"]
+        missing = payload["missing_columns"]
+        empty_mandatory = payload["mandatory_with_nulls"]
+        extra = payload["unexpected_columns"]
+        rows = payload["rows"]
         if ctx.json_output:
             ctx.emit_json(payload)
             return EXIT_DRIFT if breached else EXIT_OK
@@ -382,7 +256,7 @@ class ContractCheckCommand(Command):
             ctx.emit(f"{label} — column(s) not in the contract: {', '.join(extra)}")
         if not breached:
             ctx.emit(
-                f"The contract holds over {len(rows):,} row(s): every promised column "
+                f"The contract holds over {rows:,} row(s): every promised column "
                 "is present and every required one is populated."
             )
         return EXIT_DRIFT if breached else EXIT_OK

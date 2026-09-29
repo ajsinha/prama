@@ -25,17 +25,46 @@ The two halves of the expression layer, on data that makes both matter.
 Every one compiles to SQL that runs **inside the engine**. Nothing is evaluated row by row in
 Python — that is the performance decision the function catalogue exists to make possible.
 
-**One plugin validator** for `acme_book`, an identifier scheme Prama has never heard of, loaded
-from `acme_validators.py` and admitted only after its purity is checked and its implementation
-hashed into the plan.
+**One plugin validator** for `acme_book`, an identifier scheme Prama has never heard of, in
+`acme_validators.py`, admitted **by the server** only after its purity is checked and its
+implementation hashed into the plan.
 
 ## Run it
 
+The study is a client of **your** Prama server: it signs in through the SDK
+(`prama.sdk`), creates an estate of its own for the run, and transacts into it.
+It starts no server and opens no Prama database.
+
+**First, install the plugin into the server's environment, and restart the
+server.** A validator is admitted where controls run, and a run requested over
+the API runs in the server's process: the server loads every `prama.validators`
+entry point when it starts. This directory is a tiny distribution
+(`pyproject.toml`, `acme-pack`) that advertises one:
+
+```bash
+uv pip install --no-deps -e case-studies/04-expressions-and-plugins   # into the server's venv
+prama serve                               # (re)start it, so it loads the entry point
+```
+
+Then:
+
 ```bash
 cd case-studies/04-expressions-and-plugins
-python run.py                 # build, run, and serve the console on :8804
-python run.py --no-serve      # build and run, print the report, stop
+python run.py                             # the server config/application.yaml names
+python run.py --config other.yaml         # another server: its server.host and server.port
+python run.py --username ada --password … # as somebody else (default: the dev admin)
 ```
+
+**The server reads the blotter, not the study**, so add this checkout's
+`case-studies` directory to `runs.roots` in the server's `application.yaml` (or
+`application.local.yaml`) as well. The blotter is registered as a `files`
+connection (`trade_blotter` = `blotter/*.csv`) and read in place.
+
+Without the plugin the study still runs, and says what that costs: the server
+refuses a control naming `acme_book` (*"there is no semantic type called
+'acme_book'"*), Γ lists the book-code declaration as one it cannot satisfy, and
+the report ends with *"acme_book was not admitted on this server, so the
+book-code defect above had no control at all"* — 25 controls instead of 26.
 
 ## What was planted, and what happened
 
@@ -47,7 +76,10 @@ python run.py --no-serve      # build and run, print the report, stop
 | 4 | Book code check character wrong | 7 | ⚠️ not established — screen only |
 | 5 | Currency in lower case | 9 | ✅ 9, by three controls |
 
-Every detectable count found **exactly**.
+Every detectable count found **exactly**: 26 controls (19 derived, 7 formulas),
+**14 passing · 8 failing · 4 not established · 0 could not run**, over an
+evidence chain of 26 records that verifies. The same, number for number, as when
+the study ran Prama in its own process.
 
 ## The half-cent
 
@@ -96,27 +128,39 @@ machinery; it needed a place to declare itself.
 
 ## What the plugin contract enforces
 
-Before `AcmeBookCode` is usable, the study prints:
+The study asks the server whether it admitted the plugin the only way a client
+can: it has the server compile a control naming `acme_book`
+(`client.pql.compile`). A server that did not admit it refuses; one that did
+returns the plan:
 
 ```
-scanning acme_validators.py without importing it…
-  clean: no clock, no network, no filesystem, no model
-  admitted acme_book — implementation e945943541c46be7f92b582b536ec587
-  ran twice on the same inputs and agreed both times
+admitted by the server: a control naming acme_book compiles.
+  plan            ir:sha256:d17c01183b194ec2cd635727b7f38dfa6f2d59cd39c588edc5ffa0cc665a69a7
+  residual        acme_book on book_code, after the SQL screen
 ```
 
-Four things are checked, and none is taken on trust:
+What the server did when it started, none of it taken on trust:
 
-- **Scanned from source, before import.** Importing a module runs its top-level code, so a gate
-  that had to import the thing it was gating would already have run it. It also means a plugin can
-  be vetted when its dependencies are not installed — which is the situation a reviewer is in.
+- **Scanned.** The module's source, and any sibling module it imports, is read for a clock, a
+  socket, the filesystem or a model client. The server imports the plugin through its entry
+  point first and scans it after — so, unlike `scan_source` run on a file by a reviewer, this
+  is not a gate *before* the module's top-level code runs.
 - **Determinism, by execution.** Run twice on the same probes including an empty string. Import
   scanning catches the obvious sources; this catches a cached global, a mutable set, a counter.
 - **`CON-007`.** A plugin importing a model client is refused: a model output would otherwise
   decide a pass or fail verdict on data.
 - **Identity.** The implementation's hash is folded into the plan id of every control naming
-  `acme_book`. Edit the check-digit routine and the control changes identity, rather than silently
-  changing what last month's evidence meant.
+  `acme_book`. Edit the check-digit routine, restart the server, and the control changes
+  identity, rather than silently changing what last month's evidence meant.
+
+A plugin that fails any of these is refused loudly in the server's log, and the others still
+load.
+
+**What a client cannot see.** Before the conversion the study admitted the plugin in its own
+process and printed its implementation hash (`e945943541c46be7f92b582b536ec587`). Through the
+SDK it cannot: the compiled plan's residual does not carry the hash (the plan id folds it in,
+but it is not returned on its own), and no endpoint lists the validators a server admitted, or
+the ones it refused. The plan id above is the evidence the study has.
 
 `datetime` is **not** banned — a date validator legitimately parses one. What is banned is asking
 it what time it is. A rule that refused the validator it was written to protect would be widened
@@ -145,6 +189,7 @@ exactly the 31 rows it planted.
 | File | What it is |
 |---|---|
 | `acme_validators.py` | The plugin: a check-digit scheme, and nothing else |
-| `run.py` | Builds the blotter, admits the plugin, declares the formulas, runs, reports |
-| `workspace/landing/blotter/` | The CSV |
-| `workspace/blotter.duckdb` | A view over it |
+| `pyproject.toml` | Makes the plugin installable, with its `prama.validators` entry point |
+| `run.py` | Builds the blotter, asks the server about the plugin, declares the formulas, runs, reports |
+| `workspace/landing/blotter/` | The CSV the server reads |
+| `workspace/blotter.duckdb` | A view over it, built by `build()`; not used by the run |

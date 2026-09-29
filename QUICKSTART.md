@@ -208,22 +208,27 @@ missing, and `db verify` reports drift rather than repairing it.
 ## 4. See it actually do something
 
 An empty console is honest but not persuasive — it has nothing to report because
-nothing has run. The case studies build a realistic banking estate, run controls
-against it, and serve the console with real evidence in it.
+nothing has run. The case studies build a realistic banking estate and drive **the
+Prama you are running** through the Python SDK, so the evidence lands in your console.
 
 ```bash
+python run_prama_web.py                  # the server, if it is not already running
 cd case-studies/01-trading-book-sqlite
 python run.py
 ```
 
-That seeds a trading book in SQLite, plants known defects, declares the estate,
-generates controls from the declarations, runs them, and opens a console on
-`:8801` showing what it found — including a table of what it planted against
-what it caught, and what it did **not** catch.
+That seeds a trading book in SQLite with known defects, signs in to your server (as
+`admin` / `prama-dev-admin` unless you pass `--username` and `--password`), creates an
+estate for the run, declares it, derives the controls from the declarations, and has the
+server run them against the book. It prints what it found — including a table of what it
+planted against what it caught, and what it did **not** catch — and where to look in the
+console: sign in to the run's estate (the form asks which, once there is more than one).
 
-A study writes Prama's records into the application's own database, the one
-`config/application.yaml` configures, under a fresh tenant for each run. Only the data it checks
-stays in the study's `workspace/`. Pass `--config` to use a different configuration.
+A study starts no server of its own. It finds yours from `config/application.yaml`
+(`server.host`, `server.port`); pass `--config` with another file for another server. The
+server reads the study's data itself, which it may do because `runs.roots` in the shipped
+configuration lists `case-studies`. The same SDK is yours to script with: see
+[docs/sdk](docs/sdk/README.md).
 
 | | Study | What it is for |
 |---|---|---|
@@ -236,8 +241,9 @@ stays in the study's `workspace/`. Pass `--config` to use a different configurat
 | 7 | `07-metadata-governance` | Rules from metadata, correlation, fitness search |
 | 8 | `08-code-to-impact` | Lineage from ETL code, and a defect's blast radius |
 
-They use ports `:8801`–`:8808`, so all eight can run at once. The console lists them
-under **Help → Case studies**, one card per study with its README.
+Each run is an estate of its own on your server, so all eight can run one after another, or at
+once, against the same server. The console lists them under **Help → Case studies**, one card
+per study with its README.
 
 ---
 

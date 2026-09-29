@@ -1,33 +1,49 @@
-"""Driving Prama end to end, and narrating it.
+"""Driving Prama end to end through the SDK, and narrating it.
 
-The point of a case study is that you can watch the thing work, so this prints
-each stage as it happens and prints what it *did not* do alongside what it did.
-The stages are the product's own, in order:
+A case study is a client of **your** Prama: the server `config/application.yaml`
+describes (or the one `--config` names), reached through `prama.sdk`, as a
+named person with that person's permissions. It never opens Prama's database
+and never starts a server of its own, so what it does is exactly what a person
+integrating with Prama could do, and it all appears in the console you already
+have open.
+
+The point of a study is that you can watch the thing work, so this prints each
+stage as it happens, and prints what it *did not* do alongside what it did. The
+stages are the product's own, in order:
 
     declare  →  derive (Γ)  →  accept  →  run  →  read
 
-Nothing here reaches past a public API. If a study needs something Prama does
-not expose, that is a finding about Prama and it belongs in the roadmap, not in
-a helper that works around it.
+Each run gets an estate of its own, named with the time it started, so a
+rerun starts clean without deleting anybody's evidence: the ledger is
+append-only, and earlier runs stay as they were.
+
+Nothing here reaches past the SDK. If a study needs something Prama does not
+expose, that is a finding about Prama, and it belongs in the roadmap, not in a
+helper that works around it.
 
 Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 """
 
 from __future__ import annotations
 
+import argparse
 import dataclasses
+import os
+import secrets
+import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import prama.sdk as prama
 from _common.defects import DefectLog
-from _common.estate import Dataset, declare_estate
-from prama.core.config import Configuration, load_configuration
-from prama.db import Database
-from prama.derive import ControlGenerator
-from prama.derive.persisted import dataset_declaration_of
-from prama.execute import ControlRun
+from _common.estate import Dataset, Relationship
 
 RULE = "─" * 78
+
+#: The repository root: where the server runs, and what relative paths in the
+#: application's configuration are relative to.
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def say(message: str = "") -> None:
@@ -42,171 +58,187 @@ def stage(number: int, title: str, why: str) -> None:
     say(RULE)
 
 
-#: The repository root: where `prama serve` runs, and what relative paths in the
-#: application's configuration are relative to.
-ROOT = Path(__file__).resolve().parents[2]
-
-#: A study's `--config`, or None for the application's own configuration.
-CONFIG_PATH: str | None = None
-
-
-def use_config(path: str | None) -> None:
-    """Run the study against *path* instead of the application's configuration."""
-    global CONFIG_PATH
-    CONFIG_PATH = path or None
+def banner(title: str, subtitle: str) -> None:
+    say()
+    say("═" * 78)
+    say(f"  {title}")
+    say(f"  {subtitle}")
+    say("═" * 78)
 
 
-def configure(*, tenant: str = "") -> Configuration:
-    """The application's own configuration, and so its one database.
+def arguments(description: str) -> argparse.Namespace:
+    """The flags every study takes: which server, and as whom.
 
-    A study is a guided run of Prama against a demonstration estate, not a
-    separate installation: it writes into the database the application uses
-    (`database.*` in `config/application.yaml`, or in `--config`), under a
-    tenant of its own, and never into a database file of its own. The data a
-    study *checks* (its SQLite book, its CSV and Parquet landing zone) is the
-    customer's side, and stays in the study's workspace.
-
-    Relative paths resolve against the repository root, where the application
-    runs, so a study started from its own directory still reaches the same
-    database rather than creating one beside itself.
+    ``--config`` is an ``application.yaml``: the study talks to the server that
+    file describes (``server.host`` and ``server.port``), exactly as `prama.sdk.connect`
+    does. To use another server, write another file and pass it.
     """
-    path = Path(CONFIG_PATH).expanduser() if CONFIG_PATH else ROOT / "config" / "application.yaml"
-    base = load_configuration(path)
-    overrides = [f"tenancy.default_tenant={tenant}"] if tenant else []
-    schema_dir = Path(base.get_str("database.schema_dir", "schema"))
-    if not schema_dir.is_absolute():
-        overrides.append(f"database.schema_dir={ROOT / schema_dir}")
-    if base.get_str("database.dialect", "sqlite") == "sqlite":
-        raw = base.get_str("database.sqlite.path", "")
-        if raw and raw != ":memory:" and not Path(raw).expanduser().is_absolute():
-            overrides.append(f"database.sqlite.path={ROOT / raw}")
-    return load_configuration(path, overrides=overrides) if overrides else base
+    parser = argparse.ArgumentParser(description=description)
+    parser.add_argument(
+        "--config",
+        default=os.environ.get("PRAMA_CONFIG", str(ROOT / "config" / "application.yaml")),
+        help="the application.yaml of the Prama server to use (default: this checkout's)",
+    )
+    parser.add_argument("--url", default="", help="the server's URL, instead of --config")
+    parser.add_argument(
+        "--username", default=os.environ.get("PRAMA_USERNAME", "admin"), help="who to sign in as"
+    )
+    parser.add_argument(
+        "--password",
+        default=os.environ.get("PRAMA_PASSWORD", "prama-dev-admin"),
+        help="their password (default: the development bootstrap admin's)",
+    )
+    parser.add_argument(
+        "--estate",
+        default=os.environ.get("PRAMA_TENANT", "default"),
+        help=(
+            "the estate to sign in to before creating this run's own (default: 'default', "
+            "the one a fresh installation makes for its bootstrap admin)"
+        ),
+    )
+    # Accepted and ignored: studies used to start a console of their own.
+    parser.add_argument("--no-serve", action="store_true", help=argparse.SUPPRESS)
+    return parser.parse_args()
 
 
 @dataclasses.dataclass
 class Source:
-    """One place data lives, and how to run a query against it."""
+    """One place data lives, registered with Prama as a connection.
+
+    ``source_type`` is what the server opens it as: ``sqlite`` (one file),
+    ``duckdb`` (one file) or ``files`` (a directory of CSV, Parquet and
+    JSON-lines files). The server reads it itself, so the path must be under
+    one of the server's ``runs.roots``.
+    """
 
     name: str
-    engine: str
-    execute: Any
-    close: Any
-    #: Which declared datasets this source holds. A pass is scoped to them, so
-    #: controls on other sources are counted as not-reached rather than
-    #: producing a table-not-found error each.
+    source_type: str
+    path: Path
+    #: The declared datasets this source holds, by slug. A pass is scoped to
+    #: them, so controls on other sources are not reached rather than erroring.
     datasets: set[str]
-    #: The DQ delegates this pass may run (a `prama.delegates` host).
-    delegates: Any = None
+    config: dict[str, Any] = dataclasses.field(default_factory=dict)
 
 
 class Harness:
-    """One case study, from an empty database to a running console."""
+    """One case study, from sign-in to a verified evidence chain."""
 
-    def __init__(self, workspace: Path, *, title: str) -> None:
-        self.workspace = workspace
+    def __init__(self, workspace: Path, *, title: str, args: argparse.Namespace) -> None:
+        self.workspace = workspace.resolve()
         self.title = title
+        self.args = args
         self.workspace.mkdir(parents=True, exist_ok=True)
-        # The study's source data lives in the workspace; Prama's own records go
-        # to the application's database. A run is reproducible because it gets
-        # a fresh tenant, not because a database file is deleted: the evidence
-        # ledger is append-only, and earlier runs stay as they were.
-        stale = workspace / "prama.db"
-        for leftover in (stale, stale.with_suffix(".db-wal"), stale.with_suffix(".db-shm")):
-            leftover.unlink(missing_ok=True)  # from before studies used the main database
-        self.config = configure()
-        self.database = Database.from_config(self.config)
-        self.tenant_id = ""
+        self.client: prama.Client | None = None
+        self.estate: dict[str, Any] = {}
         self.dataset_ids: dict[str, str] = {}
+        #: The estate's business owner, a second person: Tier-1 and Tier-2
+        #: declarations need an approver who is not their author.
+        self.owner_id = ""
         self.accepted = 0
         self.unsatisfiable: list[dict[str, str]] = []
-        #: Comparisons PQL cannot say yet (row-count or aggregate parity):
-        #: declared and shown, not executed, not claimed.
+        #: Comparisons PQL cannot say yet: declared and shown, not run, not claimed.
         self.comparisons: list[dict[str, str]] = []
 
-    # -- stages ------------------------------------------------------------
+    # -- sign in -------------------------------------------------------------
 
-    async def start(self, *, tenant_slug: str, tenant_name: str) -> None:
-        from datetime import datetime
+    @property
+    def sdk(self) -> prama.Client:
+        """The client acting in this study's estate."""
+        if self.client is None:
+            raise RuntimeError("start() the study before using the SDK")
+        return self.client
 
-        self.database.initialise(applied_by="case-study")
-        await self.database.start()
-        # One tenant per run, in the application's database. The timestamp is
-        # what makes a rerun start clean without deleting anybody's evidence.
-        slug = f"{tenant_slug}-{datetime.now():%Y%m%d-%H%M%S}"
-        async with self.database.unit_of_work() as uow:
-            tenant = uow.tenants.create(slug=slug, display_name=tenant_name)
-            await uow.flush()
-            self.tenant_id = str(tenant.id)
-        where = (
-            self.config.get_str("database.sqlite.path", "")
-            if self.config.get_str("database.dialect", "sqlite") == "sqlite"
-            else f"postgres {self.config.get_str('database.postgres.host', '')}"
+    def start(self, *, tenant_slug: str, tenant_name: str) -> None:
+        """Sign in to the running server and create this run's estate."""
+        args = self.args
+        try:
+            operator = prama.connect(
+                args.url or None,
+                config=None if args.url else args.config,
+                username=args.username,
+                password=args.password,
+                tenant=args.estate,
+            )
+            me = operator.auth.me()
+        except prama.ServerUnavailable as error:
+            say()
+            say(f"  No Prama server answered: {error.message}")
+            say("  Start the one this study should use, then run it again:")
+            say("      python run_prama_web.py          (or: prama serve)")
+            say("  or point the study at another: --config path/to/application.yaml")
+            sys.exit(2)
+        except prama.UnauthorisedError:
+            say()
+            say(f"  The server refused {args.username!r}.")
+            say("  Pass --username and --password (or PRAMA_USERNAME / PRAMA_PASSWORD),")
+            say("  and --estate when the server has more than one estate.")
+            sys.exit(2)
+        # The time says when the run was; the suffix makes two runs in the same
+        # second two estates. A study on a small book finishes in under one, and
+        # the second run was refused because the first had taken its name.
+        slug = f"{tenant_slug}-{datetime.now():%Y%m%d-%H%M%S}-{secrets.token_hex(2)}"
+        made = operator.tenants.create(slug, tenant_name)
+        self.estate = made["tenant"]
+        self.client = operator.as_key(made["credentials"]["api_key"])
+        operator.close()
+        # A second person, because maker-checker is a control and not a formality:
+        # the study authors as the administrator and names the owner as approver.
+        owner = self.sdk.principals.create(
+            "owner", roles=["owner"], display_name="Olu Adeyemi (business owner)"
         )
-        say(f"  Prama database: {where} (the application's), tenant {slug}")
-        # Re-read with the tenant fixed, so the console needs no sign-in.
-        self.config = configure(tenant=self.tenant_id)
+        self.owner_id = str(owner["id"])
+        say(f"  Prama server: {self.sdk.base_url}  (signed in as {me['username']})")
+        say(f"  This run's estate: {slug} — {tenant_name}")
 
-    async def declare(self, datasets: list[Dataset]) -> None:
+    # -- the stages ----------------------------------------------------------
+
+    def declare(self, datasets: list[Dataset]) -> None:
         stage(
             2,
             "Declare the estate",
             "In business terms. Not one line of SQL is written in this step.",
         )
-        async with self.database.unit_of_work() as uow:
-            self.dataset_ids = await declare_estate(
-                uow, self.tenant_id, datasets, author="alice", approver="bob"
-            )
         for dataset in datasets:
+            declared = self.sdk.datasets.declare(
+                dataset.name, approved_by=self.owner_id, **dataset.to_api()
+            )
+            self.dataset_ids[declared["slug"]] = declared["id"]
+            for attribute in dataset.attributes:
+                self.sdk.datasets.add_attribute(
+                    declared["id"], attribute.name, **attribute.to_api()
+                )
             say(
                 f"  {dataset.name:<30} tier {dataset.criticality}  "
                 f"{len(dataset.attributes)} attribute(s)"
             )
             say(f"    one row is: {dataset.grain_statement}")
 
-    async def derive_and_accept(self) -> None:
+    def derive_and_accept(self) -> None:
         stage(
             3,
             "Derive the controls (Γ), and accept them",
             "Every control below follows from a declaration above. Nobody wrote one.",
         )
-        generator = ControlGenerator()
-        async with self.database.unit_of_work() as uow:
-            for slug, dataset_id in self.dataset_ids.items():
-                version = await uow.datasets.require_current(dataset_id, tenant_id=self.tenant_id)
-                attributes = await uow.attributes.for_dataset(dataset_id, tenant_id=self.tenant_id)
-                generation = generator.generate(dataset_declaration_of(version, attributes))
-                for derived in generation.controls:
-                    entity, _ = await uow.controls.declare(
-                        tenant_id=self.tenant_id,
-                        identity=derived.identity,
-                        pql=derived.content,
-                        rule=derived.rule,
-                        source_ref=dataset_id,
-                        criticality=version.criticality,
-                        schedule="06:30" if version.criticality == 1 else "daily",
-                        authored_by="gamma",
-                    )
-                    # A case study accepts everything, and says so. A real
-                    # estate reviews them: the queue is on /proposals, and a
-                    # control nobody accepted does not run.
-                    await uow.controls.activate(
-                        str(entity.id),
-                        tenant_id=self.tenant_id,
-                        approved_by="bob",
-                        reason="accepted for the study",
-                    )
-                    self.accepted += 1
-                for item in generation.unsatisfiable:
-                    self.unsatisfiable.append(
-                        {"dataset": slug, "rule": item.rule, "reason": item.reason}
-                    )
-                unsatisfiable = (
-                    f"  {len(generation.unsatisfiable)} unsatisfiable"
-                    if generation.unsatisfiable
-                    else ""
+        for slug, dataset_id in self.dataset_ids.items():
+            # A case study accepts everything, and says so. A real estate
+            # reviews them: the queue is on /proposals, and a control nobody
+            # accepted does not run.
+            derived = self.sdk.derive.dataset(
+                dataset_id, declare=True, accept=True, reason="accepted for the study"
+            )
+            controls = derived.get("controls", [])
+            self.accepted += len(controls)
+            for item in derived.get("unsatisfiable", []):
+                self.unsatisfiable.append(
+                    {
+                        "dataset": slug,
+                        "rule": item.get("rule", ""),
+                        "reason": item.get("reason", ""),
+                    }
                 )
-                say(f"  {slug:<30} {len(generation.controls):>3} control(s){unsatisfiable}")
-
+            gaps = derived.get("unsatisfiable", [])
+            note = f"  {len(gaps)} unsatisfiable" if gaps else ""
+            say(f"  {slug:<30} {len(controls):>3} control(s){note}")
         say()
         say(f"  {self.accepted} control(s) accepted and now running.")
         if self.unsatisfiable:
@@ -218,178 +250,164 @@ class Harness:
             for item in self.unsatisfiable:
                 say(f"    ! {item['dataset']}: {item['reason']}")
 
-    async def relate(self, declarations: list[Any]) -> None:
-        """Declare relationships, and derive the controls only they imply.
+    def relate(self, relationships: list[Relationship]) -> None:
+        """Declare relationships, confirm them, and derive the controls only they imply.
 
         Referential integrity and reconciliation are facts about *two*
-        datasets. Neither declaration implies them, which is why the
-        single-dataset studies plant those defects and decline to claim them.
+        datasets. Neither declaration implies them.
         """
-        import dataclasses
-
-        from prama.derive import RelationshipGenerator
-        from prama.semantic.services import RelationshipService
-
         stage(
             3,
             "Declare the relationships",
             "Facts about two datasets. Neither declaration alone implies them.",
         )
-        generator = RelationshipGenerator()
-        async with self.database.unit_of_work() as uow:
-            service = RelationshipService(uow)
-            for declaration in declarations:
-                # Two shapes of the same fact. The *service* stores dataset
-                # identifiers, because a declaration has to survive a rename;
-                # Γ writes controls against dataset *names*, because a control
-                # has to name the thing that exists in the engine. The study
-                # writes the readable one and converts here.
-                await service.declare(
-                    tenant_id=self.tenant_id,
-                    declaration=dataclasses.replace(
-                        declaration,
-                        from_dataset_id=self.dataset_ids[declaration.from_dataset_id],
-                        to_dataset_id=self.dataset_ids[declaration.to_dataset_id],
-                    ),
-                    authored_by="alice",
-                    approved_by="bob",
-                    criticality=1,
+        for relationship in relationships:
+            declared = self.sdk.relationships.declare(
+                approved_by=self.owner_id, **relationship.to_api(self.dataset_ids)
+            )
+            self.sdk.relationships.confirm(declared["id"], reason="confirmed for the study")
+            derived = self.sdk.derive.relationship(
+                declared["id"], declare=True, accept=True, reason="accepted for the study"
+            )
+            say(f"  {relationship.kind:<18} {relationship.render()[:70]}")
+            for control in derived.get("controls", []):
+                self.accepted += 1
+                say(f"      → {str(control.get('pql', '')).splitlines()[0][:88]}")
+            for spec in derived.get("comparisons", []):
+                # Γ proposes a reconciliation as runnable RECONCILE PQL for a
+                # reviewer to complete; it is never declared automatically.
+                runnable = spec.get("pql") or ""
+                if runnable:
+                    say(f"      ≈ proposed: {runnable.splitlines()[0][:84]}")
+                self.comparisons.append(
+                    {
+                        "kind": spec.get("kind", ""),
+                        "left": spec.get("left", ""),
+                        "right": spec.get("right", ""),
+                    }
                 )
-                generation = generator.generate(declaration)
-                say(f"  {declaration.kind.value:<18} {declaration.render()[:70]}")
-                for derived in generation.controls:
-                    entity, _ = await uow.controls.declare(
-                        tenant_id=self.tenant_id,
-                        identity=derived.identity,
-                        pql=derived.content,
-                        rule=derived.rule,
-                        criticality=1,
-                        schedule="06:30",
-                        authored_by="gamma",
-                    )
-                    await uow.controls.activate(
-                        str(entity.id), tenant_id=self.tenant_id, approved_by="bob"
-                    )
-                    self.accepted += 1
-                    say(f"      → {derived.content.splitlines()[0][:88]}")
-                for spec in generation.comparisons:
-                    # A reconciliation with a PQL form is a RECONCILE control,
-                    # run by the matching engine like any other control. Other
-                    # comparison kinds are specifications PQL cannot say yet,
-                    # printed and not claimed as findings.
-                    # Γ proposes a reconciliation as runnable RECONCILE PQL,
-                    # for a reviewer to complete: a declaration does not say
-                    # how amounts in different currencies are normalised, so
-                    # activating it unreviewed would report breaks that are
-                    # only currency. A study authors its complete one.
-                    runnable = spec.to_pql()
-                    if runnable:
-                        say(f"      ≈ proposed: {runnable[:84]}")
-                    self.comparisons.append(
-                        {
-                            "kind": spec.kind.value,
-                            "left": spec.left,
-                            "right": spec.right,
-                        }
-                    )
-                    say(
-                        f"      ≈ {spec.kind.value}: {spec.left} against {spec.right} "
-                        "— a comparison spec, not a control"
-                    )
-                for item in generation.unsatisfiable:
-                    self.unsatisfiable.append(
-                        {
-                            "dataset": declaration.from_dataset_id,
-                            "rule": item.rule,
-                            "reason": item.reason,
-                        }
-                    )
-                    say(f"      ! {item.reason[:88]}")
+                say(
+                    f"      ≈ {spec.get('kind', '')}: {spec.get('left', '')} against "
+                    f"{spec.get('right', '')} — a comparison spec, not a control"
+                )
+            for item in derived.get("unsatisfiable", []):
+                self.unsatisfiable.append(
+                    {
+                        "dataset": relationship.left,
+                        "rule": item.get("rule", ""),
+                        "reason": item.get("reason", ""),
+                    }
+                )
+                say(f"      ! {str(item.get('reason', ''))[:88]}")
 
-    async def run(self, sources: list[Source]) -> list[Any]:
+    def author(self, pql: str, *, identity: str, reason: str) -> dict[str, Any]:
+        """A control a person wrote, declared and then activated by an approver."""
+        declared = self.sdk.controls.declare(pql, identity=identity, criticality=1)
+        control = declared.get("control", declared)
+        self.sdk.controls.activate(control["id"], reason=reason)
+        self.accepted += 1
+        return control
+
+    def connect(self, source: Source) -> str:
+        """Register *source* with Prama as a connection; return its id."""
+        connection = self.sdk.connections.create(
+            source.name,
+            source.source_type,
+            description=f"{self.title}: {source.name}",
+            config={"path": str(source.path), **source.config},
+        )
+        return str(connection["id"])
+
+    def run(self, sources: list[Source]) -> list[dict[str, Any]]:
         stage(
             4,
             "Run them against the data",
-            "One pass per source. Each records evidence into the hash-chained ledger.",
+            "The server reads each source itself and records evidence in the hash-chained ledger.",
         )
         reports = []
         for source in sources:
-            async with self.database.unit_of_work() as uow:
-                report = await ControlRun(
-                    uow,
-                    self.tenant_id,
-                    execute=source.execute,
-                    sample=source.execute,
-                    engine=source.engine,
-                    triggered_by="manual",
-                    datasets=source.datasets,
-                    delegates=source.delegates,
-                ).execute_all()
+            connection_id = self.connect(source)
+            try:
+                report = self.sdk.runs.start(connection_id, datasets=sorted(source.datasets))
+            except prama.ForbiddenError as error:
+                say(f"  {source.name}: the server refused to read {source.path}")
+                say(f"    {error.message}")
+                say(f"    {error.remedy}")
+                say("    Add the case-studies directory to runs.roots in the server's")
+                say("    application.yaml (the shipped one does), and restart it.")
+                sys.exit(3)
             reports.append(report)
-            say(f"  {source.name} ({source.engine})")
-            say(f"    {report.describe()}")
-            for outcome in report.outcomes:
-                if not outcome.ran:
-                    say(f"    ! {outcome.record.dataset}: {outcome.error[:110]}")
+            say(f"  {source.name} ({source.source_type})")
+            say(f"    {_describe(report)}")
+            for outcome in report.get("outcomes", []):
+                if not outcome.get("ran", True):
+                    error = str(outcome.get("error", ""))[:110]
+                    say(f"    ! {outcome.get('dataset', '')}: {error}")
         return reports
 
-    async def report(self, planted: DefectLog) -> None:
+    def report(self, planted: DefectLog) -> None:
         stage(
             5,
             "What Prama found, against what was planted",
             "Both columns, including the rows in neither. A study you cannot check is a brochure.",
         )
-        async with self.database.unit_of_work() as uow:
-            latest = await uow.evidence.latest_per_control(self.tenant_id)
-            verification = await uow.evidence.verify(self.tenant_id)
-
-        failing = [r for r in latest.values() if r.verdict == "fail"]
-        indeterminate = [r for r in latest.values() if r.verdict == "indeterminate"]
-        errored = [r for r in latest.values() if r.verdict == "error"]
-        passing = [r for r in latest.values() if r.verdict == "pass"]
+        latest = _records(self.sdk.evidence.latest())
+        verification = self.sdk.evidence.verify()
+        failing = [r for r in latest if r.get("verdict") == "fail"]
+        indeterminate = [r for r in latest if r.get("verdict") == "indeterminate"]
+        errored = [r for r in latest if r.get("verdict") == "error"]
+        passing = [r for r in latest if r.get("verdict") == "pass"]
 
         say("  PLANTED")
         say(planted.render())
         say()
         say("  FOUND")
-        for record in sorted(failing, key=lambda r: (r.dataset, r.control_id)):
+        ordered = sorted(failing, key=lambda r: (r.get("dataset", ""), r.get("control_id", "")))
+        for record in ordered:
+            dimensions = ", ".join(record.get("dimensions") or []) or "unclassified"
             say(
-                f"    fail  {record.dataset:<22} {_finding(record.metrics):<28}"
-                f"[{', '.join(record.dimensions) or 'unclassified'}]"
+                f"    fail  {record.get('dataset', ''):<22} "
+                f"{_finding(record.get('metrics') or {}):<28}[{dimensions}]"
             )
         if indeterminate:
             say()
             say("  NOT ESTABLISHED — a pass could not be reported, for one of two reasons.")
-            screened = [r for r in indeterminate if r.detail]
-            silent = [r for r in indeterminate if not r.detail]
+            screened = [r for r in indeterminate if r.get("detail")]
+            silent = [r for r in indeterminate if not r.get("detail")]
             if screened:
                 say()
                 say("  (a) The SQL was a screen, not the exact test. Zero violations from a")
                 say("      lower bound is not a pass; the residual validator has not run.")
-                for record in sorted(screened, key=lambda r: r.dataset):
-                    say(f"    ?     {record.dataset:<22} {_residual(record.detail)}")
+                for record in sorted(screened, key=lambda r: r.get("dataset", "")):
+                    say(f"    ?     {record.get('dataset', ''):<22} {_residual(record['detail'])}")
             if silent:
                 say()
                 say("  (b) The engine returned metrics the control could not be judged from.")
                 say("      Reported rather than assumed either way.")
-                for record in sorted(silent, key=lambda r: r.dataset):
-                    say(f"    ?     {record.dataset:<22} {_finding(record.metrics)}")
+                for record in sorted(silent, key=lambda r: r.get("dataset", "")):
+                    say(
+                        f"    ?     {record.get('dataset', ''):<22} "
+                        f"{_finding(record.get('metrics') or {})}"
+                    )
         if errored:
             say()
             say("  COULD NOT RUN — these checked nothing, and no verdict says so.")
             for record in errored:
-                say(f"    !     {record.dataset:<24} {record.detail[:90]}")
+                detail = str(record.get("detail", ""))[:90]
+                say(f"    !     {record.get('dataset', ''):<24} {detail}")
 
         say()
         say(
             f"  {len(passing)} passing · {len(failing)} failing · "
             f"{len(indeterminate)} not established · {len(errored)} could not run"
         )
+        intact = verification.get("intact", verification.get("is_intact"))
         say(
-            f"  Evidence chain: {verification.records} record(s), "
-            f"{'verified' if verification.is_intact else 'BROKEN'}"
+            f"  Evidence chain: {verification.get('records', '?')} record(s), "
+            f"{'verified' if intact else 'BROKEN'}"
         )
-        say(f"  Merkle root: {verification.merkle_root}")
+        if verification.get("merkle_root"):
+            say(f"  Merkle root: {verification['merkle_root']}")
         if self.comparisons:
             say()
             say("  DERIVED FROM RELATIONSHIPS, FOR REVIEW")
@@ -399,44 +417,47 @@ class Harness:
             for spec in self.comparisons:
                 say(f"    ≈ {spec['kind']}: {spec['left']} against {spec['right']}")
 
-    async def stop(self) -> None:
-        await self.database.stop()
+    def finish(self) -> None:
+        """Say where to look, in the console of the server the study used."""
+        base = self.sdk.base_url
+        slug = self.estate.get("slug", "")
+        stage(6, "Look at it", "In the console you already run: nothing was started for this.")
+        say(f"  Sign in at {base}/sign-in with estate {slug!r}, as {self.args.username}.")
+        say(f"  {base}/estate        the estate, as declared")
+        say(f"  {base}/controls      what is running, and what is silenced")
+        say(f"  {base}/incidents     what is currently wrong")
+        say(f"  {base}/scorecards    the numbers, decomposed")
+        say(f"  {base}/evidence      the ledger, and whether it verifies")
+        say(f"  {base}/reports       the packs that leave the building")
+        self.close()
 
-    # -- the console -------------------------------------------------------
-
-    def serve(self, port: int = 8800) -> None:
-        """Run the console so the reader can look at all of it."""
-        try:
-            import uvicorn
-        except ImportError:
-            say("\n  uvicorn is not installed; the console cannot start.")
-            say("  Install it:  pip install 'prama[serve]'")
-            return
-
-        from prama.api import create_app
-
-        stage(6, "Look at it", "The console reads the same ledger the run just wrote.")
-        say(f"  http://127.0.0.1:{port}/estate        the estate, as declared")
-        say(f"  http://127.0.0.1:{port}/controls      what is running, and what is silenced")
-        say(f"  http://127.0.0.1:{port}/incidents     what is currently wrong")
-        say(f"  http://127.0.0.1:{port}/scorecards    the numbers, decomposed")
-        say(f"  http://127.0.0.1:{port}/evidence      the ledger, and whether it verifies")
-        say(f"  http://127.0.0.1:{port}/reports       the packs that leave the building")
-        say()
-        say("  Ctrl-C to stop.")
-        uvicorn.run(create_app(self.config), host="127.0.0.1", port=port, log_level="warning")
+    def close(self) -> None:
+        if self.client is not None:
+            self.client.close()
+            self.client = None
 
 
-def banner(title: str, subtitle: str) -> None:
-    say()
-    say("═" * 78)
-    say(f"  {title}")
-    say(f"  {subtitle}")
-    say("═" * 78)
+def _records(latest: Any) -> list[dict[str, Any]]:
+    """The latest record per control, whatever envelope the endpoint uses."""
+    if isinstance(latest, dict):
+        for key in ("records", "items", "latest"):
+            if isinstance(latest.get(key), list):
+                return list(latest[key])
+        return [v for v in latest.values() if isinstance(v, dict)]
+    return list(latest or [])
 
 
-def require_workspace(argv: list[str], default: Path) -> Path:
-    return Path(argv[1]).resolve() if len(argv) > 1 else default
+def _describe(report: dict[str, Any]) -> str:
+    """One line for a run, from its report."""
+    if report.get("summary"):
+        return str(report["summary"])
+    outcomes = report.get("outcomes", [])
+    verdicts: dict[str, int] = {}
+    for outcome in outcomes:
+        verdict = str(outcome.get("verdict") or ("error" if not outcome.get("ran", True) else "?"))
+        verdicts[verdict] = verdicts.get(verdict, 0) + 1
+    counted = ", ".join(f"{n} {v}" for v, n in sorted(verdicts.items()))
+    return f"{len(outcomes)} control(s) ran: {counted or 'none'}"
 
 
 def _finding(metrics: dict[str, float]) -> str:

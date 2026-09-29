@@ -132,6 +132,7 @@ class Review:
             "implied": [_proposal(p) for p in self.implied],
             "broken": self.broken,
             "gaps_at_head": self.gaps,
+            "fails": self.fails,
         }
 
     def to_markdown(self) -> str:
@@ -192,6 +193,19 @@ class Review:
         return "\n".join(lines)
 
 
+def _identity_of(control: Any) -> str:
+    """A live control's identity.
+
+    A stored control version carries it on its control (`version.control.identity`),
+    not on itself. Reading only `control.identity` matched every test double and
+    no real estate, so a review against live controls could never fail.
+    """
+    own = getattr(control, "identity", None)
+    if own:
+        return str(own)
+    return str(getattr(getattr(control, "control", None), "identity", "") or "")
+
+
 def _proposal(p: Any) -> dict[str, str]:
     return {"identity": p.identity, "rule": p.rule, "dataset": p.dataset, "pql": p.pql}
 
@@ -245,15 +259,38 @@ def review(
     timeout: float = 300.0,
 ) -> Review:
     """Read both versions and answer the four questions. *live* is the estate's controls."""
+    with tempfile.TemporaryDirectory(prefix="prama-review-") as scratch:
+        base_root = extract(repo, base, Path(scratch) / "base")
+        head_root = extract(repo, head, Path(scratch) / "head")
+        return review_trees(
+            base_root, head_root, base, head, dialect=dialect, live=live, timeout=timeout
+        )
+
+
+def review_trees(
+    base_root: Path,
+    head_root: Path,
+    base: str,
+    head: str,
+    *,
+    dialect: str = "ansi",
+    live: Iterable[Any] = (),
+    timeout: float = 300.0,
+) -> Review:
+    """The review of two trees already on disk, labelled *base* and *head*.
+
+    What `review` does once the two versions are written out, and what the API
+    does with two uploaded archives: the same sandboxed reader, never executed,
+    and the same four questions.
+    """
     from prama.codeintake.service import run_worker
     from prama.derive.lineage_controls import propose
 
     live = list(live)
-    with tempfile.TemporaryDirectory(prefix="prama-review-") as scratch:
-        readings = {}
-        for side, ref in (("base", base), ("head", head)):
-            root = extract(repo, ref, Path(scratch) / side)
-            readings[side] = run_worker(root, dialect, timeout=timeout)
+    readings = {
+        "base": run_worker(base_root, dialect, timeout=timeout),
+        "head": run_worker(head_root, dialect, timeout=timeout),
+    }
     before, after = _rows(readings["base"]), _rows(readings["head"])
     changes = diff(before, after)
 
@@ -279,7 +316,7 @@ def review(
     at_head = {p.identity: p for p in propose(after, live)}
     lost = tuple(p for i, p in sorted(at_base.items()) if i not in at_head)
     implied = tuple(p for i, p in sorted(at_head.items()) if i not in at_base)
-    by_identity = {str(getattr(c, "identity", "") or ""): c for c in live}
+    by_identity = {_identity_of(c): c for c in live}
     broken = {
         p.identity: str(getattr(by_identity[p.identity], "name", "") or p.pql.split(" BECAUSE")[0])
         for p in lost

@@ -219,3 +219,42 @@ TenantAdmin = scoped("tenant:admin")
 Uow = Annotated[UnitOfWork, Depends(get_uow)]
 Config = Annotated[Configuration, Depends(get_config)]
 Db = Annotated[Database, Depends(get_database)]
+
+# -- reconciliation, data contracts and usage ----------------------------------
+BreakReader = scoped("break:read")
+BreakWriter = scoped("break:write")
+#: A period-end reconciliation certificate is a signed statement, so issuing
+#: one takes the scope that signs statements.
+AttestationSigner = scoped("attestation:sign")
+ReportReader = scoped("report:read")
+ContractChecker = scoped("contract:check")
+
+# -- administration, identity, models and agents ----------------------------
+#: People, roles, every key in the estate, the model gateway's administration,
+#: steward agents, the effective configuration and the audit log. The console
+#: puts each of these behind ``admin``; the API asks for the same scope, so
+#: the two surfaces cannot disagree about who may do it.
+Administrator = scoped("admin")
+
+# -- evidence and assurance ----------------------------------------------------
+#: The ledger, incidents, scorecards and reports, attestations. Each names the
+#: scope the console's matching screen already requires, so a key and a
+#: browser session holding the same permissions see the same things.
+EvidenceReader = scoped("evidence:read")
+IncidentReader = scoped("incident:read")
+AttestationReader = scoped("attestation:read")
+#: ReportReader and AttestationSigner are defined with reconciliation, above.
+#: Anchoring sends the chain head to a witness outside Prama and records the
+#: receipt. It changes no evidence, but it is an outbound call on the estate's
+#: behalf, which is an operator's decision rather than a reader's.
+EvidenceAnchorer = scoped("admin")
+
+# -- Knowledge and code: lineage, code intake, glossary, metadata, comments,
+# -- delegates, domain packs and connectors.
+#: Authoring a control, which somebody else then approves: the maker half of
+#: maker-checker. Held by a steward; deliberately not by an owner.
+ControlProposer = scoped("control:propose")
+#: Activating, suppressing and retiring a control, deciding on a proposal, and
+#: running the estate: the checker half, held by an owner.
+ControlApprover = scoped("control:approve")
+#: Administrator is defined with administration, above.

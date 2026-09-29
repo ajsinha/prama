@@ -10,8 +10,7 @@ from typing import Annotated, Any
 from fastapi import Form, Request
 
 from prama.core.errors import NotFoundError, PramaError, ValidationError
-from prama.steward import identity
-from prama.steward.runner import run_task
+from prama.steward import admin, identity
 from prama.steward.tools import TOOLS
 from prama.web.deps import Caller, Uow
 from prama.web.rendering import flash_error_and_log, redirect_to, render
@@ -120,20 +119,17 @@ class AgentRoutes(UiRoutes):
         approve_before_run: Annotated[str, Form()] = "",
     ) -> Any:
         try:
-            if kind not in TOOLS and not remote:
-                raise NotFoundError(f"no goal kind {kind!r}", remedy="Choose one from the list.")
-            await uow.stewards.add_goal(
+            await admin.add_goal(
+                uow,
                 caller.tenant_id,
                 steward_id,
-                statement=statement.strip() or TOOLS[kind][0],
                 kind=kind,
-                inputs={
-                    **({"source": source.strip()} if source.strip() else {}),
-                    **({"remote": True} if remote else {}),
-                    **({"approve_before_run": True} if approve_before_run else {}),
-                },
-                schedule=schedule.strip() or None,
                 by=caller.principal_id or "console",
+                statement=statement,
+                schedule=schedule,
+                source=source,
+                remote=bool(remote),
+                approve_before_run=bool(approve_before_run),
             )
         except PramaError as exc:
             flash_error_and_log(request, "That goal could not be added", exc)
@@ -159,30 +155,12 @@ class AgentRoutes(UiRoutes):
         return redirect_to(request, "agents", flash_message=f"{steward.name} is now {state}.")
 
     async def run_now(self, request: Request, uow: Uow, caller: Caller, goal_id: str) -> Any:
-        from datetime import UTC, datetime
-
-        goals = {g.id: g for g in await uow.stewards.goals(caller.tenant_id)}
-        goal = goals.get(goal_id)
-        steward = await uow.stewards.one(caller.tenant_id, goal.steward_id) if goal else None
-        if goal is None or steward is None:
+        try:
+            task = await admin.run_now(uow, request.app.state.config, caller.tenant_id, goal_id)
+        except PramaError as exc:
             return redirect_to(
-                request, "agents", flash_message="No such goal.", flash_category="warning"
+                request, "agents", flash_message=exc.message, flash_category="warning"
             )
-        if steward.state != "active":
-            return redirect_to(
-                request,
-                "agents",
-                flash_message=f"{steward.name} is {steward.state}.",
-                flash_category="warning",
-            )
-        task = await run_task(
-            uow,
-            request.app.state.config,
-            caller.tenant_id,
-            steward,
-            goal,
-            key=f"{goal.id}:manual:{datetime.now(UTC).strftime('%Y%m%dT%H%M%S')}",
-        )
         return redirect_to(request, "agents", flash_message=f"Task {task.state}.")
 
     async def decide(

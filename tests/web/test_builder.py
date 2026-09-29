@@ -16,7 +16,7 @@ import pytest
 from prama.core.errors import ValidationError
 from prama.pql import parse_control
 from prama.pql.ast import Severity, UnknownPolicy
-from prama.web.builder import QUESTIONS, build, render_and_verify
+from prama.pql.builder import QUESTIONS, build, render_and_verify
 
 #: One complete answer set per rule the builder offers. Kept exhaustive on
 #: purpose: the parametrised round-trip test below is only a guarantee about

@@ -141,6 +141,67 @@ SECTIONS: tuple[HelpSection, ...] = (
         ),
     ),
     HelpSection(
+        "Python SDK",
+        (
+            _d(
+                "sdk",
+                "The Python SDK",
+                "Everything Prama does, from Python, against your running server.",
+                "docs/sdk/README.md",
+                "bi-filetype-py",
+            ),
+            _d(
+                "sdk-controls",
+                "SDK: controls and runs",
+                "Author, derive, accept and run controls; PQL tooling.",
+                "docs/sdk/controls.md",
+                "bi-shield-check",
+            ),
+            _d(
+                "sdk-evidence",
+                "SDK: evidence and assurance",
+                "The ledger, incidents, scorecards, attestations, reports.",
+                "docs/sdk/evidence.md",
+                "bi-link-45deg",
+            ),
+            _d(
+                "sdk-reconciliation",
+                "SDK: reconciliation",
+                "Reconciliations, the break workbench, the certificate.",
+                "docs/sdk/reconciliation.md",
+                "bi-arrow-left-right",
+            ),
+            _d(
+                "sdk-contracts",
+                "SDK: data contracts",
+                "Check, diff, import and export contracts.",
+                "docs/sdk/contracts.md",
+                "bi-file-earmark-check",
+            ),
+            _d(
+                "sdk-usage",
+                "SDK: usage",
+                "Query history in, priorities out.",
+                "docs/sdk/usage.md",
+                "bi-graph-up",
+            ),
+            _d(
+                "sdk-administration",
+                "SDK: administration",
+                "People, roles, keys, models, agents, config, audit.",
+                "docs/sdk/administration.md",
+                "bi-people",
+            ),
+            _d(
+                "sdk-knowledge",
+                "SDK: knowledge and code",
+                "Lineage, code, glossary, metadata, delegates, packs, connectors.",
+                "docs/sdk/knowledge-and-code.md",
+                "bi-bezier2",
+            ),
+        ),
+    ),
+    HelpSection(
         "Getting started",
         (
             _d(

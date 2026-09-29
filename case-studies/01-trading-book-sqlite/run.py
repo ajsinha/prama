@@ -1,34 +1,31 @@
 #!/usr/bin/env python3
 """Case study 1 — a trading book in SQLite.
 
-Runs the whole thing: builds the data, declares the estate in business terms,
-lets Γ derive the controls, accepts them, runs them against the database, and
-prints what was found against what was planted. Then serves the console.
+Runs the whole thing against **your** Prama, through the SDK: builds the data,
+declares the estate in business terms, lets Γ derive the controls, accepts
+them, has the server run them against the database, and prints what was found
+against what was planted. Then says where to look in the console you already
+have open. It starts no server of its own.
 
 Usage:
-    python run.py                 build, run, and serve the console on :8801
-    python run.py --no-serve      build and run, then stop
-    python run.py --port 9000     serve somewhere else
+    python run.py                          the server config/application.yaml names
+    python run.py --config other.yaml      another server
+    python run.py --username ada --password …   as somebody else (default: the dev admin)
 
 Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 """
 
 from __future__ import annotations
 
-import argparse
-import asyncio
 import sys
 from pathlib import Path
-from typing import Any
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 
 from _common.estate import Attribute, Dataset  # noqa: E402
-from _common.harness import Harness, banner, say, stage, use_config  # noqa: E402
+from _common.harness import Harness, Source, arguments, banner, say, stage  # noqa: E402
 from generate import build  # noqa: E402
-
-from prama.connect.sources.query import executor_for  # noqa: E402
 
 #: The estate, as its owner would describe it. Read this first: everything
 #: Prama does afterwards follows from these sentences, and not one of them is
@@ -236,7 +233,8 @@ ESTATE = [
 ]
 
 
-async def main(serve: bool, port: int) -> Any:  # noqa: ARG001
+def main() -> None:
+    args = arguments(__doc__ or "")
     workspace = HERE / "workspace"
     banner(
         "Case study 1 — a trading book, in SQLite",
@@ -250,52 +248,26 @@ async def main(serve: bool, port: int) -> Any:  # noqa: ARG001
     say()
     say(planted.render())
 
-    harness = Harness(workspace, title="Trading book (SQLite)")
-    await harness.start(tenant_slug="acme-markets", tenant_name="Acme Markets")
+    harness = Harness(workspace, title="Trading book (SQLite)", args=args)
+    harness.start(tenant_slug="acme-markets", tenant_name="Acme Markets")
     try:
-        await harness.declare(ESTATE)
-        await harness.derive_and_accept()
-
-        execute, close = executor_for(database_path, "sqlite")
-        try:
-            from _common.harness import Source
-
-            await harness.run(
-                [
-                    Source(
-                        name=str(database_path.name),
-                        engine="sqlite",
-                        execute=execute,
-                        close=close,
-                        datasets=set(harness.dataset_ids),
-                    )
-                ]
-            )
-        finally:
-            close()
-
-        await harness.report(planted)
+        harness.declare(ESTATE)
+        harness.derive_and_accept()
+        harness.run(
+            [
+                Source(
+                    name=database_path.name,
+                    source_type="sqlite",
+                    path=database_path,
+                    datasets=set(harness.dataset_ids),
+                )
+            ]
+        )
+        harness.report(planted)
+        harness.finish()
     finally:
-        await harness.stop()
-
-    # Returned rather than served here. `harness.serve` calls `uvicorn.run`,
-    # which calls `asyncio.run`, and this function is already inside one — so
-    # the console never started and the study died on
-    # "asyncio.run() cannot be called from a running event loop". Found by a QA
-    # pass; nothing under tests/ exercises case-studies/.
-    return harness if serve else None
+        harness.close()
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--no-serve", action="store_true", help="do not start the console")
-    parser.add_argument(
-        "--config", default="", help="a Prama configuration file; defaults to the application's"
-    )
-    parser.add_argument("--port", type=int, default=8801)
-    args = parser.parse_args()
-    use_config(args.config)
-    started = asyncio.run(main(serve=not args.no_serve, port=args.port))
-    if started is not None:
-        # Outside the loop, where uvicorn can own one of its own.
-        started.serve(port=args.port)
+    main()

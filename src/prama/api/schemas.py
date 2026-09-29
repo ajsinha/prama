@@ -101,6 +101,22 @@ class DatasetCorrectIn(PramaModel):
     changes: dict[str, Any] = Field(default_factory=dict)
 
 
+class ValueDomainIn(PramaModel):
+    """The values an attribute may take: a code list, a range, a pattern, or free text.
+
+    Validated as `prama.semantic.values.ValueDomain` before anything is stored,
+    so a code list with no values or a range with no bound is refused here.
+    """
+
+    kind: str = Field(description="codelist | range | pattern | free_text | boolean_flag")
+    codelist_ref: str | None = Field(default=None, description="A registered code list.")
+    allowed_values: list[str] = Field(default_factory=list)
+    minimum: float | None = None
+    maximum: float | None = None
+    pattern: str | None = None
+    case_sensitive: bool = True
+
+
 class AttributeIn(PramaModel):
     name: str = Field(min_length=1, max_length=128)
     definition: str = Field(default="", description="What the value is.")
@@ -117,6 +133,10 @@ class AttributeIn(PramaModel):
     sensitivity: str = "internal"
     concept_property_id: str | None = None
     glossary_term: str | None = None
+    value_domain: ValueDomainIn | None = Field(
+        default=None,
+        description="What values are permitted. A code list or a range becomes a control.",
+    )
 
 
 class MatchKeyIn(PramaModel):
@@ -220,6 +240,8 @@ class AttributeOut(PramaModel):
     obligations: list[str] = Field(default_factory=list)
     sensitivity: str
     concept_property_id: str | None = None
+    currency_attribute: str | None = None
+    value_domain: dict[str, Any] | None = None
     meta: VersionMeta
 
 

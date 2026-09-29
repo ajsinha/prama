@@ -67,7 +67,7 @@ API keys: the credential the HTTP API requires
 | `name` **required** | what this key is for, e.g. 'ci' or 'etl-nightly' |
 | `--tenant` | slug or id; defaults to the configured one |
 | `--principal` **required** | username the key acts as. Required: every key is attributable, so an audit trail names a person and not just a credential. The principal's roles are NOT inherited — scopes are explicit. |
-| `--scope` | repeatable; one of admin, agent:work, attestation:read, attestation:sign, break:read, break:write, comment:write, control:approve, control:propose, control:read, declaration:read, declaration:write, evidence:read, incident:read, incident:write, llm:use, relationship:read, relationship:write, report:read, tenant:admin, or '*' |
+| `--scope` | repeatable; one of admin, agent:work, attestation:read, attestation:sign, break:read, break:write, comment:write, contract:check, control:approve, control:propose, control:read, declaration:read, declaration:write, evidence:read, incident:read, incident:write, llm:use, relationship:read, relationship:write, report:read, tenant:admin, or '*' |
 | `--expires-in-days` | 0 means no expiry, which is a decision rather than a default |
 | `--environment` | prefix tag: live \| test |
 **`prama apikey list`**
@@ -738,7 +738,7 @@ what a domain pack ships, and what it does not claim
 | Argument | Meaning |
 |---|---|
 | `path` **required** | file holding a single message |
-| `--format` | format; inferred from the content when omitted One of: fix, fpml, iso8583. |
+| `--format` | format; inferred from the content when omitted One of: camt053, fix, fpml, iso8583, pacs008, swift. |
 **`prama pack recognise`**
 
 | Argument | Meaning |

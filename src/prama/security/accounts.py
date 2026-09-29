@@ -45,6 +45,7 @@ BUILTIN_ROLES: dict[str, tuple[str, list[str]]] = {
             "report:read",
             "llm:use",
             "comment:write",
+            "contract:check",
         ],
     ),
     "steward": (
@@ -62,6 +63,7 @@ BUILTIN_ROLES: dict[str, tuple[str, list[str]]] = {
             "llm:use",
             # Asking and answering questions on the objects they work.
             "comment:write",
+            "contract:check",
         ],
     ),
     "auditor": (

@@ -18,15 +18,38 @@ column lineage. It never executes the code. The feed's owner writes two controls
 and the lineage proposes the rest. Two defects planted in the raw feed are then traced to the
 dashboard.
 
+## Run it
+
+The study is a client of **your** Prama. It talks to the server `config/application.yaml`
+describes, through the SDK (`prama.sdk`), and starts no server of its own. Start Prama first
+(`prama serve`), then:
+
 ```bash
 cd case-studies/08-code-to-impact
-python run.py                 # build, run, and serve the console on :8808
-python run.py --no-serve      # build and run, then stop
+python run.py                                  # the server config/application.yaml names
+python run.py --config /path/to/other.yaml     # another server
+python run.py --username ada --password …      # as somebody else (default: the dev admin)
 ```
 
 The warehouse is a DuckDB file under `workspace/`, with schemas `raw`, `ref`, `stg` and `mart`.
 It is built by running the same SQL that intake reads, so the lineage and the data cannot
-disagree.
+disagree. The server reads the warehouse itself, so `case-studies/` must be under its
+`runs.roots` (the shipped configuration has it). Each run creates an estate of its own, named
+with the time it started (`acme-risk-YYYYMMDD-HHMMSS`), so a rerun starts clean.
+
+Every step goes through the SDK:
+
+| Step | SDK call |
+|---|---|
+| Upload the repository as a ZIP | `client.code.add_zip` |
+| List the files read and the edges | `client.code.units`, `client.lineage.edges` |
+| Write the two controls | `client.controls.declare` and `activate` |
+| List what lineage implies, and accept it | `client.lineage.proposals`, `client.proposals.accept` |
+| Run | `client.runs.start` |
+| Trace the blast radius | `client.lineage.impact` |
+
+The count of trades missing from the mart is the one number read from the warehouse directly,
+with `duckdb`, because it is the bank's own data and not something Prama is asked.
 
 ## What intake reads
 
@@ -81,6 +104,22 @@ The lineage then proposes further controls:
   trade twice, again without failing. So the join also proposes
   `CHECK "ref.fx_rates" HAS UNIQUE KEY (ccy)`. It passes: each currency has one rate.
 
+A reviewer accepts all ten, so twelve controls are active. The run then asks lineage again and
+prints what it now lists:
+
+```
+12 control(s) active. Asked again, lineage lists 12: 10 already active, 2 new.
+The proposal queue lists 2, of which 0 are already active controls.
+next      CHECK "mart.positions".account_id REFERENCES "raw.trades".acct   (lineage_propagated)
+next      CHECK "powerbi.risk_dashboard.positions".account_id REFERENCES "stg.trades".account_id   (lineage_propagated)
+```
+
+- **The two new proposals are second-order.** They carry the referential checks just accepted
+  one more hop downstream. They are left for a reviewer and are not run here.
+- **The ten already active are listed again.** `client.lineage.proposals()` lists everything
+  lineage implies, including what was already accepted. The proposal queue
+  (`client.proposals.list()`) leaves them out, and lists only the two new ones.
+
 ## What is planted, and what is found
 
 | Planted in `raw.trades` | Rows | Found on `raw.trades` | Found on `stg.trades` |
@@ -123,6 +162,10 @@ powerbi.risk_dashboard.positions.total exposure      28%, 5 hops
 And the check the join proposed catches it **where it happens**, at staging, not only at the raw
 feed.
 
+The run prints each reached column with its impact and hop count, from `client.lineage.impact`.
+The API does not return the path that was taken, so the run prints the column, the impact and the
+hop count, and not the route.
+
 ## What building it found
 
 This study found four defects in Prama's lineage, all now fixed, each with a test that fails on
@@ -147,6 +190,6 @@ the old code:
 
 | File | What it is |
 |---|---|
-| `run.py` | Writes the repository, builds the warehouse by running it, reads it into lineage, runs |
+| `run.py` | Writes the repository and builds the warehouse by running it. It then uploads the repository, accepts the proposals and runs them, through the SDK. |
 | `workspace/risk-etl/` | The ETL repository that intake reads |
 | `workspace/warehouse.duckdb` | Raw, reference, staging and mart schemas: the data being checked |

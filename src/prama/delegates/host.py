@@ -269,3 +269,15 @@ def host_from_config(config: Any) -> DelegateHost:
         batch_rows=int(section.get("batch_rows", 10_000)),
         upload_dir=str(section.get("upload_dir", "data/delegates")),
     )
+
+
+def server_host(state: Any, config: Any) -> DelegateHost:
+    """The server's configured delegates, loaded once per process and kept on *state*.
+
+    The console and the API both read this one, so they list the same delegates.
+    """
+    host = getattr(state, "delegate_host", None)
+    if host is None:
+        host = host_from_config(config)
+        state.delegate_host = host
+    return host
