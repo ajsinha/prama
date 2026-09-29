@@ -81,3 +81,12 @@ def test_the_stylesheet_guard_can_fail(tmp_path: Path, monkeypatch: pytest.Monke
     monkeypatch.setattr(__import__(__name__, fromlist=["STATIC_DIR"]), "STATIC_DIR", tmp_path)
     with pytest.raises(AssertionError, match="never closed"):
         test_every_stylesheet_closes_every_rule("bad.css")
+
+
+def test_a_rating_outside_the_three_is_refused(tmp_path: Path) -> None:
+    """The counterfactual: the loader must reject a malformed row, not render it."""
+    bad = about.CONTENT.read_text().replace("prama: 'Yes'", "prama: Maybe", 1)
+    bad = bad.replace("prama: Yes", "prama: Maybe", 1)
+    (tmp_path / "c.yaml").write_text(bad)
+    with pytest.raises(ValueError, match="Maybe"):
+        about.load(tmp_path / "c.yaml")
