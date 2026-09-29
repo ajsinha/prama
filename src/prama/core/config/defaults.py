@@ -40,6 +40,13 @@ DEFAULTS: dict[str, Any] = {
         # a reader checking whether the default is safe is told it is not
         # (QA finding CFG-014).
         "cookies_https_only": True,
+        # On an installation with nobody in it, create `admin` with the
+        # password `prama-dev-admin` at startup (prama.security.bootstrap).
+        # Every page carries a banner until it is changed.
+        "bootstrap_admin": True,
+        # Outside development the server refuses to start while that default
+        # password is in force. True overrides the refusal, knowingly.
+        "allow_default_admin_password": False,
     },
     "tenancy": {
         # A single-tenant deployment names its one tenant here and nobody has to

@@ -21,6 +21,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from prama.report.contrast import BODY_TEXT
 from prama.report.themes import THEMES, Theme
 
 TARGET = Path(__file__).resolve().parents[1] / "src/prama/web/static/css/themes.css"
@@ -73,8 +74,49 @@ def block(theme: Theme) -> str:
     lines.append("    /* Reserved for 'stale or not yet examined'. Nothing else may use it. */")
     lines.append(f"    --unverified-grey: {theme.unverified_fill()};")
     lines.append(f"    --unverified-grey-text: {theme.unverified_text()};")
+    lines.extend(maya_tokens(theme))
     lines.append("}")
     return "\n".join(lines) + "\n"
+
+
+def maya_tokens(theme: Theme) -> list[str]:
+    """Maya's token set, so the console's chrome is Maya's stylesheet.
+
+    The colours a reader has to *read* — the accent as a link, the heading, the
+    ink and the slate — are the derived, legible ones; the rest are Maya's
+    declarations, which are grounds, rules and gradients.
+    """
+    m = theme.maya
+    if m is None:
+        return []
+    heading = theme._legible(m.heading, BODY_TEXT)
+    tokens = {
+        "crimson": theme.legible_link,
+        "crimson-strong": m.strong,
+        "crimson-deep": m.deep,
+        "crimson-tint": m.tint,
+        "ink": theme.legible_ink,
+        "slate": theme.legible_muted,
+        "surface": theme.surface,
+        "canvas": theme.body,
+        "indigo": m.indigo,
+        "on-crimson": m.on_accent,
+        "border": theme.border,
+        "ok": m.ok,
+        "warn": m.warn,
+        "bad": m.bad,
+        "highlight": m.highlight,
+        "heading": heading,
+        "nav-from": m.nav[0],
+        "nav-via": m.nav[1],
+        "nav-to": m.nav[2],
+        "on-nav": "#FFFFFF",
+        "glow": m.glow,
+    }
+    lines = ["", "    /* Maya's tokens: the chrome — navigation, menus, cards, footer. */"]
+    lines += [f"    --maya-{name}: {value};" for name, value in tokens.items()]
+    lines.append(f"    color-scheme: {theme.base};")
+    return lines
 
 
 def render() -> str:

@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 {# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
 {# Rendered server-side from the cookie. The alternative — light markup that a
-   script repaints on load — flashes on every theme and is genuinely unusable
-   on the amber-on-black one, where the flash is a white screen. #}
+   script repaints on load — flashes on every theme, and on Dark the flash is a
+   white screen. #}
 <html lang="en" data-theme="{{ theme }}" data-bs-theme="{{ theme_bases[theme] }}"
       data-density="{{ density }}">
 <head>
@@ -21,128 +21,53 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/themes.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/prama.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+  {# Maya's design language: the chrome, over everything above. #}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/shell.css') }}">
   {% block head %}{% endblock %}
 </head>
-<body>
+<body class="maya-app {% block body_class %}{% endblock %}">
   {# The cheapest accessibility win there is, and the one most often missing:
      without it a keyboard user traverses the whole nav on every page. #}
   <a class="skip-link" href="#main">Skip to main content</a>
 
-  <nav class="navbar navbar-expand-lg navbar-prama" aria-label="Primary">
-    <div class="container-fluid">
-      <a class="navbar-brand fw-semibold" href="{{ url_for('home') }}">
-        <i class="bi bi-diagram-3" aria-hidden="true"></i> Prama
-      </a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
-              data-bs-target="#nav" aria-controls="nav" aria-expanded="false"
-              aria-label="Toggle navigation">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div class="collapse navbar-collapse" id="nav">
-        <ul class="navbar-nav me-auto">
-          {# The public pages — landing, help, about — carry Maya's short public
-             navigation rather than the eleven console areas, which mean
-             nothing to somebody who has not signed in. #}
-          {% for item in (public_links if public_nav else nav) %}
-          <li class="nav-item">
-            <a class="nav-link {% if item.active %}active{% endif %}" href="{{ item.href }}"
-               {% if item.active %}aria-current="page"{% endif %}>
-              <i class="bi {{ item.icon }}" aria-hidden="true"></i> {{ item.label }}
-            </a>
-          </li>
-          {% endfor %}
-        </ul>
-        <div class="d-flex align-items-center gap-2 flex-nowrap ms-auto">
-          {# The tagline used to sit here and printed itself over the theme
-             controls at 1440px. With eleven navigation items there is honestly
-             no room for it, and the fix is to remove it rather than to keep
-             finding a width where it just fits: the footer carries the product
-             line, and a navbar's job is navigation. #}
-          {% if not public_nav %}
-          <button class="btn btn-sm btn-outline-light flex-shrink-0" id="density-toggle"
-                  aria-label="Toggle table density" title="Row density">
-            <i class="bi bi-list" aria-hidden="true"></i>
-          </button>
-          {% endif %}
-          {% include "_theme_menu.html" %}
-          {% if signed_in %}
-          {# The user menu, after Maya's: the account, its API keys, and — for
-             an administrator — people and keys across the estate. Sign out
-             stays a POST: a GET link would let any page on the internet end
-             somebody's session with an <img> tag (QA finding UI-023). #}
-          <div class="dropdown">
-            <button class="btn btn-sm btn-outline-light dropdown-toggle flex-shrink-0" type="button"
-                    id="user-menu" data-bs-toggle="dropdown" aria-expanded="false"
-                    title="{{ signed_in.display_name or signed_in.username }}">
-              <i class="bi bi-person-circle" aria-hidden="true"></i>
-              <span class="d-none d-xl-inline">{{ signed_in.username }}</span>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="user-menu">
-              <li><h2 class="dropdown-header">{{ signed_in.display_name or signed_in.username }}</h2></li>
-              <li><a class="dropdown-item" href="{{ url_for('account_home') }}"><i class="bi bi-person" aria-hidden="true"></i> My account</a></li>
-              <li><a class="dropdown-item" href="{{ url_for('account_keys') }}"><i class="bi bi-key" aria-hidden="true"></i> My API keys</a></li>
-              <li><a class="dropdown-item" href="{{ url_for('account_password') }}"><i class="bi bi-shield-lock" aria-hidden="true"></i> Change password</a></li>
-              {% if signed_in.is_admin %}
-              <li><hr class="dropdown-divider"></li>
-              <li><a class="dropdown-item" href="{{ url_for('admin_users') }}"><i class="bi bi-people" aria-hidden="true"></i> People &amp; roles</a></li>
-              <li><a class="dropdown-item" href="{{ url_for('admin_keys') }}"><i class="bi bi-key-fill" aria-hidden="true"></i> All API keys</a></li>
-              <li><a class="dropdown-item" href="{{ url_for('models') }}"><i class="bi bi-cpu" aria-hidden="true"></i> Models</a></li>
-              <li><a class="dropdown-item" href="{{ url_for('agents') }}"><i class="bi bi-robot" aria-hidden="true"></i> Agents</a></li>
-              <li><a class="dropdown-item" href="{{ url_for('delegates') }}"><i class="bi bi-braces" aria-hidden="true"></i> Delegates</a></li>
-              <li><a class="dropdown-item" href="{{ url_for('my_queue') }}"><i class="bi bi-inbox" aria-hidden="true"></i> My queue</a></li>
-              <li><a class="dropdown-item" href="{{ url_for('glossary') }}"><i class="bi bi-book-half" aria-hidden="true"></i> Glossary</a></li>
-              <li><a class="dropdown-item" href="{{ url_for('schedule') }}"><i class="bi bi-clock-history" aria-hidden="true"></i> Schedule</a></li>
-              {% endif %}
-              <li><hr class="dropdown-divider"></li>
-              <li><a class="dropdown-item" href="{{ url_for('help_index') }}"><i class="bi bi-question-circle" aria-hidden="true"></i> Help</a></li>
-              <li><a class="dropdown-item" href="{{ url_for('about') }}"><i class="bi bi-info-circle" aria-hidden="true"></i> About</a></li>
-              <li><hr class="dropdown-divider"></li>
-              <li>
-                <form method="post" action="{{ url_for('sign_out') }}">
-                  <button class="dropdown-item" type="submit"><i class="bi bi-box-arrow-right" aria-hidden="true"></i> Sign out</button>
-                </form>
-              </li>
-            </ul>
-          </div>
-          {% else %}
-          {% if not public_nav %}
-          <a class="btn btn-sm btn-outline-light flex-shrink-0" href="{{ url_for('help_index') }}" title="Help">
-            <i class="bi bi-question-circle" aria-hidden="true"></i><span class="visually-hidden">Help</span>
-          </a>
-          {% endif %}
-          <a class="btn btn-sm btn-light flex-shrink-0" href="{{ url_for('sign_in') }}">Sign in</a>
-          {% endif %}
-        </div>
+  {# The public pages — landing, help, about, sign-in — carry Maya's short
+     public bar rather than the console's menus, which mean nothing to
+     somebody who has not signed in. #}
+  {% if public_nav %}{% include "_nav_public.html" %}{% else %}{% include "_nav.html" %}{% endif %}
+
+  <div class="maya-shell">
+    {% if request.session.get("default_password") %}
+    <div class="maya-banner warn" role="alert">
+      <i class="bi bi-shield-exclamation" aria-hidden="true"></i>
+      You are signed in as the bootstrap admin with the <strong>default password</strong>.
+      <a href="{{ url_for('account_password') }}">Change it now</a>.
+    </div>
+    {% endif %}
+    <main id="main" class="{% block main_class %}maya-content{% endblock %}">
+      {% for category, message in get_flashed_messages(with_categories=true) %}
+      <div class="alert alert-{{ {'error': 'danger', 'warning': 'warning', 'success': 'success'}.get(category, 'info') }} alert-dismissible fade show"
+           role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Dismiss"></button>
       </div>
-    </div>
-  </nav>
+      {% endfor %}
 
-  <main id="main" class="{% block main_class %}container-fluid py-4{% endblock %}">
-    {% for category, message in get_flashed_messages(with_categories=true) %}
-    <div class="alert alert-{{ {'error': 'danger', 'warning': 'warning', 'success': 'success'}.get(category, 'info') }} alert-dismissible fade show"
-         role="alert">
-      {{ message }}
-      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Dismiss"></button>
-    </div>
-    {% endfor %}
+      {% block breadcrumb %}{% endblock %}
+      {% if self.heading() | trim %}<h1 class="h4 mb-3">{% block heading %}{% endblock %}</h1>{% endif %}
+      {% block content %}{% endblock %}
+    </main>
 
-    {% block breadcrumb %}{% endblock %}
-    {% if self.heading() | trim %}<h1 class="h4 mb-3">{% block heading %}{% endblock %}</h1>{% endif %}
-    {% block content %}{% endblock %}
-  </main>
-
-  <footer class="container-fluid py-3 small text-muted border-top">
-    <div class="d-flex flex-wrap gap-3 justify-content-between">
-      <span>Prama {{ app_version }} · evidence, not assertion</span>
-      <span>
+    {# The page's closing line, as Maya's: the slogan in italics, then the
+       product and version, Help and About, and the proprietary notice. #}
+    <footer class="maya-foot">
+      <p class="mb-0"><span class="maya-foot-slogan">{{ app_tagline }}</span>
+        Prama {{ app_version }} ·
         <a href="{{ url_for('help_index') }}">Help</a> ·
         <a href="{{ url_for('about') }}">About</a> ·
-        {# The proprietary notice, on every page. #}
         &copy; 2026 Ashutosh Sinha. All rights reserved. Proprietary —
-        <a href="{{ url_for('legal') }}">licence &amp; legal notice</a>
-      </span>
-    </div>
-  </footer>
+        <a href="{{ url_for('legal') }}">licence &amp; legal notice</a></p>
+    </footer>
+  </div>
 
   {# A live region for anything jQuery updates asynchronously. Without it a
      screen-reader user gets a silently changed page, which is the commonest way

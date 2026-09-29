@@ -51,6 +51,9 @@ def sqlite_config(tmp_path: Path) -> Configuration:
                 "security": {
                     "session_secret": "test-only-not-a-secret",
                     "cookies_https_only": False,
+                    # Tests start from an empty installation and create whom
+                    # they need; tests/security/test_bootstrap.py turns it on.
+                    "bootstrap_admin": False,
                 },
             },
             name="test",

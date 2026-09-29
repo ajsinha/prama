@@ -85,6 +85,7 @@ class AuthRoutes(UiRoutes):
             # Named on the page, because "why am I being asked to sign in when
             # the last person was not" is otherwise an unanswerable question.
             single_tenant=bool(config.get_str("tenancy.default_tenant", "")),
+            public_nav=True,
             no_principals=await _no_way_in(uow, request),
         )
 
@@ -114,6 +115,7 @@ class AuthRoutes(UiRoutes):
                 error=REFUSED,
                 username=username,
                 single_tenant=bool(config.get_str("tenancy.default_tenant", "")),
+                public_nav=True,
                 no_principals=await _no_way_in(uow, request),
                 status_code=401,
             )
@@ -135,6 +137,11 @@ class AuthRoutes(UiRoutes):
         # immediately after it. See prama.web.deps.ui_caller.
         await uow.flush()
         request.session["issued_at"] = (principal.updated_at or utc_now()).isoformat()
+        from prama.security import bootstrap
+
+        # Said on every page until it is changed (prama.security.bootstrap).
+        if principal.username == bootstrap.USERNAME and password == bootstrap.DEFAULT_PASSWORD:
+            request.session["default_password"] = True
         _log.info("signed in %s on tenant %s", principal.username, principal.tenant_id)
         return RedirectResponse(url=_safe_next(next_url) or LANDING, status_code=303)
 

@@ -191,6 +191,15 @@ class PrincipalDao(TenantScopedDao[Principal]):
         principal.updated_at = utc_now()
         return principal
 
+    def has_password(self, principal: Principal, password: str, *, hasher: Any = None) -> bool:
+        """Whether *principal*'s stored password is *password*. Stamps nothing.
+
+        For the bootstrap admin's default-password check, which must not count
+        as a sign-in or move `updated_at` (that would end every session).
+        """
+        stored = principal.password_hash or ""
+        return bool(stored) and (hasher or PasswordHasher()).verify(password, stored)
+
     async def any_for(self, tenant_id: str) -> bool:
         """Whether this tenant has a principal who could sign in.
 

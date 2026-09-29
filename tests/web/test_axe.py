@@ -202,7 +202,7 @@ def _violations(browser, base: str, path: str, theme: str) -> list[dict]:
         # rendered, so a dark theme paints Prama's dark tokens over Bootstrap's
         # light ones — a mismatch no reader can reach, and one that reports
         # contrast failures nobody has. That is what made this suite fail on
-        # `dark` and `wallstreet`, the two themes whose base actually differs.
+        # `dark`, the theme whose base actually differs.
         page.evaluate(
             """([theme, base]) => {
                 document.documentElement.setAttribute('data-theme', theme);
@@ -296,7 +296,7 @@ def test_every_theme_is_clean_on_the_densest_page(browser, server: str, theme: s
     assert not violations, _describe(violations, "/estate", theme)
 
 
-@pytest.mark.parametrize("theme", ("dark", "wallstreet"))
+@pytest.mark.parametrize("theme", ("dark",))
 def test_the_dark_themes_are_clean_on_a_form(browser, server: str, theme: str) -> None:
     """Forms are where a dark theme most often fails: an input that inherits a
     light background from a component library, with dark text on it, passes

@@ -78,18 +78,6 @@ a { color: var(--text-link); }
 }
 .card-body { padding: var(--card-pad); }
 
-.navbar-prama {
-    background: var(--bg-header);
-    color: var(--text-on-primary);
-}
-.navbar-prama .nav-link,
-.navbar-prama .navbar-brand { color: var(--text-on-primary); }
-.navbar-prama .nav-link:hover { color: #ffffff; }
-.navbar-prama .nav-link.active {
-    color: #ffffff;
-    box-shadow: inset 0 -2px 0 var(--dim-timeliness);
-}
-
 .table > :not(caption) > * > * {
     padding: var(--row-pad-y) var(--row-pad-x);
     background: transparent;

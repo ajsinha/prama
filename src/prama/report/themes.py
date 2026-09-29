@@ -48,6 +48,31 @@ RAISED_ALPHA = 0.08
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
+class MayaTokens:
+    """The rest of Maya's token set for one theme, beyond the surfaces.
+
+    Emitted as ``--maya-*`` custom properties, so the console's chrome — the
+    gradient navigation, mega-menus, cards and footer — is Maya's stylesheet
+    rather than a lookalike. The names say "crimson" in Maya because they name
+    a role (the accent), not a hue; here they are named for the role.
+    """
+
+    strong: str
+    deep: str
+    tint: str
+    indigo: str
+    on_accent: str
+    ok: str
+    warn: str
+    bad: str
+    highlight: str
+    heading: str
+    #: The navigation gradient: from, via, to. White text sits on all three.
+    nav: tuple[str, str, str]
+    glow: str
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
 class Theme:
     """One named theme: its surfaces, and which hue family it draws from."""
 
@@ -72,6 +97,7 @@ class Theme:
     #: Why this theme exists, shown in the picker. A theme nobody can tell apart
     #: from the next one is a theme nobody chooses deliberately.
     note: str = ""
+    maya: MayaTokens | None = None
 
     @property
     def is_dark(self) -> bool:
@@ -163,137 +189,98 @@ class Theme:
         return self._legible(self.unverified_source, BODY_TEXT)
 
 
-#: Every theme, in the order the picker offers them.
+#: Every theme, in the order the picker offers them: exactly Maya's four, under
+#: Maya's keys and names, so Prama and Maya read as one family on the same desk
+#: and a user's choice means the same thing in both. The colours are Maya's
+#: tokens (maya/web/static/css/tokens.css): canvas -> body, slate -> muted,
+#: heading -> link, crimson -> accent, nav-from/via/to -> the masthead. The
+#: dimension hues are still derived here, so the contrast guarantees hold.
 THEMES: tuple[Theme, ...] = (
     Theme(
         name="light",
-        label="Prama light",
-        base="light",
-        surface="#FFFFFF",
-        body="#F6F7FB",
-        ink="#14182E",
-        # Darkened from #6B7391, which passed against `surface` and failed
-        # against `body` at 4.37:1 — the footer and the map status line sit on
-        # the page ground, not on a card. Found by axe in a browser; the
-        # arithmetic tests had only ever measured it against the card.
-        muted="#69718E",
-        border="#DFE3EF",
-        header="linear-gradient(135deg, #0E1A46 0%, #1B2A63 50%, #0E1A46 100%)",
-        link="#2B3FA8",
-        accent="#2B3FA8",
-        note="The default. Prama Indigo on a cool white ground.",
-    ),
-    Theme(
-        name="dark",
-        label="Prama dark",
-        base="dark",
-        surface="#141A33",
-        body="#0B0F21",
-        ink="#E8EBF5",
-        muted="#8891AD",
-        border="#262E50",
-        header="linear-gradient(135deg, #080D20 0%, #141C3F 50%, #080D20 100%)",
-        link="#7D8FE0",
-        accent="#7D8FE0",
-        note="The same palette on a night ground, for long sessions.",
-    ),
-    Theme(
-        name="bmo",
-        label="BMO blue",
-        base="light",
-        # BMO Blue #0079C0 with the red roundel as the accent, on cool grey.
-        surface="#FFFFFF",
-        body="#F1F5F9",
-        ink="#0B2545",
-        muted="#5A6E85",
-        border="#D8E3EE",
-        header="linear-gradient(135deg, #0B2545 0%, #0A4D86 55%, #0079C0 100%)",
-        link="#0A4D86",
-        accent="#E11B22",
-        note="BMO Blue on cool grey. A retail-banking register.",
-    ),
-    # Maya's four themes, adopted so Prama and Maya read as one family on the
-    # same desk. Colours are Maya's tokens (maya/web/static/css/tokens.css):
-    # canvas -> body, slate -> muted, heading -> link, nav-from/via/to -> the
-    # masthead gradient, crimson -> accent. Dimension hues are still derived
-    # here, so the contrast guarantees hold on these as on every other theme.
-    Theme(
-        name="maya-crimson",
-        label="Maya crimson",
+        label="Crimson",
         base="light",
         surface="#FFFFFF",
         body="#F7F5F2",
         ink="#1A1A1A",
         muted="#6B7480",
         border="#E3DED7",
-        header="linear-gradient(135deg, #5C0E1B 0%, #A51C30 55%, #293352 100%)",
-        link="#6E1120",
+        header="linear-gradient(100deg, #5C0E1B 0%, #A51C30 48%, #293352 100%)",
+        link="#A51C30",
         accent="#A51C30",
-        note="Maya's default: crimson over indigo on warm paper.",
+        note="The default: Harvard crimson over indigo on warm paper.",
+        maya=MayaTokens(
+            strong="#8A1626", deep="#6E1120", tint="#FBEEF0", indigo="#293352",
+            on_accent="#FFFFFF", ok="#1E6B3A", warn="#7A5200", bad="#8A1626",
+            highlight="#F4DDA0", heading="#6E1120", nav=("#5C0E1B", "#A51C30", "#293352"),
+            glow="#F3C6CF",
+        ),
     ),
     Theme(
-        name="maya-dark",
-        label="Maya dark",
+        name="dark",
+        label="Dark",
         base="dark",
         surface="#1F1F23",
         body="#151517",
         ink="#ECECEF",
         muted="#8996A0",
         border="#34343A",
-        header="linear-gradient(135deg, #2E0810 0%, #6E1120 55%, #1B2138 100%)",
+        header="linear-gradient(100deg, #2E0810 0%, #6E1120 48%, #1B2138 100%)",
         # Maya's rose (#DE6B81) sits 38 units from the validity red on this
-        # ground, so the accent would read as a failing dimension. Moved
-        # towards pink just far enough to clear the 60-unit guard.
-        link="#E473AE",
+        # ground, so as a *mark* it would read as a failing dimension. The
+        # accent moves towards pink just far enough to clear the 60-unit guard;
+        # links and headings keep Maya's rose, where no dimension can be meant.
+        link="#DE6B81",
         accent="#E473AE",
-        note="Maya's night ground, with a rose accent.",
+        note="Maya's night ground, with a rose accent, for long sessions.",
+        maya=MayaTokens(
+            strong="#D4526A", deep="#E07A8E", tint="#2A1A1E", indigo="#A9B6D6",
+            on_accent="#151517", ok="#7FD39B", warn="#E8C26A", bad="#F08A9C",
+            highlight="#5A4712", heading="#DE6B81", nav=("#2E0810", "#6E1120", "#1B2138"),
+            glow="#4A2530",
+        ),
     ),
     Theme(
-        name="maya-blue",
-        label="Maya blue",
+        name="blue",
+        label="Blue",
         base="light",
         surface="#FFFFFF",
         body="#F0F5FA",
         ink="#1E293B",
         muted="#536578",
         border="#DCE4EE",
-        header="linear-gradient(135deg, #002654 0%, #0079C1 55%, #003168 100%)",
-        link="#003168",
+        header="linear-gradient(100deg, #002654 0%, #0079C1 48%, #003168 100%)",
+        link="#0079C1",
         accent="#0079C1",
-        note="Maya's blue register on a cool ground.",
+        note="SAJHA's blue on a cool ground.",
+        maya=MayaTokens(
+            strong="#00609A", deep="#003168", tint="#E6F2FA", indigo="#003168",
+            on_accent="#FFFFFF", ok="#1E6B3A", warn="#7A5200", bad="#B42318",
+            highlight="#CDE8F7", heading="#003168", nav=("#002654", "#0079C1", "#003168"),
+            glow="#CBE6F7",
+        ),
     ),
     Theme(
-        name="maya-green",
-        label="Maya green",
+        name="green",
+        label="Green",
         base="light",
         surface="#FFFFFF",
         body="#F7F5EF",
         ink="#1A1A1A",
         muted="#5E6A64",
         border="#E3DECF",
-        header="linear-gradient(135deg, #00261A 0%, #006039 55%, #1C3A2E 100%)",
-        link="#004D2E",
+        header="linear-gradient(100deg, #00261A 0%, #006039 48%, #1C3A2E 100%)",
+        link="#006039",
         accent="#006039",
-        note="Maya's green register on warm paper.",
+        note="Deep green and house gold on a cream ground.",
+        maya=MayaTokens(
+            strong="#004D2E", deep="#00331F", tint="#E8F3EC", indigo="#1C3A2E",
+            on_accent="#FFFFFF", ok="#3A6B1E", warn="#7A5200", bad="#A4161A",
+            highlight="#EBDDB2", heading="#004D2E", nav=("#00261A", "#006039", "#1C3A2E"),
+            glow="#E6D7A8",
+        ),
     ),
-    Theme(
-        name="wallstreet",
-        label="Wall Street",
-        base="dark",
-        # A trading terminal: amber on black, cyan for data. The convention is
-        # decades old and the people who read these screens all day already
-        # know it — which is the only reason to adopt somebody else's palette.
-        surface="#141210",
-        body="#0A0A0A",
-        ink="#FFB43D",
-        muted="#9A835A",
-        border="#332D20",
-        header="linear-gradient(135deg, #000000 0%, #14120C 50%, #000000 100%)",
-        link="#FFCF80",
-        accent="#FFA028",
-        note="Amber on black, as a terminal. For a desk that lives in one.",
-    ),
-)
+)  # fmt: skip
 
 BY_NAME: dict[str, Theme] = {theme.name: theme for theme in THEMES}
 

@@ -1,0 +1,84 @@
+{# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{# The console's navigation, after Maya's _nav.html: a fixed gradient bar whose
+   menus open into mega-menu panels of titled columns. The menus are data
+   (prama.web.rendering.MENU), so a page is added in one place and the bar, the
+   tests and the About page's count all follow. #}
+<nav class="navbar navbar-expand-lg maya-nav fixed-top" aria-label="Primary">
+  <div class="container-fluid">
+    {% include "_brand.html" %}
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav"
+            aria-controls="nav" aria-expanded="false" aria-label="Toggle navigation">
+      <i class="bi bi-list" aria-hidden="true"></i>
+    </button>
+    <div class="collapse navbar-collapse" id="nav">
+      <ul class="navbar-nav me-auto">
+        {% for group in menu if not group.admin or (signed_in and signed_in.is_admin) %}
+        {% set cols = group.columns | length %}
+        <li class="nav-item dropdown mega">
+          <a class="nav-link dropdown-toggle {% if group.active %}active{% endif %}" href="#" role="button"
+             data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
+             {% if group.active %}aria-current="true"{% endif %}>
+            <i class="bi {{ group.icon }}" aria-hidden="true"></i>{{ group.label }}
+          </a>
+          <div class="dropdown-menu mega-panel cols-{{ cols }}">
+            {% for column in group.columns %}
+            <div class="mega-col">
+              <div class="mega-title">{{ column.title }}</div>
+              {% for item in column['items'] %}
+              <a class="mega-item {% if item.active %}active{% endif %}" href="{{ item.href }}"
+                 {% if item.active %}aria-current="page"{% endif %}>
+                <span class="mega-icon"><i class="bi {{ item.icon }}" aria-hidden="true"></i></span>
+                <span><span class="mega-label">{{ item.label }}</span>
+                  <span class="mega-desc">{{ item.desc }}</span></span>
+              </a>
+              {% endfor %}
+            </div>
+            {% endfor %}
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      <form class="maya-search" role="search" method="get" action="{{ url_for('metadata') }}">
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <input type="search" name="q" placeholder="Find data by meaning…" aria-label="Find data by meaning">
+      </form>
+      <div class="maya-tools">
+        {% if signed_in %}
+        <a class="tool" href="{{ url_for('my_queue') }}" title="My queue">
+          <i class="bi bi-inbox" aria-hidden="true"></i><span class="visually-hidden">My queue</span>
+        </a>
+        {% endif %}
+        <button class="tool" type="button" id="density-toggle" aria-label="Toggle table density" title="Row density">
+          <i class="bi bi-list-columns" aria-hidden="true"></i>
+        </button>
+        {% include "_theme_menu.html" %}
+        {% if signed_in %}
+        {# Sign out stays a POST: a GET link would let any page on the internet
+           end somebody's session with an <img> tag (QA finding UI-023). #}
+        <div class="dropdown">
+          <button class="tool dropdown-toggle" type="button" id="user-menu" data-bs-toggle="dropdown"
+                  aria-expanded="false" title="{{ signed_in.display_name or signed_in.username }}">
+            <span class="avatar" aria-hidden="true">{{ (signed_in.display_name or signed_in.username)[:1] | upper }}</span>
+            <span class="d-none d-xl-inline">{{ signed_in.username }}</span>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end maya-user-menu" aria-labelledby="user-menu">
+            <li><h2 class="dropdown-header">{{ signed_in.display_name or signed_in.username }}</h2></li>
+            <li><a class="dropdown-item" href="{{ url_for('account_home') }}"><i class="bi bi-person" aria-hidden="true"></i> My account</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('account_keys') }}"><i class="bi bi-key" aria-hidden="true"></i> My API keys</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('account_password') }}"><i class="bi bi-shield-lock" aria-hidden="true"></i> Change password</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('my_queue') }}"><i class="bi bi-inbox" aria-hidden="true"></i> My queue</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+              <form method="post" action="{{ url_for('sign_out') }}">
+                <button class="dropdown-item" type="submit"><i class="bi bi-box-arrow-right" aria-hidden="true"></i> Sign out</button>
+              </form>
+            </li>
+          </ul>
+        </div>
+        {% else %}
+        <a class="btn btn-light btn-sm fw-bold ms-1" href="{{ url_for('sign_in') }}"><i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> Sign in</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</nav>

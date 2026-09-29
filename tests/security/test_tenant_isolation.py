@@ -1061,6 +1061,7 @@ UNSCOPED_READS: dict[str, str] = {
     # -- reached only by an id already established as the caller's ---------
     "ApiKeyDao.active_for_principal": "a principal is tenant-scoped; its keys inherit that",
     "PrincipalDao.roles_of": "as ApiKeyDao.active_for_principal",
+    "PrincipalDao.has_password": "takes a principal already loaded under its tenant; reads no row",
     # -- scoped by the caller, which is the S2 shape and is written down ---
     "AttestationDao.value": (
         "attestation_routes fetches the row through `in_tenant` first and 404s on "

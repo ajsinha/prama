@@ -10,6 +10,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+import html
 import re
 from decimal import Decimal
 
@@ -19,7 +20,7 @@ import pytest
 from prama.core.config import ConfigurationBuilder
 from prama.core.errors import SecretMissingError
 from prama.db import Database
-from prama.web.rendering import NAVIGATION
+from prama.web.rendering import MENU
 from prama.web.viewmodels import DatasetCard
 
 pytestmark = pytest.mark.anyio
@@ -87,8 +88,12 @@ class TestShell:
         """
         response = await ui.get("/estate")
         assert response.status_code == 200
-        for item in NAVIGATION:
-            assert item.label in response.text, item.label
+        # Every menu's hrefs are resolved for every request, the Admin menu's
+        # included, so a bad endpoint anywhere fails this request. Only the
+        # menus an anonymous reader is shown are expected on the page.
+        for group in MENU:
+            for item in group.items:
+                assert (html.escape(item.label) in response.text) != group.admin, item.label
 
     async def test_the_current_section_is_marked(self, ui: httpx.AsyncClient) -> None:
         response = await ui.get("/estate")
@@ -96,7 +101,7 @@ class TestShell:
 
     async def test_the_skip_link_is_first(self, ui: httpx.AsyncClient) -> None:
         response = await ui.get("/estate")
-        body = response.text.split("<body>", 1)[1]
+        body = response.text.split("<body", 1)[1]
         assert body.index("skip-link") < body.index("<nav")
 
 

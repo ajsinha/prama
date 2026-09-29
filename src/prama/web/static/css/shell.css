@@ -1,0 +1,221 @@
+/*
+ * Prama's shell, in Maya's design language: Bootstrap re-pointed at the --maya-*
+ * tokens themes.css emits for each of the four themes (Crimson, Dark, Blue,
+ * Green), a fixed gradient navigation with mega-menu panels, and Maya's cards,
+ * forms, tabs, alerts and footer. Ported from maya/web/static/css/theme.css so
+ * the two products read as one family; colour still comes only from tokens.
+ *
+ * Loaded after prama.css. prama.css keeps what is Prama's own — dimension
+ * chips, verdicts, density — and this file owns the chrome.
+ *
+ * Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
+ */
+:root, :root[data-theme] {
+  --bs-body-color: var(--maya-ink);
+  --bs-body-bg: var(--maya-canvas);
+  --bs-emphasis-color: var(--maya-ink);
+  --bs-secondary-color: var(--maya-slate);
+  --bs-tertiary-bg: var(--maya-crimson-tint);
+  --bs-border-color: var(--maya-border);
+  --bs-primary: var(--maya-crimson);
+  --bs-link-color: var(--maya-crimson);
+  --bs-link-hover-color: var(--maya-crimson-strong);
+  --bs-focus-ring-color: color-mix(in srgb, var(--maya-crimson) 40%, transparent);
+  --bs-card-bg: var(--maya-surface);
+}
+body { background: var(--maya-canvas); color: var(--maya-ink); line-height: 1.55;
+       font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+a { color: var(--maya-crimson); }
+a:hover { color: var(--maya-crimson-strong); }
+:focus-visible { outline: 2px solid var(--maya-crimson) !important; outline-offset: 2px; }
+code, pre, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+pre { background: var(--maya-surface); border: 1px solid var(--maya-border); border-radius: 6px; padding: .6rem .8rem; color: var(--maya-ink); max-height: 480px; overflow: auto; }
+
+/* Buttons: one primary action per surface */
+.btn-primary { --bs-btn-bg: var(--maya-crimson); --bs-btn-border-color: var(--maya-crimson);
+  --bs-btn-hover-bg: var(--maya-crimson-strong); --bs-btn-hover-border-color: var(--maya-crimson-strong);
+  --bs-btn-active-bg: var(--maya-crimson-deep); --bs-btn-color: var(--maya-on-crimson);
+  --bs-btn-hover-color: var(--maya-on-crimson); --bs-btn-active-color: var(--maya-on-crimson);
+  --bs-btn-disabled-bg: var(--maya-slate); --bs-btn-disabled-border-color: var(--maya-slate); }
+.btn-outline-primary { --bs-btn-color: var(--maya-crimson); --bs-btn-border-color: var(--maya-crimson);
+  --bs-btn-hover-bg: var(--maya-crimson); --bs-btn-hover-border-color: var(--maya-crimson);
+  --bs-btn-hover-color: var(--maya-on-crimson); --bs-btn-active-bg: var(--maya-crimson-strong); }
+.btn-outline-secondary { --bs-btn-color: var(--maya-ink); --bs-btn-border-color: var(--maya-border);
+  --bs-btn-hover-bg: var(--maya-crimson-tint); --bs-btn-hover-color: var(--maya-ink);
+  --bs-btn-hover-border-color: var(--maya-slate); }
+
+/* Chrome: a fixed top navigation with mega-menu panels (no left rail) */
+.maya-app { padding-top: 64px; }
+.maya-nav { min-height: 64px; padding: 0 1rem;
+  background: linear-gradient(100deg, var(--maya-nav-from) 0%, var(--maya-nav-via) 48%, var(--maya-nav-to) 100%);
+  box-shadow: 0 6px 24px -8px rgba(41, 51, 82, .55); }
+.maya-nav::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--maya-glow), transparent); opacity: .55; }
+.maya-brand { display: flex; align-items: center; gap: .6rem; color: var(--maya-on-nav) !important; margin-right: 1.4rem; }
+.maya-brand img { height: 34px; filter: drop-shadow(0 2px 6px rgba(0,0,0,.35)); }
+.maya-brand .name { font-weight: 800; letter-spacing: .16em; font-size: 1.15rem; display: block; line-height: 1.1; }
+.maya-brand small { display: block; font-size: 10.5px; opacity: .85; letter-spacing: .02em; }
+.maya-nav .navbar-toggler { color: var(--maya-on-nav); border-color: rgba(255,255,255,.4); font-size: 1.4rem; }
+.maya-nav .nav-link { color: var(--maya-on-nav) !important; font-weight: 600; padding: 1.3rem .85rem !important;
+  position: relative; opacity: .92; transition: opacity .15s, background .15s; }
+.maya-nav .nav-link:hover, .maya-nav .nav-link.show { opacity: 1; background: rgba(255,255,255,.10); }
+.maya-nav .nav-link.active { opacity: 1; }
+.maya-nav .nav-link.active::before, .maya-nav .nav-link.show::before { content: ""; position: absolute; left: .85rem; right: .85rem; bottom: 0;
+  height: 3px; border-radius: 3px 3px 0 0; background: var(--maya-on-nav); }
+.maya-nav .nav-link i { margin-right: .3rem; opacity: .9; }
+.maya-nav .dropdown-toggle::after { display: none; }
+
+.mega-panel { border: 0; border-radius: 0 0 16px 16px; padding: 1.1rem 1.2rem 1.2rem; margin-top: 0 !important;
+  background: var(--maya-surface); box-shadow: 0 24px 48px -16px rgba(26,26,26,.35), 0 2px 6px rgba(26,26,26,.08);
+  border-top: 3px solid transparent;
+  border-image: linear-gradient(90deg, var(--maya-nav-via), var(--maya-nav-to)) 1; }
+.mega-panel.show { display: grid; gap: 1.2rem; animation: mega-in .14s ease-out; }
+.mega-panel.cols-1.show { grid-template-columns: minmax(300px, 340px); }
+.mega-panel.cols-2.show { grid-template-columns: repeat(2, minmax(280px, 320px)); }
+.mega-panel.cols-3.show { grid-template-columns: repeat(3, minmax(260px, 300px)); }
+.mega-panel.cols-4.show { grid-template-columns: repeat(4, minmax(240px, 270px)); }
+@keyframes mega-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.mega-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .09em; color: var(--maya-slate);
+  padding: 0 .55rem .45rem; margin-bottom: .35rem; border-bottom: 1px solid var(--maya-border); }
+.mega-item { display: flex; gap: .7rem; align-items: flex-start; padding: .55rem; border-radius: 10px; color: var(--maya-ink); text-decoration: none; }
+.mega-item:hover, .mega-item:focus-visible { background: var(--maya-crimson-tint); color: var(--maya-ink); }
+.mega-item.active { background: var(--maya-crimson-tint); }
+.mega-item.active .mega-label { color: var(--maya-crimson); }
+.mega-icon { flex: 0 0 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; font-size: 1.05rem;
+  color: var(--maya-on-nav); background: linear-gradient(135deg, var(--maya-nav-via), var(--maya-nav-to));
+  box-shadow: 0 4px 10px -4px rgba(165,28,48,.6); }
+.mega-label { display: block; font-weight: 650; line-height: 1.25; }
+.mega-desc { display: block; font-size: 12px; color: var(--maya-slate); line-height: 1.35; }
+
+.maya-search { position: relative; margin: 0 .8rem; flex: 0 1 260px; }
+.maya-search i { position: absolute; left: .7rem; top: 50%; transform: translateY(-50%); color: var(--maya-on-nav); opacity: .8; }
+.maya-search input { width: 100%; border: 1px solid rgba(255,255,255,.28); border-radius: 999px; padding: .4rem .9rem .4rem 2rem;
+  background: rgba(255,255,255,.12); color: var(--maya-on-nav); outline: none; transition: background .15s, border-color .15s; }
+.maya-search input::placeholder { color: var(--maya-on-nav); opacity: .75; }
+.maya-search input:focus { background: rgba(255,255,255,.2); border-color: rgba(255,255,255,.65); }
+.maya-tools { display: flex; align-items: center; gap: .35rem; }
+.maya-tools .tool { position: relative; display: inline-flex; align-items: center; gap: .45rem; border: 0; background: transparent;
+  color: var(--maya-on-nav); padding: .45rem .55rem; border-radius: 10px; text-decoration: none; font-weight: 600; }
+.maya-tools .tool:hover { background: rgba(255,255,255,.14); color: var(--maya-on-nav); }
+.maya-tools .dot { position: absolute; top: 1px; right: 0; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px;
+  font-size: 10.5px; line-height: 17px; text-align: center; background: var(--maya-on-nav); color: var(--maya-crimson-deep); font-weight: 800; }
+.maya-tools .avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 800;
+  background: var(--maya-on-nav); color: var(--maya-crimson-deep); box-shadow: 0 0 0 2px rgba(255,255,255,.35); }
+.maya-user-menu { border: 0; border-radius: 12px; box-shadow: 0 18px 40px -12px rgba(26,26,26,.35); min-width: 240px; }
+.maya-user-menu .dropdown-item { display: flex; gap: .55rem; align-items: center; }
+
+.maya-shell { min-height: 100vh; }
+.maya-content { padding: 1.4rem 1.8rem 3rem; max-width: 1560px; margin: 0 auto; }
+.maya-banner { padding: .3rem 1.8rem; font-size: 12.5px; }
+.maya-banner.warn { background: linear-gradient(90deg, var(--maya-crimson-tint), var(--maya-surface)); color: var(--maya-ink); border-bottom: 1px solid var(--maya-border); }
+.maya-banner.info { background: var(--maya-surface); color: var(--maya-slate); border-bottom: 1px solid var(--maya-border); }
+.maya-public { min-height: 100vh;
+  background: radial-gradient(900px 500px at 85% -10%, color-mix(in srgb, var(--maya-glow) 35%, transparent), transparent 60%),
+              linear-gradient(135deg, var(--maya-nav-from), var(--maya-nav-via) 45%, var(--maya-nav-to)); }
+.maya-public .card { border-radius: 18px; box-shadow: 0 30px 60px -20px rgba(0,0,0,.55); }
+.maya-public .maya-hero, .maya-public .maya-hero .small-muted, .maya-public .on-gradient { color: var(--maya-on-nav); }
+.maya-public .login-mark { height: 64px; filter: drop-shadow(0 6px 14px rgba(0,0,0,.4)); }
+.maya-public .login-name { font-size: 2.1rem; font-weight: 800; letter-spacing: .22em; color: var(--maya-on-nav); margin-top: .4rem; }
+
+@media (max-width: 991.98px) {
+  .maya-nav .nav-link { padding: .7rem .6rem !important; }
+  .maya-nav .navbar-collapse { max-height: calc(100vh - 64px); overflow-y: auto; padding-bottom: .8rem; }
+  .mega-panel.show { display: block; border-radius: 12px; margin-bottom: .5rem !important; }
+  .mega-col + .mega-col { margin-top: .8rem; }
+  .maya-search { margin: .5rem 0; }
+}
+
+h1, .h1 { font-size: 1.55rem; color: var(--maya-heading); font-weight: 650; }
+h2, .h2 { font-size: 1.2rem; font-weight: 650; }
+h3, .h3 { font-size: 1.02rem; font-weight: 650; }
+.lead-slate { color: var(--maya-slate); }
+.card { background: var(--maya-surface); border-color: var(--maya-border); }
+.card-header { background: transparent; font-weight: 650; }
+.form-control, .form-select { background: var(--maya-surface); color: var(--maya-ink); border-color: var(--maya-border); font-size: 13.5px; }
+.form-label { font-weight: 600; font-size: 12.5px; color: var(--maya-ink); margin-bottom: .2rem; }
+.nav-tabs .nav-link { color: var(--maya-ink); }
+.nav-tabs .nav-link.active { color: var(--maya-crimson); border-bottom-color: var(--maya-surface); font-weight: 600; background: var(--maya-surface); }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: .2rem 1rem; }
+.kv dt { color: var(--maya-slate); font-weight: 500; }
+.kv dd { margin: 0; word-break: break-all; }
+/* Polish: depth, gradients and rhythm. Colour still comes only from tokens.css. */
+body.maya-app { background:
+  radial-gradient(900px 380px at 100% 0, color-mix(in srgb, var(--maya-glow) 55%, transparent), transparent 70%),
+  radial-gradient(700px 320px at 0 0, color-mix(in srgb, var(--maya-indigo) 10%, transparent), transparent 70%),
+  var(--maya-canvas); background-attachment: fixed; }
+.card { border: 1px solid color-mix(in srgb, var(--maya-border) 70%, transparent); border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(26,26,26,.04), 0 8px 24px -14px rgba(41,51,82,.28); }
+.card-header { border-radius: 14px 14px 0 0 !important; background: linear-gradient(90deg, var(--maya-crimson-tint), transparent); }
+.btn { border-radius: 9px; font-weight: 600; }
+.btn-primary { background-image: linear-gradient(135deg, var(--maya-crimson), var(--maya-crimson-strong));
+  box-shadow: 0 6px 14px -8px var(--maya-crimson); transition: transform .12s, box-shadow .12s; }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 20px -10px var(--maya-crimson); }
+.form-control, .form-select { border-radius: 9px; }
+.form-control:focus, .form-select:focus { border-color: var(--maya-crimson); box-shadow: 0 0 0 3px color-mix(in srgb, var(--maya-crimson) 18%, transparent); }
+.nav-tabs { border-bottom: 1px solid var(--maya-border); gap: .15rem; }
+.nav-tabs .nav-link { border: 0; border-radius: 9px 9px 0 0; font-weight: 600; }
+.nav-tabs .nav-link.active { border: 0; box-shadow: inset 0 -3px 0 var(--maya-crimson); background: var(--maya-surface); }
+.mt-wrap { border-radius: 14px; overflow: hidden; box-shadow: 0 8px 24px -16px rgba(41,51,82,.3); }
+table.maya-table th { background: linear-gradient(180deg, var(--maya-surface), var(--maya-crimson-tint)); border-bottom: 2px solid var(--maya-crimson); }
+.alert { border-radius: 12px; border-width: 0 0 0 4px; }
+.pill { font-weight: 600; }
+
+/* The home page hero and stat tiles */
+.maya-welcome { position: relative; overflow: hidden; border-radius: 20px; padding: 1.6rem 1.8rem; margin-bottom: 1.4rem; color: var(--maya-on-nav);
+  background: linear-gradient(120deg, var(--maya-nav-from), var(--maya-nav-via) 50%, var(--maya-nav-to));
+  box-shadow: 0 24px 50px -24px rgba(41,51,82,.7); }
+.maya-welcome::before { content: ""; position: absolute; width: 420px; height: 420px; right: -120px; top: -200px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,.22), transparent 65%); }
+.maya-welcome img { height: 58px; filter: drop-shadow(0 4px 10px rgba(0,0,0,.35)); }
+.maya-welcome h1 { background: none; color: var(--maya-on-nav); -webkit-background-clip: initial; background-clip: initial; font-size: 2rem; margin: 0; }
+.maya-welcome .lead { color: var(--maya-on-nav); opacity: .9; margin: 0; }
+.maya-welcome .btn-light { color: var(--maya-crimson-deep); font-weight: 700; }
+.maya-welcome .btn-outline-light { font-weight: 600; }
+.stat-tile { display: flex; flex-direction: row; gap: .9rem; align-items: center; padding: 1rem 1.1rem; height: 100%; text-decoration: none; color: var(--maya-ink);
+  transition: transform .15s, box-shadow .15s; }
+a.stat-tile:hover { transform: translateY(-3px); color: var(--maya-ink); box-shadow: 0 16px 32px -16px rgba(41,51,82,.45); }
+.stat-tile .ico { flex: 0 0 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; font-size: 1.35rem; color: var(--maya-on-nav);
+  background: linear-gradient(135deg, var(--maya-nav-via), var(--maya-nav-to)); box-shadow: 0 8px 18px -8px var(--maya-crimson); }
+.stat-tile .num { font-size: 1.7rem; font-weight: 800; line-height: 1; }
+.stat-tile .lbl { font-size: 12px; color: var(--maya-slate); text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
+h1 small, h1 span, h1 a, h1 code { color: var(--maya-slate); }
+@media (min-width: 992px) {
+  .maya-nav .mega { position: static; }
+  .maya-nav .mega-panel { position: absolute; left: 0; right: 0; top: 100%; justify-content: center; }
+}
+
+.maya-foot { max-width: 1560px; margin: 0 auto; padding: .85rem 1.8rem 1.6rem; text-align: center;
+  border-top: 1px solid var(--maya-border); color: var(--maya-slate); font-size: 12px; }
+.maya-foot-slogan { font-style: italic; color: var(--maya-heading); font-size: 13px; margin-right: .35rem; }
+.maya-foot a { color: var(--maya-slate); }
+.maya-foot a:hover { color: var(--maya-crimson); }
+.maya-brand .creed { font-style: italic; font-size: 9.5px; opacity: 1; letter-spacing: .015em;
+  color: var(--maya-on-nav); line-height: 1.3; }
+.maya-brand small { line-height: 1.25; }
+.theme-menu .dropdown-item { display: flex; align-items: center; gap: .55rem; font-size: 13.5px; }
+.theme-swatch { width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(0,0,0,.18); flex: none; }
+.theme-menu [aria-checked="true"]::after { content: "\2713"; margin-left: auto; color: var(--maya-crimson); font-weight: 700; }
+/* The theme button outside the signed-in toolbar, where .maya-tools does not reach. */
+.maya-nav .tool { position: relative; display: inline-flex; align-items: center; border: 0;
+  background: transparent; color: var(--maya-on-nav); padding: .35rem .5rem; border-radius: 8px; }
+.maya-nav .tool:hover, .maya-nav .tool:focus-visible { background: rgba(255,255,255,.14); }
+.maya-nav .tool.dropdown-toggle::after { display: none; }
+
+/* ---- Prama's own additions to the shell --------------------------------------------- */
+/* The body keeps Prama's density token, so compact mode still shrinks the type. */
+body.maya-app { font-size: var(--font-size-base); }
+.maya-brand .brand-mark { height: 34px; width: 34px; filter: drop-shadow(0 2px 6px rgba(0,0,0,.35)); }
+.maya-public .login-mark { width: 64px; }
+/* A heading in the heading colour: Maya's gradient-clipped heading is transparent text,
+   which no contrast checker can measure and so no test here could vouch for. */
+h1, h1[class], .h1 { font-weight: 750; letter-spacing: -.01em; color: var(--maya-heading); }
+/* The bootstrap-admin banner, as a Maya banner under the navigation. */
+.maya-banner a { font-weight: 700; }
+/* The public ground (sign-in) carries its footer on the gradient too. */
+.maya-public .maya-foot, .maya-public .maya-foot a, .maya-public .maya-foot-slogan { color: var(--maya-on-nav); border-top-color: rgba(255,255,255,.25); }
+.maya-public .on-gradient a, a.on-gradient { color: var(--maya-on-nav); }
+/* Here .maya-public sits on the body beside .maya-app, so it has to outrank the
+   canvas ground body.maya-app sets. */
+body.maya-public { background:
+  radial-gradient(900px 500px at 85% -10%, color-mix(in srgb, var(--maya-glow) 35%, transparent), transparent 60%),
+  linear-gradient(135deg, var(--maya-nav-from), var(--maya-nav-via) 45%, var(--maya-nav-to)); background-attachment: fixed; }

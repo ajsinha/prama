@@ -56,28 +56,120 @@ class NavItem:
     endpoint: str
     prefix: str
     icon: str = ""
+    #: One line under the label in the mega-menu, saying what the page is for.
+    desc: str = ""
 
     def active_for(self, path: str) -> bool:
         return path == self.prefix or path.startswith(self.prefix.rstrip("/") + "/")
 
 
-#: Order is the reading order of the work: see the estate, say what it means,
-#: state the controls, look at what broke, agree the numbers, report.
-NAVIGATION: tuple[NavItem, ...] = (
-    NavItem("Estate", "estate_map", "/estate", "bi-diagram-3"),
-    NavItem("Declarations", "declaration_list", "/declarations", "bi-journal-text"),
-    NavItem("Relationships", "relationship_list", "/relationships", "bi-share"),
-    NavItem("Metadata", "metadata", "/metadata", "bi-tags"),
-    NavItem("Lineage", "lineage", "/lineage", "bi-bezier2"),
-    NavItem("Controls", "control_list", "/controls", "bi-shield-check"),
-    NavItem("Proposals", "proposal_queue", "/proposals", "bi-lightbulb"),
-    NavItem("Incidents", "incident_list", "/incidents", "bi-exclamation-triangle"),
-    NavItem("Reconciliation", "reconciliation_list", "/reconciliation", "bi-arrow-left-right"),
-    NavItem("Scorecards", "scorecard_list", "/scorecards", "bi-clipboard-data"),
-    NavItem("Evidence", "evidence_chain", "/evidence", "bi-shield-check"),
-    NavItem("Attestations", "attestation_list", "/attestations", "bi-pen"),
-    NavItem("Reports", "report_index", "/reports", "bi-file-earmark-pdf"),
-)
+@dataclasses.dataclass(frozen=True, slots=True)
+class NavGroup:
+    """A top-level menu: a mega-menu panel of titled columns, after Maya's.
+
+    Thirteen flat links did not fit a navbar at any width that mattered; five
+    menus do, and each column title says what the pages under it have in
+    common, which a flat row never could.
+    """
+
+    label: str
+    icon: str
+    columns: tuple[tuple[str, tuple[NavItem, ...]], ...]
+    #: Shown only to an administrator. Courtesy, not control: every admin page
+    #: checks its own scope.
+    admin: bool = False
+
+    @property
+    def items(self) -> tuple[NavItem, ...]:
+        return tuple(item for _, column in self.columns for item in column)
+
+
+#: The console's menus. Order is the reading order of the work: see the estate
+#: and say what it means, state the controls and run them, then look at what
+#: broke and prove what held.
+MENU: tuple[NavGroup, ...] = (
+    NavGroup("Estate", "bi-diagram-3", (
+        ("See it", (
+            NavItem("Estate map", "estate_map", "/estate", "bi-diagram-3",
+                    "Every dataset, and how well it is controlled"),
+            NavItem("Lineage", "lineage", "/lineage", "bi-bezier2",
+                    "Where a column comes from and what it reaches"),
+        )),
+        ("Say what it means", (
+            NavItem("Declarations", "declaration_list", "/declarations", "bi-journal-text",
+                    "What the business says a dataset must be"),
+            NavItem("Relationships", "relationship_list", "/relationships", "bi-share",
+                    "Keys that join one dataset to another"),
+            NavItem("Metadata", "metadata", "/metadata", "bi-tags",
+                    "Business context, and the rules it implies"),
+            NavItem("Glossary", "glossary", "/glossary", "bi-book-half",
+                    "Business terms, bound to columns"),
+        )),
+    )),
+    NavGroup("Controls", "bi-shield-check", (
+        ("Author", (
+            NavItem("Controls", "control_list", "/controls", "bi-shield-check",
+                    "Every control, its state and its last verdict"),
+            NavItem("Rule builder", "rule_builder", "/controls/build", "bi-ui-checks",
+                    "Build a control from a form, no PQL needed"),
+            NavItem("Proposals", "proposal_queue", "/proposals", "bi-lightbulb",
+                    "Controls suggested for a person to accept"),
+        )),
+        ("Run", (
+            NavItem("Schedule", "schedule", "/schedule", "bi-clock-history",
+                    "When each suite runs, and the last run"),
+            NavItem("Delegates", "delegates", "/delegates", "bi-braces",
+                    "Python checks admitted to run as controls"),
+            NavItem("Code intake", "code", "/code", "bi-file-earmark-code",
+                    "Controls read out of existing DQ code"),
+        )),
+    )),
+    NavGroup("Assurance", "bi-patch-check", (
+        ("What broke", (
+            NavItem("Incidents", "incident_list", "/incidents", "bi-exclamation-triangle",
+                    "Failures grouped, owned and worked"),
+            NavItem("Reconciliation", "reconciliation_list", "/reconciliation",
+                    "bi-arrow-left-right", "Two systems, and the breaks between them"),
+            NavItem("Scorecards", "scorecard_list", "/scorecards", "bi-clipboard-data",
+                    "Quality by dimension, derived from evidence"),
+        )),
+        ("What held", (
+            NavItem("Evidence", "evidence_chain", "/evidence", "bi-link-45deg",
+                    "The hash-chained ledger of every verdict"),
+            NavItem("Attestations", "attestation_list", "/attestations", "bi-pen",
+                    "Owners signing for what the evidence shows"),
+            NavItem("Reports", "report_index", "/reports", "bi-file-earmark-pdf",
+                    "Reports for owners, auditors and regulators"),
+        )),
+    )),
+    NavGroup("Admin", "bi-gear", (
+        ("People", (
+            NavItem("People & roles", "admin_users", "/admin/users", "bi-people",
+                    "Who can sign in, and what they may do"),
+            NavItem("All API keys", "admin_keys", "/admin/keys", "bi-key-fill",
+                    "Every key across the estate"),
+        )),
+        ("Assistance", (
+            NavItem("Models", "models", "/models", "bi-cpu",
+                    "Providers, routes, budgets and the call ledger"),
+            NavItem("Agents", "agents", "/agents", "bi-robot",
+                    "Goals an agent works on, for a person to decide"),
+        )),
+    ), admin=True),
+)  # fmt: skip
+
+#: Every page the menus reach, derived from them rather than restated.
+NAVIGATION: tuple[NavItem, ...] = tuple(item for group in MENU for item in group.items)
+
+#: The Help menu, open to everybody.
+HELP_MENU = NavGroup("Help", "bi-question-circle", (
+    ("Learn", (
+        NavItem("Help", "help_index", "/help", "bi-book", "Guides to every page"),
+        NavItem("Case studies", "help_case_studies", "/help/case-studies", "bi-journals",
+                "Worked estates, end to end"),
+        NavItem("About", "about", "/about", "bi-info-circle", "What Prama is, and why"),
+    )),
+))  # fmt: skip
 
 
 #: The navigation on the public pages, after Maya's `_nav_public.html`.
@@ -128,8 +220,8 @@ def chosen_theme(request: Request) -> str:
     """Which theme to render, before any JavaScript runs.
 
     Server-side because the alternative flashes. A page that renders light and
-    is repainted by a script on load is unpleasant on every theme and genuinely
-    unusable on the amber-on-black one, where the flash is a white screen.
+    is repainted by a script on load is unpleasant on every theme, and on Dark
+    the flash is a white screen.
 
     ``?theme=`` overrides the cookie, so a theme can be linked and previewed
     without changing anybody's preference.
@@ -157,21 +249,46 @@ def get_flashed_messages(request: Request, *, with_categories: bool = False) -> 
     return [message for _, message in flashes]
 
 
+def _group(request: Request, group: NavGroup, path: str) -> dict[str, Any]:
+    """One menu, resolved for this request: hrefs, and which entry is here.
+
+    The longest matching prefix wins, so /controls/build lights the rule
+    builder rather than the rule builder *and* Controls.
+    """
+    here = max(
+        (item.prefix for item in (*NAVIGATION, *HELP_MENU.items) if item.active_for(path)),
+        key=len,
+        default=None,
+    )
+    columns: list[dict[str, Any]] = [
+        {
+            "title": title,
+            "items": [
+                {
+                    "label": item.label,
+                    "href": url_for(request, item.endpoint),
+                    "icon": item.icon,
+                    "desc": item.desc,
+                    "active": item.prefix == here,
+                }
+                for item in items
+            ],
+        }
+        for title, items in group.columns
+    ]
+    return {
+        "label": group.label,
+        "icon": group.icon,
+        "admin": group.admin,
+        "columns": columns,
+        "active": any(item.prefix == here for item in group.items),
+    }
+
+
 def render(request: Request, template: str, status_code: int = 200, **context: Any) -> Any:
     """Render a template with the shell's context already supplied."""
     path = request.url.path
-    context.setdefault(
-        "nav",
-        [
-            {
-                "label": item.label,
-                "href": url_for(request, item.endpoint),
-                "icon": item.icon,
-                "active": item.active_for(path),
-            }
-            for item in NAVIGATION
-        ],
-    )
+    context.setdefault("menu", [_group(request, group, path) for group in (*MENU, HELP_MENU)])
     context.setdefault("public_nav", False)
     context.setdefault(
         "public_links",
@@ -296,7 +413,7 @@ def install_globals() -> None:
     templates.env.globals["app_version"] = VERSION
     # The switcher needs to know which Bootstrap base each theme sits on, and
     # it is one mapping rather than a rule the JavaScript re-derives — a second
-    # opinion about whether "maya-crimson" is a light theme would show up as one
+    # opinion about whether "green" is a light theme would show up as one
     # unreadable dropdown.
     templates.env.globals["theme_bases"] = BASES
     templates.env.globals["app_tagline"] = PRODUCT_TAGLINE

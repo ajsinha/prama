@@ -55,7 +55,7 @@
 
     /* The theme picker. The Bootstrap base for each theme comes from the
        server rather than being re-derived here: a second opinion about whether
-       "maya-crimson" is a light theme would show up as one unreadable dropdown on
+       "green" is a light theme would show up as one unreadable dropdown on
        one page, which is the hardest kind of bug to find. */
     var bases = window.pramaThemeBases || {};
     $("[data-theme-choice]").on("click", function () {

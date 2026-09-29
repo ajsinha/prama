@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+<!--
+  PRAMA — the "Pramana Prism" mark, for a dark or gradient ground.  Declare it. Prove it. Trust it.
+  Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
+  Trademark and trade dress of Ashutosh Sinha. Proprietary — see /LICENSE and /NOTICE.
+-->
+  <path d="M14 5 L24.5 25 L3.5 25 Z" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linejoin="round"/>
+  <g stroke-width="2.2" stroke-linecap="round">
+    <line x1="19.5" y1="15.5" x2="30" y2="11" stroke="#00B3A4"/>
+    <line x1="19.5" y1="15.5" x2="30" y2="15.5" stroke="#E8B33A"/>
+    <line x1="19.5" y1="15.5" x2="30" y2="20" stroke="#F07A76"/>
+  </g>
+</svg>

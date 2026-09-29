@@ -2,26 +2,33 @@
 
 # A tour of the console
 
-The console's navigation follows the order the work runs in: look at the estate, say what it means,
-state the controls, deal with what broke, agree the numbers, then report.
+The top bar has four menus, in the order the work runs: **Estate** (see the data and say what it
+means), **Controls** (state them and run them), **Assurance** (what broke, and what held) and **Help**.
+An administrator also sees **Admin**. Each menu opens a panel of titled columns, with a line under every
+page saying what it is for. To the right: a search box that finds data by its business meaning, your
+queue, row density, the theme, and your user menu.
 
-| Area | What it is for |
-|---|---|
-| **Estate** | The map of datasets and how they connect, with gaps: data nobody has declared or controlled. |
-| **Declarations** | What a dataset, attribute or concept *means*, in the business's words, with an owner and a version. |
-| **Relationships** | Declared and discovered links between datasets. A discovered link is only used once somebody confirms it. |
-| **Controls** | Checks written in PQL. The studio parses, type-checks, explains, compiles and previews them. |
-| **Proposals** | Controls that were suggested (by a person, a profile or a model) and are waiting for a human to accept or reject them. |
-| **Incidents** | Failed controls, grouped for triage. |
-| **Reconciliation** | Breaks between two systems that should agree, keyed and explained. |
-| **Scorecards** | Quality scores derived from evidence. Nothing here is typed in by hand. |
-| **Evidence** | The append-only, hash-chained ledger of every run. |
-| **Attestations** | An owner signing that a dataset met its controls over a period. |
-| **Reports** | PDF and HTML reports built from the same evidence. |
+| Menu | Page | What it is for |
+|---|---|---|
+| Estate | **Estate map** | The map of datasets and how they connect, with gaps: data nobody has declared or controlled. |
+| Estate | **Lineage** | Where a column comes from and what a defect in it reaches, parsed from ETL SQL. |
+| Estate | **Declarations** | What a dataset, attribute or concept *means*, in the business's words, with an owner and a version. |
+| Estate | **Relationships** | Declared and discovered links between datasets. A discovered link is only used once somebody confirms it. |
+| Estate | **Metadata**, **Glossary** | Business context and terms; the rules they imply go to Proposals. |
+| Controls | **Controls** | Checks written in PQL. The studio parses, type-checks, explains, compiles and previews them. |
+| Controls | **Proposals** | Controls that were suggested (by a person, a profile or a model) and are waiting for a human to accept or reject them. |
+| Controls | **Rule builder** | A control from a form, for somebody who does not write PQL. |
+| Controls | **Schedule**, **Delegates**, **Code intake** | When suites run; admitted Python checks; controls read out of existing DQ code. |
+| Assurance | **Incidents** | Failed controls, grouped for triage. |
+| Assurance | **Reconciliation** | Breaks between two systems that should agree, keyed and explained. |
+| Assurance | **Scorecards** | Quality scores derived from evidence. Nothing here is typed in by hand. |
+| Assurance | **Evidence** | The append-only, hash-chained ledger of every run. |
+| Assurance | **Attestations** | An owner signing that a dataset met its controls over a period. |
+| Assurance | **Reports** | PDF and HTML reports built from the same evidence. |
 
 ## Where to start
 
-1. Open **Estate** to see what Prama knows about.
+1. Open **Estate → Estate map** to see what Prama knows about.
 2. Declare a dataset under **Declarations**, or accept a proposal under **Proposals**.
 3. Write or accept a control under **Controls**, preview it, and ask an owner to approve it.
 4. Once it runs, its verdicts appear under **Evidence**, and failures under **Incidents**.
