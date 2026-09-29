@@ -20,8 +20,11 @@ class Datasets(Resource):
         """Declare a dataset. Fields: description, purpose, domain_id, owner_id,
         steward_id, criticality, shape, grain ({"attributes": [...], "statement": "one
         row is …"}), rhythm ({"frequency": "daily", "arrival_by": "07:00", …}),
-        temporality, authoritativeness, sensitivity, tags, approved_by (required for
-        tiers 1 and 2), reason, valid_from."""
+        temporality, authoritativeness, sensitivity, tags, reason, valid_from.
+
+        A Tier-1 or Tier-2 dataset is held (``lifecycle_state`` ``proposed``) until
+        somebody holding ``declaration:approve`` approves it with `approve` — at
+        Tier 1, somebody other than you."""
         return self._post("/datasets", body(name=name, **fields))
 
     @endpoint("GET", "/datasets")
@@ -54,7 +57,8 @@ class Datasets(Resource):
 
     @endpoint("POST", "/datasets/{dataset_id}/amend")
     def amend(self, dataset_id: str, reason: str, **fields: Any) -> Any:
-        """A new version, effective from a date. Fields: effective_from, approved_by, changes."""
+        """A new version, effective from a date. Fields: effective_from, changes.
+        At Tier 1 or 2 the amendment is held until approved."""
         return self._post(f"/datasets/{seg(dataset_id)}/amend", body(reason=reason, **fields))
 
     @endpoint("POST", "/datasets/{dataset_id}/correct")
@@ -63,6 +67,12 @@ class Datasets(Resource):
         return self._post(
             f"/datasets/{seg(dataset_id)}/correct", body(reason=reason, changes=changes)
         )
+
+    @endpoint("POST", "/datasets/{dataset_id}/approve")
+    def approve(self, dataset_id: str, *, reason: str | None = None) -> Any:
+        """Approve a held declaration or amendment, as yourself. Needs
+        ``declaration:approve``; at Tier 1 you cannot approve your own."""
+        return self._post(f"/datasets/{seg(dataset_id)}/approve", body(reason=reason))
 
     @endpoint("POST", "/datasets/{dataset_id}/attributes")
     def add_attribute(
@@ -107,7 +117,8 @@ class Relationships(Resource):
     @endpoint("POST", "/relationships")
     def declare(self, kind: str, from_dataset_id: str, to_dataset_id: str, **fields: Any) -> Any:
         """Fields: match_keys, compare, cardinality, tolerance, offset, filter_expression,
-        name, description, owner_id, criticality, approved_by, reason."""
+        name, description, owner_id, criticality, reason. At Tier 1 or 2 it is held as
+        proposed; confirming it (`confirm`) is the approval, by somebody else at Tier 1."""
         return self._post(
             "/relationships",
             body(kind=kind, from_dataset_id=from_dataset_id, to_dataset_id=to_dataset_id, **fields),
@@ -167,7 +178,8 @@ class Journeys(Resource):
 
     @endpoint("POST", "/journeys")
     def declare(self, name: str, **fields: Any) -> Any:
-        """Fields: description, domain_id, owner_id, criticality, sla, steps, approved_by."""
+        """Fields: description, domain_id, owner_id, criticality, sla, steps.
+        Awaits approval (`approve`) until somebody signs it off."""
         return self._post("/journeys", body(name=name, **fields))
 
     @endpoint("GET", "/journeys")
@@ -177,6 +189,11 @@ class Journeys(Resource):
     @endpoint("GET", "/journeys/{journey_id}")
     def get(self, journey_id: str) -> Any:
         return self._get(f"/journeys/{seg(journey_id)}")
+
+    @endpoint("POST", "/journeys/{journey_id}/approve")
+    def approve(self, journey_id: str, *, reason: str | None = None) -> Any:
+        """Approve a journey declared without an approver, as yourself."""
+        return self._post(f"/journeys/{seg(journey_id)}/approve", body(reason=reason))
 
     @endpoint("PUT", "/journeys/{journey_id}/steps")
     def set_steps(self, journey_id: str, reason: str, steps: Sequence[dict[str, Any]]) -> Any:

@@ -359,3 +359,26 @@ async def test_a_lineage_proposal_once_accepted_is_not_offered_again(client: Asy
     again = [p["identity"] for p in (await client.lineage.proposals())["controls"]]
     assert first["identity"] not in again
     assert len(again) == len(offered) - 1  # only the accepted one left the queue
+
+
+async def test_an_auditor_may_ask_what_a_change_reaches_but_not_record_lineage(
+    client: AsyncClient, started_database: Database, tenant_id: str
+) -> None:
+    """Posts that store nothing take read scopes, so a reader can use them.
+
+    They had write scopes only because a POST was assumed to write; an auditor
+    could not parse a message, review a change, or compare a repository with
+    the estate. Reading is still all they may do.
+    """
+    await client.lineage.scan("warehouse", STAGE.format(notional="t.notional_amt"))
+    auditor = await signed_in(client, started_database, tenant_id, "rita", "auditor")
+    changed = await auditor.lineage.change(
+        STAGE.format(notional="t.notional_amt"), STAGE.format(notional="t.gross_amt")
+    )
+    assert "at_risk" in changed
+    parsed = await auditor.packs.parse("8=FIX.4.4|9=5|35=D|10=000|".replace("|", "\x01"))
+    assert "defects" in parsed
+    assert "in_sync" in await auditor.estate.diff((await client.estate.export())["files"])
+    with pytest.raises(prama.ForbiddenError):  # the counterfactual: recording is still a write
+        await auditor.lineage.scan("warehouse", STAGE.format(notional="t.notional_amt"))
+    await auditor.close()

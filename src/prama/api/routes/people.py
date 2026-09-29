@@ -171,7 +171,7 @@ async def issue_for(body: IssueIn, uow: Uow, caller: Administrator) -> dict[str,
         name=body.name,
         wanted=body.scopes,
         days=body.days,
-        ceiling=caller.scopes,
+        ceiling=caller.effective_scopes,
     )
     await uow.flush()
     return {**issued, "principal_id": str(person.id), "username": person.username}
@@ -213,7 +213,7 @@ async def account(uow: Uow, caller: Holder) -> dict[str, Any]:
     return {
         **await people.describe(uow, person),
         "scopes": list(caller.scopes),
-        "grantable": people.grantable_scopes(caller.scopes),
+        "grantable": people.grantable_scopes(caller.effective_scopes),
         "active_keys": len(await uow.api_keys.active_for_principal(str(person.id))),
     }
 
@@ -254,7 +254,7 @@ async def mint(body: KeyIn, uow: Uow, caller: Holder) -> dict[str, Any]:
         name=body.name,
         wanted=body.scopes,
         days=body.days,
-        ceiling=caller.scopes,
+        ceiling=caller.effective_scopes,
     )
     await uow.flush()
     return issued

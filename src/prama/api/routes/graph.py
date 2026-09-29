@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Query, status
 
-from prama.api.deps import Reader, Uow, Writer
+from prama.api.deps import DeclarationApprover, Reader, Uow, Writer
 from prama.api.mapping import (
     attribute_out,
     binding_out,
@@ -19,6 +19,7 @@ from prama.api.mapping import (
     journey_out,
 )
 from prama.api.schemas import (
+    ApprovalIn,
     AttributeMappingIn,
     AttributeOut,
     BindingIn,
@@ -143,7 +144,6 @@ async def declare_journey(body: JourneyIn, caller: Writer, uow: Uow) -> JourneyO
         sla=body.sla,
         steps=[s.model_dump(exclude_none=True) for s in body.steps],
         authored_by=caller.principal_id,
-        approved_by=body.approved_by,
     )
     return journey_out(version)
 
@@ -172,6 +172,20 @@ async def get_journey(journey_id: str, caller: Reader, uow: Uow) -> JourneyOut:
             remedy="Check the identifier, or list the declared journeys.",
             context={"journey_id": journey_id},
         )
+    return journey_out(version)
+
+
+@router.post("/journeys/{journey_id}/approve", response_model=JourneyOut)
+async def approve_journey(
+    journey_id: str, body: ApprovalIn, caller: DeclarationApprover, uow: Uow
+) -> JourneyOut:
+    """Approve a journey declared without an approver. The approver is the caller."""
+    version = await JourneyService(uow).approve(
+        tenant_id=caller.tenant_id,
+        journey_id=journey_id,
+        approved_by=caller.require_principal(),
+        reason=body.reason,
+    )
     return journey_out(version)
 
 

@@ -15,7 +15,7 @@ from typing import Any
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
-from prama.api.deps import Reader, Writer
+from prama.api.deps import Reader
 from prama.packs.banking import readout
 
 router = APIRouter(tags=["packs"])
@@ -61,7 +61,7 @@ class MessageIn(BaseModel):
 
 
 @router.post("/packs/banking/parse")
-async def parse(body: MessageIn, caller: Writer) -> dict[str, Any]:
+async def parse(body: MessageIn, caller: Reader) -> dict[str, Any]:
     """Parse one financial message and list what is structurally wrong with it.
 
     A defect is a finding about the message, not a failure of the call. An empty

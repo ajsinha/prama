@@ -69,6 +69,24 @@ markets.datasets.declare("Trades", description="Executed trades, as booked.")
 In the console, sign-in asks for the estate once there is more than one, and the user menu
 names the estate you are in and offers **Switch estate**.
 
+## Approval: somebody else signs it off
+
+A Tier-1 or Tier-2 declaration (a dataset, an amendment, a relationship, a journey) is
+**held** when you make it: recorded, with `lifecycle_state` `proposed`, and not in effect.
+It takes effect when somebody holding `declaration:approve` (an owner, an administrator)
+approves it, as themselves; at Tier 1, somebody other than its author:
+
+```python
+held = client.datasets.declare("FRTB Feeder", criticality=1)   # lifecycle_state: proposed
+owner.datasets.approve(held["id"], reason="reviewed the grain")  # now active
+owner.relationships.confirm(relationship_id)                     # confirming is approving
+owner.journeys.approve(journey_id)
+```
+
+Nobody names an approver on a declaration. That used to be a field anyone could fill with
+anybody's name; now the approver is whoever approves. An amendment cannot approve itself
+either: `lifecycle_state`, `approved_by` and `authored_by` are refused in its `changes`.
+
 ## Sync and async
 
 `Client` blocks; `AsyncClient` has the same namespaces and every method returns a coroutine:

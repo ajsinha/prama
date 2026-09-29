@@ -154,7 +154,7 @@ async def _live(uow: Any, tenant_id: str, offline: bool) -> list[Any]:
 @router.post("/code/review")
 async def review_archives(
     request: Request,
-    caller: RelationshipWriter,
+    caller: RelationshipReader,
     uow: Uow,
     base: UploadFile = File(..., description="the code before the change, as a ZIP"),
     head: UploadFile = File(..., description="the code with the change, as a ZIP"),
@@ -202,7 +202,7 @@ class ReviewRefsIn(BaseModel):
 
 @router.post("/code/review/git")
 async def review_refs(
-    body: ReviewRefsIn, request: Request, caller: RelationshipWriter, uow: Uow
+    body: ReviewRefsIn, request: Request, caller: RelationshipReader, uow: Uow
 ) -> dict[str, Any]:
     """The same review over two refs of a repository, fetched with intake's protections."""
     from prama.codeintake.intake import review_refs as review

@@ -95,8 +95,8 @@ has an endpoint yet. Converting the eight case studies to the SDK found these:
 
 | # | Gap | Why it matters |
 |---|---|---|
-| 7.1 | **`approved_by` is free text.** A Tier-1/2 declaration over the API names its approver, and nothing checks that the approver exists, holds a role that may approve, or agreed. | Maker-checker over the API is a claim, not a control. Needs an approval step the second person performs. |
-| 7.2 | **Changing someone's roles does not narrow the keys they hold.** A key keeps the scopes it was minted with until it expires. Intersecting with current roles would lock out steward agents and scoped service keys, whose principals hold no roles. | A policy decision: revoke keys on a role change, or check principals with roles against them. |
+| 7.1 | ~~**`approved_by` was free text**~~ **done** (2026-09-29): a Tier-1/2 change is held and approved by the second person themselves (`declaration:approve`); no request names an approver, and an amendment cannot set its own approval. | Maker-checker over the API is now a control, not a claim. |
+| 7.2 | ~~**Changing someone's roles did not narrow their keys**~~ **done** (2026-09-29): a person's key is bounded by their roles as they stand now; a service account's key (a steward agent) is its grant. | Taking a role takes it from every key at once. |
 | 7.3 | No endpoint judges **feed arrival** (`prama.connect.feed`); study 2 no longer claims the missing delivery. | Arrival is half of a feed's quality. |
 | 7.4 | The **data-plane agent** (`prama.agent`: assignment, `fits`, residency) has no API; study 5 shows its try-out instead. | Remote execution beside the data is not scriptable. |
 | 7.5 | No call creates **one glossary term**; study 7 imports a one-term export. | Small, but a gap. |

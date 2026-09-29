@@ -20,18 +20,25 @@ from prama.api import API_PREFIX, create_app
 from prama.core.config import Configuration
 from prama.db import Database
 from prama.db.security import ApiKeyIssuer
+from prama.security.accounts import grant_roles
 
 
 async def issue_key(
     database: Database, tenant_id: str, *, principal: str = "alice", scopes: list[str] | None = None
 ) -> str:
-    """Mint a usable key for a tenant and return its plaintext."""
+    """Mint a usable key for a tenant and return its plaintext.
+
+    The person holds the admin role, so what the key may do is exactly its own
+    *scopes*: a person's key is bounded by their roles, and a person with no
+    roles may do nothing, whatever their key says.
+    """
     issued = ApiKeyIssuer().issue(environment="test")
     async with database.unit_of_work() as uow:
         person = uow.principals.create(
             tenant_id=tenant_id, username=principal, display_name=principal
         )
         await uow.flush()
+        await grant_roles(uow, tenant_id, person, ["admin"])
         uow.api_keys.create(
             tenant_id=tenant_id,
             principal_id=str(person.id),

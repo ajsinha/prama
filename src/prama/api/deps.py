@@ -43,6 +43,26 @@ class CallerIdentity:
     #: The key that authenticated the request, for per-key budgets and the
     #: model-call ledger. None for a console session.
     api_key_id: str | None = None
+    #: What the person's roles grant **now**, for a human's key; None for a
+    #: service account (a steward agent), whose key is its only grant.
+    role_scopes: tuple[str, ...] | None = None
+
+    def allows(self, scope: str) -> bool:
+        """Whether this request may do *scope*: the key permits it, and, for a
+        person, so do their roles as they stand now.
+
+        A key keeps the scopes it was minted with, and a person's roles change:
+        without the second half, removing somebody's approver role left every
+        key they held able to approve until it expired.
+        """
+        if not permits(self.scopes, scope):
+            return False
+        return self.role_scopes is None or permits(self.role_scopes, scope)
+
+    @property
+    def effective_scopes(self) -> tuple[str, ...]:
+        """Every declared scope this request may exercise, concretely."""
+        return tuple(scope for scope in SCOPES if self.allows(scope))
 
     def require_scope(self, scope: str) -> None:
         """Refuse unless this credential carries *scope*.
@@ -52,6 +72,15 @@ class CallerIdentity:
         were recorded, carried on this object and consulted nowhere, so a
         read-only key could retire a declaration.
         """
+        if permits(self.scopes, scope) and not self.allows(scope):
+            raise ForbiddenError(
+                f"your roles no longer grant {scope!r}, though this key was issued with it",
+                remedy=(
+                    "A key is never worth more than the person holding it. Ask an "
+                    "administrator for a role that grants it, if you should have it."
+                ),
+                context={"scope": scope, "roles": ",".join(self.role_scopes or ()) or "(none)"},
+            )
         if not permits(self.scopes, scope):
             raise ForbiddenError(
                 f"this credential does not carry the {scope!r} scope",
@@ -130,11 +159,25 @@ async def get_caller(
         raise refusal
 
     tenant_context.set(record.tenant_id)
+    # A person's key is bounded by their roles as they stand now; a service
+    # account (a steward agent) holds no roles, and its key is its grant.
+    role_scopes = None
+    if holder.kind == "human":
+        role_scopes = tuple(
+            sorted(
+                {
+                    p
+                    for role in await uow.principals.roles_of(str(holder.id))
+                    for p in role.permissions_json
+                }
+            )
+        )
     return CallerIdentity(
         tenant_id=record.tenant_id,
         principal_id=record.principal_id,
         scopes=tuple(record.scopes_json or ()),
         api_key_id=str(record.id),
+        role_scopes=role_scopes,
     )
 
 
@@ -197,6 +240,9 @@ Caller = Annotated[CallerIdentity, Depends(get_caller)]
 #: role can hold is a route nobody can call.
 Reader = scoped("declaration:read")
 Writer = scoped("declaration:write")
+#: Approving a held declaration somebody else made: the checker half of
+#: maker-checker on the semantic layer. Held by an owner, not by a steward.
+DeclarationApprover = scoped("declaration:approve")
 RelationshipReader = scoped("relationship:read")
 RelationshipWriter = scoped("relationship:write")
 LlmUser = scoped("llm:use")

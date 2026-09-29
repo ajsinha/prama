@@ -61,6 +61,17 @@ class ApprovalPolicy:
             4: self.tier_four,
         }.get(tier, ApprovalRequirement.NONE)
 
+    def held(self, criticality: Criticality | int, approved_by: str | None) -> bool:
+        """Whether a change at this tier, with this approver, waits for approval.
+
+        A change that needs an approver and has none is **held**: recorded, and
+        not in effect until somebody approves it (`check_approver`). It used to
+        be refused outright, with a remedy promising exactly this hold, which
+        nothing implemented — so a Tier-1 declaration could only be made by
+        naming an approver, and over the API any caller could name anybody.
+        """
+        return self.for_criticality(criticality).needs_approver and not approved_by
+
     def check(
         self,
         *,
@@ -69,25 +80,32 @@ class ApprovalPolicy:
         approved_by: str | None,
         what: str = "declaration",
     ) -> None:
-        """Refuse a change that does not meet its approval requirement."""
-        requirement = self.for_criticality(criticality)
-        if not requirement.needs_approver:
-            return
-        if not approved_by:
-            raise ValidationError(
-                f"a Tier-{int(criticality)} {what} requires approval before it takes effect",
-                remedy=(
-                    "Submit it for review. It will be held as proposed until an approver "
-                    "signs it off."
-                ),
-                context={"criticality": int(criticality), "requirement": requirement.value},
+        """Refuse an approval the tier does not allow.
+
+        A missing approver is not refused here: the change is held (`held`).
+        What is refused is the author approving their own Tier-1 change.
+        """
+        if approved_by:
+            self.check_approver(
+                criticality=criticality, authored_by=authored_by, approver=approved_by, what=what
             )
-        if requirement.needs_second_person and approved_by == authored_by:
+
+    def check_approver(
+        self,
+        *,
+        criticality: Criticality | int,
+        authored_by: str | None,
+        approver: str,
+        what: str = "declaration",
+    ) -> None:
+        """Refuse *approver* for a change *authored_by* made, if the tier forbids it."""
+        requirement = self.for_criticality(criticality)
+        if requirement.needs_second_person and authored_by and approver == authored_by:
             raise ValidationError(
                 f"a Tier-{int(criticality)} {what} cannot be approved by its own author",
                 remedy=(
                     "Ask a second person to approve it. Segregation of duties on Tier-1 "
                     "declarations is a control, not a formality."
                 ),
-                context={"author": authored_by, "approver": approved_by},
+                context={"author": authored_by, "approver": approver},
             )

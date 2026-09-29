@@ -129,6 +129,8 @@ async def me(uow: Uow, caller: Holder) -> dict[str, Any]:
         "username": principal.username if principal is not None else "",
         "display_name": principal.display_name if principal is not None else "",
         "scopes": list(caller.scopes),
+        #: What this key may actually do now: its scopes, bounded by your roles.
+        "effective_scopes": list(caller.effective_scopes),
         "api_key_id": caller.api_key_id,
     }
 

@@ -36,6 +36,9 @@ from collections.abc import Iterable
 SCOPES: dict[str, str] = {
     "declaration:read": "read the semantic layer: domains, datasets, attributes, concepts",
     "declaration:write": "declare, amend, correct and retire semantic objects",
+    "declaration:approve": (
+        "approve a declaration somebody else made, so a held Tier-1 or Tier-2 change takes effect"
+    ),
     "relationship:read": "read declared and discovered relationships",
     "relationship:write": "declare a relationship, confirm one, or reject one",
     "control:read": "read controls and their history",

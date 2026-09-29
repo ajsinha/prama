@@ -207,6 +207,51 @@ class JourneyService(SemanticService):
         )
         return entity, version
 
+    async def approve(
+        self, *, tenant_id: str, journey_id: str, approved_by: str, reason: str = ""
+    ) -> Any:
+        """Approve a journey declared without an approver.
+
+        A journey records its approver rather than a state, so one with none is
+        the one awaiting approval. As for a dataset, the approval is a
+        correction that keeps the author, and a Tier-1 author cannot approve
+        their own.
+        """
+        from prama.core.clock import utc_now
+
+        current = await self._uow.journeys.require_current(journey_id, tenant_id=tenant_id)
+        if current.approved_by:
+            raise ConflictError(
+                f"journey {current.name!r} is already approved",
+                remedy="Only a journey declared without an approver waits for one.",
+                context={"journey_id": journey_id},
+            )
+        self._policy.check_approver(
+            criticality=current.criticality,
+            authored_by=current.authored_by,
+            approver=approved_by,
+            what="journey declaration",
+        )
+        version = await self._uow.journeys.correct(
+            journey_id,
+            tenant_id=tenant_id,
+            provenance=Provenance(
+                authored_by=current.authored_by,
+                approved_by=approved_by,
+                approved_at=utc_now(),
+                reason=reason or "approved",
+            ),
+        )
+        self._audit(
+            tenant_id=tenant_id,
+            action="journey.approved",
+            object_kind="journey",
+            object_id=journey_id,
+            actor_id=approved_by,
+            detail={"author": current.authored_by},
+        )
+        return version
+
     async def set_steps(
         self,
         *,
