@@ -184,6 +184,13 @@ class Daemon:
                     result = self._unreachable(exc)
                 if result.refused_for_good:
                     return EXIT_REFUSED
+                if result.contacted and result.ran:
+                    # The zone may have more queued than this agent had slots
+                    # for: ask again at once, and wait only when there is no
+                    # work. Waiting a full poll between assignments drained a
+                    # queue of fifty in fifty polls. --once means "drain what
+                    # is queued now", not "one assignment".
+                    continue
                 if once:
                     break
                 self._stop.wait(result.wait_seconds)

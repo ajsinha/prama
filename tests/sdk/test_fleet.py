@@ -23,6 +23,7 @@ from typing import Any
 
 import prama_sdk as prama
 import pytest
+from prama_agent.runner import Agent
 from prama_kernel.agent.capability import AgentCapabilities
 from prama_kernel.agent.protocol import Assignment, Receipt, Report, response_from_dict
 from prama_kernel.agent.residency import ResidencyPolicy, SampleDisposition
@@ -33,7 +34,6 @@ from prama_sdk.signing import sign
 from prama_sdk.transport import Call
 from tests.api.conftest import issue_key
 
-from prama.agent.runner import Agent
 from prama.db import Database
 
 ZONE = "eu-frankfurt"

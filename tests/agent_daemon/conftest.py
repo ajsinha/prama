@@ -105,6 +105,9 @@ class FakeServer:
 
     def __init__(self, assignments: list[Assignment] | None = None) -> None:
         self.queue = list(assignments or [])
+        #: Hand out everything queued, not just what the agent has slots for:
+        #: for tests about a cycle holding several assignments.
+        self.hand_out_all = False
         self.records: list[EvidenceRecord] = []
         self.gaps: list[dict[str, Any]] = []
         self.raw_reports: list[dict[str, Any]] = []
@@ -137,7 +140,9 @@ class FakeServer:
         self.hellos.append(hello)
         if self.refusal is not None:
             return self.refusal.to_dict()
-        handed, self.queue = self.queue, []
+        # As the real server does: no more than the agent says it has slots for.
+        free = len(self.queue) if self.hand_out_all else max(0, message.free_slots)
+        handed, self.queue = self.queue[:free], self.queue[free:]
         return Receipt(
             accepted_through=self.accepted,
             assignments=tuple(handed),

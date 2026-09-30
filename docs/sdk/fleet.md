@@ -119,13 +119,12 @@ if "reason" in answer:
 | `fleet.poll_seconds` | `30` | what an agent is told to wait between calls |
 | `fleet.stale_minutes` | `15` | silence after which health names an agent |
 
-## One thing to know about the signature
+## How the signature is computed
 
 The SDK writes the kernel's canonical JSON with the standard library
 (`prama_sdk.signing`), and `tests/sdk/test_fleet_signing.py` holds it byte-equal to the
-kernel for Hello and Report messages. The kernel's own encoding has two backends: `orjson`
-(the `fast` extra) and the standard library. They agree on everything except floats with a
-decimal exponent from -5 to -9, which `orjson` writes as `0.00001` and `1e-7` and the
-standard library as `1e-05` and `1e-07`. The SDK follows `orjson`. A server installed
-without the `fast` extra therefore refuses, as a wrong signature, a message carrying such a
-float (a metric of `0.00005`, say). Install servers with `--extra fast`.
+kernel for Hello and Report messages. The kernel writes the same bytes whether or not
+`orjson` is installed: its standard-library path spells every float as `orjson` does
+(`0.00001`, `1e-7`), and `tests/core/test_pjson_backends.py` compares the two backends on
+thousands of floats. So a server and an agent built differently still agree on every
+signature and every evidence hash.

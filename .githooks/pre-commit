@@ -42,7 +42,9 @@ fi
 
 # 4. Lint + format, if the toolchain is present.
 if command -v "$ruff_cmd" >/dev/null 2>&1; then
-  pyfiles=$(staged | grep -E '\.py$' || true)
+  # qa/harness is deliberately not linted (it is the QA team's scratch
+  # harness, as in CI's `ruff check src sdk kernel agent tests qa/regression-suite`).
+  pyfiles=$(staged | grep -E '\.py$' | grep -v '^qa/harness/' || true)
   if [ -n "$pyfiles" ]; then
     # shellcheck disable=SC2086
     # Two statements, not `a && b`: under `set -e` a failure on the left of
