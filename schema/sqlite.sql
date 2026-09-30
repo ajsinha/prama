@@ -1796,3 +1796,93 @@ CREATE TABLE IF NOT EXISTS sx_vector (
     updated_at    VARCHAR(32)   NOT NULL,
     CONSTRAINT uq_sx_vector UNIQUE (tenant_id, dataset_id, model)
 );
+
+-- ===========================================================================
+-- AGENT FLEET  (docs/design/agent-fleet-http.md)
+-- ===========================================================================
+-- Agents run beside the data, in a zone, and report findings, never data. An
+-- agent's signing key is not stored anywhere: it is derived from the fleet
+-- secret, the tenant and the agent id, so revoking an agent is a change of
+-- state, not a key deletion.
+CREATE TABLE IF NOT EXISTS fl_agent (
+    id                 VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id          VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    name               VARCHAR(128)  NOT NULL,
+    -- Fixed by the enrolment token, never chosen by the agent.
+    zone               VARCHAR(128)  NOT NULL,
+    state              VARCHAR(16)   NOT NULL DEFAULT 'active',
+    version            VARCHAR(64)   NOT NULL DEFAULT '',
+    -- What the agent last declared it can run (AgentCapabilities.to_dict).
+    capabilities_json  TEXT          NOT NULL DEFAULT '{}',
+    pending_findings   INTEGER       NOT NULL DEFAULT 0,
+    -- The highest of the agent's own sequence numbers accepted so far; -1 for
+    -- none. A redelivery at or below it is a duplicate.
+    last_sequence      INTEGER       NOT NULL DEFAULT -1,
+    enrolled_at        VARCHAR(32)   NOT NULL,
+    last_seen_at       VARCHAR(32),
+    CONSTRAINT ck_fl_agent_state CHECK (state IN ('active', 'suspended', 'revoked'))
+);
+CREATE INDEX IF NOT EXISTS ix_fl_agent_zone ON fl_agent (tenant_id, zone);
+
+-- One-use enrolment tokens. Only the SHA-256 digest of the token is kept; the
+-- plaintext is shown once, to whoever installs the agent.
+CREATE TABLE IF NOT EXISTS fl_token (
+    id            VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id     VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    digest        VARCHAR(64)   NOT NULL,
+    zone          VARCHAR(128)  NOT NULL,
+    name          VARCHAR(128)  NOT NULL DEFAULT '',
+    issued_by     VARCHAR(26),
+    issued_at     VARCHAR(32)   NOT NULL,
+    expires_at    VARCHAR(32)   NOT NULL,
+    redeemed_at   VARCHAR(32),
+    agent_id      VARCHAR(26),
+    CONSTRAINT uq_fl_token_digest UNIQUE (digest)
+);
+
+-- Work for a zone: queued, claimed by one agent under a lease, done, or
+-- unassignable (it could not be compiled for the zone's engine). A claim whose
+-- lease runs out returns to the queue.
+CREATE TABLE IF NOT EXISTS fl_assignment (
+    id                 VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id          VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    zone               VARCHAR(128)  NOT NULL,
+    control_id         VARCHAR(26)   NOT NULL,
+    control_version    INTEGER       NOT NULL DEFAULT 1,
+    plan_id            VARCHAR(128)  NOT NULL DEFAULT '',
+    dataset            VARCHAR(255)  NOT NULL,
+    engine             VARCHAR(32)   NOT NULL,
+    -- The control's text as dispatched, so the plan an agent's capabilities
+    -- are matched against is derived, not restated.
+    pql                TEXT          NOT NULL,
+    -- The compiled Assignment (prama_kernel.agent.protocol), as sent.
+    assignment_json    TEXT          NOT NULL DEFAULT '{}',
+    state              VARCHAR(16)   NOT NULL DEFAULT 'queued',
+    reasons_json       TEXT          NOT NULL DEFAULT '[]',
+    queued_by          VARCHAR(26),
+    queued_at          VARCHAR(32)   NOT NULL,
+    claimed_by         VARCHAR(26),
+    claimed_at         VARCHAR(32),
+    lease_until        VARCHAR(32),
+    attempts           INTEGER       NOT NULL DEFAULT 0,
+    done_at            VARCHAR(32),
+    -- The ledger sequence of the evidence record that completed it.
+    evidence_sequence  INTEGER,
+    CONSTRAINT ck_fl_assignment_state
+        CHECK (state IN ('queued', 'claimed', 'done', 'unassignable'))
+);
+CREATE INDEX IF NOT EXISTS ix_fl_assignment_queue ON fl_assignment (tenant_id, zone, state);
+
+-- Holes an agent reported in its own evidence: findings its spool dropped.
+-- Kept and shown in fleet health, so a hole is said where the evidence is.
+CREATE TABLE IF NOT EXISTS fl_gap (
+    id              VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id       VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    agent_id        VARCHAR(26)   NOT NULL REFERENCES fl_agent (id) ON DELETE CASCADE,
+    first_sequence  INTEGER       NOT NULL,
+    last_sequence   INTEGER       NOT NULL,
+    dropped_at      VARCHAR(32)   NOT NULL,
+    reason          TEXT          NOT NULL,
+    reported_at     VARCHAR(32)   NOT NULL,
+    CONSTRAINT uq_fl_gap UNIQUE (agent_id, first_sequence, last_sequence)
+);

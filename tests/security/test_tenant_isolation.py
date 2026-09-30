@@ -749,6 +749,38 @@ async def _one_of_everything(uow: Any, tenant: str) -> None:
         status="anchored",
         requested_at="2026-09-28T06:00:00Z",
     )
+    # The agent fleet: an agent, a queued assignment and a reported gap, so
+    # `FleetDao.agents`, `.work` and `.gaps` have something to leak.
+    their_agent = await uow.fleet.create_agent(
+        tenant,
+        name="theirs-agent",
+        zone="theirs-zone",
+        version="1",
+        capabilities={},
+        enrolled_at="2026-09-28T06:00:00.000+00:00",
+    )
+    await uow.fleet.queue(
+        tenant,
+        zone="theirs-zone",
+        control_id=str(their_control.id),
+        control_version=1,
+        plan_id="ir:sha256:theirs",
+        dataset="positions_eod",
+        engine="sqlite",
+        pql=PQL,
+        assignment={},
+        queued_at="2026-09-28T06:00:00.000+00:00",
+        queued_by=None,
+    )
+    await uow.fleet.record_gap(
+        tenant,
+        agent_id=their_agent.id,
+        first_sequence=3,
+        last_sequence=4,
+        dropped_at="2026-09-28T06:00:00.000+00:00",
+        reason="theirs",
+        reported_at="2026-09-28T06:00:00.000+00:00",
+    )
     await uow.flush()
 
 
@@ -1049,6 +1081,17 @@ UNSCOPED_READS: dict[str, str] = {
     # an identity matching two estates with a raw MultipleResultsFound. It
     # refuses and says to pass the tenant (QA finding DB-142).
     "PrincipalDao.by_external_id": "as ApiKeyDao.by_prefix, for the SSO path",
+    # The agent fleet: an enrolling agent holds a token and nothing else, and a
+    # signed message names its agent. Each lookup is how the estate is found;
+    # tests/agent/test_fleet_http.py shows neither crosses estates.
+    "FleetDao.token_by_digest": (
+        "the token is how an enrolling agent's estate is established; the digest of a "
+        "256-bit random token is the whole of the lookup"
+    ),
+    "FleetDao.agent_for_message": (
+        "a signed message names its agent, and nothing is believed until the signature "
+        "verifies under a key derived from the row's own tenant"
+    ),
     # Three entries lived here until QA round 2: AttributeDao.mapped_to_property,
     # EvidenceDao.for_control and EvidenceDao.for_run. Each was justified by a
     # caller that filtered afterwards — "checked, but remembered rather than

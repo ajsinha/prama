@@ -40,6 +40,9 @@ class Call:
     data: dict[str, Any] | None = None
     #: Return the body as bytes, for a download.
     raw: bool = False
+    #: Extra request headers, e.g. an agent's signature. Added to the SDK's
+    #: own; they cannot replace the credential the client holds.
+    headers: dict[str, str] = dataclasses.field(default_factory=dict)
 
 
 def raise_for(response: httpx.Response) -> None:
@@ -82,8 +85,9 @@ def decode(response: httpx.Response, call: Call) -> Any:
     return response.text
 
 
-def headers(token: str | None) -> dict[str, str]:
+def headers(token: str | None, extra: dict[str, str] | None = None) -> dict[str, str]:
     found = {"User-Agent": f"prama-sdk/{VERSION}", "X-Prama-Client": f"python/{VERSION}"}
+    found.update(extra or {})
     if token:
         found["Authorization"] = f"Bearer {token}"
     return found
@@ -122,7 +126,7 @@ class SyncTransport:
                 json=call.json_body,
                 files=call.files,
                 data=call.data,
-                headers=headers(self.token),
+                headers=headers(self.token, call.headers),
             )
         except httpx.TransportError as exc:
             raise _unreachable(str(self.http.base_url), exc) from exc
@@ -149,7 +153,7 @@ class AsyncTransport:
                 json=call.json_body,
                 files=call.files,
                 data=call.data,
-                headers=headers(self.token),
+                headers=headers(self.token, call.headers),
             )
         except httpx.TransportError as exc:
             raise _unreachable(str(self.http.base_url), exc) from exc

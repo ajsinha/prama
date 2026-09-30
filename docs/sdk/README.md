@@ -123,7 +123,7 @@ except prama.NotFoundError as error:
 
 ## The namespaces
 
-Forty-one namespaces cover 238 endpoints: everything the console and the CLI do, except what is
+Forty-two namespaces cover 250 endpoints: everything the console and the CLI do, except what is
 purely local to one machine (`prama db init`, `prama serve`, `prama lsp serve`). The pages beside
 this one describe each area with worked examples.
 
@@ -138,6 +138,7 @@ this one describe each area with worked examples.
 | Usage | `usage` | [usage](usage.md) |
 | People and administration | `principals`, `roles`, `api_keys`, `account`, `models`, `agents`, `config`, `audit` | [administration](administration.md) |
 | Knowledge and code | `lineage`, `code`, `glossary`, `metadata`, `comments`, `delegates`, `packs`, `connectors`, `llm` | [knowledge and code](knowledge-and-code.md) |
+| The agent fleet: agents beside the data, and their administration | `fleet` | [fleet](fleet.md) |
 
 ## A whole estate, from Python
 

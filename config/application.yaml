@@ -46,6 +46,18 @@ agents:
   enabled: true
   interval: 60s                     # how often due goals are checked
 
+fleet:
+  # Agents that run beside the data and report findings, never data
+  # (docs/design/agent-fleet-http.md). Each agent's signing key is derived
+  # from the fleet secret, which falls back to security.session_secret. The
+  # fleet secret has no entry here on purpose: give it one only in
+  # application.local.yaml, which is not tracked. Changing it invalidates
+  # every enrolled agent's key.
+  token_hours: 1                    # how long an enrolment token is good for
+  lease_seconds: 900                # a claimed assignment returns to the queue after this
+  poll_seconds: 30                  # what an agent is told to wait between calls
+  stale_minutes: 15                 # silence after which fleet health names an agent
+
 delegates:
   # DQ delegates: Python checks a control names with USING DELEGATE '<name>'.
   # Each host (this server, every remote agent) runs only what its own copy
