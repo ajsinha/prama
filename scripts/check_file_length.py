@@ -35,7 +35,7 @@ EXEMPT_PARTS = frozenset(
     }
 )
 #: When no paths are given, only these roots are walked.
-DEFAULT_ROOTS = ("src", "sdk", "tests", "scripts", "schema")
+DEFAULT_ROOTS = ("src", "sdk", "kernel", "tests", "scripts", "schema")
 CHECKED_SUFFIXES = {".py", ".rs", ".sql", ".sh", ".ts", ".tsx"}
 UI_SUFFIXES = {".ts", ".tsx", ".css", ".scss"}
 

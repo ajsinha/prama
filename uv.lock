@@ -1925,6 +1925,7 @@ dependencies = [
     { name = "itsdangerous" },
     { name = "jinja2" },
     { name = "markdown" },
+    { name = "prama-kernel" },
     { name = "pyarrow" },
     { name = "pydantic" },
     { name = "python-multipart" },
@@ -2010,6 +2011,7 @@ requires-dist = [
     { name = "opentelemetry-sdk", marker = "extra == 'otel'", specifier = ">=1.25" },
     { name = "orjson", marker = "extra == 'fast'", specifier = ">=3.10" },
     { name = "playwright", marker = "extra == 'audit'", specifier = ">=1.44" },
+    { name = "prama-kernel", editable = "kernel" },
     { name = "prama-sdk", marker = "extra == 'dev'", editable = "sdk" },
     { name = "psycopg", extras = ["binary"], marker = "extra == 'postgres'", specifier = ">=3.1" },
     { name = "pyarrow", specifier = ">=17" },
@@ -2029,6 +2031,14 @@ requires-dist = [
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'serve'", specifier = ">=0.30" },
 ]
 provides-extras = ["serve", "postgres", "fast", "dev", "audit", "deck", "otel", "sso", "kafka", "rest", "jdbc", "snowflake", "clickhouse", "mongo"]
+
+[[package]]
+name = "prama-kernel"
+source = { editable = "kernel" }
+
+[package.metadata]
+requires-dist = [{ name = "orjson", marker = "extra == 'fast'", specifier = ">=3.10" }]
+provides-extras = ["fast"]
 
 [[package]]
 name = "prama-sdk"

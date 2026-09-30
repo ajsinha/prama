@@ -11,6 +11,7 @@ from typing import Any
 
 import pytest
 
+from prama.agent.assign import assignment_for
 from prama.backend import compile_for
 from prama.backend.execute import judge
 from prama.core.errors import PramaError
@@ -103,7 +104,7 @@ async def test_a_run_records_evidence_and_fills_the_break_workbench(
 
 
 def test_an_agent_runs_it_beside_the_data() -> None:
-    from prama.agent import Agent, AgentCapabilities, Assignment, ResidencyPolicy
+    from prama.agent import Agent, AgentCapabilities, ResidencyPolicy
     from prama.agent.residency import SampleDisposition
 
     plan = resolved(parse_control(SOURCE))
@@ -114,7 +115,7 @@ def test_an_agent_runs_it_beside_the_data() -> None:
         residency=ResidencyPolicy(zone="z", samples=SampleDisposition.WITHHOLD, investigate_at="z"),
         capabilities=AgentCapabilities(engines=("duckdb",)),
     )
-    outcome = agent.run(Assignment.for_plan(plan, "duckdb", control_id="r"))
+    outcome = agent.run(assignment_for(plan, "duckdb", control_id="r"))
     assert outcome.record is not None and outcome.record.verdict == "fail"
     assert outcome.record.metrics["violating_rows"] == 2
 

@@ -11,6 +11,7 @@ from typing import Any
 
 import pytest
 
+from prama.agent.assign import assignment_for
 from prama.backend import compile_for
 from prama.backend.execute import judge
 from prama.core.errors import PramaError, ValidationError
@@ -225,7 +226,7 @@ async def test_without_a_delegate_host_the_control_is_an_error_not_a_skip(
 
 
 def test_an_agent_is_assigned_only_the_delegates_its_own_config_admitted() -> None:
-    from prama.agent import Agent, AgentCapabilities, Assignment, ResidencyPolicy, fits
+    from prama.agent import Agent, AgentCapabilities, ResidencyPolicy, fits
     from prama.agent.residency import SampleDisposition
 
     plan = resolved(parse_control(CONTROL))
@@ -248,7 +249,7 @@ def test_an_agent_is_assigned_only_the_delegates_its_own_config_admitted() -> No
     pinned_elsewhere = resolved(parse_control(CONTROL.replace("@2", "@3")))
     assert "pins test.over_limit@3" in fits(pinned_elsewhere, hello.capabilities).render()
 
-    outcome = agent.run(Assignment.for_plan(plan, "duckdb", control_id="c1"))
+    outcome = agent.run(assignment_for(plan, "duckdb", control_id="c1"))
     record = outcome.record
     assert record is not None and record.verdict == "fail"
     assert (

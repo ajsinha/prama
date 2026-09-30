@@ -96,11 +96,20 @@ is meant to refuse to boot. The pre-commit hook refuses a non-empty secret in a 
 `sdk/` is `prama-sdk`, imported as `prama_sdk`: what a client installs, depending on `httpx` and
 `PyYAML` only. It has its own errors (mapped from the server's codes), its own reader for
 `server.host`/`port`, and a policed copy of the version. It never imports `prama`, and the server
-never imports `prama_sdk` (only its tests do). `tests/architecture/test_sdk_standalone.py` fails
+never imports `prama_sdk` (only its tests do). `tests/architecture/test_packages_standalone.py` fails
 the build otherwise, including by running the SDK with `prama` made unimportable and by building
 its wheel. Every endpoint needs an SDK method (`tests/sdk/test_parity.py`).
 
-### 7. AI never adjudicates.
+### 7. The kernel is shared, and imports only the standard library.
+
+`kernel/` is `prama-kernel`, imported as `prama_kernel`: the deterministic code the server and
+the standalone agent share (plan model, judge, evidence record, reconciliation, calendars, agent
+protocol with residency and spool, delegate runtime). One copy, so a verdict judged beside the data
+is the verdict the server would give. The server's old paths (`prama.core.errors`,
+`prama.backend.execute`, …) are aliases of the kernel modules, not copies. The kernel never
+imports `prama`, `prama_sdk` or `prama_agent` (`tests/architecture/test_packages_standalone.py`).
+
+### 8. AI never adjudicates.
 
 No code path may allow a model output to determine a pass/fail verdict on data (`CON-007`,
 `NFR-AI-002`). Models author, rank, explain, calibrate and summarise. A deterministic, versioned
@@ -233,8 +242,8 @@ PRAMA_TEST_POSTGRES_DSN=postgresql://prama:prama@127.0.0.1:55432/prama pytest -q
                                          # conformance on three real engines, not two
 PRAMA_TEST_KAFKA_BOOTSTRAP=127.0.0.1:19092 pytest -q tests/execute/test_kafka.py
                                          # offset semantics; needs pip install -e ".[kafka]"
-ruff check src sdk tests qa/regression-suite    # qa/harness is deliberately not linted
-mypy src && mypy sdk/src
+ruff check src sdk kernel tests qa/regression-suite    # qa/harness is deliberately not linted
+mypy src && mypy sdk/src && mypy kernel/src
 uv build --wheel sdk                     # the SDK, a separate package clients install
 ```
 

@@ -3,7 +3,7 @@
 #
 # Deliberately separate from the server's package: a client machine installs
 # this and nothing of the server. It never imports `prama`, and the server's
-# tests (tests/architecture/test_sdk_standalone.py) fail the build if it does,
+# tests (tests/architecture/test_packages_standalone.py) fail the build if it does,
 # or if its wheel carries anything but prama_sdk and these dependencies.
 [build-system]
 requires = ["setuptools>=69", "wheel"]
@@ -31,3 +31,7 @@ version = { attr = "prama_sdk.version.VERSION" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+# Typed: a caller's type checker reads these annotations.
+prama_sdk = ["py.typed"]

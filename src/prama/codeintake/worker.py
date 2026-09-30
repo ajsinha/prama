@@ -19,6 +19,8 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
+from prama_kernel.delegates.limits import limit_resources as limit_resources
+
 #: The version of the reading logic, recorded on every unit it produced.
 VERSION = "5"
 
@@ -134,16 +136,6 @@ def read(root: Path, dialect: str, skip: frozenset[str] = frozenset()) -> dict[s
             {"path": relative, "kind": kind, "statements": statements, "gaps": gaps, "read": True}
         )
     return {"version": VERSION, "units": units, "edges": edges}
-
-
-def limit_resources(cpu_seconds: int = 120, memory_bytes: int = 2 << 30) -> None:
-    """Set in the child before it runs (POSIX only)."""
-    import resource
-
-    resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds))
-    resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))
-    resource.setrlimit(resource.RLIMIT_NOFILE, (256, 256))
-    resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,31 @@
+# prama-kernel — the deterministic code the server and the agent share.
+# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
+#
+# Standard library only. The server depends on it; so does prama-agent. It
+# imports neither (tests/architecture/test_packages_standalone.py).
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "prama-kernel"
+description = "Prama's kernel: plan model, judge, evidence record, reconciliation, residency, delegate runtime."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary — see LICENSE" }
+authors = [{ name = "Ashutosh Sinha", email = "ajsinha@gmail.com" }]
+dynamic = ["version"]
+dependencies = []
+
+[project.optional-dependencies]
+fast = ["orjson>=3.10"]
+
+[tool.setuptools.dynamic]
+version = { attr = "prama_kernel.version.VERSION" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+# Typed: a caller's type checker reads these annotations.
+prama_kernel = ["py.typed"]

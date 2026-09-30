@@ -1,4 +1,11 @@
-"""The SDK is its own package: a client machine installs it and nothing of the server.
+"""The SDK and the kernel are their own packages, and never reach into the server.
+
+**The kernel** (``kernel/``, ``prama_kernel``) is the deterministic code the
+server and a remote agent share. It imports only the standard library — never
+``prama``, ``prama_sdk`` or ``prama_agent`` — or the agent would drag the server
+onto every machine it runs on; its wheel needs no dependency at all.
+
+**The SDK** is what clients install.
 
 ``prama-sdk`` (``sdk/``, imported as ``prama_sdk``) is what clients install. If it
 imported the server — for an error class, the version, the configuration
@@ -30,6 +37,9 @@ SDK = ROOT / "sdk" / "src" / "prama_sdk"
 SERVER = ROOT / "src" / "prama"
 #: What the SDK may depend on, and nothing else.
 ALLOWED_REQUIREMENTS = {"httpx", "pyyaml"}
+KERNEL = ROOT / "kernel" / "src" / "prama_kernel"
+#: The kernel may import the standard library and nothing of Prama but itself.
+NOT_FOR_THE_KERNEL = ("prama", "prama_sdk", "prama_agent")
 
 
 def _imports(path: Path) -> list[str]:
@@ -181,3 +191,75 @@ def test_every_server_error_reaches_the_client_as_the_class_for_its_status() -> 
         assert issubclass(got, want), f"{cls.__qualname__} ({instance.code}, {status}) -> {got}"
         checked += 1
     assert checked >= 10
+
+
+def test_no_kernel_module_imports_the_server_the_sdk_or_the_agent() -> None:
+    offenders = [
+        f"{path.relative_to(ROOT)} imports {name}"
+        for path in sorted(KERNEL.rglob("*.py"))
+        for name in _imports(path)
+        if any(name == top or name.startswith(top + ".") for top in NOT_FOR_THE_KERNEL)
+    ]
+    assert not offenders, "\n".join(offenders)
+
+
+def test_the_kernel_imports_with_the_server_unimportable() -> None:
+    """Every kernel module, in an interpreter where prama is blocked."""
+    modules = sorted(
+        ".".join(path.relative_to(KERNEL.parent).with_suffix("").parts).removesuffix(".__init__")
+        for path in KERNEL.rglob("*.py")
+    )
+    script = _ISOLATED.split("import prama_sdk as prama")[0] + (
+        "import importlib\n"
+        f"for name in {modules!r}:\n    importlib.import_module(name)\n"
+        "print('kernel', len(" + repr(modules) + "))\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script, str(KERNEL.parent)],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout.startswith("kernel ")
+
+
+def test_the_server_aliases_are_the_kernel_modules() -> None:
+    """One copy: the server's old import paths are the kernel's modules, not copies."""
+    import prama_kernel.delegates.host
+    import prama_kernel.errors
+    import prama_kernel.judge
+
+    import prama.backend.execute
+    import prama.core.errors
+    import prama.delegates.host
+
+    assert prama.core.errors is prama_kernel.errors
+    assert prama.backend.execute is prama_kernel.judge
+    assert prama.delegates.host is prama_kernel.delegates.host
+
+
+def test_the_kernel_wheel_holds_only_the_kernel_and_needs_nothing(tmp_path: Path) -> None:
+    uv = shutil.which("uv")
+    if uv is None:
+        pytest.skip("uv is not installed, so the kernel wheel was NOT built and checked")
+    subprocess.run(
+        [uv, "build", "--wheel", str(ROOT / "kernel"), "--out-dir", str(tmp_path)],
+        check=True,
+        capture_output=True,
+        timeout=300,
+    )
+    (wheel,) = tmp_path.glob("prama_kernel-*.whl")
+    with zipfile.ZipFile(wheel) as archive:
+        names = archive.namelist()
+        metadata = next(n for n in names if n.endswith(".dist-info/METADATA"))
+        requires = [
+            line
+            for line in archive.read(metadata).decode().splitlines()
+            if line.startswith("Requires-Dist:") and "extra ==" not in line
+        ]
+    assert {name.split("/")[0] for name in names if not name.startswith("prama_kernel-")} == {
+        "prama_kernel"
+    }
+    assert requires == [], requires

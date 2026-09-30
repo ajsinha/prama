@@ -33,6 +33,8 @@ dependencies = [
     # regex extractor stays only as the fallback for what it cannot parse,
     # reported as a gap (docs/23, Wave 12; owner-approved 2026-09-27).
     "sqlglot>=25",
+    # The deterministic code the server shares with remote agents (kernel/).
+    "prama-kernel",
 ]
 
 [project.optional-dependencies]
@@ -96,6 +98,7 @@ prama = "prama.cli.main:main"
 
 [tool.uv.sources]
 prama-sdk = { path = "sdk", editable = true }
+prama-kernel = { path = "kernel", editable = true }
 
 [tool.setuptools.dynamic]
 version = { attr = "prama.version.VERSION" }
@@ -184,7 +187,7 @@ ignore = ["N818"]
 [tool.mypy]
 python_version = "3.11"
 packages = ["prama"]
-mypy_path = "src"
+mypy_path = "src:kernel/src:sdk/src"
 strict = true
 warn_unreachable = true
 disallow_any_generics = false
