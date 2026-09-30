@@ -60,7 +60,7 @@ green run rather than typed.
 | Metadata store | **PostgreSQL 16+** (bitemporal), SQLAlchemy 2.0 | ✅ SQLAlchemy + DAO layer reusable |
 | Evidence & metrics | **Object storage + Parquet/Iceberg**, queried by DuckDB | ⚠️ Iceberg/Delta/Hudi connectors exist |
 | Graph | Postgres + **Apache AGE** initially; Neo4j only if measured need | ❌ New |
-| Config | YAML/`.properties`, `${VAR:default}`, git-ignored local overlays, secrets never tracked | ✅ **Adopt wholesale** (`core/properties_configurator.py`) |
+| Config | YAML/`.properties`, `${VAR:default}`, git-ignored local overlays, secrets never tracked | ✅ **Adopted** (`core/properties_configurator.py`, `core/config_parsers.py`) as `prama/core/config/properties.py` and `parsers.py`: every file is parsed, and every `${...}` resolved (nested ones included), by DishtaYantra's engine, and `config.properties()` gives its API. Adapted, with reasons in the modules: no singleton and no reload thread (`changed()`/`reload()` instead), an unresolved placeholder is an error rather than left literal, and environment overrides carry the `PRAMA_` prefix |
 | AuthN/Z | OIDC/SAML + API keys + RBAC/ABAC | ✅ `core/auth`, `core/db/models.py` reusable |
 | HA | Lease-based (Postgres advisory lock / Zookeeper / Redis / S3) | ✅ `core/ha` reusable |
 | Observability | Prometheus + OpenTelemetry + structured logs | ✅ `core/metrics`, `core/observability` reusable |

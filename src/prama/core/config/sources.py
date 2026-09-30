@@ -24,8 +24,12 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
-import yaml
-
+from prama.core.config.parsers import (
+    detect_format,
+    load_yaml_mapping,
+    parse_properties_text,
+    read_config_text,
+)
 from prama.core.errors import ConfigError
 
 #: Environment variables contributing configuration must carry this prefix, so
@@ -87,34 +91,7 @@ class FileSource(ConfigSource):
                     context={"path": str(self.path)},
                 )
             return {}
-        try:
-            text = self.path.read_text(encoding="utf-8")
-        except UnicodeDecodeError as exc:
-            # A `UnicodeDecodeError` is a `ValueError`, not an `OSError`, so the
-            # clause below never caught it and a latin-1 config file reached the
-            # terminal as a traceback — while the remedy beside it already said
-            # "UTF-8 is expected". The message existed; the branch that could
-            # show it did not. QA round 4, `CFG-062`.
-            raise ConfigError(
-                f"{self.path} is not valid UTF-8: byte 0x{exc.object[exc.start]:02x} "
-                f"at position {exc.start}",
-                code="CONFIG.FILE_UNREADABLE",
-                remedy=(
-                    "Save the file as UTF-8. An editor defaulting to latin-1 or "
-                    "cp1252 produces this as soon as a value contains an accent."
-                ),
-                context={"path": str(self.path), "position": exc.start},
-                cause=exc,
-            ) from exc
-        except OSError as exc:
-            raise ConfigError(
-                f"could not read configuration file: {self.path}",
-                code="CONFIG.FILE_UNREADABLE",
-                remedy="Check the file's permissions and encoding (UTF-8 is expected).",
-                context={"path": str(self.path)},
-                cause=exc,
-            ) from exc
-        return self._parse(text)
+        return self._parse(read_config_text(self.path))
 
     @abstractmethod
     def _parse(self, text: str) -> dict[str, Any]:
@@ -122,30 +99,14 @@ class FileSource(ConfigSource):
 
 
 class YamlFileSource(FileSource):
-    """A YAML document. The recommended format."""
+    """A YAML document. The recommended format.
+
+    Parsed by the adopted DishtaYantra parser (`prama.core.config.parsers`),
+    keeping the types YAML gave its values.
+    """
 
     def _parse(self, text: str) -> dict[str, Any]:
-        try:
-            data = yaml.safe_load(text)
-        except yaml.YAMLError as exc:
-            raise ConfigError(
-                f"invalid YAML in {self.path}",
-                code="CONFIG.YAML_INVALID",
-                remedy="Fix the YAML syntax reported below and retry.",
-                context={"path": str(self.path), "detail": str(exc)},
-                cause=exc,
-            ) from exc
-        if data is None:
-            return {}
-        # mypy: yaml.safe_load returns Any; the isinstance check below narrows it.
-        if not isinstance(data, dict):
-            raise ConfigError(
-                f"{self.path} must contain a mapping at the top level",
-                code="CONFIG.YAML_SHAPE",
-                remedy="Wrap the document in key: value pairs.",
-                context={"path": str(self.path), "found": type(data).__name__},
-            )
-        return dict(data)
+        return load_yaml_mapping(text, source=str(self.path))
 
 
 class PropertiesFileSource(FileSource):
@@ -153,29 +114,13 @@ class PropertiesFileSource(FileSource):
 
     Supported because estates migrating from JVM tooling already have thousands
     of these, and asking them to convert before they can evaluate anything is a
-    pointless obstacle. Dotted keys expand into the same nested shape YAML
-    produces, so nothing downstream can tell which format was used.
+    pointless obstacle. Parsed by the adopted DishtaYantra parser; dotted keys
+    expand into the same nested shape YAML produces, so nothing downstream can
+    tell which format was used.
     """
 
     def _parse(self, text: str) -> dict[str, Any]:
-        flat: dict[str, Any] = {}
-        for lineno, raw in enumerate(text.splitlines(), start=1):
-            line = raw.strip()
-            if not line or line.startswith(("#", "!")):
-                continue
-            for sep in ("=", ":"):
-                if sep in line:
-                    key, value = line.split(sep, 1)
-                    break
-            else:
-                raise ConfigError(
-                    f"{self.path}:{lineno} is not a key/value line",
-                    code="CONFIG.PROPERTIES_INVALID",
-                    remedy="Use `key = value`, or comment the line with '#'.",
-                    context={"path": str(self.path), "line": lineno},
-                )
-            flat[key.strip()] = value.strip()
-        return expand_dotted(flat)
+        return expand_dotted(parse_properties_text(text, source=str(self.path)))
 
 
 class EnvironmentSource(ConfigSource):
@@ -287,16 +232,8 @@ def local_overlay_for(path: str | Path) -> Path:
 
 
 def source_for(path: str | Path, *, required: bool = True) -> FileSource:
-    """Pick a file source from the extension."""
+    """Pick a file source from the extension (`parsers.detect_format`)."""
     p = Path(path)
-    suffix = p.suffix.lower()
-    if suffix in (".yaml", ".yml"):
+    if detect_format(p) == "yaml":
         return YamlFileSource(p, required=required)
-    if suffix in (".properties", ".props"):
-        return PropertiesFileSource(p, required=required)
-    raise ConfigError(
-        f"unsupported configuration format: {p.suffix or '(none)'}",
-        code="CONFIG.FORMAT_UNSUPPORTED",
-        remedy="Use a .yaml, .yml or .properties file.",
-        context={"path": str(p)},
-    )
+    return PropertiesFileSource(p, required=required)
