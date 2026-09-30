@@ -198,6 +198,25 @@ class Configuration:
 
     # -- provenance and display -------------------------------------------
 
+    def properties(self) -> Any:
+        """This configuration as DishtaYantra's flat, string-valued properties API.
+
+        ``get``, ``get_int``, ``get_bool``, ``get_list``, ``get_source``, the
+        pattern queries, and ``resolve_string_content`` over the same values,
+        so code (or a person) used to ``PropertiesConfigurator`` reads Prama's
+        configuration the way it reads DishtaYantra's. Environment and command
+        line are already applied; the view adds nothing of its own.
+        """
+        from prama.core.config.properties import PropertiesConfigurator, flat_strings, sources_of
+
+        flat = flat_strings(self._values)
+        return PropertiesConfigurator(
+            properties=flat,
+            sources=sources_of(self._provenance, flat),
+            environ={},
+            argv=[],
+        )
+
     def provenance(self, path: str) -> str | None:
         return self._provenance.get(self._qualify(path))
 

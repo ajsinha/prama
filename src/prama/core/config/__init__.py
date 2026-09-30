@@ -9,6 +9,10 @@ Layering, weakest to strongest: built-in defaults, ``config/application.yaml``,
 the git-ignored ``config/application.local.yaml`` overlay, ``PRAMA_``-prefixed
 environment variables, then ``--set`` overrides from the command line.
 
+Files are parsed, and ``${...}`` placeholders resolved, by the engine adopted
+from DishtaYantra's ``properties_configurator.py`` (`parsers`, `properties`);
+``config.properties()`` offers its flat, string-valued API over the result.
+
 Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 """
 
@@ -20,6 +24,13 @@ from pathlib import Path
 from prama.core.config.coercion import Coercer
 from prama.core.config.configuration import Configuration, ConfigurationBuilder
 from prama.core.config.defaults import DEFAULTS
+from prama.core.config.parsers import (
+    ConfigParseError,
+    find_default_config,
+    flatten_yaml,
+    parse_config_file,
+)
+from prama.core.config.properties import ConfigurationManager, PropertiesConfigurator
 from prama.core.config.resolver import PlaceholderResolver
 from prama.core.config.sources import (
     CliSource,
@@ -38,18 +49,24 @@ __all__ = [
     "DEFAULT_CONFIG_PATH",
     "CliSource",
     "Coercer",
+    "ConfigParseError",
     "ConfigSource",
     "Configuration",
     "ConfigurationBuilder",
+    "ConfigurationManager",
     "EnvironmentSource",
     "MappingSource",
     "PlaceholderResolver",
+    "PropertiesConfigurator",
     "PropertiesFileSource",
     "YamlFileSource",
     "deep_merge",
     "expand_dotted",
+    "find_default_config",
+    "flatten_yaml",
     "load_configuration",
     "local_overlay_for",
+    "parse_config_file",
 ]
 
 #: Overridable with ``PRAMA_CONFIG``; relative to the working directory.
