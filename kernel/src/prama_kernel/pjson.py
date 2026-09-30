@@ -14,6 +14,12 @@ before:
   reject — the worst possible outcome for an evidence record.
 * **Sorted keys on canonical encoding.** Evidence records are hashed; a hash
   that depends on dict insertion order is not a hash of the content.
+* **One spelling of every float, whichever backend is installed.** The standard
+  library writes ``1e-05`` and ``1e-07`` where orjson writes ``0.00001`` and
+  ``1e-7``. Compact output (what is hashed and signed) therefore goes through
+  an encoder that spells floats as orjson does, so a record hashed on a machine
+  without orjson has the hash it has everywhere else, and an agent's signed
+  message verifies on a server built differently (`tests/core/test_pjson_backends.py`).
 
 Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 """
@@ -94,16 +100,80 @@ def dumpb(value: Any, *, sort_keys: bool = False, indent: bool = False) -> bytes
         if indent:
             option |= _orjson.OPT_INDENT_2
         return _orjson.dumps(value, default=_default, option=option)
+    if not indent:
+        return _compact(value, sort_keys=sort_keys).encode("utf-8")
     text = _stdjson.dumps(
         value,
         default=_default,
         sort_keys=sort_keys,
-        indent=2 if indent else None,
-        separators=None if indent else (",", ":"),
+        indent=2,
         allow_nan=False,
         ensure_ascii=False,
     )
     return text.encode("utf-8")
+
+
+def float_text(value: float) -> str:
+    """A finite float as orjson writes it.
+
+    Python's ``repr`` differs in two places only: an exponent of -5 is written
+    out as a decimal (``0.00001``, not ``1e-05``), and exponents are not
+    zero-padded (``1e-7``, not ``1e-07``). The SDK signs with the same rule
+    (``prama_sdk.signing``), because it cannot import this module.
+    """
+    text = repr(value)
+    if "e" not in text:
+        return text
+    mantissa, _, exponent = text.partition("e")
+    power = int(exponent)
+    if power == -5:
+        sign = "-" if mantissa.startswith("-") else ""
+        digits = mantissa.lstrip("-").replace(".", "")
+        return f"{sign}0.0000{digits}"
+    return f"{mantissa}e{'-' if power < 0 else '+'}{abs(power)}"
+
+
+def _compact(value: Any, *, sort_keys: bool) -> str:
+    """Compact JSON, spelled exactly as orjson spells it (standard library only)."""
+    out: list[str] = []
+
+    def encode(item: Any) -> None:
+        if item is None:
+            out.append("null")
+        elif item is True:
+            out.append("true")
+        elif item is False:
+            out.append("false")
+        elif isinstance(item, int):
+            out.append(str(item))
+        elif isinstance(item, float):
+            out.append(float_text(item) if math.isfinite(item) else "null")
+        elif isinstance(item, str):
+            out.append(_stdjson.dumps(item, ensure_ascii=False))
+        elif isinstance(item, dict):
+            out.append("{")
+            keys = sorted(item) if sort_keys else list(item)
+            for index, key in enumerate(keys):
+                if not isinstance(key, str):
+                    raise TypeError(f"a JSON key must be a string, not {type(key).__name__}")
+                if index:
+                    out.append(",")
+                out.append(_stdjson.dumps(key, ensure_ascii=False))
+                out.append(":")
+                encode(item[key])
+            out.append("}")
+        elif isinstance(item, (list, tuple)):
+            out.append("[")
+            for index, element in enumerate(item):
+                if index:
+                    out.append(",")
+                encode(element)
+            out.append("]")
+        else:
+            encode(_default(item))
+
+    encode(value)
+    return "".join(out)
 
 
 def dumps(value: Any, *, sort_keys: bool = False, indent: bool = False) -> str:

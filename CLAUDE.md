@@ -109,7 +109,17 @@ is the verdict the server would give. The server's old paths (`prama.core.errors
 `prama.backend.execute`, …) are aliases of the kernel modules, not copies. The kernel never
 imports `prama`, `prama_sdk` or `prama_agent` (`tests/architecture/test_packages_standalone.py`).
 
-### 8. AI never adjudicates.
+### 8. The agent is a separate package, a daemon, and never imports the server.
+
+`agent/` is `prama-agent`, imported as `prama_agent`: the daemon that runs on customer machines
+beside the data (`prama-agent enrol | run | status`). It depends on `prama-kernel` and `prama-sdk`
+only (PyYAML; `duckdb`/`postgres` as extras), talks to the server only through a `FleetLink`
+backed by the SDK's `client.fleet`, and holds the runner (`prama_agent.runner.Agent`). It never
+imports `prama`; the server never imports `prama_agent` (only its tests do).
+`tests/architecture/test_packages_standalone.py` runs a full daemon cycle with `prama` blocked and
+builds its wheel. Guide: `docs/agent/README.md`.
+
+### 9. AI never adjudicates.
 
 No code path may allow a model output to determine a pass/fail verdict on data (`CON-007`,
 `NFR-AI-002`). Models author, rank, explain, calibrate and summarise. A deterministic, versioned
@@ -242,9 +252,14 @@ PRAMA_TEST_POSTGRES_DSN=postgresql://prama:prama@127.0.0.1:55432/prama pytest -q
                                          # conformance on three real engines, not two
 PRAMA_TEST_KAFKA_BOOTSTRAP=127.0.0.1:19092 pytest -q tests/execute/test_kafka.py
                                          # offset semantics; needs pip install -e ".[kafka]"
-ruff check src sdk kernel tests qa/regression-suite    # qa/harness is deliberately not linted
-mypy src && mypy sdk/src && mypy kernel/src
+ruff check src sdk kernel agent tests qa/regression-suite    # qa/harness is deliberately not linted
+mypy src && mypy sdk/src && mypy kernel/src && mypy agent/src
 uv build --wheel sdk                     # the SDK, a separate package clients install
+uv build --wheel agent                   # the agent daemon, installed on customer machines
+pytest -q tests/agent_daemon             # the daemon's loop, spool, residency, signals, CLI
+prama-agent enrol --server https://prama.example.com --token … --name eu-01 --state /var/lib/prama-agent
+prama-agent run --config /etc/prama-agent/agent.yaml [--once]   # exit 3: refused for good
+prama-agent status --config /etc/prama-agent/agent.yaml         # identity, zone, spool, gaps, last contact
 ```
 
 ---

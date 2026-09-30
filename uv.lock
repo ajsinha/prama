@@ -1947,6 +1947,7 @@ deck = [
 dev = [
     { name = "httpx" },
     { name = "mypy" },
+    { name = "prama-agent" },
     { name = "prama-sdk" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -2011,6 +2012,7 @@ requires-dist = [
     { name = "opentelemetry-sdk", marker = "extra == 'otel'", specifier = ">=1.25" },
     { name = "orjson", marker = "extra == 'fast'", specifier = ">=3.10" },
     { name = "playwright", marker = "extra == 'audit'", specifier = ">=1.44" },
+    { name = "prama-agent", marker = "extra == 'dev'", editable = "agent" },
     { name = "prama-kernel", editable = "kernel" },
     { name = "prama-sdk", marker = "extra == 'dev'", editable = "sdk" },
     { name = "psycopg", extras = ["binary"], marker = "extra == 'postgres'", specifier = ">=3.1" },
@@ -2031,6 +2033,25 @@ requires-dist = [
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'serve'", specifier = ">=0.30" },
 ]
 provides-extras = ["serve", "postgres", "fast", "dev", "audit", "deck", "otel", "sso", "kafka", "rest", "jdbc", "snowflake", "clickhouse", "mongo"]
+
+[[package]]
+name = "prama-agent"
+source = { editable = "agent" }
+dependencies = [
+    { name = "prama-kernel" },
+    { name = "prama-sdk" },
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "duckdb", marker = "extra == 'duckdb'", specifier = ">=1.0" },
+    { name = "prama-kernel" },
+    { name = "prama-sdk" },
+    { name = "psycopg", extras = ["binary"], marker = "extra == 'postgres'", specifier = ">=3.1" },
+    { name = "pyyaml", specifier = ">=6.0" },
+]
+provides-extras = ["duckdb", "postgres"]
 
 [[package]]
 name = "prama-kernel"

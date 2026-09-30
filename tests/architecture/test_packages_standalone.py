@@ -1,4 +1,4 @@
-"""The SDK and the kernel are their own packages, and never reach into the server.
+"""The SDK, the kernel and the agent are their own packages, and never reach into the server.
 
 **The kernel** (``kernel/``, ``prama_kernel``) is the deterministic code the
 server and a remote agent share. It imports only the standard library — never
@@ -17,6 +17,13 @@ the console. So these fail the build:
 * the SDK's wheel carrying anything but ``prama_sdk``, or depending on more
   than ``httpx`` and ``PyYAML``;
 * a server error code the SDK would raise as the wrong class.
+
+**The agent** (``agent/``, ``prama_agent``) is the daemon that runs on customer
+machines beside the data. It depends on the kernel and the SDK and nothing of the
+server, so these fail the build too: an agent module importing ``prama``; a
+server module importing ``prama_agent``; the daemon failing to import, build and
+run a cycle with ``prama`` unimportable; its wheel carrying anything but
+``prama_agent`` or requiring more than the kernel, the SDK and PyYAML.
 
 Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 """
@@ -40,6 +47,9 @@ ALLOWED_REQUIREMENTS = {"httpx", "pyyaml"}
 KERNEL = ROOT / "kernel" / "src" / "prama_kernel"
 #: The kernel may import the standard library and nothing of Prama but itself.
 NOT_FOR_THE_KERNEL = ("prama", "prama_sdk", "prama_agent")
+AGENT = ROOT / "agent" / "src" / "prama_agent"
+#: What the agent may depend on outside its optional extras.
+ALLOWED_AGENT_REQUIREMENTS = {"prama-kernel", "prama-sdk", "pyyaml"}
 
 
 def _imports(path: Path) -> list[str]:
@@ -263,3 +273,130 @@ def test_the_kernel_wheel_holds_only_the_kernel_and_needs_nothing(tmp_path: Path
         "prama_kernel"
     }
     assert requires == [], requires
+
+
+# -- the agent ---------------------------------------------------------------
+
+
+def test_no_agent_module_imports_the_server() -> None:
+    assert AGENT.is_dir(), "the agent should live in agent/src/prama_agent"
+    offenders = [
+        f"{path.relative_to(ROOT)} imports {name}"
+        for path in sorted(AGENT.rglob("*.py"))
+        for name in _imports(path)
+        if name == "prama" or name.startswith("prama.")
+    ]
+    assert not offenders, "\n".join(offenders)
+
+
+def test_no_server_module_imports_the_agent() -> None:
+    """The server hands out work; it never runs the agent's code."""
+    offenders = [
+        f"{path.relative_to(ROOT)} imports {name}"
+        for path in sorted(SERVER.rglob("*.py"))
+        for name in _imports(path)
+        if name == "prama_agent" or name.startswith("prama_agent.")
+    ]
+    assert not offenders, "\n".join(offenders)
+    assert not (SERVER / "agent" / "runner.py").exists(), "the runner is the agent's"
+
+
+#: Run where the server cannot be imported: build the daemon from a
+#: configuration, against a real SQLite file, and run one full cycle against a
+#: fake server. What a customer's machine does, minus the network.
+_AGENT_CYCLE = r"""
+import sqlite3
+from pathlib import Path
+for extra in sys.argv[2:4]:
+    sys.path.insert(0, extra)
+work = Path(sys.argv[4])
+db = work / "w.db"
+connection = sqlite3.connect(db)
+connection.executescript("CREATE TABLE t (a INTEGER); INSERT INTO t VALUES (1), (NULL);")
+connection.commit()
+connection.close()
+
+import prama_agent
+from prama_agent import Daemon, Identity, parse_config
+from prama_kernel.agent.protocol import Assignment, Receipt, Report
+
+config = parse_config({
+    "server": "https://prama.example.com",
+    "state_dir": str(work / "state"),
+    "sources": {"t": {"engine": "sqlite", "path": str(db)}},
+    "residency": {"samples": "withhold"},
+})
+plan = {"assertion_kind": "predicate", "scope": {"dataset": "t"},
+        "metrics": [{"name": "scanned_rows", "agg": "count"},
+                    {"name": "violating_rows", "agg": "count_if"}],
+        "threshold": {"metric": "violating_rows", "op": "<=", "value": 0}}
+work_item = Assignment(plan_id="p1", dataset="t", binding="t", engine="sqlite",
+    metric_query="SELECT COUNT(*) AS scanned_rows, "
+                 "SUM(CASE WHEN a IS NULL THEN 1 ELSE 0 END) AS violating_rows FROM t",
+    metric_names=("scanned_rows", "violating_rows"), plan=plan)
+
+class Link:
+    reports = []
+    def hello(self, hello, *, key):
+        return Receipt(assignments=(work_item,)).to_dict()
+    def report(self, report, *, key):
+        self.reports.append(Report.from_dict(report))
+        return Receipt(accepted_through=self.reports[-1].last_sequence).to_dict()
+    def close(self):
+        pass
+
+identity = Identity(agent_id="a1", key_hex="00" * 32, zone="z", server="https://prama.example.com")
+link = Link()
+assert Daemon(config, identity, link).run(once=True, handle_signals=False) == 0
+(report,) = link.reports
+assert [r.verdict for r in report.records] == ["fail"], report.records
+assert not [m for m in sys.modules if m == "prama" or m.startswith("prama.")]
+print("agent", prama_agent.__version__)
+"""
+
+
+def test_the_agent_runs_a_cycle_with_the_server_unimportable(tmp_path: Path) -> None:
+    script = _ISOLATED.split("import prama_sdk as prama")[0] + _AGENT_CYCLE
+    paths = [str(AGENT.parent), str(KERNEL.parent), str(SDK.parent), str(tmp_path)]
+    result = subprocess.run(
+        [sys.executable, "-c", script, *paths],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout.startswith("agent ")
+
+
+def test_the_agent_wheel_holds_only_the_agent_and_needs_only_the_kernel_and_sdk(
+    tmp_path: Path,
+) -> None:
+    uv = shutil.which("uv")
+    if uv is None:
+        pytest.skip("uv is not installed, so the agent wheel was NOT built and checked")
+    subprocess.run(
+        [uv, "build", "--wheel", str(ROOT / "agent"), "--out-dir", str(tmp_path)],
+        check=True,
+        capture_output=True,
+        timeout=300,
+    )
+    (wheel,) = tmp_path.glob("prama_agent-*.whl")
+    with zipfile.ZipFile(wheel) as archive:
+        names = archive.namelist()
+        metadata = next(n for n in names if n.endswith(".dist-info/METADATA"))
+        entry_points = next(n for n in names if n.endswith(".dist-info/entry_points.txt"))
+        requires = [
+            line.split(":", 1)[1].strip()
+            for line in archive.read(metadata).decode().splitlines()
+            if line.startswith("Requires-Dist:") and "extra ==" not in line
+        ]
+        scripts = archive.read(entry_points).decode()
+    packaged = {name.split("/")[0] for name in names if not name.startswith("prama_agent-")}
+    assert packaged == {"prama_agent"}, packaged
+    required = {
+        requirement.split(">")[0].split("=")[0].split("[")[0].split(";")[0].strip().lower()
+        for requirement in requires
+    }
+    assert required == ALLOWED_AGENT_REQUIREMENTS, required
+    assert "prama-agent = prama_agent.cli:main" in scripts

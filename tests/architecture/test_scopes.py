@@ -109,6 +109,19 @@ class TestEveryApiRouteDeclaresAScope:
             "exchanges a username and password for a key: the caller has no key yet, "
             "and the principal's own password is the authentication"
         ),
+        # The agent fleet's own side (docs/design/agent-fleet-http.md). An agent
+        # holds no API key and never sees a scope; what authenticates it is in
+        # the body or the headers, and checked by prama.agent.fleet.
+        "/fleet/enrol": (
+            "redeems a one-use enrolment token for an agent identity: the token, issued "
+            "by an administrator for one zone, is the authentication"
+        ),
+        "/fleet/hello": (
+            "a signed agent message: X-Prama-Signature over the message, under a key "
+            "derived from the tenant and the agent, is the authentication; anything "
+            "unsigned, unknown, suspended or revoked gets a Refusal"
+        ),
+        "/fleet/report": "as /fleet/hello: the agent's signature is the authentication",
     }
 
     #: POSTs that change nothing, and so rightly need only a read scope. Each

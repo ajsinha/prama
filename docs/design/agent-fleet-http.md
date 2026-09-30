@@ -61,7 +61,11 @@ it claimed, so two agents in a zone never both run it; a claim not reported with
 its lease returns to the queue. A report is **at-least-once**: the server dedupes by
 the agent's own sequence (records at or below the agent's `last_sequence` are
 duplicates; a jump is rejected with the expected sequence) and appends accepted
-records to the tenant's evidence ledger. Gaps an agent reports are stored and shown in
+records to the tenant's evidence ledger. A record about a plan never assigned to the
+agent's zone advances its sequence but is not recorded: it is listed in `rejected` with the
+reason, so a compromised agent cannot write evidence about work it was never given. The
+server, not the message, names the control a record is about (the one the plan was
+dispatched for) and who sent it (`triggered_by: agent:<id>`). Gaps an agent reports are stored and shown in
 fleet health: a hole in the evidence is said where the evidence is.
 
 ## Storage
@@ -88,3 +92,6 @@ hello, run each assignment with the kernel's judge, redact under residency, spoo
 report; back off when the server is unreachable and keep working from the spool;
 stop cleanly on SIGTERM or SIGINT after finishing the assignment in hand; stop for
 good on a permanent refusal.
+
+The operator's guide — installing, enrolling, the `agent.yaml` reference, running under
+systemd, and exactly what leaves the machine — is [docs/agent/README.md](../agent/README.md).

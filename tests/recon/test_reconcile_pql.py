@@ -104,7 +104,9 @@ async def test_a_run_records_evidence_and_fills_the_break_workbench(
 
 
 def test_an_agent_runs_it_beside_the_data() -> None:
-    from prama.agent import Agent, AgentCapabilities, ResidencyPolicy
+    from prama_agent.runner import Agent
+
+    from prama.agent import AgentCapabilities, ResidencyPolicy
     from prama.agent.residency import SampleDisposition
 
     plan = resolved(parse_control(SOURCE))

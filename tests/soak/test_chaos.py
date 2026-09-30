@@ -24,9 +24,9 @@ import random
 from typing import Any
 
 import pytest
+from prama_agent.runner import Agent
 
 from prama.agent import (
-    Agent,
     AgentCapabilities,
     AgentRegistry,
     Assignment,
