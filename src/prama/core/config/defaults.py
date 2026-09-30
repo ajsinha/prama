@@ -67,6 +67,23 @@ DEFAULTS: dict[str, Any] = {
         "enabled": True,
         "interval": "60s",
     },
+    "fleet": {
+        # Agents beside the data (docs/design/agent-fleet-http.md). Each agent's
+        # signing key is derived from this secret; empty falls back to
+        # security.session_secret. Empty on purpose, like that one: set it in
+        # application.local.yaml, never in a tracked file. Changing it
+        # invalidates every enrolled agent's key.
+        "secret": "",
+        # How long an enrolment token is good for, by default.
+        "token_hours": 1,
+        # How long an agent holds a claimed assignment before it returns to
+        # the queue for another agent.
+        "lease_seconds": 900,
+        # What an agent is told to wait between calls.
+        "poll_seconds": 30,
+        # Silence after which fleet health names an agent as stale.
+        "stale_minutes": 15,
+    },
     "delegates": {
         # DQ delegates: Python checks named from PQL (`USING DELEGATE 'x'`).
         # The server and every agent read their own copy of this section, so

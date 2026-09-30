@@ -24,6 +24,7 @@ from prama.db.models.comment import CmComment
 from prama.db.models.control import CtlControl, CtlControlVersion, CtlRejection
 from prama.db.models.delegate import DqDelegateUpload
 from prama.db.models.evidence import EvAnchor, EvRecord, EvRun, EvSample
+from prama.db.models.fleet import FlAgent, FlAssignment, FlGap, FlToken
 from prama.db.models.glossary import GlBinding, GlTerm
 from prama.db.models.lineage import LinEdge, LinGap, LinRun, LinSource
 from prama.db.models.llm import (
@@ -108,6 +109,10 @@ __all__ = [
     "EvRun",
     "EvSample",
     "EvidenceBase",
+    "FlAgent",
+    "FlAssignment",
+    "FlGap",
+    "FlToken",
     "GlBinding",
     "GlTerm",
     "LeaseRow",

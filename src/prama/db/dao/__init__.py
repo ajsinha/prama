@@ -20,6 +20,7 @@ from prama.db.dao.attestation import AttestationDao
 from prama.db.dao.base import Dao, TenantScopedDao
 from prama.db.dao.control import ControlDao, RejectionDao
 from prama.db.dao.evidence import AnchorDao, EvidenceDao, EvidenceRunDao, SampleDao
+from prama.db.dao.fleet import FleetDao
 from prama.db.dao.platform import (
     ApiKeyDao,
     AuditDao,
@@ -59,6 +60,7 @@ __all__ = [
     "DomainDao",
     "EvidenceDao",
     "EvidenceRunDao",
+    "FleetDao",
     "JourneyDao",
     "PrincipalDao",
     "RejectionDao",

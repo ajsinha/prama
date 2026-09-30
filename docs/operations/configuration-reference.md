@@ -38,6 +38,10 @@ becomes `PRAMA_DATABASE__SQLITE__PATH`.
 | `server.port` | `5900` | the console and the API share this listener |
 | `agents.enabled` | `True` |  |
 | `agents.interval` | `60s` | how often due goals are checked |
+| `fleet.token_hours` | `1` | how long an enrolment token is good for |
+| `fleet.lease_seconds` | `900` | a claimed assignment returns to the queue after this |
+| `fleet.poll_seconds` | `30` | what an agent is told to wait between calls |
+| `fleet.stale_minutes` | `15` | silence after which fleet health names an agent |
 | `delegates.enabled` | `True` |  |
 | `delegates.paths` | *(empty)* | directories of delegate .py files, vetted before import |
 | `delegates.entry_points` | `True` | also load the prama.delegates entry point |

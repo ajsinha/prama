@@ -53,6 +53,7 @@ if TYPE_CHECKING:
     from prama.db.dao.code import CodeDao
     from prama.db.dao.comment import CommentDao
     from prama.db.dao.delegate import DelegateUploadDao
+    from prama.db.dao.fleet import FleetDao
     from prama.db.dao.glossary import GlossaryDao
     from prama.db.dao.lineage import LineageDao
     from prama.db.dao.llm import LlmDao
@@ -160,6 +161,12 @@ class UnitOfWork:
         from prama.db.dao import AuditDao
 
         return self._dao("audit", AuditDao)  # type: ignore[no-any-return]
+
+    @property
+    def fleet(self) -> FleetDao:
+        from prama.db.dao.fleet import FleetDao
+
+        return self._dao("fleet", FleetDao)  # type: ignore[no-any-return]
 
     @property
     def semantic_index(self) -> SemanticIndexDao:
