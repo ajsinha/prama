@@ -67,7 +67,7 @@ Judge the shared threshold; judge() in prama/backend/execute.py, unchanged
 ## Admission (`prama/delegates/registry.py`)
 
 1. **Pre-import scan** of each file in `delegates.paths`, using the validator plugins' scanner
-   (`prama.classify.plugins.scan_source`). It refuses clock, network, filesystem, subprocess,
+   (`prama_kernel.plugins.scan_source`). It refuses clock, network, filesystem, subprocess,
    dynamic import, `exec`/`eval` and model clients. A refused file is never imported, so its
    top-level code never runs. Entry-point distributions are scanned through `forbidden_imports`
    after loading, as validators are.
@@ -82,11 +82,11 @@ each refusal with its reason.
 ## Sandbox (`prama/delegates/worker.py`)
 
 `python -m prama.delegates.worker` runs with rlimits on CPU seconds, address space, open files and
-core dumps, via `prama.codeintake.worker.limit_resources`. It re-scans a path delegate before
+core dumps, via `prama_kernel.delegates.limits.limit_resources`. It re-scans a path delegate before
 importing it, because the file may have changed since admission. The request goes in on stdin and
 the answer comes out on stdout.
 
-**Isolation, in layers** (`prama.delegates.sandbox.isolation_in_force` names what applied, and the
+**Isolation, in layers** (`prama_kernel.delegates.sandbox.isolation_in_force` names what applied, and the
 evidence records it as `delegate_isolation`):
 
 - **Clean environment.** The worker gets an allowlist (`LANG`, `PATH`, a private `HOME` and `TMPDIR`,
@@ -116,7 +116,7 @@ imports delegate code:
   real implementation hash, so the evidence is the same as it would be in process.
 - **Failures stay local.** A delegate that hangs or crashes its admission is refused alone, and the
   others still load.
-- **Uploads** are vetted by the same launcher (`prama.delegates.sandbox.run_isolated`).
+- **Uploads** are vetted by the same launcher (`prama_kernel.delegates.sandbox.run_isolated`).
 - **Development mode.** `delegates.sandbox: false` imports and probes in process, as before.
 
 ## Remote agents

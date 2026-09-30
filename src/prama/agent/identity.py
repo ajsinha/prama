@@ -37,6 +37,8 @@ import secrets
 from datetime import datetime, timedelta
 from typing import Any
 
+from prama_kernel.agent.signing import sign_payload as sign_payload
+
 from prama.core.clock import Clock, SystemClock
 from prama.core.errors import ValidationError
 from prama.secrets import SecretValue
@@ -297,10 +299,6 @@ class AgentRegistry:
         updated = dataclasses.replace(agent, state=state)
         self._agents[agent_id] = updated
         return updated
-
-
-def sign_payload(key: bytes, payload: str) -> str:
-    return hmac.new(key, payload.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
 def _digest(value: str) -> str:

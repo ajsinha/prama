@@ -9,10 +9,11 @@
 # remembered to write correctly.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-ruff check src sdk tests scripts qa/regression-suite case-studies
-ruff format --check -q src sdk tests scripts qa/regression-suite
+ruff check src sdk kernel tests scripts qa/regression-suite case-studies
+ruff format --check -q src sdk kernel tests scripts qa/regression-suite
 mypy src | tail -1
 mypy sdk/src | tail -1
+mypy kernel/src | tail -1
 python scripts/check_file_length.py
 python3 scripts/check_version_source.py
 # Documentation that is generated from the code must still match the code. A

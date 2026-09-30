@@ -301,3 +301,14 @@ HTTP_SECONDS = REGISTRY.histogram(
     "prama_http_request_duration_seconds", "HTTP request latency, by route template.", ("route",),
     max_series=MAX_ROUTE_SERIES,
 )  # fmt: skip
+
+
+def _count_delegate_run(outcome: str) -> None:
+    DELEGATES.inc(outcome=outcome)
+
+
+# The kernel's delegate host counts nothing itself; the server counts for it.
+from prama_kernel.delegates import host as _delegate_host  # noqa: E402
+
+if _count_delegate_run not in _delegate_host.OUTCOME_HOOKS:
+    _delegate_host.OUTCOME_HOOKS.append(_count_delegate_run)

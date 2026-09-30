@@ -38,3 +38,7 @@ htmlcov/
 # The SDK's build output (uv build sdk)
 sdk/build/
 sdk/src/*.egg-info/
+kernel/build/
+kernel/src/*.egg-info/
+agent/build/
+agent/src/*.egg-info/

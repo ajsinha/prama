@@ -185,7 +185,9 @@ async def try_delegate(
     host = host_from_config(request.app.state.config)
     with tempfile.TemporaryDirectory(prefix="prama-try-") as scratch:
         host = dataclasses.replace(host, upload_dir=scratch)
-        await host.adopt_uploads(uow, caller.tenant_id)
+        from prama.delegates.uploads import adopt
+
+        await adopt(uow, caller.tenant_id, host)
         result = await asyncio.to_thread(host.measure_plan, plan, body.rows)
     return {
         "control": source,
