@@ -36,6 +36,7 @@ COPIES: dict[str, tuple[str, ...]] = {
     # copy; this is what keeps it one.
     "sdk/src/prama_sdk/version.py": (rf'^VERSION[^=]*=\s*"{SEMVER}"',),
     "kernel/src/prama_kernel/version.py": (rf'^VERSION[^=]*=\s*"{SEMVER}"',),
+    "agent/src/prama_agent/version.py": (rf'^VERSION[^=]*=\s*"{SEMVER}"',),
 }
 
 

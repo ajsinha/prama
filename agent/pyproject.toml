@@ -1,0 +1,46 @@
+# prama-agent — the daemon that runs Prama's controls beside the data.
+# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
+#
+# Installed on a customer's machine, on its own. It depends on the kernel (what
+# it shares with the server) and the SDK (how it talks to the server), and never
+# imports the server: tests/architecture/test_packages_standalone.py fails the
+# build if it does, or if its wheel carries anything but prama_agent and these
+# dependencies.
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "prama-agent"
+description = "The Prama agent: runs controls beside the data and reports findings, never data."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary — see LICENSE" }
+authors = [{ name = "Ashutosh Sinha", email = "ajsinha@gmail.com" }]
+dynamic = ["version"]
+dependencies = [
+    "prama-kernel",
+    "prama-sdk",
+    # agent.yaml. Already a dependency of prama-sdk; named because it is read here.
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+# Sources beyond SQLite, which is the standard library.
+duckdb = ["duckdb>=1.0"]
+postgres = ["psycopg[binary]>=3.1"]
+
+[project.scripts]
+prama-agent = "prama_agent.cli:main"
+
+[project.urls]
+Documentation = "https://github.com/ajsinha/prama/tree/main/docs/agent"
+
+[tool.setuptools.dynamic]
+version = { attr = "prama_agent.version.VERSION" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+prama_agent = ["py.typed"]

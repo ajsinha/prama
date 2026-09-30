@@ -30,15 +30,26 @@ import dataclasses
 from collections.abc import Callable
 from typing import Any
 
-from prama.agent.capability import AgentCapabilities
-from prama.agent.protocol import Assignment, Hello, Receipt, Refusal, Report, Response
-from prama.agent.residency import Boundary, ResidencyPolicy
-from prama.agent.spool import Gap, Spool
-from prama.backend.execute import as_number, judge, judge_segments
-from prama.core.clock import Clock, SystemClock
-from prama.core.log import get_logger
-from prama.evidence.record import EvidenceRecord, SnapshotRef
-from prama.ir.model import ControlPlan
+from prama_kernel.agent.capability import AgentCapabilities
+from prama_kernel.agent.protocol import Assignment, Hello, Receipt, Refusal, Report, Response
+from prama_kernel.agent.residency import Boundary, ResidencyPolicy
+from prama_kernel.agent.signing import sign_payload
+from prama_kernel.agent.spool import Gap, Spool
+from prama_kernel.clock import Clock, SystemClock
+from prama_kernel.delegates.host import batches_of
+from prama_kernel.judge import as_number, judge, judge_segments
+from prama_kernel.log import get_logger
+from prama_kernel.plan import (
+    Comparator,
+    ControlPlan,
+    Metric,
+    MetricAggregate,
+    Scope,
+    Threshold,
+)
+from prama_kernel.recon.pql import measure
+from prama_kernel.record import EvidenceRecord, SnapshotRef
+from prama_kernel.samples import SampleStore
 
 _log = get_logger(__name__)
 
@@ -47,6 +58,10 @@ Executor = Callable[[str], list[dict[str, Any]]]
 
 #: Asks the local source for its current state identifier, if it has one.
 Snapshotter = Callable[[str], Any]
+
+#: Chooses the executor for one assignment — the source its binding names. The
+#: daemon's, because an agent beside several sources has one executor per source.
+ExecutorFor = Callable[[Assignment], Executor]
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -70,7 +85,8 @@ class Agent:
         agent_id: str,
         key: bytes,
         *,
-        executor: Executor,
+        executor: Executor | None = None,
+        executor_for: ExecutorFor | None = None,
         residency: ResidencyPolicy,
         capabilities: AgentCapabilities | None = None,
         spool: Spool | None = None,
@@ -81,10 +97,16 @@ class Agent:
     ) -> None:
         self.agent_id = agent_id
         self._key = key
-        self._executor = executor
+        if (executor is None) == (executor_for is None):
+            raise ValueError("an Agent needs exactly one of executor= or executor_for=")
+        # `is None`, not `or`: `Executors` defines __len__, and a falsy router
+        # must not be swapped for the absent single executor.
+        self._executor_for: ExecutorFor = (
+            _always(executor) if executor_for is None else executor_for
+        )
         self._boundary = Boundary(residency)
         self._capabilities = capabilities or AgentCapabilities()
-        #: A `prama.delegates.host.DelegateHost` built from this agent's own
+        #: A `prama_kernel.delegates.host.DelegateHost` built from this agent's own
         #: configuration (`host_from_config`). What it admitted is what the
         #: agent advertises, so the coordinator only sends it work it can run.
         self._delegates = delegates
@@ -132,11 +154,12 @@ class Agent:
         started = self._clock.now()
         plan = _plan_stub(assignment)
         try:
+            # Which source: chosen inside the try, so an assignment naming a
+            # source this agent does not have is an error finding, not a crash.
+            execute = self._executor_for(assignment)
             # A delegate's rows are streamed to it below, in batches, rather
             # than fetched whole here.
-            rows = (
-                [] if plan.assertion_kind == "delegate" else self._executor(assignment.metric_query)
-            )
+            rows = [] if plan.assertion_kind == "delegate" else execute(assignment.metric_query)
         except Exception as exc:  # a source that will not answer is a finding
             record = self._error_record(assignment, started, f"{type(exc).__name__}: {exc}")
             return AgentOutcome(
@@ -146,17 +169,13 @@ class Agent:
         extra: dict[str, str] = {}
         note = ""
         if plan.assertion_kind == "reconcile":
-            from prama.recon.pql import measure
-
             try:
                 recon_metrics, recon = measure(
                     plan,
                     rows,
-                    self._executor(assignment.counterpart_query),
+                    execute(assignment.counterpart_query),
                     business_date=started.date(),
-                    rates=self._executor(assignment.rates_query)
-                    if assignment.rates_query
-                    else None,
+                    rates=execute(assignment.rates_query) if assignment.rates_query else None,
                 )
             except Exception as exc:  # a reconciliation that cannot run is a finding
                 record = self._error_record(assignment, started, f"reconciliation: {exc}")
@@ -171,11 +190,9 @@ class Agent:
             try:
                 if self._delegates is None:
                     raise ValueError("this agent has no delegates configured")
-                from prama.delegates.host import batches_of
-
                 measured = self._delegates.measure_stream(
                     plan,
-                    batches_of(self._executor, assignment.metric_query, self._delegates.batch_rows),
+                    batches_of(execute, assignment.metric_query, self._delegates.batch_rows),
                 )
             except Exception as exc:  # a delegate that cannot answer is a finding
                 record = self._error_record(assignment, started, f"delegate: {exc}")
@@ -187,12 +204,10 @@ class Agent:
             extra, note = measured.parameters, measured.note
         else:
             result = self._judge(assignment, plan, rows)
-            samples = self._collect_samples(assignment)
+            samples = self._collect_samples(assignment, execute)
         redaction = self._boundary.apply(samples)
         digest = ""
         if samples:
-            from prama.evidence.recorder import SampleStore
-
             digest = SampleStore().put(samples).digest
             # Held here whatever the policy decided. Withholding from the
             # control plane is not the same as discarding, and an investigator
@@ -238,11 +253,11 @@ class Agent:
             engine=assignment.engine,
         )
 
-    def _collect_samples(self, assignment: Assignment) -> list[dict[str, Any]]:
+    def _collect_samples(self, assignment: Assignment, execute: Executor) -> list[dict[str, Any]]:
         if not assignment.sample_query:
             return []
         try:
-            return self._executor(assignment.sample_query)
+            return execute(assignment.sample_query)
         except Exception as exc:  # samples are useful, not essential
             _log.info("samples unavailable for %s: %s", assignment.plan_id, exc)
             return []
@@ -340,9 +355,17 @@ class Agent:
         return True
 
     def _sign(self, payload: str) -> str:
-        from prama.agent.identity import sign_payload
-
         return sign_payload(self._key, payload)
+
+
+def _always(executor: Executor | None) -> ExecutorFor:
+    """One executor for every assignment: an agent beside a single source."""
+    assert executor is not None
+
+    def choose(_assignment: Assignment) -> Executor:
+        return executor
+
+    return choose
 
 
 def _plan_stub(assignment: Assignment) -> ControlPlan:
@@ -353,8 +376,6 @@ def _plan_stub(assignment: Assignment) -> ControlPlan:
     control — it was given one — so this reads what arrived rather than
     recomputing anything.
     """
-    from prama.ir.model import Comparator, Metric, MetricAggregate, Scope, Threshold
-
     payload = assignment.plan
     threshold = payload.get("threshold") or {}
     scope = payload.get("scope") or {}

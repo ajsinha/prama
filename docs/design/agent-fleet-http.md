@@ -88,3 +88,6 @@ hello, run each assignment with the kernel's judge, redact under residency, spoo
 report; back off when the server is unreachable and keep working from the spool;
 stop cleanly on SIGTERM or SIGINT after finishing the assignment in hand; stop for
 good on a permanent refusal.
+
+The operator's guide — installing, enrolling, the `agent.yaml` reference, running under
+systemd, and exactly what leaves the machine — is [docs/agent/README.md](../agent/README.md).

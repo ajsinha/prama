@@ -226,7 +226,9 @@ async def test_without_a_delegate_host_the_control_is_an_error_not_a_skip(
 
 
 def test_an_agent_is_assigned_only_the_delegates_its_own_config_admitted() -> None:
-    from prama.agent import Agent, AgentCapabilities, ResidencyPolicy, fits
+    from prama_agent.runner import Agent
+
+    from prama.agent import AgentCapabilities, ResidencyPolicy, fits
     from prama.agent.residency import SampleDisposition
 
     plan = resolved(parse_control(CONTROL))

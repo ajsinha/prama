@@ -1,5 +1,9 @@
 """Agents: run the work where the data is, send findings, not data.
 
+This is the server's half: enrolment, trust, capability, the coordinator. The
+agent itself — the runner and the daemon — is its own package, `prama_agent`
+(``agent/``), which the server never imports.
+
 Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 """
 
@@ -26,14 +30,11 @@ from prama.agent.residency import (
     ResidencyPolicy,
     SampleDisposition,
 )
-from prama.agent.runner import Agent, AgentOutcome
 from prama.agent.spool import Gap, Spool
 
 __all__ = [
-    "Agent",
     "AgentCapabilities",
     "AgentIdentity",
-    "AgentOutcome",
     "AgentRegistry",
     "AgentState",
     "Assignment",
