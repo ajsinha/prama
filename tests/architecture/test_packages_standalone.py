@@ -337,8 +337,10 @@ work_item = Assignment(plan_id="p1", dataset="t", binding="t", engine="sqlite",
 
 class Link:
     reports = []
+    queue = [work_item]  # claimed once, as the server claims it
     def hello(self, hello, *, key):
-        return Receipt(assignments=(work_item,)).to_dict()
+        handed, self.queue = tuple(self.queue), []
+        return Receipt(assignments=handed).to_dict()
     def report(self, report, *, key):
         self.reports.append(Report.from_dict(report))
         return Receipt(accepted_through=self.reports[-1].last_sequence).to_dict()

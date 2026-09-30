@@ -2,7 +2,7 @@ import sys, os, inspect
 sys.path.insert(0, os.path.dirname(__file__))
 sys.path.insert(0, "/home/ashutosh/PycharmProjects/prama/src")
 from logger import record
-from prama.agent.runner import Agent
+from prama_agent.runner import Agent
 from prama.agent.identity import AgentRegistry, AgentState
 from prama.agent.coordinator import Coordinator, fleet_health
 from prama.agent.residency import ResidencyPolicy, SampleDisposition

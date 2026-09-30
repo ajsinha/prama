@@ -30,9 +30,9 @@ from prama_sdk.signing import canonical_json, sign
 #: Without it the kernel's own two backends disagree on exponents -5 to -9
 #: (``1e-05`` against ``0.00001``), which is a property of the kernel, not of
 #: the SDK, and is named in docs/sdk/fleet.md.
-needs_orjson = pytest.mark.skipif(
-    not pjson.HAVE_ORJSON, reason="the kernel's stdlib backend spells small exponents differently"
-)
+#: No longer needed: both kernel backends spell floats alike
+#: (tests/core/test_pjson_backends.py). Kept as a no-op so the tests always run.
+needs_orjson = pytest.mark.skipif(False, reason="")
 
 
 def kernel(value: Any) -> str:

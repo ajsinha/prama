@@ -43,6 +43,7 @@ class TestACycle:
         self, config: AgentConfig, server: FakeServer
     ) -> None:
         server.queue = [amount_present(), ccy_present()]
+        server.hand_out_all = True  # one cycle holding two assignments
         result = daemon(config, server).cycle()
 
         assert result.ran == 2 and result.delivered == 2 and result.contacted
@@ -98,6 +99,7 @@ class TestWhenTheServerIsUnreachable:
         self, config: AgentConfig, server: FakeServer
     ) -> None:
         server.queue = [amount_present(), ccy_present()]
+        server.hand_out_all = True  # one cycle holding two assignments
         server.down = False
         first = daemon(config, server)
         # hello gets through; the report does not.
@@ -217,10 +219,19 @@ class TestStopping:
         assert record.verdict == "fail" and record.metrics["violating_rows"] == 2
         assert signal.getsignal(signal.SIGTERM) == before  # the handler is put back
 
-    def test_once_runs_one_cycle(self, config: AgentConfig, server: FakeServer) -> None:
-        server.queue = [ccy_present()]
+    def test_once_drains_what_is_queued_then_stops(
+        self, config: AgentConfig, server: FakeServer
+    ) -> None:
+        """One slot, three assignments: all three run, and it stops when none remain.
+
+        It used to wait a full poll after every assignment, so --once ran one
+        and a queue of fifty took fifty polls. Found running the real daemon
+        against a real server end to end.
+        """
+        server.queue = [ccy_present(), ccy_present(), ccy_present()]
         assert daemon(config, server).run(once=True, handle_signals=False) == EXIT_OK
-        assert len(server.hellos) == 1 and len(server.records) == 1
+        assert len(server.records) == 3 and server.queue == []
+        assert len(server.hellos) == 4  # three with work, then one that found none
 
 
 class TestResidency:

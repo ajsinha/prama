@@ -3,7 +3,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 sys.path.insert(0, "/home/ashutosh/PycharmProjects/prama/src")
 from logger import record
 from prama.agent.spool import Spool
-from prama.agent.runner import Agent
+from prama_agent.runner import Agent
 from prama.agent.residency import ResidencyPolicy, SampleDisposition
 from prama.agent.protocol import Receipt
 from prama.evidence.record import EvidenceRecord
