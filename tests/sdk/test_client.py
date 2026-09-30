@@ -7,11 +7,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import prama_sdk as prama
 import pytest
+from prama_sdk import AsyncClient
 from tests.sdk.conftest import PASSWORD
-
-import prama.sdk as prama
-from prama.sdk import AsyncClient
 
 
 async def test_a_password_becomes_an_expiring_scoped_key(app: object, admin: str) -> None:

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from prama.sdk.base import Resource, endpoint, namespace, seg
+from prama_sdk.base import Resource, endpoint, namespace, seg
 
 
 @namespace("connectors")

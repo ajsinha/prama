@@ -21,13 +21,13 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
+import prama_sdk as prama
 import pytest
+from prama_sdk import AsyncClient
 from tests.api.conftest import issue_key
 
-import prama.sdk as prama
 from prama.db import Database
 from prama.execute import ControlRun
-from prama.sdk import AsyncClient
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 VERIFIER = REPO_ROOT / "scripts" / "verify_evidence.py"

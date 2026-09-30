@@ -7,7 +7,7 @@ calling an endpoint that does not exist, fails the build. That is what keeps
 "you can do anything in Prama from Python" true as the API grows.
 
 A resource class is declared with `namespace`, which is how the clients find
-it: adding an area of the SDK is adding a module under ``prama.sdk.resources``.
+it: adding an area of the SDK is adding a module under ``prama_sdk.resources``.
 
 Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 """
@@ -18,7 +18,7 @@ from collections.abc import Callable
 from typing import Any, TypeVar
 from urllib.parse import quote
 
-from prama.sdk.transport import Call
+from prama_sdk.transport import Call
 
 #: (method, path template) -> "Class.method", for every SDK method.
 ENDPOINTS: dict[tuple[str, str], str] = {}

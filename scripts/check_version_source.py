@@ -32,6 +32,9 @@ COPIES: dict[str, tuple[str, ...]] = {
     "deploy/helm/prama/values.yaml": (rf'^\s*tag:\s*"?{SEMVER}"?',),
     "deploy/README.md": (rf"prama:{SEMVER}",),
     "QUICKSTART.md": (rf"Prama {SEMVER}",),
+    # The SDK ships on its own and cannot import the server, so it carries a
+    # copy; this is what keeps it one.
+    "sdk/src/prama_sdk/version.py": (rf'^VERSION[^=]*=\s*"{SEMVER}"',),
 }
 
 

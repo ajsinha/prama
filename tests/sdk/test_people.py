@@ -10,11 +10,10 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+import prama_sdk as prama
 import pytest
+from prama_sdk import AsyncClient
 from tests.sdk.conftest import PASSWORD
-
-import prama.sdk as prama
-from prama.sdk import AsyncClient
 
 STEWARD_PASSWORD = "steward-password-1"
 

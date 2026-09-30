@@ -12,13 +12,13 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any
 
+import prama_sdk as prama
 import pytest
+from prama_sdk import AsyncClient
 from tests.sdk.conftest import PASSWORD
 
-import prama.sdk as prama
 from prama.db import Database
 from prama.execute import ControlRun
-from prama.sdk import AsyncClient
 from prama.security.accounts import grant_roles
 
 SOURCE = (

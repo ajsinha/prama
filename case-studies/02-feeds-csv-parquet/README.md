@@ -31,7 +31,7 @@ through the SDK, this study shows that it does not yet: see
 ## Run it
 
 The study is a client of **your** Prama server: it signs in through the SDK
-(`prama.sdk`), creates an estate of its own for the run, and transacts into it.
+(`prama_sdk`), creates an estate of its own for the run, and transacts into it.
 It starts no server and opens no Prama database.
 
 ```bash

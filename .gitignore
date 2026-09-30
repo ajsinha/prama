@@ -34,3 +34,7 @@ htmlcov/
 
 # JetBrains project files — local to one developer's machine.
 .idea/
+
+# The SDK's build output (uv build sdk)
+sdk/build/
+sdk/src/*.egg-info/

@@ -25,7 +25,7 @@ A dataset is described in business terms. A code list or a range on an
 attribute is a *value domain*, and Γ turns it into a control:
 
 ```python
-import prama.sdk as prama
+import prama_sdk as prama
 
 client = prama.connect()
 estate = client.as_key(client.tenants.create("acme-trades", "Acme Trades")["credentials"]["api_key"])

@@ -13,13 +13,13 @@ from __future__ import annotations
 
 from typing import Any
 
+import prama_sdk as prama
 import pytest
+from prama_sdk import AsyncClient
 
-import prama.sdk as prama
 from prama.core.config import Configuration
 from prama.db import Database
 from prama.db.security import ApiKeyIssuer
-from prama.sdk import AsyncClient
 from prama.steward.runner import tick
 
 

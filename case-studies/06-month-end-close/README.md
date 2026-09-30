@@ -18,7 +18,7 @@ rows, converts currencies, allows for timing, and classifies every difference.
 ## Run it
 
 The study is a client of **your** Prama server. It talks to it only through the SDK
-(`prama.sdk`), and it does not start a server or a console of its own.
+(`prama_sdk`), and it does not start a server or a console of its own.
 
 ```bash
 prama serve                                   # or python run_prama_web.py, if not running already

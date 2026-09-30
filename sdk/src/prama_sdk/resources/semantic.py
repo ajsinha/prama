@@ -8,7 +8,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from prama.sdk.base import Resource, body, endpoint, namespace, seg
+from prama_sdk.base import Resource, body, endpoint, namespace, seg
 
 
 @namespace("datasets")

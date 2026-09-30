@@ -14,12 +14,12 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
+import prama_sdk as prama
 import pytest
+from prama_sdk import AsyncClient
 from tests.sdk.conftest import PASSWORD
 
-import prama.sdk as prama
 from prama.db import Database
-from prama.sdk import AsyncClient
 from prama.security.accounts import grant_roles
 
 STAGE = """INSERT INTO stg.trades (trade_id, account_id, notional, ccy)

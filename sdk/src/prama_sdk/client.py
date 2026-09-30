@@ -37,16 +37,17 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from prama.core.errors import ValidationError
-from prama.sdk import base
-from prama.sdk.transport import API_PREFIX, AsyncTransport, SyncTransport
+from prama_sdk import base
+from prama_sdk.errors import ValidationError
+from prama_sdk.locate import server_url
+from prama_sdk.transport import API_PREFIX, AsyncTransport, SyncTransport
 
 DEFAULT_TIMEOUT = 120.0
 
 
 def _load_resources() -> None:
-    """Import every module under ``prama.sdk.resources`` so each namespace registers."""
-    from prama.sdk import resources
+    """Import every module under ``prama_sdk.resources`` so each namespace registers."""
+    from prama_sdk import resources
 
     for info in pkgutil.iter_modules(resources.__path__):
         if not info.name.startswith("_"):
@@ -90,7 +91,7 @@ class _Namespaces:
 
     def __getattr__(self, name: str) -> Any:  # pragma: no cover - for type checkers
         raise AttributeError(
-            f"the SDK has no {name!r} namespace; see prama.sdk.base.NAMESPACES for those it has"
+            f"the SDK has no {name!r} namespace; see prama_sdk.base.NAMESPACES for those it has"
         )
 
 
@@ -209,24 +210,6 @@ class AsyncClient(_Namespaces):
 
     async def __aexit__(self, *_: object) -> None:
         await self.close()
-
-
-def server_url(config: str | Path | None = None) -> str:
-    """The URL of the server a configuration file describes.
-
-    ``config`` is an ``application.yaml``; by default the one in this checkout,
-    with its ``application.local.yaml`` beside it, exactly as the server loads
-    it. A server bound to every interface (``0.0.0.0``) is reached on loopback.
-    """
-    from prama.core.config import load_configuration
-
-    configuration = load_configuration(Path(config).expanduser() if config else None)
-    host = configuration.get_str("server.host", "127.0.0.1") or "127.0.0.1"
-    if host in ("0.0.0.0", "::", ""):  # a bind address, reached on loopback
-        host = "127.0.0.1"
-    port = configuration.get_int("server.port", 5900)
-    scheme = "https" if configuration.get_bool("server.tls", False) else "http"
-    return f"{scheme}://{host}:{port}"
 
 
 def connect(

@@ -1,7 +1,7 @@
 """Driving Prama end to end through the SDK, and narrating it.
 
 A case study is a client of **your** Prama: the server `config/application.yaml`
-describes (or the one `--config` names), reached through `prama.sdk`, as a
+describes (or the one `--config` names), reached through `prama_sdk`, as a
 named person with that person's permissions. It never opens Prama's database
 and never starts a server of its own, so what it does is exactly what a person
 integrating with Prama could do, and it all appears in the console you already
@@ -35,7 +35,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import prama.sdk as prama
+import prama_sdk as prama
+
 from _common.defects import DefectLog
 from _common.estate import Dataset, Relationship
 
@@ -70,7 +71,7 @@ def arguments(description: str) -> argparse.Namespace:
     """The flags every study takes: which server, and as whom.
 
     ``--config`` is an ``application.yaml``: the study talks to the server that
-    file describes (``server.host`` and ``server.port``), exactly as `prama.sdk.connect`
+    file describes (``server.host`` and ``server.port``), exactly as `prama_sdk.connect`
     does. To use another server, write another file and pass it.
     """
     parser = argparse.ArgumentParser(description=description)

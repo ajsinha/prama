@@ -22,7 +22,7 @@ print packs. Six namespaces:
 The examples use the synchronous client. With `AsyncClient` every call is the same, awaited.
 
 ```python
-import prama.sdk as prama
+import prama_sdk as prama
 
 client = prama.connect()          # server and credentials from application.yaml
 ```

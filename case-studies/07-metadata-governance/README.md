@@ -21,7 +21,7 @@ words finds the dataset fit for a purpose.
 ## Run it
 
 The study is a client of **your** Prama. It talks to the server `config/application.yaml`
-describes, through the SDK (`prama.sdk`), and starts no server of its own. Start Prama first
+describes, through the SDK (`prama_sdk`), and starts no server of its own. Start Prama first
 (`prama serve`), then:
 
 ```bash

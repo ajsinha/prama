@@ -14,7 +14,7 @@ dataset is not a better one.
 ## Importing query history
 
 ```python
-import prama.sdk as prama
+import prama_sdk as prama
 
 client = prama.connect()
 print(client.usage.export_query("snowflake")["query"])   # run this in the warehouse

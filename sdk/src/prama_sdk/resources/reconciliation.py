@@ -12,7 +12,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from prama.sdk.base import Resource, body, endpoint, namespace, seg
+from prama_sdk.base import Resource, body, endpoint, namespace, seg
 
 
 @namespace("reconciliation")

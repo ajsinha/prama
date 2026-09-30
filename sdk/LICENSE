@@ -1,0 +1,74 @@
+PRAMA — PROPRIETARY LICENCE
+Copyright © 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
+
+"Prama", the Prama logo (the "Pramāṇa Prism"), the Prama attestation seal, and the slogans
+"Declare it. Prove it. Trust it.", "Trust, proven.", and "The instrument of valid knowledge"
+are trademarks and trade dress of Ashutosh Sinha.
+
+1. OWNERSHIP
+   This repository and all of its contents — including but not limited to source code,
+   documentation, specifications, requirements, architecture and design materials, the PQL
+   language specification and its intermediate representation, benchmark designs, research
+   manuscripts, brand assets, logos, and slogans (collectively, the "Work") — are the exclusive
+   property of Ashutosh Sinha (the "Owner") and are protected by copyright, database, trademark,
+   and other intellectual property laws and by international treaty.
+
+2. NO LICENCE GRANTED
+   No licence, express or implied, is granted by the Owner to any person or entity except by a
+   separate written agreement signed by the Owner. Absent such an agreement, no person may
+   reproduce, distribute, publicly display, publicly perform, transmit, sublicense, sell, lease,
+   lend, host, or otherwise exploit the Work in whole or in part.
+
+3. PROHIBITED USES
+   Without the Owner's prior written permission, no person may:
+   (a) copy, modify, adapt, translate, or create derivative works of the Work;
+   (b) reverse engineer, decompile, or disassemble any software forming part of the Work,
+       except to the extent that such restriction is expressly prohibited by applicable law;
+   (c) remove, obscure, or alter any copyright, trademark, licence, or attribution notice;
+   (d) use the Work, or any part of it, to build, train, fine-tune, evaluate, or benchmark any
+       machine-learning or artificial-intelligence model or dataset;
+   (e) use the Work to develop a competing product or service;
+   (f) disclose the Work, or any confidential information contained in it, to any third party.
+
+4. CONFIDENTIALITY
+   The Work contains confidential and proprietary information of the Owner, including commercial
+   strategy, product design, and unpublished research. Any person granted access holds the Work in
+   confidence, uses it solely for the purpose authorised by the Owner, and protects it with no less
+   than a reasonable standard of care.
+
+5. FEEDBACK
+   Any feedback, suggestions, or contributions provided to the Owner regarding the Work may be used
+   by the Owner without restriction and without obligation of any kind, and are assigned to the
+   Owner upon submission.
+
+6. THIRD-PARTY MATERIAL
+   The Work cites and references third-party standards, publications, products, and open-source
+   projects. Those references are made for research, analysis, and interoperability purposes.
+   All third-party names and marks remain the property of their respective owners, and their
+   inclusion does not imply endorsement, affiliation, or any transfer of rights. See NOTICE.
+
+7. FUTURE OPEN-SOURCE COMPONENTS
+   The Owner may, at the Owner's sole discretion, release designated components of the Work under
+   an open-source licence in future (see docs/16-roadmap-and-delivery-plan.md §6). Any such release
+   is effective only when accompanied by a separate, explicitly designated licence file within the
+   released component. Nothing in that roadmap constitutes a present grant of any rights.
+
+8. NO WARRANTY
+   THE WORK IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+   NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, ACCURACY,
+   AND NON-INFRINGEMENT.
+
+9. LIMITATION OF LIABILITY
+   IN NO EVENT SHALL THE OWNER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN
+   ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE WORK OR
+   THE USE OR OTHER DEALINGS IN THE WORK.
+
+10. TERMINATION
+   Any permission granted by the Owner terminates automatically upon breach of these terms. Upon
+   termination, all copies of the Work must be destroyed or returned.
+
+11. GOVERNING LAW
+   These terms are governed by the laws applicable at the Owner's principal place of residence,
+   without regard to conflict-of-laws principles.
+
+For licensing enquiries, contact: Ashutosh Sinha <ajsinha@gmail.com>

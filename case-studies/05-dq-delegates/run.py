@@ -39,11 +39,10 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 
 import duckdb  # noqa: E402
+import prama_sdk as prama  # noqa: E402
 from _common.defects import DefectLog  # noqa: E402
 from _common.estate import Attribute, Dataset  # noqa: E402
 from _common.harness import Harness, Source, arguments, banner, say, stage  # noqa: E402
-
-import prama.sdk as prama  # noqa: E402
 
 DELEGATES = HERE / "acme_delegates"
 REJECTED = HERE / "rejected"

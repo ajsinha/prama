@@ -12,7 +12,7 @@ Python classes, named from PQL and judged by Prama.
 ## Run it
 
 The study is a client of **your** Prama server. It talks to it only through the SDK
-(`prama.sdk`), and it does not start a server or a console of its own.
+(`prama_sdk`), and it does not start a server or a console of its own.
 
 ```bash
 prama serve                                   # or python run_prama_web.py, if not running already
@@ -39,7 +39,7 @@ SDK and approved by a second person**:
    approve their own delegate*.
 3. The study creates a second administrator (`client.principals.create("reviewer",
    roles=["admin"], password=…)`), who signs in to the run's estate
-   (`prama.sdk.connect(..., tenant=<estate slug>)`) and approves it.
+   (`prama_sdk.connect(..., tenant=<estate slug>)`) and approves it.
 4. When a run starts, the server writes each approved upload to `delegates.upload_dir` (default
    `data/delegates`, relative to where the server runs). The file is content-addressed and runs
    only in the sandbox, which re-hashes it before importing it.

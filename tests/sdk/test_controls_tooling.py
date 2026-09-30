@@ -10,10 +10,9 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+import prama_sdk as prama
 import pytest
-
-import prama.sdk as prama
-from prama.sdk import AsyncClient
+from prama_sdk import AsyncClient
 
 UNIQUE = "CHECK positions HAS UNIQUE KEY (account_id) SEVERITY minor"
 

@@ -16,7 +16,7 @@ A file argument can be a path (its suffix says the format: `.json`, `.jsonl`,
 ## The gate
 
 ```python
-import prama.sdk as prama
+import prama_sdk as prama
 
 client = prama.connect()
 result = client.contracts.check("contracts/positions.yaml", "build/positions.csv")

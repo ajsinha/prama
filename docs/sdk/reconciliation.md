@@ -18,7 +18,7 @@ latest evidence record, and the break queue the run filled.
 ## What ran, and what it found
 
 ```python
-import prama.sdk as prama
+import prama_sdk as prama
 
 client = prama.connect()
 listed = client.reconciliation.list()
