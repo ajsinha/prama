@@ -9,9 +9,9 @@ import dataclasses
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from prama_agent.runner import Agent
 
 from prama.agent import (
-    Agent,
     AgentCapabilities,
     AgentRegistry,
     AgentState,
