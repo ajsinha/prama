@@ -2,7 +2,7 @@
 
 A study is a client of *your* running Prama: it reads the server's address from
 an ``application.yaml``, signs in, creates an estate of its own, and does
-everything through `prama.sdk`. So the only faithful test is the one a person
+everything through `prama_sdk`. So the only faithful test is the one a person
 would do: start a server, and run each study against it with ``--config``.
 
 History worth keeping. QA once found all four studies dead on committed code
@@ -39,7 +39,15 @@ pytestmark = pytest.mark.casestudy
 
 #: What a study may not do to reach Prama: open its database, run controls
 #: in-process, or start a server. It is a client, through the SDK.
-FORBIDDEN_IMPORTS = ("prama.db", "prama.execute", "prama.api", "uvicorn", "prama.derive")
+#: A study's client code imports the SDK (`prama_sdk`), never the server
+#: (`prama`), and never a server itself. Code a study *installs into* the server
+#: — a delegate, a validator plugin — is server-side and may use its SPI; it is
+#: not in the files checked here.
+FORBIDDEN_IMPORTS = ("prama.", "uvicorn")
+
+
+def forbidden(name: str) -> bool:
+    return name == "prama" or name.startswith(FORBIDDEN_IMPORTS)
 
 
 def study_directories() -> list[Path]:
@@ -150,9 +158,9 @@ def test_a_study_reaches_prama_only_through_the_sdk(study: Path) -> None:
             elif isinstance(node, ast.ImportFrom) and node.module:
                 names = [node.module]
             for name in names:
-                assert not name.startswith(FORBIDDEN_IMPORTS), (
+                assert not forbidden(name), (
                     f"{path.relative_to(ROOT)} imports {name}: a study reaches Prama "
-                    "only through prama.sdk, against the running server"
+                    "only through prama_sdk, the standalone SDK, against the running server"
                 )
 
 
@@ -162,4 +170,4 @@ def test_the_import_rule_can_fail(tmp_path: Path) -> None:
     offender.write_text("from prama.db import Database\n", encoding="utf-8")
     tree = ast.parse(offender.read_text(encoding="utf-8"))
     modules = [n.module for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)]
-    assert any(str(m).startswith(FORBIDDEN_IMPORTS) for m in modules)
+    assert any(forbidden(str(m)) for m in modules)

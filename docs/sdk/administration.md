@@ -26,7 +26,7 @@ which the console and the API both call. A refusal on one surface is a refusal o
 Every example below starts from a signed-in client:
 
 ```python
-import prama.sdk as prama
+import prama_sdk as prama
 
 client = prama.connect()                     # reads config/application.yaml
 # or: client = prama.Client("https://prama.example.com").as_key(key)

@@ -14,12 +14,12 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+import prama_sdk as prama
 import pytest
+from prama_sdk import AsyncClient
 from tests.sdk.test_knowledge import signed_in
 
-import prama.sdk as prama
 from prama.db import Database
-from prama.sdk import AsyncClient
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "delegates"
 GOOD = FIXTURES / "good" / "threshold_count.py"

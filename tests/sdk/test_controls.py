@@ -3,7 +3,7 @@
 The definition of done for the controls area of the API. Every stage a case
 study walks — an estate, a dataset declared in business terms, Γ, acceptance, a
 run against a registered connection the server reads itself — is driven through
-`prama.sdk`, and what is asserted is the *executed verdict on real data*: the
+`prama_sdk`, and what is asserted is the *executed verdict on real data*: the
 planted defect is a ``fail`` in the recorded evidence, and a clean control over
 the same rows is a ``pass``.
 
@@ -17,14 +17,14 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
+import prama_sdk as prama
 import pytest
+from prama_sdk import AsyncClient
 from tests.sdk.conftest import PASSWORD
 
-import prama.sdk as prama
 from prama.api import create_app
 from prama.core.config import Configuration, ConfigurationBuilder
 from prama.db import Database
-from prama.sdk import AsyncClient
 from prama.security.accounts import grant_roles
 
 CURRENCIES = ["USD", "EUR", "GBP"]
@@ -264,18 +264,21 @@ async def test_a_run_refuses_roots_that_hold_pramas_own_store(tmp_path: Path) ->
     """If an operator lists the directory Prama's database is in, nothing runs:
     a control able to read the ledger it writes to is not a control."""
     from prama.connect.sources.confined import open_confined
+    from prama.core import errors as server
 
+    # A direct call into the server, not over HTTP, so the server's own error
+    # classes: the SDK's are a separate package's, matched by code over the wire.
     data = write_book(tmp_path / "book.db", CLEAN)
     store = tmp_path / "prama.db"
     store.write_bytes(b"")
-    with pytest.raises(prama.ForbiddenError, match="holds Prama's own database"):
+    with pytest.raises(server.ForbiddenError, match="holds Prama's own database"):
         open_confined("sqlite", {"path": str(data)}, roots=[tmp_path], forbidden=[store])
-    with pytest.raises(prama.ForbiddenError, match="no directories"):
+    with pytest.raises(server.ForbiddenError, match="no directories"):
         open_confined("sqlite", {"path": str(data)}, roots=[])
     opened = open_confined("sqlite", {"path": str(data)}, roots=[tmp_path])
     try:
         assert opened.execute("SELECT COUNT(*) AS n FROM trades") == [{"n": 20}]
-        with pytest.raises(prama.PramaError, match="single statement"):
+        with pytest.raises(server.PramaError, match="single statement"):
             opened.execute("SELECT 1; ATTACH DATABASE 'x' AS y")
     finally:
         opened.close()

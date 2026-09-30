@@ -8,11 +8,11 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 
 import pytest
+from prama_sdk import AsyncClient
 
 from prama.api import create_app
 from prama.core.config import Configuration
 from prama.db import Database
-from prama.sdk import AsyncClient
 from prama.security.accounts import grant_roles
 
 PASSWORD = "sdk-test-password-1"

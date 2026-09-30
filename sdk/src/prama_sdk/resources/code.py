@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from prama.sdk.base import Resource, body, endpoint, namespace, seg
-from prama.sdk.resources._files import FileLike, upload
+from prama_sdk.base import Resource, body, endpoint, namespace, seg
+from prama_sdk.resources._files import FileLike, upload
 
 
 @namespace("code")

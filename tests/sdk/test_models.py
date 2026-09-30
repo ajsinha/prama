@@ -9,11 +9,11 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+import prama_sdk as prama
 import pytest
+from prama_sdk import AsyncClient
 
-import prama.sdk as prama
 from prama.db import Database
-from prama.sdk import AsyncClient
 
 EXPLAIN = {
     "name": "explain",

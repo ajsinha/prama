@@ -47,6 +47,9 @@ dev = [
     "ruff>=0.6",
     "mypy>=1.11",
     "types-PyYAML",
+    # The SDK is its own package (sdk/), installed from the checkout so the
+    # server's tests drive the real client, and the server never imports it.
+    "prama-sdk",
 ]
 # The accessibility audit. Separate from `dev` because it is the one dependency
 # that needs a browser: playwright drives the Chrome already installed rather
@@ -90,6 +93,9 @@ mongo = ["motor>=3.6", "pymongo>=4.9"]
 
 [project.scripts]
 prama = "prama.cli.main:main"
+
+[tool.uv.sources]
+prama-sdk = { path = "sdk", editable = true }
 
 [tool.setuptools.dynamic]
 version = { attr = "prama.version.VERSION" }

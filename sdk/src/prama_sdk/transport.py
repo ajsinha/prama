@@ -5,11 +5,10 @@ sync transport returns the result; the async one returns a coroutine. So one
 method, written once, serves `Client` and `AsyncClient` alike, and the two can
 never drift apart.
 
-Failures come back as Prama's own error types. The API answers every failure
-with a problem document carrying a stable ``code``; the transport raises the
-`prama.core.errors` class with that code, with the server's message and
-remedy, so ``except NotFoundError`` means the same thing in a script as it
-does inside the server.
+Failures come back as the SDK's error types (`prama_sdk.errors`). The API
+answers every failure with a problem document carrying a stable ``code``; the
+transport raises the class for that code, with the server's message, remedy
+and correlation id, so ``except NotFoundError`` means what it says.
 
 Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 """
@@ -22,21 +21,10 @@ from typing import Any
 
 import httpx
 
-from prama.core import errors as taxonomy
-from prama.core.errors import PramaError
-from prama.version import VERSION
+from prama_sdk.errors import ServerUnavailable, error_for
+from prama_sdk.version import VERSION
 
 API_PREFIX = "/api/v1"
-
-
-class ServerUnavailable(PramaError):
-    """The Prama server could not be reached at all.
-
-    Distinct from a refusal: nothing answered, so there is no problem
-    document, and the remedy is about where the server is, not about the call.
-    """
-
-    code = "SDK.SERVER_UNAVAILABLE"
 
 
 @dataclasses.dataclass(slots=True)
@@ -54,25 +42,6 @@ class Call:
     raw: bool = False
 
 
-def _codes() -> dict[str, type[PramaError]]:
-    found: dict[str, type[PramaError]] = {}
-    pending: list[type[PramaError]] = [PramaError]
-    while pending:
-        cls = pending.pop()
-        found.setdefault(cls.code, cls)
-        pending.extend(cls.__subclasses__())
-    return found
-
-
-_BY_STATUS: dict[int, type[PramaError]] = {
-    401: taxonomy.UnauthorisedError,
-    403: taxonomy.ForbiddenError,
-    404: taxonomy.NotFoundError,
-    409: taxonomy.ConflictError,
-    422: taxonomy.ValidationError,
-}
-
-
 def raise_for(response: httpx.Response) -> None:
     """Raise the Prama error a failed response describes."""
     if response.status_code < 400:
@@ -84,21 +53,22 @@ def raise_for(response: httpx.Response) -> None:
     if not isinstance(body, dict):
         body = {"title": str(body)[:500]}
     code = str(body.get("code") or "")
-    cls = _codes().get(code) or _BY_STATUS.get(response.status_code, PramaError)
     title = body.get("title") or body.get("detail") or f"HTTP {response.status_code}"
     if isinstance(title, list):  # FastAPI's request-validation detail
         title = "; ".join(str(item.get("msg", item)) for item in title)
     context = body.get("context") or {}
     if "errors" in body:
         context = {**context, "errors": json.dumps(body["errors"])[:2000]}
-    remedy = str(body.get("remedy") or "See the server's log for this correlation id.")
-    detail: dict[str, Any] = {str(k): str(v) for k, v in context.items()}
-    try:
-        error = cls(str(title), remedy=remedy, context=detail, code=code or None)
-    except TypeError:  # a subclass with its own constructor: keep its code, not its class
-        error = PramaError(str(title), remedy=remedy, context=detail, code=code or None)
-    error.status = response.status_code  # type: ignore[attr-defined]
-    raise error
+    if body.get("correlation_id"):
+        context = {**context, "correlation_id": body["correlation_id"]}
+    cls = error_for(code, response.status_code)
+    raise cls(
+        str(title),
+        remedy=str(body.get("remedy") or "See the server's log for this correlation id."),
+        context={str(k): str(v) for k, v in context.items()},
+        code=code or None,
+        status=response.status_code,
+    )
 
 
 def decode(response: httpx.Response, call: Call) -> Any:

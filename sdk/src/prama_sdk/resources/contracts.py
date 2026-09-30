@@ -11,8 +11,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from prama.sdk.base import Resource, endpoint, namespace, seg
-from prama.sdk.resources._text_files import Upload, upload
+from prama_sdk.base import Resource, endpoint, namespace, seg
+from prama_sdk.resources._text_files import Upload, upload
 
 
 @namespace("contracts")

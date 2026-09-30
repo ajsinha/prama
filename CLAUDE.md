@@ -91,7 +91,16 @@ the ceiling is doing more than one thing — split it; do not raise the limit.
 real secret belongs. The shipped `security.session_secret` is empty **on purpose** — a fresh clone
 is meant to refuse to boot. The pre-commit hook refuses a non-empty secret in a tracked file.
 
-### 6. AI never adjudicates.
+### 6. The SDK is a separate package, and never imports the server.
+
+`sdk/` is `prama-sdk`, imported as `prama_sdk`: what a client installs, depending on `httpx` and
+`PyYAML` only. It has its own errors (mapped from the server's codes), its own reader for
+`server.host`/`port`, and a policed copy of the version. It never imports `prama`, and the server
+never imports `prama_sdk` (only its tests do). `tests/architecture/test_sdk_standalone.py` fails
+the build otherwise, including by running the SDK with `prama` made unimportable and by building
+its wheel. Every endpoint needs an SDK method (`tests/sdk/test_parity.py`).
+
+### 7. AI never adjudicates.
 
 No code path may allow a model output to determine a pass/fail verdict on data (`CON-007`,
 `NFR-AI-002`). Models author, rank, explain, calibrate and summarise. A deterministic, versioned
@@ -224,8 +233,9 @@ PRAMA_TEST_POSTGRES_DSN=postgresql://prama:prama@127.0.0.1:55432/prama pytest -q
                                          # conformance on three real engines, not two
 PRAMA_TEST_KAFKA_BOOTSTRAP=127.0.0.1:19092 pytest -q tests/execute/test_kafka.py
                                          # offset semantics; needs pip install -e ".[kafka]"
-ruff check src tests qa/regression-suite    # qa/harness is deliberately not linted
-mypy src
+ruff check src sdk tests qa/regression-suite    # qa/harness is deliberately not linted
+mypy src && mypy sdk/src
+uv build --wheel sdk                     # the SDK, a separate package clients install
 ```
 
 ---

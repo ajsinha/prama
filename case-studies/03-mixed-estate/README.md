@@ -35,7 +35,7 @@ Here the relationships are declared, and the same defects are found.
 ## Run it
 
 The study is a client of **your** Prama server: it signs in through the SDK
-(`prama.sdk`), creates an estate of its own for the run, and transacts into it —
+(`prama_sdk`), creates an estate of its own for the run, and transacts into it —
 datasets, relationships, controls, two connections and two runs. It starts no
 server and opens no Prama database.
 

@@ -164,19 +164,26 @@ class TestTheSecretIsNeverInline:
 
 
 class TestProbes:
-    def test_both_probes_use_the_same_endpoint(self) -> None:
-        """Prama has no state that makes it live-but-not-ready: it either
-        reaches its database or it does not. Two probes meaning different things
-        invites one of them to be wrong."""
+    def test_liveness_and_readiness_ask_different_questions(self) -> None:
+        """Liveness asks whether the process answers; readiness whether it can work.
+
+        A database outage makes every pod unready, so traffic stops, and must
+        not make them unlive, so Kubernetes does not restart healthy pods: a
+        restart cannot repair a database, it turns one incident into two
+        (docs/operations/observability.md). This test once asserted both probes
+        used one endpoint; that was the design before probes existed, and it
+        never ran here until helm was installed.
+        """
+        from prama.api.routes import probes
+
         docs = render(*WORKING)
         container = next(d for d in docs if d["kind"] == "Deployment")["spec"]["template"]["spec"][
             "containers"
         ][0]
-        assert (
-            container["readinessProbe"]["httpGet"]["path"]
-            == container["livenessProbe"]["httpGet"]["path"]
-            == "/api/v1/health"
-        )
+        assert container["livenessProbe"]["httpGet"]["path"] == "/livez"
+        assert container["readinessProbe"]["httpGet"]["path"] == "/readyz"
+        served = {getattr(route, "path", "") for route in probes.router.routes}
+        assert {"/livez", "/readyz"} <= served  # the chart probes what the app answers
 
     def test_liveness_starts_later_than_readiness(self) -> None:
         """A liveness probe that fires during startup restarts a pod that was

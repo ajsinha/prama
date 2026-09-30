@@ -9,12 +9,13 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+from prama_sdk import base
+from prama_sdk.client import _load_resources
+from prama_sdk.transport import API_PREFIX
+
 from prama.api import create_app
 from prama.core.config import ConfigurationBuilder
 from prama.core.config.defaults import DEFAULTS
-from prama.sdk import base
-from prama.sdk.client import _load_resources
-from prama.sdk.transport import API_PREFIX
 
 
 def _server() -> set[tuple[str, str]]:

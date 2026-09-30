@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from prama.sdk.base import Resource, body, endpoint, namespace
+from prama_sdk.base import Resource, body, endpoint, namespace
 
 
 @namespace("auth")

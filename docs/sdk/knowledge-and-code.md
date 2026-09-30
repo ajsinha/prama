@@ -12,7 +12,7 @@ Every operation below is one HTTP endpoint under `/api/v1` and one SDK method; t
 console and the CLI call the same services, so the three give the same answer.
 
 ```python
-import prama.sdk as prama
+import prama_sdk as prama
 
 client = prama.connect()          # reads config/application.yaml; or connect(base_url=..., api_key=...)
 ```

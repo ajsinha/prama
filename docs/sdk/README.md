@@ -12,6 +12,13 @@ client of a **running** Prama server. It never opens Prama's database itself, so
 notebook, a CI job and the case studies all act on the same estate the console shows, as a
 named person with that person's permissions.
 
+It is its own package, `prama-sdk`, imported as `prama_sdk`, and it never imports the server: a
+client machine installs it alone, with `httpx` and `PyYAML` as its only dependencies.
+
+```bash
+pip install prama-sdk          # or, from a checkout: uv build --wheel sdk
+```
+
 Every endpoint of the HTTP API (`/api/v1`) has an SDK method, and every SDK method calls an
 endpoint. `tests/sdk/test_parity.py` fails the build otherwise, so this stays true as the API
 grows.
@@ -19,7 +26,7 @@ grows.
 ## Connecting
 
 ```python
-import prama.sdk as prama
+import prama_sdk as prama
 
 client = prama.connect(username="admin", password="prama-dev-admin")
 print(client.auth.me())            # who you are, in which estate, with which scopes
@@ -139,7 +146,7 @@ running server, creates an estate, declares it, derives and accepts controls, ha
 them against the study's data, and reads back what the evidence says. The core of it:
 
 ```python
-import prama.sdk as prama
+import prama_sdk as prama
 
 admin = prama.connect(username="admin", password="prama-dev-admin", tenant="default")
 made = admin.tenants.create("acme-markets", "Acme Markets")

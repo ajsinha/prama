@@ -39,13 +39,12 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent))
 
 import duckdb  # noqa: E402
+import prama_sdk as prama  # noqa: E402
 from _common.bank import Book  # noqa: E402
 from _common.defects import DefectLog  # noqa: E402
 from _common.estate import Attribute, Dataset  # noqa: E402
 from _common.harness import Harness, Source, arguments, banner, say, stage  # noqa: E402
 from acme_validators import book_code  # noqa: E402
-
-import prama.sdk as prama  # noqa: E402
 
 #: The controls a business owner writes, in the syntax they already know.
 #: Every one of these compiles to SQL that runs inside the engine — which is

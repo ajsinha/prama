@@ -8,8 +8,8 @@ from __future__ import annotations
 import builtins
 from typing import Any
 
-from prama.sdk.base import Resource, endpoint, namespace, seg
-from prama.sdk.resources._files import FileLike, upload
+from prama_sdk.base import Resource, endpoint, namespace, seg
+from prama_sdk.resources._files import FileLike, upload
 
 
 @namespace("delegates")
