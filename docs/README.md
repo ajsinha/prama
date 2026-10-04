@@ -16,12 +16,37 @@ provable quality conclusions — through a console, a Git repo, or a conversatio
 
 | If you are… | Read |
 |---|---|
-| **running Prama** | [QUICKSTART](../QUICKSTART.md), then [operations/](operations/) — runbook, troubleshooting, CLI and configuration reference |
+| **new to it** | [How Prama fits together](architecture/README.md): every component in one page, then one page each, with diagrams, real screenshots and examples |
+| **running Prama** | [QUICKSTART](../QUICKSTART.md), then [operations/](operations/README.md): runbook, troubleshooting, CLI and configuration reference |
+| **extending it** | [Developer guides](developer/README.md): a connector, a PQL function, a validator, a model provider, a delegate, a table, an endpoint |
+| **scripting it** | [The Python SDK](sdk/README.md): everything the console does, from Python, against your running server |
+| **running agents beside the data** | [The agent operator's guide](agent/README.md) |
 | **evaluating it** | [00 Executive Summary](corpus/00-executive-summary.md), then [15 §2.4](corpus/15-evaluation-benchmark-methodology.md) for what has actually been measured |
-| **building on it** | [03 Semantic Layer](corpus/03-business-semantic-layer.md) and [07 PQL](corpus/07-rule-language-spec.md) |
 | **auditing it** | [13 §6.2a](corpus/13-security-governance-compliance.md) and `scripts/verify_evidence.py`, which checks evidence without Prama |
-| **asking what is done** | [19 Implementation Roadmap](corpus/19-implementation-roadmap.md) — the authority, marker by marker |
-| **asking what is left** | [Remaining work](corpus/remaining-work.md) — the open items, ordered; the roadmap stays the authority |
+| **asking what is done** | [19 Implementation Roadmap](corpus/19-implementation-roadmap.md): the authority, marker by marker |
+| **asking what is left** | [Remaining work](corpus/remaining-work.md): the open items, ordered; the roadmap stays the authority |
+
+## How the documentation is organised
+
+Each folder is the one home for one kind of fact. A fact stated in a second
+folder is a pointer to the first, never a copy: a copy drifts, and it drifts in
+the flattering direction.
+
+| Folder | What lives there | The authority for |
+|---|---|---|
+| [architecture/](architecture/README.md) | How every component works and fits, as built | Module maps, data flow, what calls what |
+| [developer/](developer/README.md) | How to extend or change each component, with tested examples | Interfaces, registration, conformance |
+| [sdk/](sdk/README.md) | The Python SDK, resource by resource | Client usage |
+| [agent/](agent/README.md) | Installing and running the agent daemon | Operating an agent |
+| [operations/](operations/README.md) | Running the server; the CLI, configuration and metrics references (generated) | Operations |
+| [corpus/](corpus/00-executive-summary.md) | The numbered design corpus, below | Intent, requirements, rationale |
+| [design/](design/agent-fleet-http.md) | Design notes for single features | A feature's design decisions |
+| [reference/](reference/glossary.md) | Glossary and brand | Terms and names |
+| [publications/](publications/paper/README.md) | The paper, the Medium article, the deck | — |
+| [assets/](assets/) | Images: the mark, diagrams drawn by `tools/docs/diagrams.py`, screenshots taken by `tools/docs/screenshots.py` | — |
+
+The console's **Help** renders every document here, with a card derived from
+its heading and from the "What it answers" column of these tables.
 
 **Every design document opens with an "As built" section** saying what of it
 exists, what does not, and what is built but has never met the real thing. The
@@ -58,12 +83,36 @@ differ, `docs/corpus/19` decides.
 | 21 | [How We Win](corpus/21-how-we-win.md) | The plan to beat them: three asymmetric unlocks, honest moat ratings, and the traps we set |
 | 22 | [Distributed Execution: Prama Agents](corpus/22-distributed-execution.md) | Agents beside the data: outbound-only, residency-bounded, surviving an outage |
 | 23 | [Intelligence and Lineage Roadmap](corpus/23-intelligence-and-lineage-roadmap.md) | Waves 12–18: the LLM gateway, lineage store and workbench, code-to-lineage, steward agents, DQ delegates, and the lineage scope (what Prama reads, and what it deliberately does not). Design notes in [design/](design/) |
-| — | **[Operations](operations/)** | **Runbook, troubleshooting, CLI reference, configuration reference** |
-| — | [Brand](reference/brand.md) | Name, mark, slogan, palette, voice |
-| — | [Glossary](reference/glossary.md) | Terms of art |
-| — | [Medium article](publications/medium/your-dashboard-is-green.md) | *Your dashboard is green. Can you prove it?* Nine design ideas, with diagrams and examples |
-| — | [Deck](publications/deck/Prama-Evidence-First-Data-Quality.pptx) | 45 slides for the people who must stand behind a number; built from [`tools/deck/`](../tools/deck/GUIDE.md) and audited as rendered |
-| — | [Academic Paper](publications/paper/) | [*Data Quality as Justified Belief*](publications/paper/data-quality-as-justified-belief.pdf): the paper, its LaTeX source, a long-form [article](publications/paper/data-quality-as-justified-belief-article.md), bibliography, experiment plan |
+| — | [Remaining work](corpus/remaining-work.md) | The open items, ordered by what they block; the roadmap stays the authority |
+
+## Design notes
+
+| Note | What it answers |
+|---|---|
+| [The agent fleet over HTTP](design/agent-fleet-http.md) | The contract between the server and an agent: enrolment, signing, claims, dedupe |
+| [Code lineage and steward agents](design/code-lineage-and-steward-agents.md) | Reading lineage from application code, and agents that read and propose but never approve |
+| [DQ delegates](design/dq-delegates.md) | Python checks PQL cannot say: why the delegate measures and Prama decides |
+| [The LLM gateway](design/llm-gateway.md) | One door for every model call: providers, profiles, budgets, residency and the call ledger |
+| [Gap analysis: Manta and Alation](design/gap-manta-alation.md) | What the lineage incumbents do that Prama does not, and which gaps matter |
+
+## Reference
+
+| Document | What it answers |
+|---|---|
+| [Glossary](reference/glossary.md) | Terms of art |
+| [Brand](reference/brand.md) | Name, mark, slogan, palette, voice |
+
+## Publications and reviews
+
+| Document | What it answers |
+|---|---|
+| [Academic paper](publications/paper/README.md) | *Data Quality as Justified Belief*: the [PDF](publications/paper/data-quality-as-justified-belief.pdf), its LaTeX source, bibliography and experiment plan |
+| [The paper as an article](publications/paper/data-quality-as-justified-belief-article.md) | A long-form article version for engineers and data owners |
+| [Experiment plan](publications/paper/experiment-plan.md) | The experimental protocol written before the code existed |
+| [The Medium article](publications/medium/README.md) | How the article and its diagrams are built |
+| [*Your dashboard is green. Can you prove it?*](publications/medium/your-dashboard-is-green.md) | Nine design ideas, with diagrams and examples |
+| [Deck](publications/deck/Prama-Evidence-First-Data-Quality.pptx) | 45 slides for the people who must stand behind a number; built from [`tools/deck/`](../tools/deck/GUIDE.md) and audited as rendered |
+| [Adversarial review, 2026-09-11](reviews/2026-09-11-adversarial-review.md) | Five reviewers told to find defects rather than praise, and what was done about each |
 
 ## The one-paragraph thesis
 
@@ -85,6 +134,12 @@ stale. See [02](corpus/02-gap-analysis-and-positioning.md) and [03](corpus/03-bu
 - Priority: **P0** (must-have for GA), **P1** (competitive parity), **P2** (differentiator, post-GA),
   **P3** (research / long horizon).
 - Where an external claim is load-bearing, the source is linked inline.
+- **One fact, one home.** See *How the documentation is organised*: a document
+  that needs a fact another one owns links to it rather than restating it.
+- **Diagrams and screenshots are rebuilt by a command**, never edited by hand:
+  `python tools/docs/diagrams.py` (audited by Inkscape; `--check` fails a stale
+  one) and `python tools/docs/screenshots.py` (a real server, the case studies,
+  headless Chrome).
 - **Generated documents carry a banner saying so.** `operations/cli-reference.md`
   and `operations/configuration-reference.md` are built from the argument parser
   and the shipped configuration by `scripts/generate_docs.py`; the gate refuses a

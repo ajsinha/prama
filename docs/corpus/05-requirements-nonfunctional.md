@@ -42,15 +42,10 @@ streaming p95 detection and added p99 at target throughput; and the API at the
 rates §4 states. None of these has a harness on a machine large enough to answer
 it, and `docs/corpus/19` records each as outstanding rather than assumed.
 
-**Measured and not met:** the estate map (`NFR-SCA-011`). A Playwright harness in
-a real browser, killing each attempt from outside the process so the budget is
-enforceable, finds that 500 nodes take **5.3 s** to first draw, 2,000 take **15.5 s**, and 4,000 do not
-draw at all within 60 s — the browser's main thread is blocked throughout, so the
-page is unresponsive rather than merely slow. Pan and zoom do hold 60 fps, but
-only once the map has appeared. The requirement is unchanged; the
-implementation is short of it by more than an order of magnitude, and saying so
-is cheaper than discovering it in front of a customer with a large estate. The
-cause is a quadratic layout pass, not the renderer — see `docs/corpus/10` §1.
+**Measured and not met:** the estate map (`NFR-SCA-011`) misses its target by more
+than an order of magnitude; it stops drawing below 4,000 nodes. The requirement is
+unchanged. The measurement, its harness and its cause (a quadratic layout pass, not
+the renderer) are recorded once, in [10 §3](10-ux-and-chat-interface.md#3-the-estate-map--the-landing-surface).
 
 ---
 

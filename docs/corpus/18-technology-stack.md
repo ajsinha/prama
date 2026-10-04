@@ -31,6 +31,12 @@ Optional extras rather than hard dependencies, each refusing **by name** when
 absent rather than falling back to something weaker: `serve`, `postgres`,
 `fast`, `audit`, `sso`, `kafka`, `rest`.
 
+**Two departures from §1.** Work distribution uses leases held as a conditional row on the
+`lease` table (`prama.db.lease_provider`), on SQLite and PostgreSQL alike, rather than PostgreSQL
+advisory locks, and DishtaYantra's ZooKeeper, Redis and S3 lease providers were not ported. The
+package layout is four distributions rather than the dozen of §8; see
+[architecture/packages.md](../architecture/packages.md).
+
 **Dependency floors have no ceilings, and `uv.lock` pins what they resolved
 to.** Every requirement is a `>=`, so the declaration floats to the newest
 release — and the lock file records the 62 packages that actually resolved,
@@ -206,14 +212,11 @@ answered by *choosing the right library*, which was always the real requirement,
 choosing a framework to host it. Attributing them to React was a category error.
 
 **One correction, from measurement.** The objection above predicted that a canvas renderer would
-"degrade past ~5–10k elements". A Playwright harness in real Chrome now puts the built map at
-**5.3 s to draw 500 nodes, 15.5 s for 2,000, and no draw at all for 4,000 within 60 s** — a cliff
-an order of magnitude *below* what the objection predicted, and below what Sigma's WebGL renderer
-is capable of. The prediction was directionally right and picking the right library was necessary
-and not sufficient, but it also mislocated the cost: what binds is not the renderer at all. It is
-`relax()` in `estate-map.js`, an all-pairs O(n²) force layout run synchronously before Sigma is
-constructed — a cost that would be paid identically under React. See `docs/corpus/10` §1 and
-`tests/web/estate-map-scale.json`.
+"degrade past ~5–10k elements". The built map stops drawing below 4,000 nodes
+([10 §3](10-ux-and-chat-interface.md#3-the-estate-map--the-landing-surface) has the numbers): a
+cliff an order of magnitude *below* the prediction. The prediction was directionally right, but it
+mislocated the cost: what binds is not the renderer at all but an all-pairs layout pass run before
+the renderer is constructed, a cost that would be paid identically under React.
 
 **Three are answered by HTMX.** Live preview, sub-300 ms navigation and streaming chat are
 partial-page updates over a persistent connection, which is exactly what HTMX and server-sent
@@ -374,28 +377,19 @@ bridges are DishtaYantra features Prama does not need.
 
 Prama's requirement is that a connector, an assertion type, a monitor, a notifier, a scoring
 function, or a domain pack can be added **without a core change** (`NFR-MNT-002`, `FR-EXT-005`).
-Concretely:
 
-```
-prama/
-├── prama-core/         # IR, PQL parser/compiler, evidence model, policy — no I/O
-├── prama-engine-sql/   # dialect adapters                      ┐
-├── prama-engine-arrow/ # local Arrow/DuckDB evaluator          │ backends, each
-├── prama-engine-spark/ #                                       │ an installable
-├── prama-engine-dy/    # DishtaYantra streaming backend        ┘ plugin
-├── prama-connectors/*  # one distribution per family; entry-point registered
-├── prama-formats/*     # parsers (Rust ext modules) — same plugin contract
-├── prama-intel/        # profiling, mining, monitors, calibration, induction
-├── prama-server/       # FastAPI: API, scheduler, workflow, semantic layer
-├── web/                # Jinja templates and vendored static assets. No build step.
-├── prama-packs/*       # domain packs (signed bundles, not code)
-└── prama-sdk-{py,java,ts}/  + prama-cli
-```
+This section originally proposed a dozen distributions (`prama-core`, one per engine, per
+connector family, per format, `prama-intel`, `prama-server`, SDKs in three languages). What was
+built is four: the server, a standard-library **kernel** that plays the proposed `prama-core`'s
+role (no I/O, so the same verdict can be judged anywhere), the Python SDK, and the agent daemon.
+Connectors, backends and packs are modules inside the server, registered behind ABCs, rather than
+separate distributions. The layout, the import rules and the tests that enforce them are in
+[architecture/packages.md](../architecture/packages.md).
 
-Rules: `prama-core` imports nothing below it and performs no I/O (which is what makes the IR
-conformance suite possible). Plugins register through Python entry points with a declared
-capability manifest. Every plugin ships its own conformance tests, and a plugin that fails them is
-not "supported" ([09 §17](09-connectivity-and-formats.md#17-connector-delivery-plan)).
+The rules that survive from the proposal: the kernel imports nothing above it and performs no
+I/O, which is what makes the IR conformance suite possible; plugins are classes behind an ABC with
+a declared capability manifest; and every plugin ships its own conformance tests, so one that
+fails them is not "supported" ([09 §17](09-connectivity-and-formats.md#17-connector-delivery-plan)).
 
 ---
 

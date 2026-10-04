@@ -13,7 +13,9 @@
 
 Requirements: [`FR-EXE-020`](04-requirements-functional.md), `NFR-SCA`, `NFR-PRV`.
 Architecture context: [06 §3.4, §6](06-architecture.md). Evidence: [06 §3.5](06-architecture.md).
-Implementation: `src/prama/agent/`.
+Implementation: the protocol, residency, spool and signing in `prama_kernel.agent`; the server's
+coordinator in `src/prama/agent/`; the daemon in `prama-agent`. How they fit:
+[architecture/agents-and-fleet.md](../architecture/agents-and-fleet.md).
 
 **Design stance.** One control plane cannot check an enterprise estate, and the reason is not
 throughput. It is that the data is in three hundred places, behind firewalls, under different
@@ -25,23 +27,22 @@ findings rather than data.**
 
 ## As built
 
-`prama.agent` — the outbound-only customer-hosted worker: identity, capability
-negotiation, the coordinator, residency, and the protocol. `prama.execute` — the
-claim/lease machinery, in-flight enforcement with dead-lettering, and the broker
-seam. `prama.core.concurrency` — supervised task groups, byte-bounded queues and
+The outbound-only customer-hosted worker is built as three pieces: the daemon
+`prama-agent`; the protocol, capability matching, residency, spool and signing in
+the shared kernel (`prama_kernel.agent`); and on the server `prama.agent.fleet`
+(enrolment, keys, claimed assignments, the fleet API) with `prama.agent.assign`
+(the server compiles every assignment). `prama.execute` holds the claim/lease
+machinery, in-flight enforcement with dead-lettering, and the broker seam. `prama.core.concurrency` — supervised task groups, byte-bounded queues and
 leases, which everything must use; there are no bare threads in this codebase
 and no unbounded queues.
 
-The streaming path is complete end to end: `prama.execute.stream` evaluates a
-control against one message, `prama.execute.inflight` decides what happens to it,
-`prama.execute.transport` decides when it is safe to say the message is dealt
-with, and `prama.execute.kafka` is a transport verified against a live Apache
-Kafka broker.
-
-The property that matters is **commit after enforcement, never before**, and
-four tests fail if the two lines are swapped. It is at-least-once and says so:
-duplicate evidence is a reconciliation problem, lost data is not one anybody can
-solve afterwards.
+The streaming path (`prama.execute.stream`, `inflight`, `transport` and the
+`kafka` transport, verified against a live broker) and its rule, **commit after
+enforcement, never before**, are described once, in
+[06 §3.4.1](06-architecture.md#341-the-broker-seam-and-commit-ordering). The
+daemon that runs beside the data is `prama-agent`
+([operator's guide](../agent/README.md)); how its parts fit is
+[architecture/agents-and-fleet.md](../architecture/agents-and-fleet.md).
 
 **Not built:** §9's open questions are still open. The multi-node transport
 throughput harness that would answer DEC-17's second half does not exist, and
@@ -55,10 +56,10 @@ Everything else follows from these, and each is enforced somewhere specific rath
 
 | Property | Why it decides adoption | Where it lives |
 |---|---|---|
-| **Outbound-only** | No inbound firewall rule, no port open in a secure zone, no VPN, no jump host — and no year-long conversation with network security | `agent/protocol.py` |
-| **Data stays home** | Residency, GDPR, and the fact that "findings" quietly containing a hundred failing rows has moved the data and called it something else | `agent/residency.py` |
-| **Survives an outage** | The estate goes unchecked precisely during the incident that took the network out, and that gap is where an auditor looks | `agent/spool.py` |
-| **Trust is verified, not assumed** | An agent runs on a machine the control plane cannot see, holding production credentials | `agent/identity.py` |
+| **Outbound-only** | No inbound firewall rule, no port open in a secure zone, no VPN, no jump host — and no year-long conversation with network security | `prama_kernel.agent.protocol` |
+| **Data stays home** | Residency, GDPR, and the fact that "findings" quietly containing a hundred failing rows has moved the data and called it something else | `prama_kernel.agent.residency` |
+| **Survives an outage** | The estate goes unchecked precisely during the incident that took the network out, and that gap is where an auditor looks | `prama_kernel.agent.spool` |
+| **Trust is verified, not assumed** | An agent runs on a machine the control plane cannot see, holding production credentials | `prama.agent.fleet` (enrolment, keys, revocation) |
 
 ---
 
@@ -94,7 +95,7 @@ Three tiers. The boundaries between them are not configurable.
 | Tier | Contents | Rule |
 |---|---|---|
 | **Always crosses** | Counts, verdicts, plan identities, hashes, timings | Facts *about* the data, containing none of it |
-| **Crosses by declaration** | Samples of failing rows | Only under a declared policy, per zone |
+| **Crosses by declaration** | A digest naming the redacted sample set | Only under a declared policy, per zone. As built, the rows themselves never leave the agent under any disposition: only their count and digest do |
 | **Never crosses** | Credentials, connection strings, raw scans | The agent holds the credential; the control plane holds a reference |
 
 Sample disposition is one of four, declared per zone:
@@ -122,8 +123,10 @@ Three questions the control plane cannot answer by assumption.
 
 **Which agent is this?** Enrolment is a one-time token, issued by somebody with authority and
 redeemed once for a credential. A replayable token is a credential that never expires, handed out
-over whatever channel installed the agent. The registry keeps a *digest* of the agent's key, never
-the key — a registry that could reproduce credentials is a registry whose theft is an agent fleet.
+over whatever channel installed the agent. The registry keeps no key at all: as built, each agent's
+key is derived on demand from the fleet secret (`HMAC-SHA256(fleet.secret, "agent:" + tenant + ":" +
+agent_id)`), so a stolen registry yields no credentials. The fleet secret is then the thing whose theft
+is an agent fleet, which is why it lives only in the untracked local configuration.
 
 **Is it still trusted?** Identities are revocable, and a revoked agent's correctly-signed findings
 are **rejected**. Verifying a signature and then accepting the finding anyway is how a revocation
@@ -192,7 +195,7 @@ Deliberate omissions, each one a place where a distributed system usually goes w
 | Compile its own SQL | A second compiler in the estate is how one control comes to mean two things on two machines. The control plane sends the compiled query. |
 | Re-derive a plan from a control | Same reason. It judges with the plan it was given, using the *shared* judging code, so an agent's verdict is the control plane's verdict. |
 | Choose its own work | Assignment is by zone. See §4. |
-| Hold credentials it does not need | It resolves its own sources' secrets from its own vault; the control plane never sees them. |
+| Hold credentials it does not need | It reads its sources' credentials from its own environment (`password_env`, `dsn_env`); the control plane never sees them. |
 | Stop on a failed source | An agent that stopped on the first unreadable source would take the rest of its zone's controls down with it. A failure is an `error` verdict *with its reason*, and the next control runs. |
 
 ---
@@ -217,9 +220,9 @@ can carry out on a disk and check.
 
 Honest, and not yet decided.
 
-- **Transport.** The protocol is defined by its messages, not its wire format. HTTP long-poll is the
-  obvious first implementation; gRPC streaming and a queue-backed variant both fit the same four
-  messages. Deciding on measured behaviour, not preference.
+- **Transport.** The protocol is defined by its messages, not its wire format. What is built is plain
+  HTTP polling ([the fleet contract](../design/agent-fleet-http.md)); long-poll, gRPC streaming and a
+  queue-backed variant all fit the same four messages. Deciding on measured behaviour, not preference.
 - **Assignment fairness across zones.** Work is queued per zone and taken by whichever agent asks.
   Two agents in one zone therefore share by arrival, which is fair enough for equal machines and
   wrong for unequal ones. A weighted claim is the likely answer and is not built.

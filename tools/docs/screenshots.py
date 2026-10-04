@@ -156,24 +156,9 @@ _LINKS = {
         ("/estate", "/estate/gaps", "/declarations"),
         re.compile(r"^/estate/[0-9A-HJKMNP-TV-Z]{26}$"),
     ),
+    # The break workbench, as a person reaches it: from the Reconciliation list.
+    "{recon}": (("/reconciliation",), re.compile(r"^/reconciliation/(?!breaks/)[^/?#]+$")),
 }
-
-
-def _reconciliation(url: str, slug: str) -> str:
-    """The break workbench of the estate's first reconciliation, found through the SDK.
-
-    Through the SDK because no console page links to the workbench yet.
-    """
-    import prama_sdk
-
-    client = prama_sdk.connect(url, username=ADMIN, password=PASSWORD, tenant=slug)
-    try:
-        listed = client.reconciliation.list().get("reconciliations") or []
-    finally:
-        client.close()
-    if not listed:
-        raise SystemExit(f"the estate {slug} has no reconciliation")
-    return f"/reconciliation/{listed[0]['definition']}"
 
 
 def _change_password(url: str, slugs: list[str]) -> None:
@@ -189,7 +174,7 @@ def _change_password(url: str, slugs: list[str]) -> None:
 
 
 def _fill(path: str, url: str, page: object) -> str:
-    """Resolve ``{dataset}`` by following the console's own links."""
+    """Resolve ``{dataset}`` or ``{recon}`` by following the console's own links."""
     for token, (pages, shape) in _LINKS.items():
         if token not in path:
             continue
@@ -219,14 +204,6 @@ def main(argv: list[str]) -> int:
                 for key in sorted({s.study for s in wanted if s.study})
             }
             print("estates:", estates)
-            # Before the browser signs in: an SDK sign-in as the same person
-            # mid-session ends the console's session, and the page would be
-            # photographed as the sign-in form.
-            resolved = {
-                s.name: _reconciliation(url, estates[s.study])
-                for s in wanted
-                if "{recon}" in s.path
-            }
             _change_password(url, list(estates.values()))
             with sync_playwright() as play:
                 # The installed Chrome, as the accessibility audit uses: no download.
@@ -245,7 +222,7 @@ def main(argv: list[str]) -> int:
                         if "/sign-in" in page.url:
                             raise SystemExit(f"could not sign in to {estates[study]}: {page.url}")
                     for shot in (s for s in wanted if s.study == study):
-                        target = _fill(resolved.get(shot.name, shot.path), url, page)
+                        target = _fill(shot.path, url, page)
                         page.goto(url + target)
                         page.wait_for_load_state("networkidle")
                         if shot.click:

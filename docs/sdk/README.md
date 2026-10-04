@@ -21,7 +21,7 @@ pip install prama-sdk          # or, from a checkout: uv build --wheel sdk
 
 Every endpoint of the HTTP API (`/api/v1`) has an SDK method, and every SDK method calls an
 endpoint. `tests/sdk/test_parity.py` fails the build otherwise, so this stays true as the API
-grows.
+grows; adding a method is in [the developer guide](../developer/sdk-methods.md).
 
 ## Connecting
 

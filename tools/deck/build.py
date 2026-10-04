@@ -28,7 +28,7 @@ import layouts  # noqa: E402
 import prama_deck  # noqa: E402
 import theme  # noqa: E402
 
-OUT = ROOT / "docs" / "deck"
+OUT = ROOT / "docs" / "publications" / "deck"
 NAME = "Prama-Evidence-First-Data-Quality"
 AUTHOR = "Ashutosh Sinha"
 

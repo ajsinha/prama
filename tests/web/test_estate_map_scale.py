@@ -337,9 +337,8 @@ class TestTheMapAtScale:
         it is a product being sold short.
         """
         largest = max((c for c in curve if c["drew"]), key=lambda c: c["nodes"], default=None)
-        document = (
-            Path(__file__).resolve().parents[2] / "docs" / "09-connectivity-and-formats.md"
-        ).read_text(encoding="utf-8")
+        corpus = Path(__file__).resolve().parents[2] / "docs" / "corpus"
+        document = (corpus / "09-connectivity-and-formats.md").read_text(encoding="utf-8")
 
         if largest is None:
             pytest.fail("the map drew nothing at any size, which is a defect not a limit")

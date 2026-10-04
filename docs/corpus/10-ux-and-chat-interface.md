@@ -41,10 +41,7 @@ persona, ≥90% unaided task success, ≤3 min to a reviewed control — those a
 study. And **screen-reader testing has not been done**: an automated pass is not
 evidence of it, and ticking that line would claim an accessibility guarantee to
 the people who most depend on it being true. The estate map **has now been measured**, and misses its target by more than an
-order of magnitude: 500 nodes take **5.3 s** to first draw, 2,000 take **15.5 s**, and 4,000 do not
-draw at all within 60 s — the browser's main thread is blocked throughout, so the
-page is unresponsive rather than merely slow. Pan and zoom do hold 60 fps, but
-only once the map has appeared. See §1 and `tests/web/test_estate_map_scale.py`.
+order of magnitude; the numbers and the cause are in §3.
 
 ---
 
@@ -105,8 +102,10 @@ The first screen is not a list of failing tests. It is **the business's own pict
   regulatory obligation, trust propagation (showing where a green asset inherits a red ancestor).
 - **Level-of-detail rendering** aggregates to domains when zoomed out and reveals attributes when
   zoomed in. `NFR-SCA-011` asks for 50,000 nodes at 60 fps pan/zoom. **Measured**
-  (`tests/web/estate-map-scale.json`): 500 nodes draw in 5.3 s, 2,000 in 15.5 s, and 4,000 do not
-  draw within 60 s. Pan and zoom hold 60 fps once the map exists — the frame rate was never the
+  (`tests/web/test_estate_map_scale.py`, numbers in `tests/web/estate-map-scale.json`): 500 nodes
+  take 5.3 s to first draw, 2,000 take 15.5 s, and 4,000 do not draw within 60 s, with the
+  browser's main thread blocked throughout, so the page is unresponsive rather than merely slow.
+  Pan and zoom hold 60 fps once the map exists — the frame rate was never the
   problem. What binds is `relax()` in `estate-map.js`: an all-pairs O(n²) force loop, run 60 times,
   **synchronously before Sigma is constructed**, so nothing is on screen and nothing responds until
   it finishes. Its own comment says Barnes-Hut would be the right answer above a few thousand

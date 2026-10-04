@@ -157,43 +157,19 @@ console shows each one under **Help → Case studies**.
 
 ## Documentation
 
-Start with **[QUICKSTART.md](QUICKSTART.md)** if you want to run it, or
-**[docs/corpus/00 — Executive Summary](docs/corpus/00-executive-summary.md)**, then
-**[docs/corpus/03 — The Business Semantic Layer](docs/corpus/03-business-semantic-layer.md)** (the conceptual heart).
+**[The documentation index](docs/README.md)** lists every document and says who should read
+which. The main entry points:
 
-| # | Document | What it answers |
-|---|---|---|
-| 00 | [Executive Summary](docs/corpus/00-executive-summary.md) | What we are building, why it wins, what it costs |
-| 01 | [Landscape Survey](docs/corpus/01-landscape-survey.md) | Research, commercial, and open-source state of the art |
-| 02 | [Gap Analysis & Positioning](docs/corpus/02-gap-analysis-and-positioning.md) | Seven structural gaps; the product thesis; competitive stance |
-| **03** | **[Business Semantic Layer & Data Estate Model](docs/corpus/03-business-semantic-layer.md)** | **Datasets, attributes, concepts, relationships, journeys, continuous re-examination** |
-| 04 | [Functional Requirements](docs/corpus/04-requirements-functional.md) | 350+ FR-### across 22 capability areas |
-| 05 | [Non-Functional Requirements](docs/corpus/05-requirements-nonfunctional.md) | Scale, latency, resilience, security, cost — with measurable targets |
-| 06 | [Reference Architecture](docs/corpus/06-architecture.md) | Planes, services, compilation pipeline, deployment topologies |
-| 07 | [PQL — Rule Language Specification](docs/corpus/07-rule-language-spec.md) | Grammar, assertion catalogue, semantics, IR, worked example |
-| 08 | [AI/ML Capabilities](docs/corpus/08-ai-ml-capabilities.md) | Constraint mining, LLM induction, conformal calibration, model risk |
-| 09 | [Connectivity & Formats](docs/corpus/09-connectivity-and-formats.md) | Every source, feed, protocol, and codec |
-| 10 | [UX & Conversational Interface](docs/corpus/10-ux-and-chat-interface.md) | Estate map, workflows, the chat agent and its safety contract |
-| 11 | [Reporting, Alerting & Learning](docs/corpus/11-reporting-alerting-learning.md) | Scoring, trust propagation, alert economics, the feedback loop |
-| 12 | [Banking & Finance Domain Pack](docs/corpus/12-banking-domain-pack.md) | BCBS 239, regulations, message standards, reference reconciliations |
-| 13 | [Security, Governance & Compliance](docs/corpus/13-security-governance-compliance.md) | Threat model, evidence ledger, attestation, compliance posture |
-| 14 | [Data Model & APIs](docs/corpus/14-data-model-and-apis.md) | Canonical entities, REST/gRPC, events, SDKs, GitOps, MCP |
-| 15 | [Evaluation & Benchmark Methodology](docs/corpus/15-evaluation-benchmark-methodology.md) | How we *prove* "best in world" — and how it could fail |
-| 16 | [Roadmap & Delivery Plan](docs/corpus/16-roadmap-and-delivery-plan.md) | Phases, teams, build/buy, open-source strategy |
-| 17 | [Risks & Open Questions](docs/corpus/17-risks-and-open-questions.md) | Risk register and open decisions |
-| 18 | [Technology Stack & Reuse from DishtaYantra](docs/corpus/18-technology-stack.md) | Languages, frameworks, world-class UI stack, deployment, and code reuse |
-| 19 | [Implementation Roadmap — Ten Waves](docs/corpus/19-implementation-roadmap.md) | The engineering plan: what gets built, in what order, and what done means |
-| 20 | [Competitive Analysis](docs/corpus/20-competitive-analysis.md) | Head-to-head against Solidatus, Manta, Alation, Collibra, Monte Carlo and the rest — including where we are behind |
-| 21 | [How We Win](docs/corpus/21-how-we-win.md) | The plan to beat them: three asymmetric unlocks, honest moat ratings, and the traps we set |
-| 22 | [Distributed Execution](docs/corpus/22-distributed-execution.md) | Prama agents: an agent runs beside the data, does the work there, and sends findings rather than data |
-| 23 | [Intelligence and Lineage Roadmap](docs/corpus/23-intelligence-and-lineage-roadmap.md) | The LLM gateway, lineage, code-to-lineage, steward agents and DQ delegates, as built and as planned; the lineage scope |
-| — | [Design notes](docs/design/) | LLM gateway, code lineage and steward agents, DQ delegates, the Manta/Alation gap |
-| — | [Remaining work](docs/corpus/remaining-work.md) | What is left, in the order it would be taken |
-| — | [Brand](docs/reference/brand.md) | Name, mark, slogan, palette, voice |
-| — | [Glossary](docs/reference/glossary.md) | Terms of art |
-| — | [Medium article](docs/publications/medium/your-dashboard-is-green.md) | *Your dashboard is green. Can you prove it?* Nine design ideas, with diagrams and examples |
-| — | [Deck](docs/publications/deck/Prama-Evidence-First-Data-Quality.pptx) | 45 slides for the people who must stand behind a number; built from [`tools/deck/`](tools/deck/GUIDE.md) and audited as rendered |
-| — | [Academic Paper](docs/publications/paper/) | [*Data Quality as Justified Belief*](docs/publications/paper/data-quality-as-justified-belief.pdf): the paper, its LaTeX source, a long-form [article](docs/publications/paper/data-quality-as-justified-belief-article.md), bibliography, experiment plan |
+| If you want to… | Read |
+|---|---|
+| run it | [QUICKSTART.md](QUICKSTART.md), then [operations](docs/operations/README.md) |
+| understand how it fits together | [Architecture](docs/architecture/README.md): every component, with diagrams, real screenshots and examples |
+| extend it | [Developer guides](docs/developer/README.md): connectors, PQL functions, validators, providers, delegates, tables, endpoints |
+| script it | [The Python SDK](docs/sdk/README.md) |
+| run an agent beside the data | [The agent operator's guide](docs/agent/README.md) |
+| know why it is built this way | [The design corpus](docs/README.md#reading-order), starting with [00](docs/corpus/00-executive-summary.md) and [03](docs/corpus/03-business-semantic-layer.md), the conceptual heart |
+
+The same documents are in the console under **Help**, one card each.
 
 ---
 
@@ -244,7 +220,7 @@ Five contributions, targeting **ACM JDIQ** with a **VLDB Industrial** companion 
 are complete, apart from two tasks that are open on infrastructure rather than code. So is most of
 the intelligence roadmap in [docs/corpus/23](docs/corpus/23-intelligence-and-lineage-roadmap.md): the LLM gateway
 and the lineage workbench, code-to-lineage, steward agents, and DQ delegates. What is left is in
-[docs/corpus/remaining-work.md](docs/corpus/remaining-work.md). The suite is at <!--tests-->6,334 passing, 96 skipped<!--/tests-->,
+[docs/corpus/remaining-work.md](docs/corpus/remaining-work.md). The suite is at <!--tests-->6,645 passing, 96 skipped<!--/tests-->,
 derived from a green run by `scripts/sync_test_counts.py` rather than typed — a
 count in prose rots the first time somebody adds a test.
 

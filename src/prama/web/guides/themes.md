@@ -30,3 +30,8 @@ here than in Maya.
 ## Row density
 
 The list button next to the theme menu switches tables between *comfortable* and *compact*.
+
+## Go deeper
+
+- [Brand](../../../../docs/reference/brand.md): the palette the themes derive from.
+- [Platform: the surfaces](../../../../docs/architecture/platform.md#the-surfaces): how the console is built.

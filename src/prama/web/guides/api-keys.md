@@ -35,3 +35,8 @@ prama apikey revoke pk_live_abcd
 ```
 
 Every creation and revocation is written to the audit log.
+
+## Go deeper
+
+- [Platform: security](../../../../docs/architecture/platform.md#security): how a key's scopes are bounded by its holder's roles.
+- [The Python SDK](../../../../docs/sdk/README.md): what a key is for: scripting Prama.

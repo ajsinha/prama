@@ -64,3 +64,8 @@ prama lineage gaps
 
 Every statement a scan could not fully read is listed with the reason. A partial graph whose gaps
 are visible is worth more than a complete-looking one whose gaps are not.
+
+## Go deeper
+
+- [Lineage and code](../../../../docs/architecture/lineage-and-code.md): the lineage store, how an edge is known, and impact.
+- [Writing a code reader](../../../../docs/developer/code-readers.md): adding a source of lineage.

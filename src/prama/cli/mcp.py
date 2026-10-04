@@ -22,7 +22,7 @@ from prama.mcp.estate import estate_for
 
 class McpServeCommand(Command):
     name = "serve"
-    help = "run the MCP server on stdio (read and propose tools only)"
+    help = "run the MCP server on stdio (read-only tools: it cannot propose or change)"
 
     def configure(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument(

@@ -35,3 +35,8 @@ Imported edges are stored as `imported:<vendor>`, beside Prama's own parse and n
 it. When the two name different sources for the same column, the Lineage page lists the
 disagreement so that a person can look. An Alation lineage object with several sources *and*
 several targets does not say which feeds which, so it is left out rather than guessed.
+
+## Go deeper
+
+- [The semantic layer](../../../../docs/architecture/semantic-layer.md#metadata-business-context-and-the-glossary): what a term binds to.
+- [Writing an importer](../../../../docs/developer/importers.md): bringing in another catalogue's glossary or lineage.

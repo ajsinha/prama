@@ -23,3 +23,8 @@ resolution is written to the audit log.
 Datasets come into your queue when you are their owner or steward on the declaration.
 
 The same queue is available at `GET /api/v1/queue`, and from `prama queue --as you --approver`.
+
+## Go deeper
+
+- [The semantic layer](../../../../docs/architecture/semantic-layer.md): the objects comments are made on.
+- [Evidence and assurance](../../../../docs/architecture/evidence-and-assurance.md): incidents and approvals, the other things waiting on a person.

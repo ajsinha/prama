@@ -140,3 +140,9 @@ prompts before they leave.
 prama llm ask author "Write a control that trades.notional is never null"
 prama llm calls
 ```
+
+## Go deeper
+
+- [Intelligence](../../../../docs/architecture/intelligence.md#the-gateway): the gateway, profiles, budgets and the call ledger.
+- [Writing a model provider](../../../../docs/developer/llm-providers.md): adding a provider dialect.
+- [LLM gateway: design](../../../../docs/design/llm-gateway.md): the design note.

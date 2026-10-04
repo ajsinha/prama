@@ -15,25 +15,36 @@
 
 ## As built
 
-Every plane in §3 exists. The package tree follows the architecture closely
-enough that `src/prama/` reads as a table of contents for this document.
+This document is the **intent**: the principles, the planes, the services and the
+decisions, with the alternatives they rejected. How the code realises it, package
+by package, with diagrams of the real modules, is the architecture guide,
+[docs/architecture/](../architecture/README.md); this document does not repeat it.
 
-Two architectural rules are enforced by the build rather than by review. **Only
-`prama.db` may import SQLAlchemy** — everything else goes through DAOs behind a
-unit of work. And **no module may both call a model and produce a verdict**
-(`CON-007`). Both are import scans in `tests/architecture/test_layering.py`, and
-both fail the build rather than warning.
+Every plane in §3 exists. Three architectural rules are enforced by the build
+rather than by review: **only `prama.db` may import SQLAlchemy**; **no module may
+both call a model and produce a verdict** (`CON-007`); and **every place data
+leaves is registered** and passes the residency gate (described in
+[13 §3.1](13-security-governance-compliance.md#31-residency-and-where-the-question-gets-asked)).
+The first two are import scans in `tests/architecture/test_layering.py`.
 
-A third was added while building: **every place data leaves is registered**
-(`prama.security.egress`), and the list of modules that can reach the network is
-derived from their imports rather than maintained by hand. A new module that
-opens a socket without being registered fails the build. The list is the thing
-that rots; the imports are the thing that is true.
+Where the build departs from the text below:
 
-Execution backends: SQL pushdown (PostgreSQL, DuckDB, SQLite), Arrow/DuckDB
-local evaluation, the native row scanner for COBOL/EBCDIC and financial message
-formats, and the streaming path. **Spark and Flink are not implemented** — the
-seams are there, the transports are not, and `docs/corpus/19` says so.
+- **Backends.** SQL pushdown to PostgreSQL, DuckDB and SQLite, kernel code for
+  reconciliations and delegates, the native row scanner for COBOL/EBCDIC and
+  financial message formats, and the streaming path. **Spark and Flink are not
+  implemented**; the seams are there, the transports are not.
+- **Assertion fusion (§4)** is implemented as a compiler pass
+  (`prama.backend.fuse`) and used to show and cost plans; the scheduled run still
+  executes one query per control.
+- **Storage (§5).** One relational database, SQLite by default or PostgreSQL,
+  holds the semantic layer, controls, lineage and, under a separate declarative
+  base, the evidence ledger, in the same transaction. There is no object store,
+  graph store, search index, Redis or Kafka dependency; Kafka is an optional
+  streaming transport.
+- **Workers (§3.3, §3.4).** Controls run in the server process, one server per
+  scheduler tick by a database lease, or beside the data in a `prama-agent`
+  daemon ([22](22-distributed-execution.md)). The claim-and-fence worker model in
+  `prama.execute` exists and is tested but is not wired to the scheduler.
 
 ---
 
@@ -178,12 +189,14 @@ per batch.
 offset" across them is meaningless; committing one partition's offset against
 another's is how a consumer group silently skips a partition's worth of data.
 
-**No broker client ships.** The transport is an ABC with an in-memory reference
-implementation, and a test asserts that no Kafka or Flink package is imported.
-The transport that talks to a real broker belongs to the deployment, where the
-organisation's security, retry and partition-assignment policy already lives —
-and keeping it out is what lets the commit ordering, the property that matters,
-be tested at all. **The loop has not been run against a real broker.**
+**The ordering rule imports no broker client.** `prama.execute.transport` is an
+ABC with an in-memory reference implementation, and a test asserts it imports no
+Kafka or Flink package, which is what lets the commit ordering, the property
+that matters, be tested at all. The transport that does talk to a broker,
+`prama.execute.kafka`, is a separate module behind the `kafka` extra, and it has
+been run against a live Apache Kafka broker: it commits `offset + 1`, refuses
+`enable.auto.commit`, and dead-letters a message that will not deserialise
+rather than dropping it.
 
 The seam is consume-only: a transport that could also produce would invite the
 enforcement loop to republish, and a loop that consumes and produces on the same

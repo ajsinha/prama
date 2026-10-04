@@ -641,7 +641,7 @@ expose Prama to an MCP client
 
 | Subcommand | What it does |
 |---|---|
-| `prama mcp serve` | run the MCP server on stdio (read and propose tools only) |
+| `prama mcp serve` | run the MCP server on stdio (read-only tools: it cannot propose or change) |
 | `prama mcp tools` | list what the MCP server exposes, and its capability |
 
 **`prama mcp serve`**

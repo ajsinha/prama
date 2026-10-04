@@ -37,3 +37,8 @@ queue, row density, the theme, and your user menu.
 
 What you can open depends on your roles; see [Accounts, roles and sign-in](/help/accounts). A page you
 may not use answers **403** rather than hiding, so a missing permission is visible, not mysterious.
+
+## Go deeper
+
+- [How Prama fits together](../../../../docs/architecture/README.md): every component, and the life of a control end to end.
+- [Developer guides](../../../../docs/developer/README.md): extending Prama: connectors, functions, providers and the rest.

@@ -14,6 +14,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from fastapi import Request
@@ -75,6 +76,7 @@ class PublicRoutes(UiRoutes):
         self.page("/legal", self.legal, name="legal", scope=None)
         self.page("/help", self.help_index, name="help_index", scope=None)
         self.page("/help/assets/{name:path}", self.help_asset, name="help_asset", scope=None)
+        self.page("/help/images/{name:path}", self.help_image, name="help_image", scope=None)
         # Before /help/{slug}, which would otherwise read "case-studies" as a topic.
         self.page("/help/case-studies", self.case_studies, name="help_case_studies", scope=None)
         self.page("/help/case-studies/{slug}", self.case_study, name="help_case_study", scope=None)
@@ -148,6 +150,7 @@ class PublicRoutes(UiRoutes):
             "help/index.html",
             public_nav=not request.session.get("principal_id"),
             sections=help_catalog.SECTIONS,
+            slugs=help_catalog.BY_SLUG,
             studies=_studies(),
         )
 
@@ -200,8 +203,12 @@ class PublicRoutes(UiRoutes):
             sections=help_catalog.SECTIONS,
         )
 
-    async def help_asset(self, name: str) -> Any:
-        path = help_catalog.asset(name)
+    async def help_image(self, name: str) -> Any:
+        """An image a document keeps beside itself, anywhere under ``docs/``."""
+        return await self.help_asset(name, help_catalog.DOCS_DIR)
+
+    async def help_asset(self, name: str, root: Path | None = None) -> Any:
+        path = help_catalog.asset(name, root)
         media = _ASSET_TYPES.get(path.suffix.lower()) if path else None
         if path is None or media is None:
             raise NotFoundError(
