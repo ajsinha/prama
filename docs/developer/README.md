@@ -17,6 +17,9 @@ and a checklist for the pull request.
 
 ## Before you start
 
+- **Open it in an IDE**: [Running Prama in PyCharm and IntelliJ IDEA](ide.md) covers the
+  interpreter, the shared run configurations in `.run/`, live reload, the debugger and
+  the tests.
 - **Set up and run the gate** as [CONTRIBUTING.md](../../CONTRIBUTING.md#the-loop) describes.
   `bash scripts/gate.sh` is the one command; the full list of commands is in `CLAUDE.md`.
 - **Read the hard rules** in `CLAUDE.md`. Four of them shape almost every extension: no

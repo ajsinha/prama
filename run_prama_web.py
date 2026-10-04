@@ -119,7 +119,9 @@ def main() -> int:
     # None, so configuration answers: server.host / server.port (5900).
     parser.add_argument("--host", default=None)
     parser.add_argument("--port", type=int, default=None)
-    parser.add_argument("--reload", action="store_true", help="reload on code change")
+    parser.add_argument(
+        "--reload", action="store_true", help="restart on every source change (development)"
+    )
     parser.add_argument("--config", default="", help="configuration file to load")
     parser.add_argument(
         "--prepare",
@@ -217,6 +219,20 @@ def main() -> int:
     # under a supervisor showed the log and never the URLs — which are the only
     # part somebody actually needs.
     sys.stdout.flush()
+
+    if args.reload:
+        # The worker is a fresh process: it gets the configuration file and
+        # the estate this run chose through the environment, as any process
+        # would (prama.api.reloading).
+        from prama.api import reloading
+
+        reloading.serve(
+            args.host,
+            args.port,
+            config_path=args.config or None,
+            environment={"PRAMA_TENANCY__DEFAULT_TENANT": tenant} if tenant else None,
+        )
+        return 0
 
     uvicorn.run(
         create_app(config),
