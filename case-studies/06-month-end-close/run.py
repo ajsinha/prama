@@ -293,8 +293,11 @@ def _without_offset(harness: Harness, erp: Path) -> None:
     made = harness.sdk.tenants.create(slug, "Acme Markets — close, without the timing allowance")
     counterfactual = harness.sdk.as_key(made["credentials"]["api_key"])
     try:
+        # Tier 3, not 1: this scratch estate has one person in it, and a Tier-1
+        # control needs a second to switch it on. The tier changes who may
+        # approve, not how the reconciliation matches, which is all this shows.
         declared = counterfactual.controls.declare(
-            pql, identity="close:subledger-ledger-no-offset", criticality=1
+            pql, identity="close:subledger-ledger-no-offset", criticality=3
         )
         control = declared.get("control", declared)
         counterfactual.controls.activate(control["id"], reason="the counterfactual")
