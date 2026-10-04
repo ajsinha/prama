@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 name = "prama"
 description = "Prama — a business-owned, evidence-first data quality control plane."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = { text = "Proprietary — see LICENSE" }
 authors = [{ name = "Ashutosh Sinha", email = "ajsinha@gmail.com" }]
 dynamic = ["version"]
@@ -168,7 +168,7 @@ markers = [
 [tool.ruff]
 line-length = 100
 src = ["src", "tests"]
-target-version = "py311"
+target-version = "py312"
 # Sample application code that intake reads as *input*, written in the style
 # of the third-party code it imitates (PySpark's `functions as F`). Linting it
 # as Prama's own would mean rewriting the fixture into something no bank runs.
@@ -176,7 +176,10 @@ extend-exclude = ["tests/fixtures/code"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "SIM", "RET", "ARG", "PTH", "RUF"]
-ignore = ["N818"]
+# UP046: `Generic[T]` is kept over 3.12's `class X[T]` syntax. The floor rose to
+# 3.12 for SQLite's setconfig, not for the syntax, and rewriting the DAO base,
+# the registry and the bounded queue would change core typing for no behaviour.
+ignore = ["N818", "UP046"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["ARG001", "ARG002", "RUF059", "SLF001"]
@@ -190,7 +193,7 @@ ignore = ["N818"]
 "src/prama/api/routes/*.py" = ["B008", "ARG001"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 packages = ["prama"]
 mypy_path = "src:kernel/src:sdk/src:agent/src"
 strict = true

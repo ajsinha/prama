@@ -15,6 +15,9 @@ prama-agent run --config /etc/prama-agent/agent.yaml
 prama-agent status --config /etc/prama-agent/agent.yaml
 ```
 
+Requires Python 3.12 or newer: an older interpreter cannot make SQLite refuse a
+misspelled column, so a control on one would pass instead of failing.
+
 It depends on `prama-kernel` (the deterministic code it shares with the server)
 and `prama-sdk` (the only way it talks to the server), and never imports the
 server; the server's build fails if it does.

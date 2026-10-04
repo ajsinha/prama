@@ -34,9 +34,24 @@ whether a control passed.
 
 ## 1. Install
 
-The interpreter is pinned in `.python-version`, and deliberately not the
-operating system's — an Ubuntu upgrade removed this project's Python once
-already, mid-build, and took the virtual environment with it.
+### Which Python
+
+| | Version | Where it is stated |
+|---|---|---|
+| **Required** | **3.12 or newer** | `requires-python` in `pyproject.toml`, and in the SDK, kernel and agent packages |
+| **Developed and pinned** | **3.13** | `.python-version`, which `uv venv` reads; the Docker image uses the same |
+| **Tested** | 3.12, 3.13 and 3.14 | the whole suite, on each |
+
+3.12 is the floor for a correctness reason, not a stylistic one. SQLite reads a
+double-quoted column name it cannot find as a *string*, so a control on a
+misspelled column would test a constant and pass every row. Prama switches that
+off on every SQLite connection that runs a control, and the switch
+(`Connection.setconfig`) only exists from Python 3.12. On an older interpreter
+Prama refuses the connection rather than trusting it.
+
+The interpreter is pinned, and deliberately not the operating system's: an
+Ubuntu upgrade removed this project's Python once already, mid-build, and took
+the virtual environment with it.
 
 ```bash
 # One-time: a Python that apt cannot delete
@@ -55,7 +70,7 @@ the extras you name, which is what makes it reproducible; to *add* an extra to
 an environment you already have, use `uv pip install -e ".[postgres]"` instead,
 as the PostgreSQL section below does.
 
-Plain `venv` works too, if the interpreter on your PATH is already 3.11+. Note
+Plain `venv` works too, if the interpreter on your PATH is already 3.12 or newer. Note
 that `pip` cannot read `uv.lock`, so this path floats to the newest release of
 every dependency:
 

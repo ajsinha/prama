@@ -128,9 +128,11 @@ def _refuse_double_quoted_strings(dbapi_connection: Any) -> None:
     single-quotes?`, which is both correct and a better error than Prama would
     have written.
 
-    Best-effort: `setconfig` arrived in Python 3.12, and an older interpreter or
-    a driver without it simply keeps SQLite's default. Prama pins 3.13, so the
-    supported configuration always gets the strict behaviour.
+    Best-effort here, and only here: this is Prama's own database, reached
+    in part through an async driver whose wrapped connection has no `setconfig`, and no
+    control runs against it. Every SQLite connection a control runs on is
+    strict without exception (`prama_kernel.strict_sqlite`), which is why
+    Python 3.12 is the floor.
     """
     import sqlite3
 

@@ -136,7 +136,10 @@ def _sqlite(
     # Not tied to the opening thread: a preview runs its query off the event
     # loop (`asyncio.to_thread`), and the default check refuses that outright.
     # One caller uses the connection at a time, and it is read-only.
-    connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True, check_same_thread=False)
+    from prama_kernel import strict_sqlite
+
+    # Strict: a misspelled column is an error, not a string (Q-08).
+    connection = strict_sqlite.connect(f"file:{path}?mode=ro", uri=True, check_same_thread=False)
     connection.row_factory = sqlite3.Row
     register_regexp(connection)
 

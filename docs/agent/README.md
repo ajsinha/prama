@@ -35,7 +35,7 @@ python3 -m venv /opt/prama-agent
 /opt/prama-agent/bin/pip install 'prama-agent[postgres]'    # PostgreSQL sources (psycopg 3)
 ```
 
-Python 3.11 or newer. A source naming an engine whose driver is not installed is refused
+Python 3.12 or newer ([why](../../QUICKSTART.md#which-python)). A source naming an engine whose driver is not installed is refused
 **at start**, with the command that installs it — not at three in the morning on the first
 assignment.
 

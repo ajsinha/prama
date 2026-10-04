@@ -8,6 +8,8 @@ never imports the server, so a client machine installs this package alone.
 pip install prama-sdk          # httpx and PyYAML; nothing of the server
 ```
 
+Requires Python 3.12 or newer, like the server it talks to.
+
 ```python
 import prama_sdk as prama
 

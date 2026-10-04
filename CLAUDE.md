@@ -286,10 +286,17 @@ uv sync --extra dev --extra serve --extra postgres --extra fast \
         --extra jdbc --extra snowflake
 ```
 
-The suite passes on 3.13 and on 3.14 — both were run before choosing, and every
-dependency has wheels for both. The pin exists so that *which* one is in use is
-a decision recorded in the repository rather than a consequence of the last
-`apt upgrade`.
+The suite passes on 3.12, 3.13 and 3.14 (each run in full, 2026-10-04), and
+every dependency has wheels for all three. The pin exists so that *which* one is
+in use is a decision recorded in the repository rather than a consequence of the
+last `apt upgrade`.
+
+**3.12 is the floor** (`requires-python` in all four packages), for correctness:
+SQLite reads an unknown double-quoted column as a string, so a control on a
+misspelled column passes every row. `prama_kernel.strict_sqlite` turns that off
+on every SQLite connection a control runs on, and the switch
+(`Connection.setconfig`) only exists from 3.12. On 3.11 the suite showed it. The
+user-facing statement is QUICKSTART's "Which Python"; keep the two in step.
 
 **Dependency floors have no ceilings, and `uv.lock` is what stops that
 mattering.** Every requirement in `pyproject.toml` is a `>=`, so a resolve from
