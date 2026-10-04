@@ -116,6 +116,13 @@ class TestNothingSendsWithoutBeingRegistered:
     #: and why. Short on purpose: each line is something a security reviewer
     #: has to accept.
     NOT_EGRESS: ClassVar[dict[str, str]] = {
+        "prama/alert/channels.py": (
+            "the webhook and email notifiers carry an alert the router has already "
+            "released. The residency gate is consulted in prama.alert.route, the "
+            "registered alert-delivery egress point, before any dispatch reaches a "
+            "notifier; a withheld alert is QUIET and is never handed to one "
+            "(tests/alert/test_delivery.py pins that a refused residency sends nothing)"
+        ),
         "prama/cli/commands.py": (
             "imports socket so `serve` can bind its listener before printing a "
             "success banner — the banner used to go out first and the bind fail "

@@ -27,7 +27,7 @@ from fastapi import APIRouter, Body, Header, Request
 from pydantic import BaseModel, Field
 
 from prama.agent.fleet import Fleet, FleetSettings
-from prama.api.deps import Administrator, Config, ControlApprover, Uow
+from prama.api.deps import Administrator, Config, ControlApprover, Db, Uow
 from prama.core.clock import Clock, SystemClock
 
 router = APIRouter(tags=["fleet"])
@@ -164,10 +164,21 @@ async def hello(
 async def report(
     body: MessageBody,
     uow: Uow,
+    database: Db,
     config: Config,
     request: Request,
     agent: AgentHeader = None,
     signature: SignatureHeader = None,
 ) -> dict[str, Any]:
     """A signed Report; answered with a Receipt of what was accepted, or a Refusal."""
-    return await _fleet(uow, config, request).report(body, agent_header=agent, signature=signature)
+    fleet = _fleet(uow, config, request)
+    receipt = await fleet.report(body, agent_header=agent, signature=signature)
+    if fleet.reported:
+        # An agent's findings alert like any run's, once they have committed;
+        # the alert's own failures never reach the agent's receipt.
+        await uow.commit()
+        from prama.alert.pipeline import alert_after_run
+
+        tenant = str(fleet.reported[0].tenant_id)
+        await alert_after_run(database, tenant, config, records=fleet.reported)
+    return receipt
