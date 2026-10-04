@@ -795,7 +795,7 @@ run the HTTP API
 |---|---|
 | `--host` | bind address (server.host) |
 | `--port` | port (server.port, 5900) |
-| `--reload` | reload on code change |
+| `--reload` | restart on every source change (development; reads --config, not --set) |
 
 ## `prama tenant`
 

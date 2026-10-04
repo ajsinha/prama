@@ -131,6 +131,10 @@ Then open **http://127.0.0.1:5900/** — the landing page, with the help centre
 at `/help` — or go straight to the console at `/estate`. The port is
 `server.port` in configuration.
 
+**In PyCharm or IntelliJ IDEA?** The repository ships run configurations for the
+server, live reload, the debugger and the case studies:
+**[Running Prama in PyCharm and IntelliJ IDEA](docs/developer/ide.md)**.
+
 `uv sync` installs what `uv.lock` pins, so a fresh clone gets the set the gate
 last ran green on rather than whatever released this morning. It also *removes*
 anything outside the extras you name — that is what makes it reproducible, and
@@ -163,6 +167,7 @@ which. The main entry points:
 | If you want to… | Read |
 |---|---|
 | run it | [QUICKSTART.md](QUICKSTART.md), then [operations](docs/operations/README.md) |
+| run it from PyCharm or IntelliJ IDEA | [The IDE guide](docs/developer/ide.md): interpreter, shared run configurations, live reload, debugging, tests |
 | understand how it fits together | [Architecture](docs/architecture/README.md): every component, with diagrams, real screenshots and examples |
 | extend it | [Developer guides](docs/developer/README.md): connectors, PQL functions, validators, providers, delegates, tables, endpoints |
 | script it | [The Python SDK](docs/sdk/README.md) |
@@ -220,7 +225,7 @@ Five contributions, targeting **ACM JDIQ** with a **VLDB Industrial** companion 
 are complete, apart from two tasks that are open on infrastructure rather than code. So is most of
 the intelligence roadmap in [docs/corpus/23](docs/corpus/23-intelligence-and-lineage-roadmap.md): the LLM gateway
 and the lineage workbench, code-to-lineage, steward agents, and DQ delegates. What is left is in
-[docs/corpus/remaining-work.md](docs/corpus/remaining-work.md). The suite is at <!--tests-->6,705 passing, 96 skipped<!--/tests-->,
+[docs/corpus/remaining-work.md](docs/corpus/remaining-work.md). The suite is at <!--tests-->6,719 passing, 96 skipped<!--/tests-->,
 derived from a green run by `scripts/sync_test_counts.py` rather than typed — a
 count in prose rots the first time somebody adds a test.
 

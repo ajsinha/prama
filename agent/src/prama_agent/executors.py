@@ -21,11 +21,11 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import os
-import sqlite3
 from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any
 
+from prama_kernel import strict_sqlite
 from prama_kernel.agent.protocol import Assignment
 from prama_kernel.errors import ConfigError, NotFoundError
 
@@ -57,7 +57,8 @@ class SqliteExecutor(SourceExecutor):
         if not path.exists():
             # mode=ro would say "unable to open database file"; this says which.
             raise FileNotFoundError(f"the sqlite source {self.source.binding} has no file {path}")
-        connection = sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True)
+        # Strict: a misspelled column is an error, not a string (Q-08).
+        connection = strict_sqlite.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True)
         try:
             cursor = connection.execute(sql)
             columns = [d[0] for d in cursor.description or ()]

@@ -6,7 +6,7 @@ calendars, the agent protocol with residency and spooling, and the delegate
 runtime with its sandbox. One copy, so a verdict judged beside the data on an
 agent is the verdict the server would have judged.
 
-Standard library only. You do not install this directly: `prama` (the server)
+Standard library only, Python 3.12 or newer. You do not install this directly: `prama` (the server)
 and `prama-agent` depend on it.
 
 Copyright © 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.

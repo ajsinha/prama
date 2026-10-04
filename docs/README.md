@@ -18,6 +18,7 @@ provable quality conclusions — through a console, a Git repo, or a conversatio
 |---|---|
 | **new to it** | [How Prama fits together](architecture/README.md): every component in one page, then one page each, with diagrams, real screenshots and examples |
 | **running Prama** | [QUICKSTART](../QUICKSTART.md), then [operations/](operations/README.md): runbook, troubleshooting, CLI and configuration reference |
+| **running it from an IDE** | [PyCharm and IntelliJ IDEA](developer/ide.md): the interpreter, the shared run configurations, live reload, debugging |
 | **extending it** | [Developer guides](developer/README.md): a connector, a PQL function, a validator, a model provider, a delegate, a table, an endpoint |
 | **scripting it** | [The Python SDK](sdk/README.md): everything the console does, from Python, against your running server |
 | **running agents beside the data** | [The agent operator's guide](agent/README.md) |

@@ -161,7 +161,10 @@ def _sqlite(path: Path) -> tuple[Callable[[str], list[dict[str, Any]]], Callable
     # the event loop and queries it from `asyncio.to_thread`, which the default
     # check refuses outright — so a SQLite preview source never worked. One
     # caller uses the connection at a time, and it is read-only.
-    connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True, check_same_thread=False)
+    from prama_kernel import strict_sqlite
+
+    # Strict: a misspelled column is an error, not a string (Q-08).
+    connection = strict_sqlite.connect(f"file:{path}?mode=ro", uri=True, check_same_thread=False)
     connection.row_factory = sqlite3.Row
     register_regexp(connection)
 

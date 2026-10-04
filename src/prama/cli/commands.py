@@ -212,7 +212,11 @@ class ServeCommand(Command):
         # `server.port` are the one place the listener is stated.
         parser.add_argument("--host", default=None, help="bind address (server.host)")
         parser.add_argument("--port", type=int, default=None, help="port (server.port, 5900)")
-        parser.add_argument("--reload", action="store_true", help="reload on code change")
+        parser.add_argument(
+            "--reload",
+            action="store_true",
+            help="restart on every source change (development; reads --config, not --set)",
+        )
 
     def run(self, ctx: CommandContext) -> int:
         try:
@@ -291,6 +295,25 @@ class ServeCommand(Command):
         # buffer that was never emptied and never appeared at all. That is
         # every real production invocation (QA finding CLI-276).
         ctx.out.flush()
+
+        if ctx.args.reload:
+            # A reloading worker is a fresh process that reads its configuration
+            # from the file and the environment; --set overrides live only in
+            # this process and would silently not apply there.
+            if getattr(ctx.args, "set", None):
+                listener.close()
+                raise ValidationError(
+                    "--reload cannot carry --set overrides into its worker",
+                    remedy=(
+                        "Put them in config/application.local.yaml, or export them "
+                        "as PRAMA_SECTION__KEY environment variables."
+                    ),
+                )
+            listener.close()  # proven bindable; the reloader binds its own
+            from prama.api import reloading
+
+            reloading.serve(ctx.args.host, port, config_path=ctx.args.config)
+            return EXIT_OK
 
         server = uvicorn.Server(
             uvicorn.Config(

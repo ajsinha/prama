@@ -19,6 +19,8 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from prama_kernel import strict_sqlite
+
 from prama.connect.capability import CapabilityMatrix, PushdownFeature
 from prama.connect.spi import (
     ColumnSchema,
@@ -206,7 +208,8 @@ class SqliteConnector(Connector):
         # Read-only URI: pointing at a production extract cannot alter it, and
         # the guarantee is enforced by the driver rather than by our discipline.
         uri = f"file:{self._path}?mode=ro"
-        return sqlite3.connect(uri, uri=True, timeout=self._timeout)
+        # Strict: a misspelled column is an error, not a string (Q-08).
+        return strict_sqlite.connect(uri, uri=True, timeout=self._timeout)
 
     def _list_objects(self) -> list[tuple[str, str, int | None]]:
         kinds = ("table", "view") if self._include_views else ("table",)
