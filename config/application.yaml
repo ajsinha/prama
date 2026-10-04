@@ -46,6 +46,18 @@ agents:
   enabled: true
   interval: 60s                     # how often due goals are checked
 
+secrets:
+  # Credentials are referenced, never stored: env://NAME, file://path,
+  # vault://secret/data/path#field.
+  file_root: ""                     # file:// references resolve under this; empty: as written
+  vault:                            # HashiCorp Vault KV v2, for vault:// references
+    address: ""                     # e.g. https://vault.internal:8200; empty: vault:// refused
+    token_ref: ""                   # a reference to the token (env://VAULT_TOKEN), never the token
+    namespace: ""                   # Vault Enterprise namespace, if any
+    ca_file: ""                     # a private CA bundle; verification is never turned off
+    region: ""                      # Vault's jurisdiction, for residency checks
+    timeout_seconds: 10
+
 fleet:
   # Agents that run beside the data and report findings, never data
   # (docs/design/agent-fleet-http.md). Each agent's signing key is derived

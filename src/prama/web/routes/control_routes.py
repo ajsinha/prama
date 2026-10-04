@@ -226,12 +226,19 @@ class ControlRoutes(UiRoutes):
     async def control_activate(
         self, request: Request, control_id: str, caller: Caller, uow: Uow
     ) -> Any:
-        await uow.controls.activate(
-            control_id,
-            tenant_id=caller.tenant_id,
-            approved_by=caller.principal_id or "console",
-            reason="accepted",
-        )
+        from prama.controls.approval import activate
+
+        try:
+            await activate(
+                uow,
+                control_id,
+                tenant_id=caller.tenant_id,
+                approver=caller.principal_id,
+                reason="accepted",
+            )
+        except PramaError as exc:
+            flash_error_and_log(request, "That control could not be activated", exc)
+            return redirect_to(request, "control_list")
         return redirect_to(request, "control_list", flash_message="The control is now running.")
 
     async def control_suppress(

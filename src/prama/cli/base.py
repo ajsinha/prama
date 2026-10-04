@@ -49,7 +49,11 @@ class CommandContext:
     @property
     def config(self) -> Configuration:
         if self._config is None:
+            from prama.secrets import resolver as secrets
+
             self._config = load_configuration(self.args.config, overrides=self.args.set or [])
+            # Every command that resolves a credential does so as configured.
+            secrets.configure(self._config)
         return self._config
 
     @property

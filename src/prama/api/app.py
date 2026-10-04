@@ -122,11 +122,13 @@ def create_app(config: Configuration | None = None, *, database: Database | None
     # Set now as well as in the lifespan, so the probes can read it on an
     # application whose lifespan has not run (a test transport, say).
     app.state.config = config
+    from prama.secrets import resolver as secrets
     from prama.telemetry import metrics
     from prama.telemetry.setup import configure as configure_telemetry
 
     metrics.BUILD.set(1, version=VERSION)
     configure_telemetry(config)
+    secrets.configure(config)
 
     app.add_exception_handler(PramaError, prama_error_handler)
     # Starlette and FastAPI answer these two with their own handlers unless we

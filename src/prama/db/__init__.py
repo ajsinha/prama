@@ -25,8 +25,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from prama.core.clock import Clock
-from prama.core.concurrency.leases import LeaseProvider
+from prama.core.concurrency.leases import LeaseProvider, LeaseSettings, MemoryLeaseProvider
 from prama.core.config import Configuration
+from prama.core.errors import ConfigError
 from prama.core.log import get_logger
 from prama.db.dialects import Dialect, dialect_for
 from prama.db.engine import EngineFactory
@@ -70,9 +71,25 @@ class Database:
     one tenant estate.
     """
 
-    def __init__(self, settings: DbSettings, *, clock: Clock | None = None) -> None:
+    def __init__(
+        self,
+        settings: DbSettings,
+        *,
+        clock: Clock | None = None,
+        leases: LeaseSettings | None = None,
+        lease_kind: str = "database",
+    ) -> None:
         settings.validate()
+        if lease_kind not in ("database", "memory"):
+            raise ConfigError(
+                f"concurrency.lease.provider is {lease_kind!r}",
+                remedy="Use database (correct across a fleet) or memory (one process only).",
+            )
         self._settings = settings
+        #: ``concurrency.lease``: which provider, and the default lease behaviour.
+        self.lease_settings = leases or LeaseSettings()
+        self._lease_kind = lease_kind
+        self._memory_leases: MemoryLeaseProvider | None = None
         self._dialect = dialect_for(settings)
         self._engines = EngineFactory(settings, self._dialect)
         self._sessions = SessionManager(self._engines)
@@ -83,7 +100,12 @@ class Database:
 
     @classmethod
     def from_config(cls, config: Configuration, *, clock: Clock | None = None) -> Database:
-        return cls(DbSettings.from_config(config), clock=clock)
+        return cls(
+            DbSettings.from_config(config),
+            clock=clock,
+            leases=LeaseSettings.from_config(config),
+            lease_kind=config.get_str("concurrency.lease.provider", "database").lower(),
+        )
 
     # -- properties --------------------------------------------------------
 
@@ -136,8 +158,22 @@ class Database:
         return UnitOfWork(self._sessions.session(), self._engines)
 
     def lease_provider(self) -> LeaseProvider:
-        """Durable, fleet-wide leases backed by this database."""
-        return DatabaseLeaseProvider(self._engines.async_engine(), clock=self._clock)
+        """Leases as ``concurrency.lease.provider`` says: durable and fleet-wide
+        (``database``, the default), or in this process only (``memory``).
+
+        The memory provider is one instance per database: a new one per call
+        would grant every request, and two holders would both believe they
+        owned the work.
+        """
+        provider: LeaseProvider
+        if self._lease_kind == "memory":
+            if self._memory_leases is None:
+                self._memory_leases = MemoryLeaseProvider(clock=self._clock)
+            provider = self._memory_leases
+        else:
+            provider = DatabaseLeaseProvider(self._engines.async_engine(), clock=self._clock)
+        provider.default_settings = self.lease_settings
+        return provider
 
     async def health(self) -> dict[str, object]:
         """A liveness probe that actually touches the database."""

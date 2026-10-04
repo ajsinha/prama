@@ -108,16 +108,29 @@ class ConnectorRegistry:
         )
 
     def create(
-        self, key: str, config: dict[str, Any], *, policy: ReadPolicy | None = None
+        self,
+        key: str,
+        config: dict[str, Any],
+        *,
+        policy: ReadPolicy | None = None,
+        credential: dict[str, Any] | None = None,
     ) -> Connector:
         """Validate the configuration, then build the connector.
 
         Validation first, always: a missing field should be a message beside the
         input, not a driver error twenty seconds into a connection attempt.
+
+        ``credential`` is a secret resolved from the connection's reference,
+        keyed by the connector's ``credential_field``. It is kept apart from
+        ``config`` until after validation, because validation refuses a secret
+        in configuration — rightly, for what is *stored* — and a resolved
+        credential merged in first was refused as though somebody had stored
+        it. Every connector with a secret field (PostgreSQL, Snowflake, ...)
+        was unusable with a ``credential_ref``.
         """
         connector_class = self._registry.get(key)
         self.schema(key).validate(config)
-        return connector_class(config, policy=policy)
+        return connector_class({**config, **(credential or {})}, policy=policy)
 
     # -- health of the registry itself -------------------------------------
 

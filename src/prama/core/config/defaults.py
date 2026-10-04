@@ -67,6 +67,22 @@ DEFAULTS: dict[str, Any] = {
         "enabled": True,
         "interval": "60s",
     },
+    "secrets": {
+        # Where file:// references are read from; empty means as written.
+        "file_root": "",
+        # HashiCorp Vault (KV v2) for vault:// references. Unset, a vault://
+        # reference fails saying what to set. The token is itself a
+        # credential: token_ref is a reference to it (env://VAULT_TOKEN),
+        # never the token.
+        "vault": {
+            "address": "",
+            "token_ref": "",
+            "namespace": "",
+            "ca_file": "",
+            "region": "",
+            "timeout_seconds": 10,
+        },
+    },
     "fleet": {
         # Agents beside the data (docs/design/agent-fleet-http.md). Each agent's
         # signing key is derived from this secret; empty falls back to

@@ -91,7 +91,10 @@ class Scheduler:
         """Run everything due, if this server wins the lease."""
         started = _now()
         leases = self._database.lease_provider()
-        lease = await leases.acquire(LEASE, self._holder, max(self.interval * 2, 30.0))
+        # Held across two intervals, and never for less than the configured
+        # lease (concurrency.lease.ttl), so a short interval cannot make it flap.
+        floor = self._database.lease_settings.ttl_seconds
+        lease = await leases.acquire(LEASE, self._holder, max(self.interval * 2, floor))
         if lease is None:
             tick = Tick(started, "skipped", "another server holds the scheduler lease")
             from prama.telemetry import metrics

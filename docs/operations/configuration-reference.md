@@ -38,6 +38,13 @@ becomes `PRAMA_DATABASE__SQLITE__PATH`.
 | `server.port` | `5900` | the console and the API share this listener |
 | `agents.enabled` | `True` |  |
 | `agents.interval` | `60s` | how often due goals are checked |
+| `secrets.file_root` | *(empty)* | file:// references resolve under this; empty: as written |
+| `secrets.vault.address` | *(empty)* | e.g. https://vault.internal:8200; empty: vault:// refused |
+| `secrets.vault.token_ref` | *(empty)* | a reference to the token (env://VAULT_TOKEN), never the token |
+| `secrets.vault.namespace` | *(empty)* | Vault Enterprise namespace, if any |
+| `secrets.vault.ca_file` | *(empty)* | a private CA bundle; verification is never turned off |
+| `secrets.vault.region` | *(empty)* | Vault's jurisdiction, for residency checks |
+| `secrets.vault.timeout_seconds` | `10` |  |
 | `fleet.token_hours` | `1` | how long an enrolment token is good for |
 | `fleet.lease_seconds` | `900` | a claimed assignment returns to the queue after this |
 | `fleet.poll_seconds` | `30` | what an agent is told to wait between calls |

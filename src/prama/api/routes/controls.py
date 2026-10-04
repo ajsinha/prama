@@ -314,10 +314,13 @@ async def activate_control(
             remedy="Declare it again; a retirement is kept so its evidence stays attributable.",
             context={"control_id": control_id},
         )
-    version = await uow.controls.activate(
+    from prama.controls.approval import activate
+
+    version = await activate(
+        uow,
         control_id,
         tenant_id=caller.tenant_id,
-        approved_by=caller.require_principal(),
+        approver=caller.require_principal(),
         reason=body.reason or "accepted",
     )
     return await stored_out(uow, caller.tenant_id, version.control_id)

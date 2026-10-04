@@ -20,6 +20,7 @@ import dataclasses
 import threading
 from collections.abc import Callable
 from datetime import datetime, timedelta
+from typing import Any
 
 from prama.core.clock import Clock, SystemClock
 from prama.core.log import get_logger
@@ -228,32 +229,76 @@ class SecretResolver:
             self._audit(access)
 
 
+#: The ``secrets`` section of the running process's configuration, set once
+#: at start-up by :func:`configure` (the server and the CLI both call it). A
+#: resolver built before that, or in a test, has an unconfigured Vault.
+_settings: dict[str, Any] = {}
+
+
+def configure(config: Any) -> None:
+    """Take the ``secrets`` settings from ``config`` for every later resolver.
+
+    Called where telemetry is configured, once per process. The Vault token is
+    itself a credential, so configuration holds a *reference* to it
+    (``secrets.vault.token_ref: env://VAULT_TOKEN``), resolved here through the
+    environment and file providers; a literal token is refused.
+    """
+    vault = {
+        "address": config.get_str("secrets.vault.address", ""),
+        "token_ref": config.get_str("secrets.vault.token_ref", ""),
+        "namespace": config.get_str("secrets.vault.namespace", ""),
+        "ca_file": config.get_str("secrets.vault.ca_file", ""),
+        "region": config.get_str("secrets.vault.region", ""),
+        "timeout": float(config.get_int("secrets.vault.timeout_seconds", 10)),
+    }
+    if vault["token_ref"] and "://" not in vault["token_ref"]:
+        from prama.core.errors import ConfigError
+
+        raise ConfigError(
+            "secrets.vault.token_ref must be a reference, not a token",
+            remedy="Set it to env://VAULT_TOKEN (or file://...) and put the token there.",
+        )
+    _settings.clear()
+    _settings.update({"file_root": config.get_str("secrets.file_root", "") or None, "vault": vault})
+
+
 def default_resolver(
     *,
     file_root: str | None = None,
     clock: Clock | None = None,
     audit_sink: Callable[[SecretAccess], None] | None = None,
 ) -> SecretResolver:
-    """The providers available with nothing extra installed.
+    """The providers available with nothing extra installed, as configured.
 
     ``memory`` is deliberately absent: a provider that manufactures secrets is
     fine in a test and dangerous in a default.
 
-    ``vault`` is present but unconfigured, which is not the same as absent. A
-    reference to it then fails with "Vault is referenced but not configured"
-    and what to set, rather than with "no provider for scheme 'vault'" — and
-    the second message sends somebody to look for a plugin that is already
-    installed.
+    ``vault`` is always present. Configured (``secrets.vault.address`` and
+    ``token_ref``), it reads KV v2 over HTTP; unconfigured, a reference to it
+    fails with "Vault is referenced but not configured" and what to set,
+    rather than with "no provider for scheme 'vault'", which sends somebody to
+    look for a plugin that is already installed.
     """
     from prama.secrets.providers import EnvironmentSecretProvider, FileSecretProvider
-    from prama.secrets.vault import VaultSecretProvider
+    from prama.secrets.vault import VaultSecretProvider, http_transport
 
-    return SecretResolver(
-        [
-            EnvironmentSecretProvider(),
-            FileSecretProvider(root=file_root),
-            VaultSecretProvider(),
-        ],
-        clock=clock,
-        audit_sink=audit_sink,
-    )
+    root = file_root or _settings.get("file_root")
+    local = [EnvironmentSecretProvider(), FileSecretProvider(root=root)]
+    vault = _settings.get("vault") or {}
+    provider = VaultSecretProvider()
+    if vault.get("address") and vault.get("token_ref"):
+        token = SecretResolver(local, clock=clock).resolve(
+            str(vault["token_ref"]), purpose="vault-token"
+        )
+        provider = VaultSecretProvider(
+            http_transport(
+                str(vault["address"]),
+                namespace=str(vault.get("namespace", "")),
+                ca_file=str(vault.get("ca_file", "")),
+                timeout=float(vault.get("timeout", 10.0)),
+            ),
+            token=token.reveal(),
+            address=str(vault["address"]),
+            region=str(vault.get("region", "")),
+        )
+    return SecretResolver([*local, provider], clock=clock, audit_sink=audit_sink)

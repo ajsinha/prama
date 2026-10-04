@@ -109,8 +109,14 @@ async def gateway_for(
     config: Any = None,
 ) -> tuple[LlmGateway, MemoryLedger]:
     """A gateway over the tenant's profiles, and the ledger to persist after."""
+    from prama.llm.budget import guard_for
+
     memory = ledger if isinstance(ledger, MemoryLedger) else MemoryLedger()
     routes = await load_routes(uow, tenant_id, offline=offline, opener=opener)
+    # Every gateway is held to the tenant's budgets, whoever built it.
+    guard = await guard_for(
+        uow, tenant_id, routes, principal_id=principal_id, api_key_id=api_key_id
+    )
     gateway = LlmGateway(
         routes,
         memory,
@@ -120,6 +126,7 @@ async def gateway_for(
         api_key_id=api_key_id,
         cache=cache,
         payloads=_policy(config)[0],
+        guard=guard,
     )
     memory.retention_days = _policy(config)[1]
     return gateway, memory

@@ -118,18 +118,16 @@ class ConnectivityService(SemanticService):
                 ),
                 context={"source_type": declared.source_type},
             )
-        config = dict(declared.config_json or {})
-        config.update(
-            self._resolve_credential(
-                declared.credential_ref,
-                connection_id=connection_id,
-                connector_class=self._registry.get(declared.source_type),
-            )
+        credential = self._resolve_credential(
+            declared.credential_ref,
+            connection_id=connection_id,
+            connector_class=self._registry.get(declared.source_type),
         )
         return self._registry.create(
             declared.source_type,
-            config,
+            dict(declared.config_json or {}),
             policy=read_policy_from(declared.read_policy_json or {}),
+            credential=credential,
         )
 
     def _resolve_credential(
