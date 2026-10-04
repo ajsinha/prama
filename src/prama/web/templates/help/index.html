@@ -11,6 +11,8 @@
   <p>Everything about Prama, with worked estates. Search, or browse by section.</p>
   <div class="d-flex flex-wrap gap-2 justify-content-center mt-3 position-relative">
     <a class="btn btn-light" href="{{ url_for('help_topic', slug='console-tour') }}"><i class="bi bi-flag" aria-hidden="true"></i> Getting started</a>
+    {% if 'architecture' in slugs %}<a class="btn btn-outline-light" href="{{ url_for('help_topic', slug='architecture') }}"><i class="bi bi-building" aria-hidden="true"></i> How it fits together</a>{% endif %}
+    {% if 'developer' in slugs %}<a class="btn btn-outline-light" href="{{ url_for('help_topic', slug='developer') }}"><i class="bi bi-tools" aria-hidden="true"></i> Developer guides</a>{% endif %}
     <a class="btn btn-outline-light" href="{{ url_for('help_case_studies') }}"><i class="bi bi-journal-code" aria-hidden="true"></i> Case studies</a>
     <a class="btn btn-outline-light" href="{{ url_for('about') }}"><i class="bi bi-info-circle" aria-hidden="true"></i> About Prama</a>
     <a class="btn btn-outline-light" href="{{ url_for('competitive') }}"><i class="bi bi-bar-chart-steps" aria-hidden="true"></i> Competitive landscape</a>
@@ -19,8 +21,10 @@
 </section>
 
 <p class="text-muted" style="max-width: 46rem">Every page here is rendered from the document that is
-  the authority for it — the console guides shipped with Prama, and the design corpus in
-  <code>docs/</code> — so the help and the documentation cannot disagree.</p>
+  the authority for it — the console guides shipped with Prama, and every document in the
+  repository's <code>docs/</code>: the architecture, the developer guides, the SDK, operations and
+  the design corpus. Each card is derived from its document, so the help and the documentation
+  cannot disagree.</p>
 
 <div class="mb-4" style="max-width: 28rem">
   <label class="visually-hidden" for="help-search">Search help</label>

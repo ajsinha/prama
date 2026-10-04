@@ -1,6 +1,6 @@
 <!-- Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. -->
 
-> Design note behind [23 — Intelligence and lineage roadmap](../23-intelligence-and-lineage-roadmap.md). Written 2026-09-27. Where this note and doc 23 disagree, doc 23's reconciliation wins.
+> Design note behind [23 — Intelligence and lineage roadmap](../corpus/23-intelligence-and-lineage-roadmap.md). Written 2026-09-27. Where this note and doc 23 disagree, doc 23's reconciliation wins.
 
 # Closing the Manta and Alation gap: a strategy
 
@@ -27,11 +27,11 @@ configurable XML mapping readers for PowerCenter, DataStage and SSIS) are real a
 - **No surface.** No CLI verb, no API route and no console page refers to `prama.lineage`.
   `blast_radius` has no caller outside the package. `score/trust.py` and `incident/rca.py` accept a
   graph, but only tests build one.
-- `docs/19` marks W8.7 "lineage ingestion and graph store ✅". Going by the code, that is
+- `docs/corpus/19` marks W8.7 "lineage ingestion and graph store ✅". Going by the code, that is
   over-claimed.
 
 So Prama's lineage gap to Manta is **not** "45 missing scanners". It is "the product has no lineage
-a user can see". Trust propagation, the claim in `docs/21` #4 that no one else has, cannot be
+a user can see". Trust propagation, the claim in `docs/corpus/21` #4 that no one else has, cannot be
 demonstrated in a deal today. Epic 1 below is therefore the precondition for every lineage claim.
 
 ## 1. Capability matrix
@@ -75,7 +75,7 @@ Gap sizes: none, S, M or L.
 - **Catalog breadth and search as a destination.** Alation's value is a decade of curation UX
   across every asset, whether governed or not. Prama's thesis is that it governs *declared* assets
   with evidence. Searching everything would make Prama a worse Alation and pull the roadmap away
-  from controls. Concede this, and write quality back into the catalog (`docs/21`, G4).
+  from controls. Concede this, and write quality back into the catalog (`docs/corpus/21`, G4).
 - **Popularity as truth.** A table's popularity is not evidence of its quality. Use behavioural
   signals only to *prioritise* (which columns are CDE candidates, which controls to write first).
   Never use them as a score input without a calibrated link.
@@ -171,7 +171,7 @@ Two dependencies recur throughout.
   2. SSIS `.dtsx` and PowerCenter XML, verified on real anonymised exports from two design
      partners.
   3. One BI layer, Power BI (`.pbit`/TMDL), because Tier-2 banks run Microsoft.
-  4. ~~COBOL copybook field-to-field mapping~~: dropped. Mainframe is out of scope (docs/23,
+  4. ~~COBOL copybook field-to-field mapping~~: dropped. Mainframe is out of scope (docs/corpus/23,
      "Lineage scope").
 - **Dependencies.** E1. A code-to-lineage harness: a corpus of real procedures with hand-labelled
   edges, and precision/recall per construct published with `prama bench`.

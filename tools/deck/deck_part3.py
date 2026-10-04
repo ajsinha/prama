@@ -328,6 +328,6 @@ SLIDES: list[dict[str, Any]] = [
         ],
         "col_w": [2.2, 2.0],
         "note": "QUICKSTART.md has the full path, including what each refusal means. The "
-        "research paper in docs/paper/ has the formal argument and its proofs.",
+        "research paper in docs/publications/paper/ has the formal argument and its proofs.",
     },
 ]

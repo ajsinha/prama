@@ -10640,7 +10640,7 @@ mapping "is the authority and the file is documentation".
 - **Steps:** read the job
 - **Expected:** `playwright install --with-deps chromium` and
   `pytest tests/web/test_axe.py`
-- **Why:** "docs/19 said 'the accessibility guarantee is held by axe-core in CI'
+- **Why:** "docs/corpus/19 said 'the accessibility guarantee is held by axe-core in CI'
   on one page and listed [it] under Not done on another. This is the half that
   was missing."
 

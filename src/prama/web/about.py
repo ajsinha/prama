@@ -2,7 +2,7 @@
 
 Laid out after Maya's ``/about/competitive``. The comparison is by **category,
 not vendor**: a row naming one product's features would be wrong by its next
-release, and is not Prama's to state. ``docs/20-competitive-analysis.md`` is the
+release, and is not Prama's to state. ``docs/corpus/20-competitive-analysis.md`` is the
 long form, vendor by vendor.
 
 The rows themselves live in ``content/competitive.yaml``. They are copy about

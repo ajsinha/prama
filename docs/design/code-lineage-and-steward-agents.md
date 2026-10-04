@@ -1,6 +1,6 @@
 <!-- Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. -->
 
-> Design note behind [23 — Intelligence and lineage roadmap](../23-intelligence-and-lineage-roadmap.md). Written 2026-09-27. Where this note and doc 23 disagree, doc 23's reconciliation wins.
+> Design note behind [23 — Intelligence and lineage roadmap](../corpus/23-intelligence-and-lineage-roadmap.md). Written 2026-09-27. Where this note and doc 23 disagree, doc 23's reconciliation wins.
 
 # Design — Code-to-Lineage and Persistent Prama Agents
 
@@ -79,8 +79,8 @@ filename, shebang, content signatures), each detector a plugin (`(planned) prama
 | pandas | `import pandas`, `read_sql`, `to_sql`, `merge` | same AST scanner, pandas vocabulary |
 | Airflow | `from airflow`, `DAG(`, operators | `AirflowScanner`: task graph and operator SQL (`sql=` literals, `.sql` template files) → job-level edges and `produced_by = dag.task` |
 | Informatica / SSIS (DataStage and Talend: out of scope) | `.xml` with `POWERMART`, `.dtsx`, `.dsx`, `.item` | `XmlMappingScanner` (existing, configurable `MappingShape`); add a Talend shape |
-| COBOL / JCL | — | **Out of scope** (docs/23, "Lineage scope"): inventoried and reported as not read, never analysed. |
-| Shell | — | **Not parsed** (docs/23, "Lineage scope"): inventoried; the checked model pass may propose edges a person confirms. |
+| COBOL / JCL | — | **Out of scope** (docs/corpus/23, "Lineage scope"): inventoried and reported as not read, never analysed. |
+| Shell | — | **Not parsed** (docs/corpus/23, "Lineage scope"): inventoried; the checked model pass may propose edges a person confirms. |
 
 Detection output is shown to the user before analysis (language mix, frameworks, file counts, skipped
 binaries) — the repository's inventory is itself a finding.
@@ -169,80 +169,14 @@ changed (cache by `Request.fingerprint`). Scanner version bump invalidates that 
 
 ### A7. Storage (append to both schema files; only VARCHAR(n)/TEXT/INTEGER/REAL)
 
-```sql
-CREATE TABLE IF NOT EXISTS code_source (
-    id              VARCHAR(26)   NOT NULL PRIMARY KEY,
-    tenant_id       VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
-    name            VARCHAR(128)  NOT NULL,
-    kind            VARCHAR(16)   NOT NULL,
-    url             VARCHAR(1024),
-    ref             VARCHAR(255),
-    secret_ref      VARCHAR(255),          -- a SecretReference, never the secret
-    sensitivity     VARCHAR(16)   NOT NULL DEFAULT 'internal',
-    auto_refresh    INTEGER       NOT NULL DEFAULT 0,
-    created_at      VARCHAR(32)   NOT NULL,
-    created_by      VARCHAR(26),
-    CONSTRAINT uq_code_source_name UNIQUE (tenant_id, name),
-    CONSTRAINT ck_code_source_kind CHECK (kind IN ('zip', 'git')),
-    CONSTRAINT ck_code_source_auto CHECK (auto_refresh IN (0, 1))
-);
-CREATE TABLE IF NOT EXISTS code_analysis_run (
-    id              VARCHAR(26)   NOT NULL PRIMARY KEY,
-    source_id       VARCHAR(26)   NOT NULL REFERENCES code_source (id) ON DELETE CASCADE,
-    commit_sha      VARCHAR(64),
-    snapshot_hash   VARCHAR(64)   NOT NULL,
-    base_run_id     VARCHAR(26),           -- incremental parent
-    status          VARCHAR(16)   NOT NULL,
-    started_at      VARCHAR(32)   NOT NULL,
-    finished_at     VARCHAR(32),
-    inventory_json  TEXT          NOT NULL DEFAULT '{}',
-    coverage_json   TEXT          NOT NULL DEFAULT '{}',   -- units found/unread, gaps by kind
-    llm_calls       INTEGER       NOT NULL DEFAULT 0,
-    error           TEXT,
-    CONSTRAINT ck_code_run_status CHECK (status IN ('queued','running','succeeded','partial','failed','cancelled'))
-);
-CREATE INDEX IF NOT EXISTS ix_code_run_source ON code_analysis_run (source_id, started_at);
-CREATE TABLE IF NOT EXISTS code_unit (
-    id              VARCHAR(26)   NOT NULL PRIMARY KEY,
-    run_id          VARCHAR(26)   NOT NULL REFERENCES code_analysis_run (id) ON DELETE CASCADE,
-    path            VARCHAR(1024) NOT NULL,
-    blob_sha        VARCHAR(64)   NOT NULL,
-    kind            VARCHAR(32)   NOT NULL,
-    scanner         VARCHAR(64)   NOT NULL,
-    scanner_version VARCHAR(32)   NOT NULL,
-    statements      INTEGER       NOT NULL DEFAULT 0,
-    gaps_json       TEXT          NOT NULL DEFAULT '[]'
-);
-CREATE INDEX IF NOT EXISTS ix_code_unit_blob ON code_unit (blob_sha, scanner, scanner_version);
-CREATE TABLE IF NOT EXISTS lin_edge (
-    id              VARCHAR(26)   NOT NULL PRIMARY KEY,
-    tenant_id       VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
-    identity        VARCHAR(64)   NOT NULL,
-    source_column   VARCHAR(512)  NOT NULL,
-    target_column   VARCHAR(512)  NOT NULL,
-    transform       VARCHAR(16)   NOT NULL,
-    produced_by     VARCHAR(512)  NOT NULL DEFAULT '',
-    status          VARCHAR(16)   NOT NULL DEFAULT 'inferred',
-    method          VARCHAR(128)  NOT NULL,
-    confidence      REAL          NOT NULL,
-    unit_id         VARCHAR(26)   REFERENCES code_unit (id) ON DELETE SET NULL,
-    line_start      INTEGER,
-    line_end        INTEGER,
-    excerpt         TEXT          NOT NULL DEFAULT '',
-    llm_fingerprint VARCHAR(64),
-    scoring_json    TEXT          NOT NULL DEFAULT '{}',
-    decided_by      VARCHAR(26),
-    decided_at      VARCHAR(32),
-    decision_note   TEXT,
-    first_seen_run  VARCHAR(26)   NOT NULL,
-    last_seen_run   VARCHAR(26)   NOT NULL,
-    CONSTRAINT uq_lin_edge_identity UNIQUE (tenant_id, identity),
-    CONSTRAINT ck_lin_edge_status CHECK (status IN ('inferred','confirmed','rejected','retired')),
-    CONSTRAINT ck_lin_edge_transform CHECK (transform IN ('identity','rename','derived','aggregated','filter','join_key')),
-    CONSTRAINT ck_lin_edge_conf CHECK (confidence >= 0 AND confidence <= 1)
-);
-CREATE INDEX IF NOT EXISTS ix_lin_edge_target ON lin_edge (tenant_id, target_column);
-```
+The DDL that stood here restated the schema and has been removed so it cannot drift: the authority is `schema/sqlite.sql` (byte-identical to `schema/postgres.sql` apart from its header). The tables this design named:
+
+| Table | In the schema files | Note |
+|---|---|---|
+| `code_source` | yes |  |
+| `code_analysis_run` | yes |  |
+| `code_unit` | yes |  |
+| `lin_edge` | yes |  |
 
 Current proposal persistence (`ctl_control_version`, `ctl_rejection`) is reused; the proposal's
 `provenance_json` carries edge ids. A test asserts `ck_lin_edge_transform` equals `Transform` members
@@ -281,7 +215,7 @@ Identity: a steward is a `principal(kind='service')` owned by a human sponsor, w
 `lineage:confirm`, `relationship:write`(confirm), `attestation:sign`, or `admin`; `test_scopes.py` gains a
 check that the steward role template cannot include them, and the API refuses to mint a steward key
 containing them. Keys expire (default 30 days) and rotate via the outbound channel: the agent calls
-`POST /api/v1/agents/me/rotate` before expiry — this closes docs/22 §9's rotation question for stewards.
+`POST /api/v1/agents/me/rotate` before expiry — this closes docs/corpus/22 §9's rotation question for stewards.
 
 ### B2. The LLM gateway — the only way a steward thinks
 
@@ -308,7 +242,7 @@ SDK, enforced by an architecture test (no import of `prama.llm.providers` or ven
 A **goal** is human-authored intent ("keep lineage for repo `risk-etl` current and propose recon controls
 for new hops"). A goal owns a **plan of tasks**; tasks are the unit of work, lease and approval.
 
-Protocol (outbound-only HTTP long-poll, same property as docs/22):
+Protocol (outbound-only HTTP long-poll, same property as docs/corpus/22):
 
 | Message | Direction | Content |
 |---|---|---|
@@ -324,7 +258,7 @@ this). Tasks are idempotent by `(goal_id, task_key)`; a retried task reuses its 
 
 Task states: `pending → leased → running → (awaiting_approval) → succeeded | failed | cancelled | expired`.
 Schedules: a goal may carry a cron in `prama.schedule`'s format; the **server** materialises tasks on
-schedule (centralised cadence, per docs/22's reasoning), triggers also on events (new commit on a code
+schedule (centralised cadence, per docs/corpus/22's reasoning), triggers also on events (new commit on a code
 source, new incident, proposal rejected).
 
 ### B4. Tool registry
@@ -377,63 +311,16 @@ Retrieval v1 is keyword + recency; embeddings later via the gateway (so they obe
 
 ### B7. Storage (append; same rules)
 
-```sql
-CREATE TABLE IF NOT EXISTS agt_steward (
-    id              VARCHAR(26)  NOT NULL PRIMARY KEY,
-    tenant_id       VARCHAR(26)  NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
-    principal_id    VARCHAR(26)  NOT NULL REFERENCES principal (id) ON DELETE CASCADE,
-    sponsor_id      VARCHAR(26)  NOT NULL REFERENCES principal (id),
-    name            VARCHAR(128) NOT NULL,
-    state           VARCHAR(16)  NOT NULL DEFAULT 'active',
-    budget_json     TEXT         NOT NULL DEFAULT '{}',
-    approvals_json  TEXT         NOT NULL DEFAULT '[]',
-    last_seen_at    VARCHAR(32),
-    created_at      VARCHAR(32)  NOT NULL,
-    CONSTRAINT uq_agt_steward_name UNIQUE (tenant_id, name),
-    CONSTRAINT ck_agt_steward_state CHECK (state IN ('active','paused','stopped','revoked'))
-);
-CREATE TABLE IF NOT EXISTS agt_goal (
-    id VARCHAR(26) NOT NULL PRIMARY KEY,
-    steward_id VARCHAR(26) NOT NULL REFERENCES agt_steward (id) ON DELETE CASCADE,
-    statement TEXT NOT NULL, schedule VARCHAR(128), trigger_json TEXT NOT NULL DEFAULT '[]',
-    state VARCHAR(16) NOT NULL DEFAULT 'active', created_by VARCHAR(26) NOT NULL, created_at VARCHAR(32) NOT NULL,
-    CONSTRAINT ck_agt_goal_state CHECK (state IN ('active','paused','done','cancelled'))
-);
-CREATE TABLE IF NOT EXISTS agt_task (
-    id VARCHAR(26) NOT NULL PRIMARY KEY,
-    goal_id VARCHAR(26) NOT NULL REFERENCES agt_goal (id) ON DELETE CASCADE,
-    task_key VARCHAR(255) NOT NULL, kind VARCHAR(64) NOT NULL, input_json TEXT NOT NULL DEFAULT '{}',
-    state VARCHAR(24) NOT NULL DEFAULT 'pending', attempts INTEGER NOT NULL DEFAULT 0,
-    fencing_token INTEGER, output_json TEXT, trace_digest VARCHAR(64),
-    tokens_in INTEGER NOT NULL DEFAULT 0, tokens_out INTEGER NOT NULL DEFAULT 0,
-    created_at VARCHAR(32) NOT NULL, started_at VARCHAR(32), finished_at VARCHAR(32),
-    CONSTRAINT uq_agt_task_key UNIQUE (goal_id, task_key),
-    CONSTRAINT ck_agt_task_state CHECK (state IN ('pending','leased','running','awaiting_approval',
-        'succeeded','failed','cancelled','expired'))
-);
-CREATE INDEX IF NOT EXISTS ix_agt_task_state ON agt_task (state, created_at);
-CREATE TABLE IF NOT EXISTS agt_approval (
-    id VARCHAR(26) NOT NULL PRIMARY KEY, task_id VARCHAR(26) NOT NULL REFERENCES agt_task (id) ON DELETE CASCADE,
-    action_json TEXT NOT NULL, justification TEXT NOT NULL DEFAULT '', state VARCHAR(16) NOT NULL DEFAULT 'open',
-    decided_by VARCHAR(26), decided_at VARCHAR(32), created_at VARCHAR(32) NOT NULL,
-    CONSTRAINT ck_agt_approval_state CHECK (state IN ('open','granted','denied','expired'))
-);
-CREATE TABLE IF NOT EXISTS agt_memory (
-    id VARCHAR(26) NOT NULL PRIMARY KEY, steward_id VARCHAR(26) NOT NULL REFERENCES agt_steward (id) ON DELETE CASCADE,
-    kind VARCHAR(16) NOT NULL, mkey VARCHAR(255) NOT NULL, body TEXT NOT NULL,
-    source_task_id VARCHAR(26), expires_at VARCHAR(32), created_at VARCHAR(32) NOT NULL,
-    CONSTRAINT uq_agt_memory_key UNIQUE (steward_id, kind, mkey),
-    CONSTRAINT ck_agt_memory_kind CHECK (kind IN ('episodic','note'))
-);
-CREATE TABLE IF NOT EXISTS llm_usage (
-    id VARCHAR(26) NOT NULL PRIMARY KEY, tenant_id VARCHAR(26) NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
-    principal_id VARCHAR(26) NOT NULL, provider VARCHAR(64) NOT NULL, model VARCHAR(128) NOT NULL,
-    fingerprint VARCHAR(64) NOT NULL, sensitivity VARCHAR(16) NOT NULL, redactions INTEGER NOT NULL DEFAULT 0,
-    tokens_in INTEGER NOT NULL, tokens_out INTEGER NOT NULL, cost REAL NOT NULL DEFAULT 0,
-    outcome VARCHAR(16) NOT NULL, at VARCHAR(32) NOT NULL
-);
-CREATE INDEX IF NOT EXISTS ix_llm_usage_principal ON llm_usage (principal_id, at);
-```
+The DDL that stood here restated the schema and has been removed so it cannot drift: the authority is `schema/sqlite.sql` (byte-identical to `schema/postgres.sql` apart from its header). The tables this design named:
+
+| Table | In the schema files | Note |
+|---|---|---|
+| `agt_steward` | yes |  |
+| `agt_goal` | yes |  |
+| `agt_task` | yes |  |
+| `agt_approval` | yes |  |
+| `agt_memory` | yes |  |
+| `llm_usage` | **no** | not built: model use is recorded in the gateway's call ledger (`llm_call`) under the steward's own principal |
 
 (The steward's task lease reuses the existing `lease` table; `agt_task.fencing_token` records the token
 the result must carry.) Code-to-lineage analysis is itself available as a task kind (`code.analyse`), so
@@ -469,7 +356,7 @@ URL to `http://169.254.169.254/` and `file:///` refused. Secret in `code_source`
 **P2 — Deterministic code lineage (A2–A3 L0/L1, A7 tables, A4 review).**
 A fixture repository `tests/fixtures/code/bankco-etl` with a hand-written **gold lineage file** (~150
 column edges) spanning SQL views, a T-SQL proc, a dbt project (with ref/source and one Jinja loop), a
-PySpark job, and an Airflow DAG (mainframe and shell were dropped from scope: docs/23, "Lineage
+PySpark job, and an Airflow DAG (mainframe and shell were dropped from scope: docs/corpus/23, "Lineage
 scope"). Accept: edge precision ≥ 0.98
 and recall ≥ 0.75 for L0 alone, measured by a test that diffs extracted vs gold and prints the confusion;
 every gold edge that is missed appears in the run's gap list (**recall + reported gaps covers 100%** —

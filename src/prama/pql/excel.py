@@ -11,7 +11,7 @@ is what the conformance suite exists to police.
 every reader expect ``VLOOKUP``, ``IFERROR`` and ``"1" + 1 = 2``. The moment one
 behaves differently — silently — the trust this product is built on is gone. So
 the differences are declared per function in the catalogue, printed by
-``control explain``, and listed in ``docs/07``.
+``control explain``, and listed in ``docs/corpus/07``.
 
 The parser is precedence-climbing and hand-written, matching how PQL's own
 parser is written and for the same reasons: a generated parser needs a build

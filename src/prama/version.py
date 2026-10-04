@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Final
 
-#: Semantic version of the platform. Wave 1 of the ten-wave plan (docs/19).
+#: Semantic version of the platform. Wave 1 of the ten-wave plan (docs/corpus/19).
 VERSION: Final[str] = "0.1.0"
 
 #: The IR version this build compiles to. Independently versioned from the

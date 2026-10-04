@@ -79,7 +79,7 @@ def render(slug: str) -> dict[str, Any]:
     )
     html = md.convert(source)
     html = re.sub(r"<h1[^>]*>.*?</h1>", "", html, count=1, flags=re.S)  # the page has its own
-    html = _links(_relink(html), slug)
+    html = _links(_relink(html, path.parent), slug)
     html = html.replace("<table>", '<div class="table-responsive"><table class="table table-sm">')
     html = html.replace("</table>", "</table></div>")
     rendered = {"html": html, "toc": getattr(md, "toc", ""), "title": title}

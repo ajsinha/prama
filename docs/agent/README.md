@@ -147,7 +147,7 @@ cannot do would be handed work it can only fail.
 
 ```bash
 prama-agent run --config /etc/prama-agent/agent.yaml          # until stopped
-prama-agent run --config /etc/prama-agent/agent.yaml --once   # one cycle, then exit
+prama-agent run --config /etc/prama-agent/agent.yaml --once   # drain what is queued now, then exit
 prama-agent status --config /etc/prama-agent/agent.yaml       # [--json]
 ```
 
@@ -234,7 +234,7 @@ them leaves but their count, and the finding says they were withheld and where t
 investigate. Under `fingerprint`, `mask` or `send` the finding carries a digest naming the
 sample set; the rows themselves stay on this machine (`Agent.local_samples`) for an
 investigator in the zone. A withheld sample is recorded distinctly from a control that had
-none, so a zone silently dropping everything cannot look identical to a clean one.
+none; why that distinction matters is [corpus/22 §3](../corpus/22-distributed-execution.md#3-what-crosses-the-boundary).
 
 **Never leaves:**
 
@@ -248,12 +248,16 @@ compilers is how one control comes to mean two things — and every source is op
 **read-only by construction** (SQLite `mode=ro`, DuckDB `read_only=True`, a read-only
 PostgreSQL session), so a query cannot write through it whoever wrote the query.
 
-## What is still to land
+## How it talks to the server
 
-The daemon talks to the server through a `FleetLink` with three calls — `enrol`, `hello`,
-`report` — implemented over the SDK's `client.fleet` namespace. That namespace and the
-server's fleet endpoints are specified in [the contract](../design/agent-fleet-http.md) and
-are being built on the server side. With a `prama-sdk` that has no `client.fleet`,
-`enrol` and `run` stop at start and say so (exit 1). With one that has it, against a server
-that does not yet serve the routes, the daemon treats the missing route like an outage:
-it keeps its findings, backs off and retries rather than exiting.
+The daemon talks to the server only through a `FleetLink` with three calls (`enrol`,
+`hello`, `report`), implemented by `SdkFleetLink` over the SDK's `client.fleet` namespace,
+which calls the server's fleet API. With a `prama-sdk` that has no `client.fleet`, `enrol`
+and `run` stop at start and say so (exit 1), because that is an installation problem. Against
+a server that does not serve the fleet routes (an older one), the daemon treats the missing
+route like an outage: it keeps its findings, backs off and retries rather than exiting.
+
+How this daemon, the kernel it shares with the server, and the server's coordinator fit
+together is drawn in [architecture/agents-and-fleet.md](../architecture/agents-and-fleet.md);
+why the agent is built this way (outbound-only, findings not data, a terminal refusal) is
+[corpus/22](../corpus/22-distributed-execution.md).

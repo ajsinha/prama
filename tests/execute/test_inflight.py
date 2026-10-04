@@ -207,7 +207,7 @@ class TestTheCostIsMeasured:
         assert report.throughput.per_second is not None
 
     def test_it_fits_the_published_budget(self) -> None:
-        """docs/15 §7: five milliseconds added at p99.
+        """docs/corpus/15 §7: five milliseconds added at p99.
 
         This asserts an absolute latency, which is a claim about the code *and*
         about the machine. On a host under load average 50 it failed with a p99
@@ -216,7 +216,7 @@ class TestTheCostIsMeasured:
 
         The obvious repairs are both wrong. Making it opt-in, as
         `test_estate_map_scale.py` is, would quietly retire a published gate:
-        `docs/15 §7` states this as a threshold Prama must meet, and a gate
+        `docs/corpus/15 §7` states this as a threshold Prama must meet, and a gate
         nobody runs is not a gate. Loosening the budget would move the published
         number to whatever this laptop happens to manage.
 

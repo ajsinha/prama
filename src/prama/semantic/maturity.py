@@ -4,7 +4,7 @@ A number that is useful precisely because it is uncomfortable. A domain with
 four hundred datasets, six owners and no declared relationships has a low score,
 and the score is the argument for doing something about it.
 
-The design constraint from docs/03 §3 governs the weighting: **every declaration
+The design constraint from docs/corpus/03 §3 governs the weighting: **every declaration
 must pay for itself immediately**. So the stages are weighted by the *control
 value they unlock*, not by how much effort they take — and the next-best-action
 ranking says what to do next in terms of controls gained, never in terms of
@@ -21,7 +21,7 @@ from typing import Any
 
 
 class MaturityStage(enum.Enum):
-    """The seven stages of progressive formalisation (docs/03 §3)."""
+    """The seven stages of progressive formalisation (docs/corpus/03 §3)."""
 
     DISCOVERED = "discovered"  # 0: connected, profiled, nothing declared
     NAMED = "named"  # 1: named and owned
@@ -167,7 +167,7 @@ class MaturityAssessor:
     """Computes the score and ranks what to do next.
 
     Control estimates are deliberate approximations of the Γ generator's output
-    (docs/03 §5): declaring a grain yields roughly three controls, a rhythm two,
+    (docs/corpus/03 §5): declaring a grain yields roughly three controls, a rhythm two,
     a relationship three. They are used only to *rank* actions, so being
     approximately right is enough and being precisely wrong would be worse.
     """

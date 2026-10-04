@@ -1,6 +1,6 @@
 """Live-shadow evaluation.
 
-docs/15 §2.3: run beside the incumbent for ninety days, take no production
+docs/corpus/15 §2.3: run beside the incumbent for ninety days, take no production
 actions, and have the customer's own stewards adjudicate every alert **blind to
 which system raised it**.
 

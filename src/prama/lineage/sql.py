@@ -1,6 +1,6 @@
 """Column-level lineage read out of SQL.
 
-`FR-LIN-003`, and the honest way into the docs/20 G2 gap. Most of an
+`FR-LIN-003`, and the honest way into the docs/corpus/20 G2 gap. Most of an
 enterprise's lineage is not in dbt or OpenLineage; it is in views, stored
 procedures and ETL jobs that nobody has touched in eight years, and the only
 description of what they do is the SQL itself.

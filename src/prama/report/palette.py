@@ -6,7 +6,7 @@ because a print artefact has no stylesheet and a ``var(--dim-accuracy)`` in a
 PDF renders as nothing at all — silently, as a blank chart that looks like a
 chart with no data.
 
-Both come from the same table, which is the point: docs/brand.md §4 is the
+Both come from the same table, which is the point: docs/reference/brand.md §4 is the
 authority, and a second list of hex codes typed into a print renderer is the
 thing that drifts.
 

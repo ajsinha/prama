@@ -56,3 +56,8 @@ prama principal create alice --role owner
 prama principal list
 prama principal roles
 ```
+
+## Go deeper
+
+- [Platform: security](../../../../docs/architecture/platform.md#security): how identity, roles and scopes are enforced.
+- [Security, governance and compliance](../../../../docs/corpus/13-security-governance-compliance.md): the design and its requirements.

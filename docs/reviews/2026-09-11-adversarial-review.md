@@ -880,7 +880,7 @@ PostgreSQL service and `axe-core` in a real Chromium. It calls the gate script
 rather than restating its steps, because a second list of checks is a second
 thing to keep in step.
 
-Two claims were corrected rather than implemented. `docs/19` said the
+Two claims were corrected rather than implemented. `docs/corpus/19` said the
 accessibility guarantee is "held by axe-core in CI" on one page and listed
 "running it in CI" under **Not done** on another; the first is now true and the
 second is replaced by the thing that is still outstanding — screen-reader
@@ -889,7 +889,7 @@ blocks release" is marked ⏳: the corpus and `prama bench run` exist, nothing
 compares a run against a stored baseline, and inventing a baseline to make the
 sentence true would be the defect this review is about.
 
-**H3 — three ways past the plugin purity gate.** `docs/19` and `docs/08` both
+**H3 — three ways past the plugin purity gate.** `docs/corpus/19` and `docs/corpus/08` both
 record "a plugin that imports a clock, a socket or a model is refused at
 registration" as built. `time` was not on the ban list, so `import time;
 time.gmtime()` was admitted — the call ban covered `now`/`today`/`utcnow`/
@@ -1012,7 +1012,7 @@ Not a reviewer's finding — mine, while acting on one. It belongs here because 
 is the same defect class the review was hunting, committed by the tool built to
 detect it.
 
-`docs/09` claimed the estate map draws 50,000 nodes at 60 fps and nobody had
+`docs/corpus/09` claimed the estate map draws 50,000 nodes at 60 fps and nobody had
 measured it. The first harness reported **10,000 nodes in 22 ms at 60.2 fps**,
 and the number was written into four documents before anything checked it
 against arithmetic. It does not survive arithmetic: `relax()` in
@@ -1053,7 +1053,7 @@ that one check.
 `NFR-SCA-011` asks for 50,000 at 60 fps. The frame rate was never the problem;
 the map does hold 60 fps once it exists. What fails is getting it to exist, and
 the cliff is below four thousand nodes — more than an order of magnitude short,
-and *below* the "~5–10k elements" that `docs/18` predicted for a renderer it
+and *below* the "~5–10k elements" that `docs/corpus/18` predicted for a renderer it
 turns out not to be about. The four documents now carry these numbers.
 
 The lesson is the one this repository already writes down, arriving from a new

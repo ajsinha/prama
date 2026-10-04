@@ -48,7 +48,7 @@ class BenchTaxonomyCommand(Command):
             ctx.emit_json({"classes": [c.to_dict() for c in chosen]})
             return EXIT_OK
 
-        ctx.emit(f"{len(chosen)} defect class(es) (docs/15 §2.1)")
+        ctx.emit(f"{len(chosen)} defect class(es) (docs/corpus/15 §2.1)")
         ctx.emit()
         for family in Family:
             entries = [c for c in chosen if c.family is family]
@@ -151,7 +151,7 @@ class BenchRunCommand(Command):
 
         # Printed every run, not behind a flag. A five-row table reads as five
         # contenders, and nothing in it says fifteen others were never tried.
-        ctx.emit(f"NOT run here ({len(NOT_RUN)} baselines named in docs/15 §4):")
+        ctx.emit(f"NOT run here ({len(NOT_RUN)} baselines named in docs/corpus/15 §4):")
         for line in textwrap.wrap(", ".join(sorted(NOT_RUN)), width=72):
             ctx.emit(f"  {line}")
         ctx.emit()

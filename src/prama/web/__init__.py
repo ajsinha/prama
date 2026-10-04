@@ -2,7 +2,7 @@
 
 Server-rendered Jinja on FastAPI, Bootstrap 5 and jQuery, every asset vendored,
 no build step — the same stack as DishtaYantra, for the reasons set out in
-docs/18 §4 (the reversal of DEC-18).
+docs/corpus/18 §4 (the reversal of DEC-18).
 
 The package is laid out as DishtaYantra lays its web tier out:
 

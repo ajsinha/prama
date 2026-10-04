@@ -65,3 +65,7 @@ does any control proposed from it. The code is sent as data, not instructions, s
 cannot direct the model. Calls go through the gateway, with its budget, residency rules, redaction
 and call ledger. A run reports how many edges the model offered and how many survived the checks.
 
+## Go deeper
+
+- [Lineage and code](../../../../docs/architecture/lineage-and-code.md): how code becomes lineage, and what Prama will not do with it.
+- [Writing a code reader](../../../../docs/developer/code-readers.md): teaching Prama another language or tool.

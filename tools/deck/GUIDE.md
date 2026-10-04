@@ -11,9 +11,9 @@ edit safely. Adopted from Maya's generator, with Prama's palette and a second, r
 
 ```bash
 uv sync --extra dev --extra deck                       # python-pptx
-.venv/bin/python tools/deck/build.py                   # the deck, into docs/deck/
-.venv/bin/python tools/deck/audit.py docs/deck/Prama-Evidence-First-Data-Quality.pptx
-.venv/bin/python tools/deck/render_audit.py docs/deck/Prama-Evidence-First-Data-Quality.pptx
+.venv/bin/python tools/deck/build.py                   # the deck, into docs/publications/deck/
+.venv/bin/python tools/deck/audit.py docs/publications/deck/Prama-Evidence-First-Data-Quality.pptx
+.venv/bin/python tools/deck/render_audit.py docs/publications/deck/Prama-Evidence-First-Data-Quality.pptx
 .venv/bin/python -m pytest -q tests/docs/test_deck.py  # both audits, as tests
 ```
 
@@ -21,7 +21,7 @@ uv sync --extra dev --extra deck                       # python-pptx
 
 | Deck | Slides | Source |
 |---|---|---|
-| `docs/deck/Prama-Evidence-First-Data-Quality.pptx` | 45 | `prama_deck.py`, then `deck_part1.py` to `deck_part3.py` |
+| `docs/publications/deck/Prama-Evidence-First-Data-Quality.pptx` | 45 | `prama_deck.py`, then `deck_part1.py` to `deck_part3.py` |
 
 It is written for the people who must stand behind a number: a chief data officer, a data
 owner, a head of risk or audit, and the engineer asked to run it. It answers their questions in
@@ -39,14 +39,14 @@ the order they ask them, in nine parts:
 
 **Every figure comes from somewhere a reader can check:** the code, a test, a case study's run,
 or `prama bench run --seed 42`. Where a slide depends on a test, its note names the test. The
-research paper in [`docs/paper/`](../../docs/paper/) is cited once, as where the proofs are.
+research paper in [`docs/publications/paper/`](../../docs/publications/paper/) is cited once, as where the proofs are.
 
 ## How it is put together
 
 | File | Purpose |
 |---|---|
 | `metrics.py` | The text estimator: a greedy word-wrap simulation and paragraph heights. The builder and the geometry audit share it, so the builder never believes a box fits that the audit then reports |
-| `theme.py` | The design system from `docs/brand.md`: Prama Indigo and Refract Blue on a cool white ground, and the prism's six-colour spectrum as the one flourish. It also holds the primitives and `fitted()`, which shrinks a text block until it fits or raises `DoesNotFit` |
+| `theme.py` | The design system from `docs/reference/brand.md`: Prama Indigo and Refract Blue on a cool white ground, and the prism's six-colour spectrum as the one flourish. It also holds the primitives and `fitted()`, which shrinks a text block until it fits or raises `DoesNotFit` |
 | `layouts.py` | Slide kinds drawn from plain dictionaries: `title`, `divider`, `bullets`, `table`, `cards`, `stats`, `split`, `flow` and `context` (boxes joined by straight arrows) |
 | `prama_deck.py`, `deck_part1.py` … `deck_part3.py` | The deck, as data. Split into parts only to keep each file short; they are one deck, meant to be read in order |
 | `build.py` | Builds the deck and sets the document properties explicitly: the author, and no tool |

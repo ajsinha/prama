@@ -136,7 +136,7 @@ class TestEveryDesignDocumentSaysWhatIsBuilt:
     the product it described did not exist.
     """
 
-    DESIGN = sorted(ROOT.glob("docs/[0-2][0-9]-*.md"))
+    DESIGN = sorted(ROOT.glob("docs/corpus/[0-2][0-9]-*.md"))
 
     @pytest.mark.parametrize("document", DESIGN, ids=relative)
     def test_it_has_an_as_built_section(self, document: Path) -> None:

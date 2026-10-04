@@ -121,3 +121,7 @@ prama usage priorities
 
 Usage orders the work and does nothing else. No quality score reads it, and a test holds that:
 a popular dataset is not a better one.
+
+## Go deeper
+
+- [The semantic layer](../../../../docs/architecture/semantic-layer.md#metadata-business-context-and-the-glossary): how metadata becomes proposals, and how data is found by meaning.

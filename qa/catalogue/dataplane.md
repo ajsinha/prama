@@ -5068,7 +5068,7 @@ in the data plane is required to use.
 - **Precondition:** a pass over 100,000 messages with five assertions
 - **Steps:** run and read `p99_ms` and `within(5.0)`
 - **Expected:** a real p99; `within` returns a bool
-- **Why:** "docs/15 §7 sets a budget of five milliseconds added at p99, and a
+- **Why:** "docs/corpus/15 §7 sets a budget of five milliseconds added at p99, and a
   pipeline that cannot say what it costs is one nobody will put in front of a
   payment system"
 

@@ -14,8 +14,8 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-ARTICLE = ROOT / "docs" / "medium" / "your-dashboard-is-green.md"
-IMAGES = ROOT / "docs" / "medium" / "img"
+ARTICLE = ROOT / "docs" / "publications" / "medium" / "your-dashboard-is-green.md"
+IMAGES = ROOT / "docs" / "publications" / "medium" / "img"
 
 
 def test_every_image_the_article_uses_exists_and_every_diagram_is_used() -> None:

@@ -2,7 +2,7 @@
 Build the deck.
 
     python tools/deck/build.py
-    python tools/deck/audit.py docs/deck/Prama-Evidence-First-Data-Quality.pptx
+    python tools/deck/audit.py docs/publications/deck/Prama-Evidence-First-Data-Quality.pptx
 
 The deck is a list of slide specs across three modules; ``layouts`` draws them with the
 ``theme``. The document properties are set explicitly: python-pptx's default template
@@ -28,7 +28,7 @@ import layouts  # noqa: E402
 import prama_deck  # noqa: E402
 import theme  # noqa: E402
 
-OUT = ROOT / "docs" / "deck"
+OUT = ROOT / "docs" / "publications" / "deck"
 NAME = "Prama-Evidence-First-Data-Quality"
 AUTHOR = "Ashutosh Sinha"
 

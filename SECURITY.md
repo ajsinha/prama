@@ -118,7 +118,7 @@ the module that implements it, and a test asserts the statement is still there.
 | Screen-reader accessibility | Automated axe-core passes with zero critical findings; **a person with a screen reader has not tested it** |
 | Snowflake connector | Written against documented behaviour; **no warehouse has ever answered it** |
 
-None of these is presented as done anywhere in the corpus. `docs/19` tracks each.
+None of these is presented as done anywhere in the corpus. `docs/corpus/19` tracks each.
 
 ---
 

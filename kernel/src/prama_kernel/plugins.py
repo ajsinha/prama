@@ -65,8 +65,8 @@ FORBIDDEN: dict[str, str] = {
     "pathlib": "reading a file makes a control unreplayable",
     "openai": "a model output would decide a verdict (CON-007)",
     "anthropic": "a model output would decide a verdict (CON-007)",
-    # Finding H3. Absent from this list for four releases, while `docs/19` and
-    # `docs/08` both recorded "a plugin that imports a clock, a socket or a
+    # Finding H3. Absent from this list for four releases, while `docs/corpus/19` and
+    # `docs/corpus/08` both recorded "a plugin that imports a clock, a socket or a
     # model is refused at registration" as built. `time` is the clock, and a
     # validator doing `import time; time.gmtime()` was admitted — the call ban
     # below covers `now`/`today`/`utcnow`/`monotonic`/`perf_counter` and not

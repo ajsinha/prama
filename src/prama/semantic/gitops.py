@@ -262,7 +262,7 @@ class EstateSerialiser:
 
     @staticmethod
     def path_for(kind: str, slug: str, *, domain: str | None = None) -> str:
-        """The documented on-disk layout (docs/14 §5)."""
+        """The documented on-disk layout (docs/corpus/14 §5)."""
         folder = {
             "Dataset": "datasets",
             "Relationship": "relationships",

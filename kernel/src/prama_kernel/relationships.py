@@ -54,7 +54,7 @@ class RelationshipKind(enum.Enum):
 
     @property
     def generates(self) -> tuple[str, ...]:
-        """The control families this kind produces (docs/03 §2.4)."""
+        """The control families this kind produces (docs/corpus/03 §2.4)."""
         return _GENERATES[self]
 
     @property
@@ -87,7 +87,7 @@ class RelationshipKind(enum.Enum):
 
     @property
     def carries_trust(self) -> bool:
-        """Whether quality propagates along this edge (docs/11 §2).
+        """Whether quality propagates along this edge (docs/corpus/11 §2).
 
         Only kinds that move *data* propagate trust. ``MUTUALLY_EXCLUSIVE`` is a
         statement about populations, not a channel through which a defect

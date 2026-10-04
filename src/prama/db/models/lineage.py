@@ -1,6 +1,6 @@
 """The lineage store: sources, runs, column edges, and the gaps.
 
-Lineage was a tested library that nothing persisted (docs/23 §1); these tables
+Lineage was a tested library that nothing persisted (docs/corpus/23 §1); these tables
 make it a product. One store for every origin, so the workbench shows parsed
 SQL, ingested OpenLineage and a declared journey side by side, each labelled
 with where it came from.

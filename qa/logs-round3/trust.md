@@ -607,7 +607,7 @@ completed (`EVD-073`/`SEC-039`/`SEC-092` FAIL, `SEC-040`/`SEC-041` PASS).
 | `SEC-089` | PASS | pytest tests/security/test_oidc.py::test_a_malformed_token_is_refused -> ['tests/security/test_oidc.py::TestForgeries::test_a_malformed_token_is_refused PASSED [ 68%]'] |
 | `SEC-090` | PASS | InvalidToken: [SSO.TOKEN_INVALID] the signature does not verify against the provider's key \| Next: The token was not signed by this provider, or was altered in transit. Nothing about the claims inside it can be believed. |
 | `SEC-091` | PASS | P-521 curve: PASS: [SSO.TOKEN_INVALID] unsupported elliptic curve 'P-521' \| Next: Only P-256 is accepted. Ask the provider for RS256 or ES256.; kty=oct: PASS: [SSO.TOKEN_INVALID] unsupported key type 'oct' \| Next: Only RSA and EC keys are accepted. |
-| `SEC-092` | FAIL | files under src/prama/web or src/prama/api referencing OIDC verification machinery: [] -- no console or API route calls prama.security.oidc at all; the module ships tested and standalone (docs/19 W10.3) but sign-in (auth_routes.py) is local-password-only, so this case's Steps (drive a failed sign... |
+| `SEC-092` | FAIL | files under src/prama/web or src/prama/api referencing OIDC verification machinery: [] -- no console or API route calls prama.security.oidc at all; the module ships tested and standalone (docs/corpus/19 W10.3) but sign-in (auth_routes.py) is local-password-only, so this case's Steps (drive a failed sign... |
 | `SEC-093` | PASS | digest(idp-a,user-42)=7b4659f140faba5db39248b0410841a32f1de1536f3e2a841a4be54f318f9840 digest(idp-b,user-42)=62f09677503341449f1ee2ae53d4fd1e1943c70c547f213f0021e6cc369cdb9f differ=True |
 | `SEC-094` | PASS | pytest tests/security/test_oidc.py::test_an_unmapped_group_grants_nothing -> ['tests/security/test_oidc.py::TestClaimMapping::test_an_unmapped_group_grants_nothing PASSED [ 84%]'] |
 | `SEC-095` | PASS | groups_as_string=('owners',) roles_as_list=('owners',) absent=() |
@@ -883,7 +883,7 @@ completed (`EVD-073`/`SEC-039`/`SEC-092` FAIL, `SEC-040`/`SEC-041` PASS).
 
 ### SEC-092 · The failure reason reaches the operator and not the browser
 - **Expected:** a generic failure to the browser; the specific reason in the log
-- **Observed:** files under src/prama/web or src/prama/api referencing OIDC verification machinery: [] -- no console or API route calls prama.security.oidc at all; the module ships tested and standalone (docs/19 W10.3) but sign-in (auth_routes.py) is local-password-only, so this case's Steps (drive a failed sign-in through the console) cannot be carried out against this build -- cannot be verified true or false, treated as FAIL rather than a silent pass
+- **Observed:** files under src/prama/web or src/prama/api referencing OIDC verification machinery: [] -- no console or API route calls prama.security.oidc at all; the module ships tested and standalone (docs/corpus/19 W10.3) but sign-in (auth_routes.py) is local-password-only, so this case's Steps (drive a failed sign-in through the console) cannot be carried out against this build -- cannot be verified true or false, treated as FAIL rather than a silent pass
 - **Reproduce:** `qa/harness/trust/h_oidc3.py`
 - **Severity:** P1
 - **Assessment:** not-a-defect

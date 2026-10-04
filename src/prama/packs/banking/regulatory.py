@@ -157,7 +157,7 @@ class RelationshipRequirement:
     reported" is a statement about two populations, and "these three feeds
     together cover the book" is a statement about a set of them. In Prama those
     are relationship declarations, from which the generator derives controls
-    (``docs/03 §2.4``) — so writing them as PQL here would mean inventing
+    (``docs/corpus/03 §2.4``) — so writing them as PQL here would mean inventing
     syntax the language does not have, and a catalogue whose templates do not
     parse is a catalogue of promises.
     """

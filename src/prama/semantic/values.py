@@ -4,7 +4,7 @@ These are the words a business owner uses about their data, given precise
 enough meaning to compile. Every one of them is a *control generator*: declaring
 a grain produces a uniqueness control, declaring a rhythm produces a freshness
 control and a seasonality-aware volume monitor, declaring a value domain
-produces a membership control (docs/03 §5).
+produces a membership control (docs/corpus/03 §5).
 
 They are immutable value objects rather than rows: two grains with the same
 attributes are the same grain, they carry no identity, and they can be compared,

@@ -50,7 +50,7 @@ not warranted by the Owner.
 4. RESEARCH CITATIONS
 ------------------------------------------------------------------------------
 Academic works are cited under normal scholarly convention. Full bibliographic references are in
-docs/paper/references.bib. Citation does not imply the authors' endorsement of this work.
+docs/publications/paper/references.bib. Citation does not imply the authors' endorsement of this work.
 
 ------------------------------------------------------------------------------
 5. DATA STATEMENT
@@ -65,7 +65,7 @@ synthetic data only.
 This repository contains design intentions, roadmaps, targets, and unvalidated performance goals.
 Numbers marked as targets, gates, or ⟨TBD⟩ are objectives, not measured results, and must not be
 represented as product claims until independently verified under the protocol in
-docs/15-evaluation-benchmark-methodology.md.
+docs/corpus/15-evaluation-benchmark-methodology.md.
 
 ------------------------------------------------------------------------------
 Contact: Ashutosh Sinha <ajsinha@gmail.com>

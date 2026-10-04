@@ -1,6 +1,6 @@
 """Detection scoring: what a benchmark result actually means.
 
-docs/15 §3.1 sets a rule most data quality benchmarks quietly break:
+docs/corpus/15 §3.1 sets a rule most data quality benchmarks quietly break:
 
     Detection is credited only if the alert identifies the correct dataset
     **and** column **and** time window; a generic "something is wrong with this
@@ -234,7 +234,7 @@ class Score:
 
 
 def score(defects: Iterable[Defect], alerts: Iterable[Alert]) -> Score:
-    """Score a run under docs/15 §3.1's exact-match rule.
+    """Score a run under docs/corpus/15 §3.1's exact-match rule.
 
     An alert credits a defect only when dataset, column and window all agree. A
     tool alerting on every table every day would otherwise score perfect recall

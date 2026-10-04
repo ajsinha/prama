@@ -1,6 +1,6 @@
 """Lineage out of the systems nobody wants to open.
 
-docs/20 G2. Most of an enterprise's transformation logic is not in dbt. It is
+docs/corpus/20 G2. Most of an enterprise's transformation logic is not in dbt. It is
 in T-SQL stored procedures, PL/SQL packages, DB2 SQL PL, and ETL tools whose
 last release was a decade ago — and the lineage in those systems is the lineage
 that matters, because it is where the reporting layer actually comes from.

@@ -1,6 +1,6 @@
 """Reference reconciliations, as templates a bank points at its own datasets.
 
-docs/12 §6 lists eleven reconciliations every bank runs. They are the same
+docs/corpus/12 §6 lists eleven reconciliations every bank runs. They are the same
 eleven at every bank, and every bank builds them again — because the *shape* is
 standard and the column names never are.
 

@@ -69,3 +69,8 @@ refused (HTTP 409), so two copies of an agent cannot both write a task's outcome
 - **Stop:** open tasks are cancelled.
 - **Revoke:** the steward's key is revoked and its account disabled, so nothing it holds works
   anymore. A revoked steward stays revoked.
+
+## Go deeper
+
+- [Intelligence](../../../../docs/architecture/intelligence.md): the model gateway, and how AI is kept from adjudicating.
+- [Steward agents: design](../../../../docs/design/code-lineage-and-steward-agents.md): why stewards may read and propose, and nothing more.

@@ -1,4 +1,4 @@
-"""A labelled defect corpus (``docs/15 §2.1``).
+"""A labelled defect corpus (``docs/corpus/15 §2.1``).
 
 A benchmark is only as honest as the thing it plants. This builds a table, puts
 a known number of known defects into it at known places, and hands back both
@@ -19,7 +19,7 @@ otherwise a result cannot be reproduced and a regression cannot be
 distinguished from a reroll. :func:`build` takes the seed as an argument and
 has no default, because a default seed is a seed nobody records.
 
-Scale is deliberately modest. This runs in a test suite. ``docs/15`` describes
+Scale is deliberately modest. This runs in a test suite. ``docs/corpus/15`` describes
 S/M/L at 10⁶ to 10¹⁰ rows against real openly-licensed datasets, and none of
 that is here: what is here is the taxonomy, the injectors and the labelling
 discipline, which is the part that has to be right before scale is worth
@@ -55,7 +55,7 @@ Row = dict[str, Any]
 
 
 class Family(enum.Enum):
-    """The six families of ``docs/15 §2.1``."""
+    """The six families of ``docs/corpus/15 §2.1``."""
 
     STRUCTURAL = "structural"
     CONTENT = "content"
@@ -113,7 +113,7 @@ class DefectClass:
 class Scenario:
     """One defect class, in its own window.
 
-    Each class gets a window to itself, and this is not cosmetic. ``docs/15
+    Each class gets a window to itself, and this is not cosmetic. ``docs/corpus/15
     §3.1`` scores a detection on dataset, column *and* window: six classes that
     all damage ``amount`` in one window share a locus, so a single alert on
     ``amount`` would be credited with finding all six. Separating them is what

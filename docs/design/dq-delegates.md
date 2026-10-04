@@ -13,7 +13,7 @@ Some data quality checks are code, and pretending otherwise makes PQL worse:
 - **Distribution tests.** Benford, drift or a chi-square have no row to point at.
 - **Proprietary scoring**, which a bank will not describe in a rule language at all.
 
-`docs/07` §7a.5 rejects an inline `PYTHON("…")` escape hatch, for four reasons:
+`docs/corpus/07` §7a.5 rejects an inline `PYTHON("…")` escape hatch, for four reasons:
 
 1. It breaks replay.
 2. It breaks versioning.

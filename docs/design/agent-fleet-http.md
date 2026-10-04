@@ -51,7 +51,7 @@ is identical after a JSON round trip (`tests/agent/test_protocol_roundtrip.py`).
 | `GET /fleet/agents` | administrator | → every agent: id, name, zone, state, version, capabilities, last seen, pending findings, last sequence |
 | `POST /fleet/agents/{id}/suspend`, `/resume`, `/revoke` | administrator | → the agent |
 | `GET /fleet/health` | administrator | → stale agents, queued work per zone, unassignable controls |
-| `POST /fleet/dispatch` | `control:approve` | `{zone, datasets?, engine}` → queues the active controls on those datasets as assignments for the zone, compiled by the server (`prama.agent.assign.assignment_for`); → `{queued, unassignable}` |
+| `POST /fleet/dispatch` | `control:approve` | `{zone, datasets?, engine}` → queues the active controls on those datasets as assignments for the zone, compiled by the server (`prama.agent.assign.assignment_for`); → `{zone, engine, queued, already_queued, unassignable}` |
 | `POST /fleet/enrol` | the token holder | `{token, name, version, capabilities}` → `{agent_id, key, zone, poll_after_seconds}` |
 | `POST /fleet/hello` | a signed agent | `Hello` → `Receipt` (with the zone's assignments that fit its capabilities) or `Refusal` |
 | `POST /fleet/report` | a signed agent | `Report` → `Receipt` (`accepted_through`, `duplicates`, `rejected`) or `Refusal` |
@@ -60,7 +60,8 @@ Assignments are **claimed**: `hello` hands a queued assignment to one agent and 
 it claimed, so two agents in a zone never both run it; a claim not reported within
 its lease returns to the queue. A report is **at-least-once**: the server dedupes by
 the agent's own sequence (records at or below the agent's `last_sequence` are
-duplicates; a jump is rejected with the expected sequence) and appends accepted
+duplicates; a jump is named in `rejected` with the expected sequence, and the record is
+still kept, because refusing it would lose evidence that did arrive) and appends accepted
 records to the tenant's evidence ledger. A record about a plan never assigned to the
 agent's zone advances its sequence but is not recorded: it is listed in `rejected` with the
 reason, so a compromised agent cannot write evidence about work it was never given. The
@@ -77,21 +78,9 @@ only; timestamps as ISO-8601 text.
 
 ## The daemon
 
-```bash
-pip install prama-agent                     # prama-kernel and prama-sdk; nothing of the server
-prama-agent enrol --server https://prama.example.com --token … --name eu-01 --state /var/lib/prama-agent
-prama-agent run --config /etc/prama-agent/agent.yaml
-prama-agent status --config /etc/prama-agent/agent.yaml
-```
-
-`agent.yaml` names the server, the state directory (identity and spool), the
-sources the agent may read (by the binding name assignments use: `engine: sqlite |
-duckdb | postgres`, a path or a DSN, with credentials by environment reference, never
-inline), and the zone's residency policy (what samples may leave). The daemon loops:
-hello, run each assignment with the kernel's judge, redact under residency, spool,
-report; back off when the server is unreachable and keep working from the spool;
-stop cleanly on SIGTERM or SIGINT after finishing the assignment in hand; stop for
-good on a permanent refusal.
-
-The operator's guide — installing, enrolling, the `agent.yaml` reference, running under
-systemd, and exactly what leaves the machine — is [docs/agent/README.md](../agent/README.md).
+The other half of this contract is `prama-agent`: `enrol` redeems a token through
+`POST /fleet/enrol`, and `run` loops hello, run, redact, spool, report against
+`/fleet/hello` and `/fleet/report`. How to install, configure (`agent.yaml`), run and
+supervise it, and exactly what leaves the machine, is the operator's guide,
+[docs/agent/README.md](../agent/README.md). How the daemon, the kernel and the server's
+coordinator fit together is [architecture/agents-and-fleet.md](../architecture/agents-and-fleet.md).

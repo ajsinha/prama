@@ -1,8 +1,9 @@
 # Prama — working notes
 
 Prama is a business-owned, evidence-first data quality control plane. The design corpus is
-`docs/00`–`docs/19`; `docs/03` (business semantic layer) is the conceptual heart and `docs/19` is
-the implementation roadmap. Version is `src/prama/version.py::VERSION` — that constant is the only
+`docs/corpus/00`–`docs/corpus/19`; `docs/corpus/03` (business semantic layer) is the conceptual heart and `docs/corpus/19` is
+the implementation roadmap. How the code fits together is `docs/architecture/`; how to extend it
+is `docs/developer/`; `docs/README.md` maps every folder, one home per fact. Version is `src/prama/version.py::VERSION` — that constant is the only
 authority; every other version string is a copy that can rot.
 
 This file is the short list of things that are cheap to get wrong here and expensive to discover
@@ -233,6 +234,8 @@ prama contract check c.json --data rows.json   # CI gate; exit 3 on breach, 1 on
 prama contract diff before.csv after.csv --key id   # what changed, not how many
 prama lsp catalogue --tenant acme --out cat.json   # the estate's schemas, for an editor
 prama lsp serve --catalogue cat.json     # PQL language server on stdio
+python tools/docs/diagrams.py [--check]  # docs/assets/diagrams from code, Inkscape-audited
+python tools/docs/screenshots.py         # real console screenshots: own server, case studies, Chrome
 python scripts/check_file_length.py      # the 1500-line ceiling
 python3 scripts/check_version_source.py  # version.py is the one authority; copies agree
 prama evidence anchor                    # the chain head, time-stamped outside Prama (evidence.anchor)

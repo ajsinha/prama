@@ -148,7 +148,7 @@ class TestTheDebitMarkCarriesTheSign:
 
 
 class TestStatementContinuity:
-    """Opening plus movement equals closing — the check docs/12 §4 names.
+    """Opening plus movement equals closing — the check docs/corpus/12 §4 names.
 
     An aggregate within one message. No column check can find it, because every
     individual figure is well-formed.
@@ -285,7 +285,7 @@ class TestPacs008:
 
 
 class TestTheTwoParsersShareAVocabulary:
-    """The beachhead docs/12 §4 names.
+    """The beachhead docs/corpus/12 §4 names.
 
     MT and MX now run in parallel with translation layers between them, and the
     translation is where the defects are. Two parsers with two vocabularies

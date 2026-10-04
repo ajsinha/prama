@@ -7,14 +7,9 @@
 # Runbook
 
 What to do when Prama is running and something is wrong. Written for whoever is
-on call, which means: the answer first, the reasoning after it.
-
-A note on what this product does when it fails. Prama's whole thesis is that a
-control's verdict must be defensible, so almost every failure mode here is a
-**refusal** rather than a wrong answer. That is deliberate, and it changes the
-shape of an incident: the common page is "Prama will not do something", not
-"Prama did something wrong". A refusal with a reason is working as designed even
-at three in the morning.
+on call, which means: the answer first, the reasoning after it. Most pages are a
+refusal with a remedy rather than a wrong answer; why is in
+[Operations](README.md#the-shape-of-a-prama-incident).
 
 ---
 
@@ -223,9 +218,9 @@ In likelihood order:
    grouping. A control that gained an incompatible clause drops out of its scan
    group and runs alone.
 2. **Pushdown was lost.** `prama control functions` shows which functions run on
-   which engine. A function an engine cannot express is refused, not
-   approximated — but a control rewritten to avoid the refusal may now be
-   evaluating locally over the whole table.
+   which engine ([why one is refused](troubleshooting.md#a-control-refuses-to-compile-on-one-engine)).
+   A control rewritten to avoid a refusal may now be evaluating locally over the
+   whole table.
 3. **The source got bigger.** Boring and usually correct.
 
 ### A read takes minutes against an API
@@ -254,5 +249,5 @@ truncated read is a data finding, not a performance one.
 
 Kubernetes operator behaviour on a real cluster, an air-gapped install, and
 cloud KMS key rotation. All three are implemented and **none has been exercised
-against the real thing** — see `docs/19` and `deploy/README.md`, which say so in
+against the real thing** — see `docs/corpus/19` and `deploy/README.md`, which say so in
 those words rather than leaving it to be discovered here.

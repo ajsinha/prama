@@ -95,7 +95,7 @@ class TestTheLabelsFollowWhatHappened:
 
 class TestOneWindowPerClass:
     def test_each_class_gets_its_own_window(self) -> None:
-        """docs/15 §3.1 scores dataset, column *and* window. Six classes that
+        """docs/corpus/15 §3.1 scores dataset, column *and* window. Six classes that
         all damage `amount` in one window share a locus, so a single alert on
         `amount` would be credited with finding all six."""
         built = corpus.build(seed=13)

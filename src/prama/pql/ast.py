@@ -687,7 +687,7 @@ class ReconcileAssertion(Assertion):
 class CustomSqlAssertion(Assertion):
     """``CUSTOM SQL <triple-quoted SELECT> ENGINE duckdb COST high``.
 
-    The contained escape hatch (docs/07 §8). The SQL is checked at parse time
+    The contained escape hatch (docs/corpus/07 §8). The SQL is checked at parse time
     to be a single read-only query returning a ``violating_rows`` column, and
     ``{{ dataset }}`` names the control's own table. It is marked non-portable:
     it runs only on the engines it lists, and the reference interpreter cannot

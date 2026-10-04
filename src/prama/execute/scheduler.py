@@ -1,6 +1,6 @@
 """The always-on scheduler: due controls run without anybody calling them.
 
-Controls and evidence were stored, and nothing ran them on its own (docs/19,
+Controls and evidence were stored, and nothing ran them on its own (docs/corpus/19,
 Wave 9's "honest limit"); `prama control run` had to be invoked by cron or CI.
 This runs inside `prama serve`, under the task supervisor, and every tick
 executes what each control's schedule says is due — the same `ControlRun` the

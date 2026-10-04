@@ -1,6 +1,6 @@
 """
 The deck design system: Prama Indigo and Refract Blue over a cool white ground,
-the prism's six-colour spectrum as the one flourish (docs/brand.md), Georgia for
+the prism's six-colour spectrum as the one flourish (docs/reference/brand.md), Georgia for
 headings and Calibri for text, and the layout primitives every deck is drawn with.
 
 Every primitive that places text measures it with ``metrics`` — the same
@@ -36,7 +36,7 @@ RULE = RGBColor(0xD6, 0xDA, 0xE6)
 FROST = RGBColor(0xF3, 0xF5, 0xFA)
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
 GOLD = RGBColor(0xE8, 0xB3, 0x3A)
-#: The prism's six rays, one per quality dimension (docs/brand.md). On a slide
+#: The prism's six rays, one per quality dimension (docs/reference/brand.md). On a slide
 #: they are always the six together, in this order, never one used decoratively.
 SPECTRUM = [
     RGBColor(0x00, 0xB3, 0xA4),  # accuracy

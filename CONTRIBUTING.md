@@ -11,7 +11,9 @@ alone. This document is for anyone working on it under a separate written
 agreement, and for the future maintainer who is me in eighteen months.
 
 `CLAUDE.md` is the short list of things that are cheap to get wrong here and
-expensive to discover later. Read that first; this is the longer form.
+expensive to discover later. Read that first; this is the longer form. How to
+extend or change each part (a connector, a PQL function, an endpoint, a table)
+is in the [developer guides](docs/developer/README.md).
 
 ---
 
@@ -69,24 +71,11 @@ When you find yourself copying a fact, stop and generate it instead.
 
 ## Hard rules
 
-These fail the build. They are in `CLAUDE.md` in full; the short form:
-
-1. **No assistant attribution in commit messages.** `.githooks/commit-msg`
-   refuses them.
-2. **No database migrations, ever.** Two schema files, byte-identical apart from
-   their headers, applied idempotently and verified. A drifted schema is a loud
-   failure, never a silent repair.
-3. **Only `prama.db` imports SQLAlchemy.** Everything else uses DAOs behind a
-   unit of work.
-4. **No source file over 1500 code lines.** Comments and docstrings do not
-   count, so documenting a module is never penalised. A file over the ceiling is
-   doing more than one thing.
-5. **No secrets in tracked configuration.** The shipped session secret is empty
-   on purpose.
-6. **AI never adjudicates** (`CON-007`). No module may both call a model and
-   produce a verdict. Enforced by import scanning.
-7. **Concurrency is structured.** No bare threads, no unbounded queues, no
-   fire-and-forget tasks. Use `prama.core.concurrency`.
+They fail the build, and `CLAUDE.md` is where they are stated: authorship, no
+migrations, database code in one package, the 1500-line ceiling, no secrets in
+tracked configuration, the SDK, kernel and agent as separate packages, and AI
+never adjudicates. Each [developer guide](docs/developer/README.md#the-gate-a-change-must-pass)
+names the guard that enforces the rules it touches.
 
 ---
 
@@ -154,6 +143,10 @@ that third category is the one summaries lose.
 not exist, a module that does not exist, a link that does not resolve, or a
 design document with no as-built section.
 
+Code a developer guide shows as a complete implementation lives in
+`docs/developer/examples/`, and `tests/docs/test_developer_examples.py` runs
+every file there, so a guide's code cannot rot unseen.
+
 Generated references (`docs/operations/cli-reference.md`,
 `configuration-reference.md`) carry a banner. Edit the code and regenerate;
 editing the prose fails the gate.
@@ -170,12 +163,18 @@ The gate exists because piping pytest into `tail` returns tail's exit code, so a
 collection error sails through an `&&` chain and a commit lands on a red suite.
 That happened twice before the script existed.
 
-With real services, the suite covers more:
+With real services, the suite covers more. Both are optional, and the suite is
+green without them; it skips more.
 
 ```bash
+docker run -d --name prama-pg -e POSTGRES_PASSWORD=prama -e POSTGRES_USER=prama \
+  -e POSTGRES_DB=prama -p 55432:5432 postgres:16-alpine
 export PRAMA_TEST_POSTGRES_DSN=postgresql://prama:prama@127.0.0.1:55432/prama
-export PRAMA_TEST_KAFKA_BOOTSTRAP=127.0.0.1:19092
+export PRAMA_TEST_KAFKA_BOOTSTRAP=127.0.0.1:19092   # see tests/execute/test_kafka.py
 ```
+
+With PostgreSQL the function conformance corpus runs on three engines instead of
+two, which is the version of that test worth the name.
 
 ---
 

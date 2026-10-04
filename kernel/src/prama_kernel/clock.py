@@ -5,7 +5,7 @@ asks a ``Clock`` rather than calling ``datetime.now()``. Two reasons, both
 load-bearing:
 
 * **Evidence must replay.** A control execution is reproducible only if the
-  temporal context it saw is an input, not an ambient fact (docs/13 §6.3).
+  temporal context it saw is an input, not an ambient fact (docs/corpus/13 §6.3).
 * **Tests must be deterministic.** ``FixedClock`` and ``ManualClock`` let a
   scheduler, a cadence policy or a lease expiry be tested without sleeping.
 

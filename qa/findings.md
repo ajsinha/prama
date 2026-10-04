@@ -575,7 +575,7 @@ lints a PQL string and returns findings. `owner` holds `control:approve` and
 `control:read`, and deliberately not `control:propose` — the role split is
 "the steward authors, the owner approves".
 
-So the business owner — the persona in the first sentence of `docs/00`, the
+So the business owner — the persona in the first sentence of `docs/corpus/00`, the
 "business-owned" in the product's own description — can activate a control but
 cannot lint the text of one before approving it. Approving what you were not
 permitted to check reads backwards, and the natural workaround is to grant
@@ -1085,7 +1085,7 @@ exists to be the oracle the compiled SQL is checked against; the conformance
 suite's whole job is to require three engines to agree with it. An oracle that
 computes in `float` on one path and `Decimal` on another cannot be the thing
 three engines are held to. And a reconciliation verdict is *the* artefact this
-product sells — `docs/12` names reconciliation as banking's most expensive
+product sells — `docs/corpus/12` names reconciliation as banking's most expensive
 quality failure. "Declare it. Prove it. Trust it." does not survive a pass/fail
 boundary evaluated in a representation that cannot hold the numbers on either
 side of it.
@@ -1956,9 +1956,9 @@ disagreement for an absent reference. Each is individually defensible as a
 default and collectively they mean the gate could not distinguish working from
 untested.
 
-## Q-101 — README and docs/19 disagree about what is built
+## Q-101 — README and docs/corpus/19 disagree about what is built
 
-**Where** `README.md` §Status, against `docs/19-implementation-roadmap.md`.
+**Where** `README.md` §Status, against `docs/corpus/19-implementation-roadmap.md`.
 **From** the user's note that the README is obsolete.
 
 Three claims, checked against the roadmap rather than against memory:
@@ -2269,13 +2269,13 @@ timing-sensitive for exactly this reason.
 **Where** `tests/execute/test_inflight.py::test_it_fits_the_published_budget`.
 **Found by** the same loaded host as `Q-110`, on the next run.
 
-The test asserts `docs/15 §7`'s claim — five milliseconds added at p99 — over
+The test asserts `docs/corpus/15 §7`'s claim — five milliseconds added at p99 — over
 500 messages. Under contention it failed with a p99 several times the budget.
 The pipeline had not changed; the process simply was not being given a CPU.
 
 **Both obvious repairs are wrong.** Making it opt-in, the way
 `tests/web/test_estate_map_scale.py` already is, would quietly retire a
-*published gate* — `docs/15` states this as a threshold Prama must meet, and a
+*published gate* — `docs/corpus/15` states this as a threshold Prama must meet, and a
 gate nobody runs by default is not a gate. Loosening the budget would move a
 published number to whatever this laptop happens to manage. Both are the
 flattering direction, and both would leave the documentation claiming something

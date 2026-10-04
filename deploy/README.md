@@ -213,7 +213,7 @@ has never run.
 
 **The signed offline bundle (W10.8)** — an air-gapped install: images, chart,
 wheels and a local model, with a signature and a verification step. Not built.
-Its acceptance criterion in `docs/19` is *"air-gapped install verified end to
+Its acceptance criterion in `docs/corpus/19` is *"air-gapped install verified end to
 end with a local model and no egress whatsoever"*, and that cannot be claimed
 from a machine with a network.
 

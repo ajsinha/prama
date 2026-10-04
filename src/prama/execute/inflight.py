@@ -19,7 +19,7 @@ destruction:
 * **A message that cannot be read is dead-lettered, not dropped.** An
   unparseable message is a finding about the sender. Discarding it removes the
   only evidence of what they sent.
-* **The cost of enforcing is measured, not assumed.** docs/15 §7 sets a budget of
+* **The cost of enforcing is measured, not assumed.** docs/corpus/15 §7 sets a budget of
   five milliseconds added at p99, and a pipeline that cannot say what it costs
   is one nobody will put in front of a payment system. Every batch reports its
   own added latency.

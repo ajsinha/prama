@@ -1980,7 +1980,7 @@ netting_set` → `recognised`, every property mapped.
 
 ### CLI-251 — PASS — `usage: prama bench <taxonomy|run>`, exit 2.
 ### CLI-252 — PASS — 28 defect classes across six families, each with a difficulty
-and a one-line description, citing `docs/15 §2.1`.
+and a one-line description, citing `docs/corpus/15 §2.1`.
 ### CLI-253 — PASS — `--json bench taxonomy` parses.
 ### CLI-254 — PASS — `--family content` → 7 classes, plus a closing note on why the
 semantic family is the discriminator.
@@ -2015,7 +2015,7 @@ Corpus: seed 42, 28 scenarios of 200 rows, 28 defect(s) planted
 
 Blind spots — families in which the detector found nothing: […]
 
-NOT run here (15 baselines named in docs/15 §4):
+NOT run here (15 baselines named in docs/corpus/15 §4):
   AWS Glue Data Quality, […], dbt tests + dbt-expectations
 Configuring a competitor is a job for someone incentivised to make it look good. These numbers are bounds and ablations, not a comparison.
 exit: 0

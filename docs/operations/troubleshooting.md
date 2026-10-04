@@ -8,11 +8,8 @@
 
 The runbook is for when Prama is running and something is wrong. This is for
 when you are trying to make it work in the first place, and for the errors that
-mean something other than what they appear to.
-
-Every error this product raises carries a **remedy** — the next thing to do, not
-a restatement of the problem. If you are reading an error with no remedy, that
-is itself a defect worth reporting.
+mean something other than what they appear to. Why most failures are refusals,
+each with a remedy, is in [Operations](README.md#the-shape-of-a-prama-incident).
 
 ---
 
@@ -109,9 +106,9 @@ registered. Everything it produces is a proposal on the approval queue.
 readlink -f .venv/bin/python
 ```
 
-It should resolve under `~/.local/share/uv/python/`, not `/usr/bin`. An
-interpreter the OS package manager owns is one it can delete — which is how this
-project lost a venv mid-build when an Ubuntu upgrade removed 3.12.
+It should resolve under `~/.local/share/uv/python/`, not `/usr/bin`. If it does
+not, rebuild the venv as [the runbook](runbook.md#the-interpreter-is-missing)
+says.
 
 ### Optional extras and what needs them
 
@@ -130,18 +127,8 @@ A missing extra always produces a **named** refusal. If you are getting an
 
 ### Running the suite with real services
 
-Both are optional and the suite is green without them — it skips more.
-
-```bash
-docker run -d --name prama-pg -e POSTGRES_PASSWORD=prama -e POSTGRES_USER=prama \
-  -e POSTGRES_DB=prama -p 55432:5432 postgres:16-alpine
-export PRAMA_TEST_POSTGRES_DSN=postgresql://prama:prama@127.0.0.1:55432/prama
-
-export PRAMA_TEST_KAFKA_BOOTSTRAP=127.0.0.1:19092   # see tests/execute/test_kafka.py
-```
-
-With PostgreSQL the function conformance corpus runs on three engines instead of
-two, which is the version of that test worth the name.
+Optional, and described with the gate in
+[CONTRIBUTING.md](../../CONTRIBUTING.md#the-loop).
 
 ---
 
