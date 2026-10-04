@@ -9,6 +9,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
+from prama.db.models.alert import AlrDigest, AlrState
 from prama.db.models.attestation import AttAttestation
 from prama.db.models.base import (
     Base,
@@ -90,6 +91,8 @@ __all__ = [
     "AgtMemory",
     "AgtSteward",
     "AgtTask",
+    "AlrDigest",
+    "AlrState",
     "ApiKey",
     "AttAttestation",
     "AuditEvent",

@@ -164,6 +164,47 @@ DEFAULTS: dict[str, Any] = {
         "against": "",
         "dialect": "duckdb",
     },
+    "alerts": {
+        # Off by default, so nothing is sent until an operator decides where
+        # alerts go. On, a failing run alerts the dataset's owner, steward or
+        # custodian (by the fault), once per incident, and a pass resolves it.
+        "enabled": False,
+        # Which notifier serves each role: log | webhook | email, or a
+        # notifier a distribution adds on the prama.notifiers entry point.
+        # `log` needs nothing configured, so turning alerts on is observable
+        # before a webhook or a mail relay exists.
+        "channels": {"owner": "log", "steward": "log", "custodian": "log"},
+        # Notifier key -> where it delivers, for the residency gate. An alert
+        # quotes failing values, so a channel outside the tenant's residency
+        # is withheld rather than sent.
+        "channel_regions": {},
+        # An open incident is not announced again within this period unless
+        # it worsens; the record of what was sent is in the database, so the
+        # period holds across a restart and across servers.
+        "quiet_period": "6h",
+        # The hour (UTC, 0-23) after which the scheduler's tick sends the day's
+        # digest of what did not need waking anybody. Needs the scheduler on.
+        "digest_hour": 9,
+        "webhook": {
+            # The receiver. JSON is POSTed: subject, body, recipients, alert.
+            "url": "",
+            # A secret reference (env://..., file://..., vault://...), never
+            # the secret: the body is signed with HMAC-SHA256 in
+            # X-Prama-Signature when it is set.
+            "secret_ref": "",
+            "timeout": 10,
+        },
+        "email": {
+            "host": "",
+            "port": 587,
+            "starttls": True,
+            "sender": "",
+            "username": "",
+            # A secret reference for the relay password, never the password.
+            "password_ref": "",
+            "timeout": 30,
+        },
+    },
     "runs": {
         # Directories a run requested over the API may read a registered
         # connection's files from. Empty: no such run opens any file, which is
@@ -247,12 +288,24 @@ DEFAULTS: dict[str, Any] = {
         },
     },
     "plugins": {
+        # Every group here has a loader in prama.plugins.LOADERS, called once
+        # at start by the CLI and the server alike, and
+        # tests/architecture/test_plugin_groups.py fails the build on a group
+        # that has none. Two groups were once listed and read by nothing, and
+        # are gone because there is no seam for a plugin to fill:
+        # prama.backends (a compile dialect must also be in the function
+        # catalogue's engines and pass the conformance corpus, so an engine
+        # ships in-tree) and prama.scorers (scoring methods are closed enums,
+        # so a score always names the arithmetic that produced it).
         "entry_point_groups": [
+            # Source connectors, registered beside the shipped ones; a
+            # distribution cannot take a shipped connector's key.
             "prama.connectors",
-            "prama.backends",
+            # Monitor detectors (prama.monitor.detect.Detector), by name.
             "prama.monitors",
+            # Alert channels (prama.alert.notify.Notifier), named in
+            # alerts.channels and configured under alerts.<key>.
             "prama.notifiers",
-            "prama.scorers",
             # Validators arrive here. A distribution advertising one is checked
             # for purity before it is usable, and its implementation hash is
             # folded into the plan id of every control that names it.

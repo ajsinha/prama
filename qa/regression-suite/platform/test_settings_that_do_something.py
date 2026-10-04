@@ -33,13 +33,18 @@ class TestThePluginMechanismIsActuallyCalled:
     exist, and both pass their unit tests.
     """
 
-    def test_installing_the_shipped_packs_loads_entry_points(self) -> None:
+    def test_the_plugin_bootstrap_loads_entry_points(self) -> None:
+        """Validators are loaded by the bootstrap both entry points call.
+
+        They were loaded from `install_shipped`; every plugin group now has its
+        loader in `prama.plugins.LOADERS`, called by `prama.plugins.bootstrap`.
+        """
         import inspect
 
-        from prama import packs
+        from prama import plugins
 
-        source = inspect.getsource(packs.install_shipped)
-        assert "load_entry_points" in source
+        assert "load_entry_points" in inspect.getsource(plugins.LOADERS["prama.validators"])
+        assert "LOADERS" in inspect.getsource(plugins.bootstrap)
 
     def test_the_disabled_list_is_a_real_setting(self) -> None:
         """It lived in the shipped YAML and in no defaults mapping.

@@ -197,6 +197,17 @@ a gate that refused (drift, a breached contract, a broken control, an anchor
 not taken). The full list is the generated
 [CLI reference](../operations/cli-reference.md).
 
+**Plugins.** `prama.plugins.bootstrap` is the one place third-party code is
+loaded, called by `create_app` and by the CLI's `Application.run` after the
+configuration is known. It installs the shipped packs, then runs the loader for
+each group in `plugins.entry_point_groups`: `"prama.connectors"`,
+`"prama.monitors"`, `"prama.notifiers"` and `"prama.validators"`, each into the
+registry for its base class, once per process. `plugins.disabled` keeps a
+plugin out by entry-point name or key (it is never imported), and a plugin
+cannot take a shipped plugin's key. A group with no loader fails the build
+(`tests/architecture/test_plugin_groups.py`); `"prama.backends"` and
+`"prama.scorers"` were removed for having no seam to fill.
+
 **Packs.** `prama.packs.banking` is the first domain pack, installed by
 `install_shipped` in `prama.packs`: a concept ontology, message-format parsers (FIX,
 ISO 20022, ISO 8583, SWIFT MT, FpML, COBOL copybooks), regulatory obligations
@@ -209,7 +220,7 @@ lists what the pack does *not* claim to discharge.
 |---|---|
 | `src/prama/core/config/` | layered configuration, placeholders, coercion |
 | `src/prama/core/concurrency/` | supervisor, bounded queues, limiters, leases |
-| `src/prama/core/registry.py`, `src/prama/core/provenance.py`, `src/prama/core/ids.py` | plugin registry; origins and provenance; ULIDs |
+| `src/prama/core/registry.py`, `src/prama/plugins.py`, `src/prama/core/provenance.py`, `src/prama/core/ids.py` | plugin registry; the plugin bootstrap; origins and provenance; ULIDs |
 | `src/prama/db/session.py`, `src/prama/db/dao/`, `src/prama/db/models/` | unit of work, DAOs, ORM models |
 | `src/prama/db/schema/` | schema loading, idempotent apply, drift verification |
 | `src/prama/db/dialects.py`, `src/prama/db/guard.py`, `src/prama/db/lease_provider.py`, `src/prama/db/temporal.py` | the dialect seam; error translation; leases; bitemporal versioning |

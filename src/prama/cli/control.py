@@ -491,9 +491,11 @@ class ControlRunCommand(Command):
                         delegates=host_from_config(ctx.config),
                     ).execute_all()
                 # After the run has committed, in a unit of work of its own.
+                from prama.alert.pipeline import alert_after_run
                 from prama.evidence.anchor import anchor_after_run
 
                 await anchor_after_run(database, tenant, ctx.config)
+                await alert_after_run(database, tenant, ctx.config, run_id=report.run_id)
                 return report
             finally:
                 await database.stop()

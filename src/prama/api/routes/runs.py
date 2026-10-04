@@ -87,9 +87,13 @@ async def run_controls(
     # Committed before the anchor reads the chain head, as the CLI does: the
     # anchor is a receipt for records that exist, not for ones in flight.
     await uow.commit()
+    from prama.alert.pipeline import alert_after_run
     from prama.evidence.anchor import anchor_after_run
 
     await anchor_after_run(database, caller.tenant_id, config)
+    # Alerts after the evidence is committed, in their own unit of work; a
+    # delivery failure is recorded against the alert and never fails the run.
+    await alert_after_run(database, caller.tenant_id, config, run_id=str(report["run_id"]))
     return report
 
 

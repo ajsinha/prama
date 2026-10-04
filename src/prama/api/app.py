@@ -29,7 +29,7 @@ from prama.core.config import Configuration, load_configuration
 from prama.core.errors import PramaError
 from prama.core.log import LoggingConfigurator, get_logger
 from prama.db import Database
-from prama.packs import install_shipped
+from prama.plugins import bootstrap as bootstrap_plugins
 from prama.version import PRODUCT_TAGLINE, VERSION
 
 _log = get_logger(__name__)
@@ -175,8 +175,10 @@ def create_app(config: Configuration | None = None, *, database: Database | None
 
     # The console and the API author and check controls too, so the shipped
     # packs' functions must resolve here for the same reason they must in the
-    # CLI — see prama.packs.install_shipped.
-    install_shipped(disabled_plugins=config.get_list("plugins.disabled", []))
+    # CLI — see prama.packs.install_shipped — and every configured plugin
+    # group is loaded, honouring plugins.disabled, by the same bootstrap the
+    # CLI calls (prama.plugins).
+    bootstrap_plugins(config)
 
     app.include_router(probes.router)
     # Every other module in prama.api.routes that defines a `router` is the

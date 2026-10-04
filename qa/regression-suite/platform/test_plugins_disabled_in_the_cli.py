@@ -31,33 +31,41 @@ from pathlib import Path
 
 
 def test_the_cli_honours_plugins_disabled_the_way_create_app_does() -> None:
-    """Both entry points pass the setting through, from the same key.
+    """Both entry points call the one bootstrap, which reads the setting.
 
     Asserted on the source of both call sites rather than by loading a real
     third-party distribution: installing a plugin package into the test
     environment to prove a config key is read would make this test depend on
     packaging rather than on the behaviour, and it is the *wiring* that was
-    missing.
+    missing. (`tests/core/test_plugin_bootstrap.py` drives the bootstrap with
+    real entry points.)
+
+    The packs and the validators used to be installed by `install_shipped`,
+    called with `plugins.disabled` from both places. Every plugin group is now
+    loaded by `prama.plugins.bootstrap(config)`, which installs the packs and
+    reads `plugins.disabled` itself, so the two processes cannot pass it
+    differently.
     """
+    from prama import plugins
     from prama.api import app as api_app
     from prama.cli import base as cli_base
 
     api_source = inspect.getsource(api_app)
     cli_source = inspect.getsource(cli_base.Application.run)
+    bootstrap_source = inspect.getsource(plugins.bootstrap)
 
-    assert 'install_shipped(disabled_plugins=config.get_list("plugins.disabled"' in api_source, (
-        "create_app no longer passes plugins.disabled; this test is measuring "
+    assert "bootstrap_plugins(config)" in api_source, (
+        "create_app no longer calls the plugin bootstrap; this test is measuring "
         "the wrong thing and should be rewritten before being trusted"
     )
-    assert "install_shipped(" in cli_source, (
-        "Application.run no longer installs packs. If installation moved again, "
-        "it must still happen somewhere the effective configuration is known — "
-        "moving it back to the entry point reintroduces Q-63."
+    assert "bootstrap_plugins(ctx.config)" in cli_source, (
+        "Application.run no longer calls the plugin bootstrap with the effective "
+        "configuration. If it moved again, it must still happen somewhere the "
+        "configuration is known — moving it back to the entry point reintroduces Q-63."
     )
-    assert "plugins.disabled" in cli_source, (
-        "Application.run installs packs without passing plugins.disabled, so a "
-        "validator switched off in configuration still loads in the CLI while "
-        "being off in the server"
+    assert "plugins.disabled" in bootstrap_source and "install_shipped(" in bootstrap_source, (
+        "the bootstrap no longer installs packs or no longer reads plugins.disabled, "
+        "so a plugin switched off in configuration may still load"
     )
 
 
@@ -77,7 +85,8 @@ def test_packs_are_not_installed_before_the_configuration_is_known() -> None:
     active = [
         line
         for line in body.splitlines()
-        if "install_shipped(" in line and not line.strip().startswith("#")
+        if ("install_shipped(" in line or "bootstrap_plugins(" in line)
+        and not line.strip().startswith("#")
     ]
     assert not active, (
         "prama.cli.main installs packs before argparse has run, so --config is "

@@ -1886,3 +1886,52 @@ CREATE TABLE IF NOT EXISTS fl_gap (
     reported_at     VARCHAR(32)   NOT NULL,
     CONSTRAINT uq_fl_gap UNIQUE (agent_id, first_sequence, last_sequence)
 );
+
+-- ===========================================================================
+-- ALERT DELIVERY  (src/prama/alert)
+-- ===========================================================================
+-- What the alert router has already told somebody, so an incident that is
+-- still open is not announced again on every run, and so that holds across a
+-- restart and across several servers sharing this database. One row per open
+-- alert: written when a message goes out, removed when its resolution does.
+-- The alert itself is kept as JSON so the resolution can say what is over.
+CREATE TABLE IF NOT EXISTS alr_state (
+    id             VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id      VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    -- Alert.fingerprint: the dataset, the fault and the alert's identity.
+    fingerprint    VARCHAR(64)   NOT NULL,
+    -- Alert.identity: the control that raised it.
+    identity       VARCHAR(128)  NOT NULL,
+    dataset        VARCHAR(255)  NOT NULL,
+    fault          VARCHAR(32)   NOT NULL,
+    severity       REAL          NOT NULL,
+    last_sent_at   VARCHAR(32)   NOT NULL,
+    alert_json     TEXT          NOT NULL DEFAULT '{}',
+    -- Why the last delivery failed, if it did. An alert is a courtesy and a
+    -- failed one never fails the run, so the failure is kept where it is seen.
+    last_error     TEXT          NOT NULL DEFAULT '',
+    CONSTRAINT uq_alr_state_fingerprint UNIQUE (tenant_id, fingerprint),
+    CONSTRAINT ck_alr_state_fault CHECK (fault IN (
+        'arrival', 'schema', 'value', 'definition', 'reconciliation', 'calibration'))
+);
+CREATE INDEX IF NOT EXISTS ix_alr_state_identity ON alr_state (tenant_id, identity);
+
+-- Findings that did not need waking anybody, waiting for the daily digest.
+-- sent_at is empty until the digest that carried the item went out (or was
+-- attempted: error then says why it did not arrive).
+CREATE TABLE IF NOT EXISTS alr_digest (
+    id             VARCHAR(26)   NOT NULL PRIMARY KEY,
+    tenant_id      VARCHAR(26)   NOT NULL REFERENCES tenant (id) ON DELETE CASCADE,
+    fingerprint    VARCHAR(64)   NOT NULL,
+    dataset        VARCHAR(255)  NOT NULL,
+    -- Change: opened, worsened, improved or resolved.
+    change         VARCHAR(16)   NOT NULL,
+    -- Dispatch.to_dict(), recipients included.
+    dispatch_json  TEXT          NOT NULL DEFAULT '{}',
+    queued_at      VARCHAR(32)   NOT NULL,
+    sent_at        VARCHAR(32),
+    error          TEXT          NOT NULL DEFAULT '',
+    CONSTRAINT ck_alr_digest_change CHECK (change IN (
+        'opened', 'unchanged', 'worsened', 'improved', 'resolved'))
+);
+CREATE INDEX IF NOT EXISTS ix_alr_digest_pending ON alr_digest (tenant_id, sent_at);

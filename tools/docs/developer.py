@@ -125,8 +125,8 @@ def plugin_model() -> Canvas:
     ways: list[Item] = [
         (
             "Entry point",
-            "A distribution advertises it (prama.validators, prama.delegates); "
-            "loaded at start, vetted before use.",
+            "A distribution advertises it (connectors, monitors, notifiers, "
+            "validators, delegates); prama.plugins.bootstrap loads it at start.",
             TEAL,
         ),
         (
@@ -631,7 +631,8 @@ def monitor_flow() -> Canvas:
     y = c.title(
         "From a metric to a person, and which parts are yours",
         "A detector scores; the calibrator decides how unusual the score is; the "
-        "router decides who hears, once. Only the first is a plugin seam today.",
+        "router decides who hears, once; a notifier carries the message. The "
+        "detector and the notifier are yours.",
     )
     flow: list[Item] = [
         ("History", "one metric over time: rows, null rate, freshness", GREY),
@@ -639,6 +640,7 @@ def monitor_flow() -> Canvas:
         ("Conformal calibration", "a p-value with a false-alarm bound alpha", TEAL),
         ("Alert", "fault, dataset, change since the last message", AMBER),
         ("Router", "fault to role, quiet period, digest, residency gate", GREEN),
+        ("Notifier", "deliver: one message, one channel. log, webhook, email, or yours.", REFRACT),
     ]
     _, h = row(c, y + 30, flow, key="mon", ts=22, bs=18, gap=30)
     note(
@@ -653,11 +655,12 @@ def monitor_flow() -> Canvas:
     )
     gy = y + 30 + h + 40 + 140
     gap_text = (
-        "Delivery is not a plugin yet. Router.dispatch returns a Dispatch naming "
-        "recipients and channels; nothing sends it. The prama.notifiers entry-point "
-        "group is declared in configuration and read by nothing."
+        "After every run, prama.alert.pipeline turns failing records into alerts, "
+        "routes them with what was already sent (kept in the database), delivers "
+        "the immediate ones and queues the rest for the daily digest. A delivery "
+        "failure is recorded against the alert and never fails the run."
     )
-    note(c, LEFT, gy, FULL, gap_text, key="gap", fill="#FBEFE6", size=19)
+    note(c, LEFT, gy, FULL, gap_text, key="gap", fill=FROST, size=19)
     return c
 
 

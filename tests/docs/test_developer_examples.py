@@ -24,7 +24,7 @@ import sys
 from decimal import Decimal
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import Any, ClassVar
 
 import duckdb
 import pytest
@@ -434,6 +434,88 @@ class TestDetector:
         ensemble = Ensemble(detectors=(*default_ensemble().detectors, detector))
         assert "trimmed_deviation" in ensemble.score_all(4000.0, steady())
         assert Monitor("trades", "rows", detector=detector).detector is detector
+
+
+# --------------------------------------------------------------------------- notifiers
+
+
+class TestNotifier:
+    MESSAGE_FIELDS: ClassVar[dict[str, Any]] = {
+        "subject": "s",
+        "body": "b",
+        "recipients": ("sam@example.com",),
+    }
+
+    def test_it_appends_one_json_line_per_message(self, tmp_path: Path) -> None:
+        from prama.alert.notify import Message
+
+        outbox = load("outbox_notifier").OutboxNotifier({"directory": str(tmp_path)})
+        outbox.deliver(Message(**self.MESSAGE_FIELDS))
+        outbox.deliver(Message(**self.MESSAGE_FIELDS))
+        lines = (tmp_path / "alerts.jsonl").read_text(encoding="utf-8").splitlines()
+        assert [json.loads(line)["recipients"] for line in lines] == [["sam@example.com"]] * 2
+
+    def test_a_missing_directory_raises_rather_than_returning_quietly(self, tmp_path: Path) -> None:
+        """The counterfactual: an alert that silently did not arrive is the one
+        failure nobody can see."""
+        from prama.alert.notify import DeliveryError, Message
+
+        outbox = load("outbox_notifier").OutboxNotifier({"directory": str(tmp_path / "gone")})
+        with pytest.raises(DeliveryError, match="not a directory"):
+            outbox.deliver(Message(**self.MESSAGE_FIELDS))
+
+    async def test_a_failing_run_reaches_it_through_the_pipeline(
+        self, started_database: Any, tenant_id: str, tmp_path: Path
+    ) -> None:
+        """Registered by key and chosen in alerts.channels, as an operator would."""
+        from prama.alert.notify import new_registry
+        from prama.alert.pipeline import alert_after_run
+        from prama.core.config import ConfigurationBuilder
+        from prama.core.config.defaults import DEFAULTS
+        from prama.execute import ControlRun
+
+        registry = new_registry()
+        registry.register(load("outbox_notifier").OutboxNotifier)
+        async with started_database.unit_of_work() as uow:
+            sam = uow.principals.create(
+                tenant_id=tenant_id, username="sam", display_name="Sam", email="sam@example.com"
+            )
+            await uow.flush()
+            await uow.datasets.create(
+                tenant_id=tenant_id, name="Trades", slug="trades", steward_id=str(sam.id)
+            )
+            control, _ = await uow.controls.declare(
+                tenant_id=tenant_id,
+                identity="t",
+                pql="CHECK trades.ccy IS NOT NULL SEVERITY major DIMENSION completeness "
+                "BECAUSE 'settlement'",
+            )
+            await uow.controls.activate(str(control.id), tenant_id=tenant_id, approved_by="a")
+            report = await ControlRun(
+                uow, tenant_id, execute=lambda _q: [{"scanned_rows": 10, "violating_rows": 2}]
+            ).execute_all()
+
+        config = (
+            ConfigurationBuilder()
+            .with_defaults(DEFAULTS)
+            .with_mapping(
+                {
+                    "alerts": {
+                        "enabled": True,
+                        "channels": {"steward": "outbox"},
+                        "outbox": {"directory": str(tmp_path)},
+                    }
+                },
+                name="test",
+            )
+            .build()
+        )
+        alerted = await alert_after_run(
+            started_database, tenant_id, config, run_id=report.run_id, registry=registry
+        )
+        assert alerted is not None and alerted.delivered == 1
+        [line] = (tmp_path / "alerts.jsonl").read_text(encoding="utf-8").splitlines()
+        assert json.loads(line)["subject"] == "[Prama] opened: trades (value)"
 
 
 # --------------------------------------------------------------------------- importers

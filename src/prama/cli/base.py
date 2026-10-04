@@ -23,7 +23,7 @@ from prama.core import pjson
 from prama.core.config import Configuration, load_configuration
 from prama.core.errors import PramaError
 from prama.core.log import LoggingConfigurator
-from prama.packs import install_shipped
+from prama.plugins import bootstrap as bootstrap_plugins
 
 EXIT_OK = 0
 EXIT_ERROR = 1
@@ -167,7 +167,10 @@ class Application:
             # not been parsed, and reading a file the caller was about to
             # override would have been worse than reading none. QA round 3,
             # Q-63.
-            install_shipped(disabled_plugins=ctx.config.get_list("plugins.disabled", []))
+            # Every configured plugin group too, from plugins.disabled and
+            # plugins.entry_point_groups, through the bootstrap create_app
+            # calls (prama.plugins), so the two processes load the same set.
+            bootstrap_plugins(ctx.config)
             LoggingConfigurator(
                 level=args.log_level or ctx.config.get_str("logging.level", "INFO"),
                 fmt="json" if args.json else ctx.config.get_str("logging.format", "text"),
