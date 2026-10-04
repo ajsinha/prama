@@ -1,7 +1,7 @@
 """
 The diagrams for the Medium article, drawn from code and audited as rendered.
 
-    python tools/medium/diagrams.py            # SVG and PNG into docs/medium/img/
+    python tools/medium/diagrams.py            # SVG and PNG into docs/publications/medium/img/
     python tools/medium/diagrams.py --check    # audit only; non-zero on any issue
 
 Medium takes raster images, so each diagram is written as SVG (the source, reviewable in
@@ -10,7 +10,7 @@ bounding box of every element, which is the rendered geometry rather than an est
 and reports text printed over text, text escaping the box it belongs to, and anything
 leaving the canvas. That is the lesson of the deck's rendered audit, applied here too.
 
-Colours are the brand's (docs/brand.md): Prama Indigo, Refract Blue, and the prism's six
+Colours are the brand's (docs/reference/brand.md): Prama Indigo, Refract Blue, and the prism's six
 dimension colours, which are only ever used to mean their dimension or a verdict.
 
 Copyright (c) 2026 Ashutosh Sinha. All rights reserved.

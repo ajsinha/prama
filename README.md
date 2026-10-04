@@ -75,7 +75,7 @@ It is a tool for **business data owners, data architects, and stewards** — not
 
 Buyers assemble three to five products that share no rule model, no evidence model, no scoring
 model, and no incident model. Seven structural gaps follow — see
-**[docs/02 — Gap Analysis & Positioning](docs/02-gap-analysis-and-positioning.md)**.
+**[docs/corpus/02 — Gap Analysis & Positioning](docs/corpus/02-gap-analysis-and-positioning.md)**.
 
 ---
 
@@ -116,7 +116,7 @@ model, and no incident model. Seven structural gaps follow — see
 
 One screen of business declarations above yields **eight production controls, a reconciliation with
 break workflow, and a calibrated volume monitor** — each carrying the sentence that justifies it.
-The worked example is in **[docs/07 §10](docs/07-rule-language-spec.md)**.
+The worked example is in **[docs/corpus/07 §10](docs/corpus/07-rule-language-spec.md)**.
 
 ---
 
@@ -158,42 +158,42 @@ console shows each one under **Help → Case studies**.
 ## Documentation
 
 Start with **[QUICKSTART.md](QUICKSTART.md)** if you want to run it, or
-**[docs/00 — Executive Summary](docs/00-executive-summary.md)**, then
-**[docs/03 — The Business Semantic Layer](docs/03-business-semantic-layer.md)** (the conceptual heart).
+**[docs/corpus/00 — Executive Summary](docs/corpus/00-executive-summary.md)**, then
+**[docs/corpus/03 — The Business Semantic Layer](docs/corpus/03-business-semantic-layer.md)** (the conceptual heart).
 
 | # | Document | What it answers |
 |---|---|---|
-| 00 | [Executive Summary](docs/00-executive-summary.md) | What we are building, why it wins, what it costs |
-| 01 | [Landscape Survey](docs/01-landscape-survey.md) | Research, commercial, and open-source state of the art |
-| 02 | [Gap Analysis & Positioning](docs/02-gap-analysis-and-positioning.md) | Seven structural gaps; the product thesis; competitive stance |
-| **03** | **[Business Semantic Layer & Data Estate Model](docs/03-business-semantic-layer.md)** | **Datasets, attributes, concepts, relationships, journeys, continuous re-examination** |
-| 04 | [Functional Requirements](docs/04-requirements-functional.md) | 350+ FR-### across 22 capability areas |
-| 05 | [Non-Functional Requirements](docs/05-requirements-nonfunctional.md) | Scale, latency, resilience, security, cost — with measurable targets |
-| 06 | [Reference Architecture](docs/06-architecture.md) | Planes, services, compilation pipeline, deployment topologies |
-| 07 | [PQL — Rule Language Specification](docs/07-rule-language-spec.md) | Grammar, assertion catalogue, semantics, IR, worked example |
-| 08 | [AI/ML Capabilities](docs/08-ai-ml-capabilities.md) | Constraint mining, LLM induction, conformal calibration, model risk |
-| 09 | [Connectivity & Formats](docs/09-connectivity-and-formats.md) | Every source, feed, protocol, and codec |
-| 10 | [UX & Conversational Interface](docs/10-ux-and-chat-interface.md) | Estate map, workflows, the chat agent and its safety contract |
-| 11 | [Reporting, Alerting & Learning](docs/11-reporting-alerting-learning.md) | Scoring, trust propagation, alert economics, the feedback loop |
-| 12 | [Banking & Finance Domain Pack](docs/12-banking-domain-pack.md) | BCBS 239, regulations, message standards, reference reconciliations |
-| 13 | [Security, Governance & Compliance](docs/13-security-governance-compliance.md) | Threat model, evidence ledger, attestation, compliance posture |
-| 14 | [Data Model & APIs](docs/14-data-model-and-apis.md) | Canonical entities, REST/gRPC, events, SDKs, GitOps, MCP |
-| 15 | [Evaluation & Benchmark Methodology](docs/15-evaluation-benchmark-methodology.md) | How we *prove* "best in world" — and how it could fail |
-| 16 | [Roadmap & Delivery Plan](docs/16-roadmap-and-delivery-plan.md) | Phases, teams, build/buy, open-source strategy |
-| 17 | [Risks & Open Questions](docs/17-risks-and-open-questions.md) | Risk register and open decisions |
-| 18 | [Technology Stack & Reuse from DishtaYantra](docs/18-technology-stack.md) | Languages, frameworks, world-class UI stack, deployment, and code reuse |
-| 19 | [Implementation Roadmap — Ten Waves](docs/19-implementation-roadmap.md) | The engineering plan: what gets built, in what order, and what done means |
-| 20 | [Competitive Analysis](docs/20-competitive-analysis.md) | Head-to-head against Solidatus, Manta, Alation, Collibra, Monte Carlo and the rest — including where we are behind |
-| 21 | [How We Win](docs/21-how-we-win.md) | The plan to beat them: three asymmetric unlocks, honest moat ratings, and the traps we set |
-| 22 | [Distributed Execution](docs/22-distributed-execution.md) | Prama agents: an agent runs beside the data, does the work there, and sends findings rather than data |
-| 23 | [Intelligence and Lineage Roadmap](docs/23-intelligence-and-lineage-roadmap.md) | The LLM gateway, lineage, code-to-lineage, steward agents and DQ delegates, as built and as planned; the lineage scope |
+| 00 | [Executive Summary](docs/corpus/00-executive-summary.md) | What we are building, why it wins, what it costs |
+| 01 | [Landscape Survey](docs/corpus/01-landscape-survey.md) | Research, commercial, and open-source state of the art |
+| 02 | [Gap Analysis & Positioning](docs/corpus/02-gap-analysis-and-positioning.md) | Seven structural gaps; the product thesis; competitive stance |
+| **03** | **[Business Semantic Layer & Data Estate Model](docs/corpus/03-business-semantic-layer.md)** | **Datasets, attributes, concepts, relationships, journeys, continuous re-examination** |
+| 04 | [Functional Requirements](docs/corpus/04-requirements-functional.md) | 350+ FR-### across 22 capability areas |
+| 05 | [Non-Functional Requirements](docs/corpus/05-requirements-nonfunctional.md) | Scale, latency, resilience, security, cost — with measurable targets |
+| 06 | [Reference Architecture](docs/corpus/06-architecture.md) | Planes, services, compilation pipeline, deployment topologies |
+| 07 | [PQL — Rule Language Specification](docs/corpus/07-rule-language-spec.md) | Grammar, assertion catalogue, semantics, IR, worked example |
+| 08 | [AI/ML Capabilities](docs/corpus/08-ai-ml-capabilities.md) | Constraint mining, LLM induction, conformal calibration, model risk |
+| 09 | [Connectivity & Formats](docs/corpus/09-connectivity-and-formats.md) | Every source, feed, protocol, and codec |
+| 10 | [UX & Conversational Interface](docs/corpus/10-ux-and-chat-interface.md) | Estate map, workflows, the chat agent and its safety contract |
+| 11 | [Reporting, Alerting & Learning](docs/corpus/11-reporting-alerting-learning.md) | Scoring, trust propagation, alert economics, the feedback loop |
+| 12 | [Banking & Finance Domain Pack](docs/corpus/12-banking-domain-pack.md) | BCBS 239, regulations, message standards, reference reconciliations |
+| 13 | [Security, Governance & Compliance](docs/corpus/13-security-governance-compliance.md) | Threat model, evidence ledger, attestation, compliance posture |
+| 14 | [Data Model & APIs](docs/corpus/14-data-model-and-apis.md) | Canonical entities, REST/gRPC, events, SDKs, GitOps, MCP |
+| 15 | [Evaluation & Benchmark Methodology](docs/corpus/15-evaluation-benchmark-methodology.md) | How we *prove* "best in world" — and how it could fail |
+| 16 | [Roadmap & Delivery Plan](docs/corpus/16-roadmap-and-delivery-plan.md) | Phases, teams, build/buy, open-source strategy |
+| 17 | [Risks & Open Questions](docs/corpus/17-risks-and-open-questions.md) | Risk register and open decisions |
+| 18 | [Technology Stack & Reuse from DishtaYantra](docs/corpus/18-technology-stack.md) | Languages, frameworks, world-class UI stack, deployment, and code reuse |
+| 19 | [Implementation Roadmap — Ten Waves](docs/corpus/19-implementation-roadmap.md) | The engineering plan: what gets built, in what order, and what done means |
+| 20 | [Competitive Analysis](docs/corpus/20-competitive-analysis.md) | Head-to-head against Solidatus, Manta, Alation, Collibra, Monte Carlo and the rest — including where we are behind |
+| 21 | [How We Win](docs/corpus/21-how-we-win.md) | The plan to beat them: three asymmetric unlocks, honest moat ratings, and the traps we set |
+| 22 | [Distributed Execution](docs/corpus/22-distributed-execution.md) | Prama agents: an agent runs beside the data, does the work there, and sends findings rather than data |
+| 23 | [Intelligence and Lineage Roadmap](docs/corpus/23-intelligence-and-lineage-roadmap.md) | The LLM gateway, lineage, code-to-lineage, steward agents and DQ delegates, as built and as planned; the lineage scope |
 | — | [Design notes](docs/design/) | LLM gateway, code lineage and steward agents, DQ delegates, the Manta/Alation gap |
-| — | [Remaining work](docs/remaining-work.md) | What is left, in the order it would be taken |
-| — | [Brand](docs/brand.md) | Name, mark, slogan, palette, voice |
-| — | [Glossary](docs/glossary.md) | Terms of art |
-| — | [Medium article](docs/medium/your-dashboard-is-green.md) | *Your dashboard is green. Can you prove it?* Nine design ideas, with diagrams and examples |
-| — | [Deck](docs/deck/Prama-Evidence-First-Data-Quality.pptx) | 45 slides for the people who must stand behind a number; built from [`tools/deck/`](tools/deck/GUIDE.md) and audited as rendered |
-| — | [Academic Paper](docs/paper/) | [*Data Quality as Justified Belief*](docs/paper/data-quality-as-justified-belief.pdf): the paper, its LaTeX source, a long-form [article](docs/paper/data-quality-as-justified-belief-article.md), bibliography, experiment plan |
+| — | [Remaining work](docs/corpus/remaining-work.md) | What is left, in the order it would be taken |
+| — | [Brand](docs/reference/brand.md) | Name, mark, slogan, palette, voice |
+| — | [Glossary](docs/reference/glossary.md) | Terms of art |
+| — | [Medium article](docs/publications/medium/your-dashboard-is-green.md) | *Your dashboard is green. Can you prove it?* Nine design ideas, with diagrams and examples |
+| — | [Deck](docs/publications/deck/Prama-Evidence-First-Data-Quality.pptx) | 45 slides for the people who must stand behind a number; built from [`tools/deck/`](tools/deck/GUIDE.md) and audited as rendered |
+| — | [Academic Paper](docs/publications/paper/) | [*Data Quality as Justified Belief*](docs/publications/paper/data-quality-as-justified-belief.pdf): the paper, its LaTeX source, a long-form [article](docs/publications/paper/data-quality-as-justified-belief-article.md), bibliography, experiment plan |
 
 ---
 
@@ -215,17 +215,17 @@ evaluation at three banks. Failing any of them blocks release. Negative results 
 | S8 | Audit readiness | 100% pass an independent Big-4 RDARR test script |
 | S9 | Cost per billion rows validated | ≤ 50% of naive full-scan |
 
-Details and threats to validity: **[docs/15](docs/15-evaluation-benchmark-methodology.md)**.
+Details and threats to validity: **[docs/corpus/15](docs/corpus/15-evaluation-benchmark-methodology.md)**.
 
 ---
 
 ## Research
 
-**The paper:** [*Data Quality as Justified Belief*](docs/paper/data-quality-as-justified-belief.pdf) — what is built, with every
-formal claim marked by the test that carries it, and what is not ([article version](docs/paper/data-quality-as-justified-belief-article.md)).
+**The paper:** [*Data Quality as Justified Belief*](docs/publications/paper/data-quality-as-justified-belief.pdf) — what is built, with every
+formal claim marked by the test that carries it, and what is not ([article version](docs/publications/paper/data-quality-as-justified-belief-article.md)).
 
 Five contributions, targeting **ACM JDIQ** with a **VLDB Industrial** companion — see
-**[docs/paper/](docs/paper/)**:
+**[docs/publications/paper/](docs/publications/paper/)**:
 
 1. A unified **quality assertion algebra and engine-neutral IR** with cross-engine equivalence.
 2. **Risk-controlled data quality alerting** — conformal calibration + hierarchical FDR over the
@@ -240,11 +240,11 @@ Five contributions, targeting **ACM JDIQ** with a **VLDB Industrial** companion 
 
 ## Status
 
-**Implemented.** The eleven foundation waves of [docs/19](docs/19-implementation-roadmap.md)
+**Implemented.** The eleven foundation waves of [docs/corpus/19](docs/corpus/19-implementation-roadmap.md)
 are complete, apart from two tasks that are open on infrastructure rather than code. So is most of
-the intelligence roadmap in [docs/23](docs/23-intelligence-and-lineage-roadmap.md): the LLM gateway
+the intelligence roadmap in [docs/corpus/23](docs/corpus/23-intelligence-and-lineage-roadmap.md): the LLM gateway
 and the lineage workbench, code-to-lineage, steward agents, and DQ delegates. What is left is in
-[docs/remaining-work.md](docs/remaining-work.md). The suite is at <!--tests-->6,334 passing, 96 skipped<!--/tests-->,
+[docs/corpus/remaining-work.md](docs/corpus/remaining-work.md). The suite is at <!--tests-->6,334 passing, 96 skipped<!--/tests-->,
 derived from a green run by `scripts/sync_test_counts.py` rather than typed — a
 count in prose rots the first time somebody adds a test.
 
@@ -283,7 +283,7 @@ declaration-derived controls, mining and induction; monitoring and calibration;
 the console; a banking pack with six financial message formats, a
 seventeen-concept ontology and twenty regulatory obligations; seven of the eight
 GA connectors verified against a live service, with Snowflake written and never
-run against an account and ODBC not built ([19 §W3.11](docs/19-implementation-roadmap.md));
+run against an account and ODBC not built ([19 §W3.11](docs/corpus/19-implementation-roadmap.md));
 and the enterprise surface — SSO, SCIM, residency, customer-managed
 keys, an operator, an offline bundle with publisher signing.
 
@@ -335,7 +335,7 @@ Mainframe code (COBOL, JCL) is deliberately out of scope.
 (see [NOTICE §6](NOTICE)). Where something is built but unverified, the document
 that describes it says so in those words — the operator has not met a real API
 server, no cloud KMS has been exercised, and no disconnected install has been
-performed on a host with no route out. `docs/19` tracks every one.
+performed on a host with no route out. `docs/corpus/19` tracks every one.
 
 Repository layout:
 

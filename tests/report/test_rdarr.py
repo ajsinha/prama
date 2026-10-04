@@ -1,6 +1,6 @@
 """The RDARR pack.
 
-The demonstration docs/19 calls the one that closes deals — and the reason it
+The demonstration docs/corpus/19 calls the one that closes deals — and the reason it
 works is that nothing in it is a number somebody typed. Which controls address
 an obligation comes from a binding the estate declared; whether they passed
 comes from the ledger.

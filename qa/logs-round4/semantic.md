@@ -817,13 +817,13 @@ defect existed in *other* areas of this round's catalogue does not extend to thi
 
 
 ### SEM-060 · Every kind's generates matches the design table
-- **Expected:** each control family named in docs/03 section 2.4's row appears in _GENERATES for that kind
-- **Observed:** FEEDS row in docs/03-business-semantic-layer.md line 210 promises "Business lineage edge; latency/arrival chain; RCA path", but RelationshipKind.FEEDS.generates == ('lineage_edge','arrival_chain','latency_sla') -- no entry corresponds to "RCA path"
-- **Reproduce:** `grep -n "FEEDS" docs/03-business-semantic-layer.md` (line 210) vs `python3 -c "from prama.semantic.relationships import RelationshipKind; print(RelationshipKind.FEEDS.generates)"`
+- **Expected:** each control family named in docs/corpus/03 section 2.4's row appears in _GENERATES for that kind
+- **Observed:** FEEDS row in docs/corpus/03-business-semantic-layer.md line 210 promises "Business lineage edge; latency/arrival chain; RCA path", but RelationshipKind.FEEDS.generates == ('lineage_edge','arrival_chain','latency_sla') -- no entry corresponds to "RCA path"
+- **Reproduce:** `grep -n "FEEDS" docs/corpus/03-business-semantic-layer.md` (line 210) vs `python3 -c "from prama.semantic.relationships import RelationshipKind; print(RelationshipKind.FEEDS.generates)"`
 - **Severity:** P2
 - **Assessment:** defect (documentation/code drift) -- docs promise an "RCA path" control family for FEEDS that _GENERATES never lists, distinct from the already-known PARENT_OF/cycle-detection case (where the dict does carry the promised entry).
-- **Round 3:** Round 3: re-executed. `RelationshipKind.FEEDS.generates` is still `('lineage_edge', 'arrival_chain', 'latency_sla')`; docs/03 line 210 still promises "RCA path". Unchanged. Still FAIL.
-- **Round 4:** Round 4: re-executed (`a1/run_relationships.py`, fresh). `RelationshipKind.FEEDS.generates` is still `('lineage_edge', 'arrival_chain', 'latency_sla')`; docs/03 line 210 still promises an "RCA path" control family FEEDS never lists. Unchanged. Still FAIL.
+- **Round 3:** Round 3: re-executed. `RelationshipKind.FEEDS.generates` is still `('lineage_edge', 'arrival_chain', 'latency_sla')`; docs/corpus/03 line 210 still promises "RCA path". Unchanged. Still FAIL.
+- **Round 4:** Round 4: re-executed (`a1/run_relationships.py`, fresh). `RelationshipKind.FEEDS.generates` is still `('lineage_edge', 'arrival_chain', 'latency_sla')`; docs/corpus/03 line 210 still promises an "RCA path" control family FEEDS never lists. Unchanged. Still FAIL.
 
 ### SEM-145 · Percent rounds rather than truncates
 - **Expected:** score 0.005 -> percent 1; score 0.994 -> percent 99 ("round, not int")

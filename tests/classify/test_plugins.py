@@ -355,7 +355,7 @@ class TestThePlanCarriesIt:
 
 
 class TestTheThreeEvasionsThatWorked:
-    """Finding H3. `docs/19` and `docs/08` both record "a plugin that imports a
+    """Finding H3. `docs/corpus/19` and `docs/corpus/08` both record "a plugin that imports a
     clock, a socket or a model is refused at registration" as built.
 
     Three independent holes, none covered: `time` was not on the ban list, a

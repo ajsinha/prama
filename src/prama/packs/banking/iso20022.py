@@ -2,7 +2,7 @@
 
 Swift completed the migration of cross-border interbank payment instructions to
 ISO 20022 in November 2025. Banks now run MT and MX in parallel with translation
-layers between them, and docs/12 §4 names that as the concrete beachhead: the
+layers between them, and docs/corpus/12 §4 names that as the concrete beachhead: the
 translation is where the defects are, and neither representation can find them
 on its own.
 

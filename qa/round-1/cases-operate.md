@@ -270,7 +270,7 @@ Not a benchmark. The question is only whether anything is pathological.
 * **The console's screens.** A separate surface with its own pass.
 * **PQL semantics, control verdicts, evidence content.** Also separate.
 * **A real air-gapped host, a real Kubernetes cluster, a real cloud KMS.**
-  `docs/19` and the runbook §8 already say these are unexercised; this pass can
+  `docs/corpus/19` and the runbook §8 already say these are unexercised; this pass can
   confirm the *commands* behave, not that a disconnected install succeeds.
 * **Performance targets.** Section 9 looks for pathology, not for a number.
 

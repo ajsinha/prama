@@ -88,7 +88,7 @@ class TrailerSpec:
 class FeedDefinition:
     """A feed's arrival contract.
 
-    Every field here generates a control (docs/03 §5): the window generates
+    Every field here generates a control (docs/corpus/03 §5): the window generates
     timeliness, the calendar decides which absences are real, the trailer
     generates a completeness check, and the duplicate policy decides whether a
     second file is an incident or a restatement.

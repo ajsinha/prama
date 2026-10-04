@@ -271,7 +271,7 @@ class Edge:
     kind: str
     source: str
     target: str
-    #: Whether quality propagates along it (docs/11 §2).
+    #: Whether quality propagates along it (docs/corpus/11 §2).
     carries_trust: bool
     reason: str
 

@@ -1,6 +1,6 @@
 """The RDARR pack: obligations, the controls that address them, and what ran.
 
-docs/19 calls this the demonstration that closes deals — a BCBS 239 attestation
+docs/corpus/19 calls this the demonstration that closes deals — a BCBS 239 attestation
 pack for one risk domain, *generated* rather than assembled: every obligation,
 the controls addressing it, their executions for the period, exceptions with
 justifications, and a sign-off.

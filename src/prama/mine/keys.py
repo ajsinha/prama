@@ -2,7 +2,7 @@
 
 `FR-PRF-006`. Most tables have a key, most keys are not declared anywhere, and
 finding them is the highest-value thing mining does: a grain follows from a
-key, and a grain generates four controls (docs/03 §5).
+key, and a grain generates four controls (docs/corpus/03 §5).
 
 **A mined key is an observation, and the distance between that and a rule is
 where this goes wrong.** ``(account_id)`` is unique in Monday's extract and

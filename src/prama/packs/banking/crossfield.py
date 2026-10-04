@@ -2,7 +2,7 @@
 
 Every identifier in this system already validates on its own — an IBAN's mod-97,
 an ISIN's Luhn, a BIC's shape. All of those pass on a payment whose IBAN says
-Germany and whose BIC says France, and that payment is wrong. docs/12 §3 names
+Germany and whose BIC says France, and that payment is wrong. docs/corpus/12 §3 names
 this class as the one that catches real defects, and it is the class that a
 column-by-column data quality tool structurally cannot reach.
 

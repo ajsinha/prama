@@ -1,6 +1,6 @@
 """Benchmark scoring.
 
-docs/15 §3.1 sets the rule most data quality benchmarks quietly break: a
+docs/corpus/15 §3.1 sets the rule most data quality benchmarks quietly break: a
 detection counts only if it names the right dataset *and* column *and* window. A
 tool that alerts on every table every day has perfect recall under a looser
 match and is useless, so the looseness is what these tests are mostly about.

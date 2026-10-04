@@ -1,6 +1,6 @@
 """Live-shadow evaluation: the only measurement a buyer believes.
 
-docs/15 §2.3 describes running Prama beside the incumbent for ninety days on the
+docs/corpus/15 §2.3 describes running Prama beside the incumbent for ninety days on the
 same sources, taking no production actions, and having the customer's own
 stewards adjudicate every alert **blind to which system raised it**.
 

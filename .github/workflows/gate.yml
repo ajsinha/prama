@@ -113,7 +113,7 @@ jobs:
           source .venv/bin/activate
           playwright install --with-deps chromium
 
-      # docs/19 said "the accessibility guarantee is held by axe-core in CI"
+      # docs/corpus/19 said "the accessibility guarantee is held by axe-core in CI"
       # on one page and listed "running it in CI, which needs a browser on the
       # runner" under Not done on another. This is the half that was missing.
       - name: axe-core

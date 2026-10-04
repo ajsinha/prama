@@ -8,7 +8,7 @@ they turn it off.
 
 Deliberately small. A calendar here is a weekend rule plus a set of holidays;
 the real ones — TARGET2, SIFMA, JPX, per-market settlement calendars with their
-year-ahead schedules — arrive as versioned domain-pack content (docs/12 §7).
+year-ahead schedules — arrive as versioned domain-pack content (docs/corpus/12 §7).
 What matters now is that the *abstraction* exists, so nothing downstream has to
 invent its own notion of "next business day".
 

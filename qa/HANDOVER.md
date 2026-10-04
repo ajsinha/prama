@@ -155,7 +155,7 @@ round 4 was 90.3% with three, two of them mine.
 
 ## Open questions that are yours, not mine
 
-- **`Q-101`: "Eleven waves are complete"** in `README.md`. `docs/19` disagrees
+- **`Q-101`: "Eleven waves are complete"** in `README.md`. `docs/corpus/19` disagrees
   with itself — its wave map lists ten waves and the document has eleven
   sections, and only Waves 1 and 2 carry `**COMPLETE**` in their headings. Wave
   completion is a judgement about scope; I corrected the connector claim beside

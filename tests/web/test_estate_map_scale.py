@@ -1,6 +1,6 @@
 """How large an estate the map can actually draw.
 
-`docs/09` claims 50,000 nodes at 60 fps pan/zoom. Nobody had measured it, and a
+`docs/corpus/09` claims 50,000 nodes at 60 fps pan/zoom. Nobody had measured it, and a
 performance claim nobody has measured is the kind this repository is built not
 to make — so this measures it, at several sizes, and reports the curve rather
 than a pass or a fail.
@@ -60,7 +60,7 @@ RENDER_BUDGET_MS = 60_000
 #: CPU. An unenforceable budget is not a budget.
 KILL_GRACE_SECONDS = 20
 
-#: Where the measured curve is written, so the claim in docs/09 has a number
+#: Where the measured curve is written, so the claim in docs/corpus/09 has a number
 #: behind it that somebody can re-run.
 RESULTS = Path(__file__).parent / "estate-map-scale.json"
 
@@ -322,7 +322,7 @@ class TestTheMapAtScale:
 
     def test_the_curve_is_written_down(self, curve) -> None:
         """A measurement nobody recorded is an anecdote. This file is what the
-        claim in docs/09 points at."""
+        claim in docs/corpus/09 points at."""
         assert RESULTS.exists()
         recorded = json.loads(RESULTS.read_text(encoding="utf-8"))
         assert [r["nodes"] for r in recorded] == [c["nodes"] for c in curve]
@@ -330,7 +330,7 @@ class TestTheMapAtScale:
     def test_the_documented_claim_matches_the_measurement(self, curve) -> None:
         """The point of the exercise.
 
-        `docs/09` claimed 50,000 nodes at 60 fps. If the measurement supports
+        `docs/corpus/09` claimed 50,000 nodes at 60 fps. If the measurement supports
         it the document may say so; if it does not, the document must say what
         was actually achieved. This test fails when the two disagree, whichever
         way — a claim above the measurement is an overstatement, and one below

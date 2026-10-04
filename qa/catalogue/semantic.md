@@ -3,7 +3,7 @@
 `prama.semantic` · `prama.derive` · `prama.propose` · `prama.induce` ·
 `prama.mine` · `prama.er` · `prama.learn`
 
-The conceptual heart of the product: `docs/03-business-semantic-layer.md` is the
+The conceptual heart of the product: `docs/corpus/03-business-semantic-layer.md` is the
 design, this is the enumeration of what the code does with it. Written from the
 source, not from the documents — where the two disagree, both get a case and the
 disagreement is the finding.
@@ -459,7 +459,7 @@ loop, `IND-` induction from models, documents and examples, `MIN-` mining,
   "orphan_monitor", "key_coverage")`; `render()` begins "records here point at
   records there"
 - **Why:** the one cross-dataset shape PQL can already run, and the control
-  families must match the docs/03 §2.4 table
+  families must match the docs/corpus/03 §2.4 table
 
 ### SEM-038 · `RECONCILES_WITH` declared with keys, compare and tolerance
 - **Area:** `semantic/relationships.py::RelationshipDeclaration`
@@ -470,7 +470,7 @@ loop, `IND-` induction from models, documents and examples, `MIN-` mining,
   1.00 EUR, offset 1 TARGET2 business day
 - **Expected:** constructed; `render()` is the full sentence including "within 1
   EUR" and "the second lags by 1 business day (TARGET2)"
-- **Why:** the worked example in docs/03 §2.4 — "no SQL was written by anyone"
+- **Why:** the worked example in docs/corpus/03 §2.4 — "no SQL was written by anyone"
   starts here
 
 ### SEM-039 · `DERIVES_FROM` declared
@@ -588,7 +588,7 @@ loop, `IND-` induction from models, documents and examples, `MIN-` mining,
 - **Precondition:** two declared datasets
 - **Steps:** kind `TOGETHER_COMPLETE` with one match key
 - **Expected:** constructed; generates `population_completeness`
-- **Why:** docs/03 "As built" says this and `RECONCILES_WITH` are declarations
+- **Why:** docs/corpus/03 "As built" says this and `RECONCILES_WITH` are declarations
   and not control syntax — the declaration must therefore carry everything the
   comparison needs
 
@@ -704,7 +704,7 @@ loop, `IND-` induction from models, documents and examples, `MIN-` mining,
 
 ### SEM-060 · Every kind's `generates` matches the design table
 - **Area:** `semantic/relationships.py::_GENERATES` vs
-  `docs/03-business-semantic-layer.md` §2.4
+  `docs/corpus/03-business-semantic-layer.md` §2.4
 - **Type:** documentation
 - **Priority:** P2
 - **Precondition:** none
@@ -1762,7 +1762,7 @@ below states which bound should decide.
   gaps and a relationship declared against it
 - **Expected:** it appears on the map, participates in relationships, and shows
   in `coverage_gaps()["unbound"]`
-- **Why:** docs/03 §2.1 — "architects map the estate first, connectivity
+- **Why:** docs/corpus/03 §2.1 — "architects map the estate first, connectivity
   follows"; a product that requires a connection to declare a dataset is a
   physical-first tool
 
@@ -2489,7 +2489,7 @@ below states which bound should decide.
 - **Expected:** `status == "broken"` for `missing`, unchanged for `changed`;
   audit `object_kind == "dataset"`, `object_id` the dataset, `actor_kind ==
   "system"`
-- **Why:** docs/03 §6.4 — "these route to the business owner of the declaration,
+- **Why:** docs/corpus/03 §6.4 — "these route to the business owner of the declaration,
   not to an engineer, because the declaration is theirs"; the audit object is
   the dataset for exactly that reason
 
@@ -2559,7 +2559,7 @@ below states which bound should decide.
 - **Steps:** gather facts
 - **Expected:** the count silently reflects the first 10,000 — and the per
   dataset attribute read is a query per dataset
-- **Why:** docs/03 says what is untested is scale; the score becomes wrong
+- **Why:** docs/corpus/03 says what is untested is scale; the score becomes wrong
   rather than slow, which is the worse failure
 
 ### SEM-229 · Conflicts are found across every concept and property
@@ -2569,7 +2569,7 @@ below states which bound should decide.
 - **Precondition:** two attributes mapped to one property with different units
 - **Steps:** `conflicts(tenant_id)`
 - **Expected:** one `UNIT` conflict, rendered with both attribute names
-- **Why:** docs/03 §2.3 — "the platform shows the conflict instead of silently
+- **Why:** docs/corpus/03 §2.3 — "the platform shows the conflict instead of silently
   hosting two truths"
 
 ### SEM-230 · Coverage gaps name the datasets, not the count
@@ -2885,7 +2885,7 @@ below states which bound should decide.
 - **Steps:** export; inspect the paths
 - **Expected:** everything lands in `prama/datasets/<slug>.yaml` — `path_for` is
   called without `domain`, so the `prama/domains/<domain>/…` branch documented
-  as "the documented on-disk layout (docs/14 §5)" is dead code
+  as "the documented on-disk layout (docs/corpus/14 §5)" is dead code
 - **Why:** two slugs equal across domains would collide, and the documented
   layout is not the one produced
 
@@ -3130,7 +3130,7 @@ below states which bound should decide.
 - **Expected:** one `grain.uniqueness` control with both columns, and two
   `grain.completeness` controls; every one carries the grain's sentence in
   `because`
-- **Why:** docs/03 §5's first row, and the reason a business owner answers one
+- **Why:** docs/corpus/03 §5's first row, and the reason a business owner answers one
   question and gets several controls
 
 ### DER-016 · The grain's completeness controls are not optional
@@ -3505,7 +3505,7 @@ below states which bound should decide.
 - **Steps:** generate; render
 - **Expected:** `IS VALID 'isin'`, dimension `validity`, `because` quoting
   `validator.describe()`
-- **Why:** docs/03 §5 — "attribute is `Instrument.ISIN` → format + check digit"
+- **Why:** docs/corpus/03 §5 — "attribute is `Instrument.ISIN` → format + check digit"
 
 ### DER-049 · A validator whose screen is incomplete says so in the reason
 - **Area:** `derive/generator.py::ControlGenerator._semantic_type`
@@ -3638,7 +3638,7 @@ below states which bound should decide.
 - **Expected:** an `attribute.currency` control checking `settlement_ccy IN
   CODELIST 'iso4217'`, with dimensions `validity` **and** `consistency`, and a
   `because` explaining that an invalid code makes every total meaningless
-- **Why:** docs/03 §5 — the declaration is about the amount and the control is
+- **Why:** docs/corpus/03 §5 — the declaration is about the amount and the control is
   on the column beside it
 
 ### DER-061 · A currency attribute naming a missing column is unsatisfiable
@@ -3797,7 +3797,7 @@ below states which bound should decide.
   `propose.adapt.from_control` into the queue
 - **Expected:** it becomes a `Proposal` with `status == PROPOSED`; nothing is
   written to the control estate without a decision
-- **Why:** docs/03 §5 "proposed, never silently activated" — "an estate that
+- **Why:** docs/corpus/03 §5 "proposed, never silently activated" — "an estate that
   appeared without anybody agreeing to it is an estate nobody owns, and unowned
   alerts get muted rather than fixed"
 
@@ -3899,7 +3899,7 @@ below states which bound should decide.
 - **Type:** documentation
 - **Priority:** P2
 - **Precondition:** a hierarchy
-- **Steps:** generate; compare with docs/03 §2.4, which promises "cycle
+- **Steps:** generate; compare with docs/corpus/03 §2.4, which promises "cycle
   detection"
 - **Expected:** no cycle control and no `Deferred` explaining its absence — the
   reasoning lives only in a docstring
@@ -4019,7 +4019,7 @@ below states which bound should decide.
 - **Steps:** generate
 - **Expected:** `IDENTIFIER_CONSISTENCY`; the sentence reads "where A and B
   describe the same thing, matched on …, they carry the same lei"
-- **Why:** docs/03 §5 — "entity resolution; duplicate parties; identifier
+- **Why:** docs/corpus/03 §5 — "entity resolution; duplicate parties; identifier
   consistency"
 
 ### DER-094 · `TEMPORAL_SUCCESSOR` needs a tolerance Γ demands and the declaration does not
@@ -4040,7 +4040,7 @@ below states which bound should decide.
 - **Steps:** `describe()`
 - **Expected:** "the opening balance in A plus the movements equals the closing
   balance in B"
-- **Why:** docs/03 §5's row for this relationship, and the sentence an approver
+- **Why:** docs/corpus/03 §5's row for this relationship, and the sentence an approver
   reads
 
 ### DER-096 · `MUTUALLY_EXCLUSIVE` produces overlap detection with no tolerance
@@ -4060,7 +4060,7 @@ below states which bound should decide.
 - **Precondition:** keys only
 - **Steps:** generate
 - **Expected:** `COVERAGE`; the sentence names "the population"
-- **Why:** docs/03 §2.4 promises a control "against a declared universe", and
+- **Why:** docs/corpus/03 §2.4 promises a control "against a declared universe", and
   the spec names no universe — record what supplies it
 
 ### DER-098 · `FEEDS` produces an edge and deliberately no check

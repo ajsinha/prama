@@ -7,7 +7,7 @@ evidence store's.
 
 Every column the later gateway phases use is declared now, because Prama has no
 migrations and a column added in Wave 13 would be drift on every deployed
-database (docs/23 §4, Wave 12).
+database (docs/corpus/23 §4, Wave 12).
 
 Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 """

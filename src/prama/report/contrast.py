@@ -89,7 +89,7 @@ def accessible_on(
     variant is recognisably the same colour, which is what keeps the dimension
     language intact: teal still means accuracy after this function has run.
 
-    This exists because the brand spectrum (docs/brand.md §4) is a *fill*
+    This exists because the brand spectrum (docs/reference/brand.md §4) is a *fill*
     palette. Accuracy Teal on white is 2.63:1 — fine behind a bar, illegible as
     a word. Rather than change the brand or ship unreadable text, the readable
     variant is *derived* from the brand hue, in one place, so the two cannot

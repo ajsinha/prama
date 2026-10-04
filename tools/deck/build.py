@@ -2,7 +2,7 @@
 Build the deck.
 
     python tools/deck/build.py
-    python tools/deck/audit.py docs/deck/Prama-Evidence-First-Data-Quality.pptx
+    python tools/deck/audit.py docs/publications/deck/Prama-Evidence-First-Data-Quality.pptx
 
 The deck is a list of slide specs across three modules; ``layouts`` draws them with the
 ``theme``. The document properties are set explicitly: python-pptx's default template

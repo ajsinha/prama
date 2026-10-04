@@ -31,7 +31,7 @@ dependencies = [
     "markdown>=3.6",
     # Lineage: a real SQL parser, about twenty dialects, pure Python, MIT. The
     # regex extractor stays only as the fallback for what it cannot parse,
-    # reported as a gap (docs/23, Wave 12; owner-approved 2026-09-27).
+    # reported as a gap (docs/corpus/23, Wave 12; owner-approved 2026-09-27).
     "sqlglot>=25",
     # The deterministic code the server shares with remote agents (kernel/).
     "prama-kernel",

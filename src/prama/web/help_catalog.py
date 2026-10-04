@@ -215,7 +215,7 @@ SECTIONS: tuple[HelpSection, ...] = (
                 "glossary",
                 "Glossary",
                 "Every term Prama uses, defined once.",
-                "docs/glossary.md",
+                "docs/reference/glossary.md",
                 "bi-book",
             ),
             _d(
@@ -267,63 +267,63 @@ SECTIONS: tuple[HelpSection, ...] = (
                 "semantic-layer",
                 "The business semantic layer",
                 "The conceptual heart: declarations a business owner makes.",
-                "docs/03-business-semantic-layer.md",
+                "docs/corpus/03-business-semantic-layer.md",
                 "bi-diagram-3",
             ),
             _d(
                 "pql",
                 "The rule language (PQL)",
                 "How a control is written, checked and compiled.",
-                "docs/07-rule-language-spec.md",
+                "docs/corpus/07-rule-language-spec.md",
                 "bi-code-square",
             ),
             _d(
                 "architecture",
                 "Architecture",
                 "Components and how they fit.",
-                "docs/06-architecture.md",
+                "docs/corpus/06-architecture.md",
                 "bi-building",
             ),
             _d(
                 "security",
                 "Security, governance and compliance",
                 "Identity, scopes, evidence and audit.",
-                "docs/13-security-governance-compliance.md",
+                "docs/corpus/13-security-governance-compliance.md",
                 "bi-shield-lock",
             ),
             _d(
                 "data-model",
                 "Data model and APIs",
                 "Tables and endpoints.",
-                "docs/14-data-model-and-apis.md",
+                "docs/corpus/14-data-model-and-apis.md",
                 "bi-database",
             ),
             _d(
                 "banking-pack",
                 "Banking domain pack",
                 "What the banking pack ships, and what it does not claim.",
-                "docs/12-banking-domain-pack.md",
+                "docs/corpus/12-banking-domain-pack.md",
                 "bi-bank",
             ),
             _d(
                 "roadmap",
                 "Implementation roadmap",
                 "What is built and what is next.",
-                "docs/19-implementation-roadmap.md",
+                "docs/corpus/19-implementation-roadmap.md",
                 "bi-signpost-split",
             ),
             _d(
                 "competitive-analysis",
                 "Competitive analysis, vendor by vendor",
                 "Who Prama meets in a deal, where each is better today, and how Prama wins.",
-                "docs/20-competitive-analysis.md",
+                "docs/corpus/20-competitive-analysis.md",
                 "bi-bar-chart-steps",
             ),
             _d(
                 "roadmap-intelligence",
                 "Intelligence and lineage roadmap",
                 "LLM gateway, lineage workbench, code-to-lineage, steward agents.",
-                "docs/23-intelligence-and-lineage-roadmap.md",
+                "docs/corpus/23-intelligence-and-lineage-roadmap.md",
                 "bi-stars",
             ),
         ),
@@ -345,23 +345,49 @@ class Rendered:
 _cache: dict[Path, tuple[float, Rendered]] = {}
 _lock = threading.Lock()
 
-#: Links between corpus documents are written as relative file paths
-#: (``07-rule-language-spec.md``). Rewritten to the help page for the same
-#: document where one exists, so reading a document in the console does not
+#: Documents link each other by relative file path (``../corpus/07-rule-language-spec.md``)
+#: and embed images the same way (``../assets/diagrams/x.svg``). Both are resolved
+#: against the directory of the document being rendered — by path, not by bare
+#: file name, because four documents are called ``README.md`` — and rewritten to
+#: the help page for the target where one exists, and to ``/help/assets/...`` for
+#: an image under ``docs/assets``. Reading a document in the console must not
 #: strand the reader on a link to a file the browser cannot open.
-_BY_FILENAME: dict[str, str] = {Path(e.path).name: e.slug for e in BY_SLUG.values()}
-_LINK = re.compile(r'href="(?:\./|\.\./)*(?:docs/)?([\w.-]+\.md)(#[\w-]*)?"')
+_BY_PATH: dict[Path, str] = {e.source().resolve(): e.slug for e in BY_SLUG.values()}
+_HREF = re.compile(r'href="(?!/|[a-z]+:)([^"#]+\.md)(#[^"]*)?"')
+_SRC = re.compile(r'src="(?!/|[a-z]+:)([^"]+)"')
 
 
-def _relink(html: str) -> str:
-    def swap(match: re.Match[str]) -> str:
-        slug = _BY_FILENAME.get(match.group(1))
+def _relink(html: str, base: Path) -> str:
+    """``html`` rendered from a document in directory ``base``, with its links made live."""
+
+    def page(match: re.Match[str]) -> str:
+        slug = _BY_PATH.get((base / match.group(1)).resolve())
         if slug is None:
             return match.group(0)
         return f'href="/help/{slug}{match.group(2) or ""}"'
 
-    # The corpus's own images (the lockup, the seal) are served beside it.
-    return _LINK.sub(swap, html).replace('src="assets/', 'src="/help/assets/')
+    def image(match: re.Match[str]) -> str:
+        target = (base / match.group(1)).resolve()
+        if not target.is_relative_to(ASSETS_DIR.resolve()):
+            return match.group(0)
+        return f'src="/help/assets/{target.relative_to(ASSETS_DIR.resolve()).as_posix()}"'
+
+    return _SRC.sub(image, _HREF.sub(page, html))
+
+
+def asset(name: str) -> Path | None:
+    """The image ``name`` under ``docs/assets`` (subfolders allowed), or ``None``.
+
+    A closed set by construction: the path must resolve inside the assets
+    directory, no segment may be hidden, and only image types are served.
+    """
+    if "\\" in name or any(part.startswith(".") for part in name.split("/")):
+        return None
+    root = ASSETS_DIR.resolve()
+    path = (root / name).resolve()
+    if not path.is_relative_to(root) or not path.is_file():
+        return None
+    return path
 
 
 def render_entry(entry: HelpEntry) -> Rendered | None:
@@ -376,7 +402,7 @@ def render_entry(entry: HelpEntry) -> Rendered | None:
         if cached and cached[0] == mtime:
             return cached[1]
     md = markdown.Markdown(extensions=["tables", "fenced_code", "toc", "sane_lists"])
-    html = _relink(md.convert(path.read_text(encoding="utf-8")))
+    html = _relink(md.convert(path.read_text(encoding="utf-8")), path.parent)
     rendered = Rendered(html=html, toc=getattr(md, "toc", ""))
     with _lock:
         _cache[path] = (mtime, rendered)

@@ -2,7 +2,7 @@
 
 What a profile is *for* decides what it contains. These are not statistics for
 their own sake: each one exists because a control or a monitor is derived from
-it (docs/03 §5, docs/08 §3).
+it (docs/corpus/03 §5, docs/corpus/08 §3).
 
     null_rate           -> a completeness control, and its threshold
     distinct_ratio      -> whether this column is a key candidate

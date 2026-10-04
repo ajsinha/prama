@@ -254,5 +254,5 @@ truncated read is a data finding, not a performance one.
 
 Kubernetes operator behaviour on a real cluster, an air-gapped install, and
 cloud KMS key rotation. All three are implemented and **none has been exercised
-against the real thing** — see `docs/19` and `deploy/README.md`, which say so in
+against the real thing** — see `docs/corpus/19` and `deploy/README.md`, which say so in
 those words rather than leaving it to be discovered here.

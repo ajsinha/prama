@@ -1,6 +1,6 @@
 <!-- Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. -->
 
-> Design note behind [23 — Intelligence and lineage roadmap](../23-intelligence-and-lineage-roadmap.md). Written 2026-09-27. Where this note and doc 23 disagree, doc 23's reconciliation wins.
+> Design note behind [23 — Intelligence and lineage roadmap](../corpus/23-intelligence-and-lineage-roadmap.md). Written 2026-09-27. Where this note and doc 23 disagree, doc 23's reconciliation wins.
 
 # Design — Code-to-Lineage and Persistent Prama Agents
 
@@ -79,8 +79,8 @@ filename, shebang, content signatures), each detector a plugin (`(planned) prama
 | pandas | `import pandas`, `read_sql`, `to_sql`, `merge` | same AST scanner, pandas vocabulary |
 | Airflow | `from airflow`, `DAG(`, operators | `AirflowScanner`: task graph and operator SQL (`sql=` literals, `.sql` template files) → job-level edges and `produced_by = dag.task` |
 | Informatica / SSIS (DataStage and Talend: out of scope) | `.xml` with `POWERMART`, `.dtsx`, `.dsx`, `.item` | `XmlMappingScanner` (existing, configurable `MappingShape`); add a Talend shape |
-| COBOL / JCL | — | **Out of scope** (docs/23, "Lineage scope"): inventoried and reported as not read, never analysed. |
-| Shell | — | **Not parsed** (docs/23, "Lineage scope"): inventoried; the checked model pass may propose edges a person confirms. |
+| COBOL / JCL | — | **Out of scope** (docs/corpus/23, "Lineage scope"): inventoried and reported as not read, never analysed. |
+| Shell | — | **Not parsed** (docs/corpus/23, "Lineage scope"): inventoried; the checked model pass may propose edges a person confirms. |
 
 Detection output is shown to the user before analysis (language mix, frameworks, file counts, skipped
 binaries) — the repository's inventory is itself a finding.
@@ -281,7 +281,7 @@ Identity: a steward is a `principal(kind='service')` owned by a human sponsor, w
 `lineage:confirm`, `relationship:write`(confirm), `attestation:sign`, or `admin`; `test_scopes.py` gains a
 check that the steward role template cannot include them, and the API refuses to mint a steward key
 containing them. Keys expire (default 30 days) and rotate via the outbound channel: the agent calls
-`POST /api/v1/agents/me/rotate` before expiry — this closes docs/22 §9's rotation question for stewards.
+`POST /api/v1/agents/me/rotate` before expiry — this closes docs/corpus/22 §9's rotation question for stewards.
 
 ### B2. The LLM gateway — the only way a steward thinks
 
@@ -308,7 +308,7 @@ SDK, enforced by an architecture test (no import of `prama.llm.providers` or ven
 A **goal** is human-authored intent ("keep lineage for repo `risk-etl` current and propose recon controls
 for new hops"). A goal owns a **plan of tasks**; tasks are the unit of work, lease and approval.
 
-Protocol (outbound-only HTTP long-poll, same property as docs/22):
+Protocol (outbound-only HTTP long-poll, same property as docs/corpus/22):
 
 | Message | Direction | Content |
 |---|---|---|
@@ -324,7 +324,7 @@ this). Tasks are idempotent by `(goal_id, task_key)`; a retried task reuses its 
 
 Task states: `pending → leased → running → (awaiting_approval) → succeeded | failed | cancelled | expired`.
 Schedules: a goal may carry a cron in `prama.schedule`'s format; the **server** materialises tasks on
-schedule (centralised cadence, per docs/22's reasoning), triggers also on events (new commit on a code
+schedule (centralised cadence, per docs/corpus/22's reasoning), triggers also on events (new commit on a code
 source, new incident, proposal rejected).
 
 ### B4. Tool registry
@@ -469,7 +469,7 @@ URL to `http://169.254.169.254/` and `file:///` refused. Secret in `code_source`
 **P2 — Deterministic code lineage (A2–A3 L0/L1, A7 tables, A4 review).**
 A fixture repository `tests/fixtures/code/bankco-etl` with a hand-written **gold lineage file** (~150
 column edges) spanning SQL views, a T-SQL proc, a dbt project (with ref/source and one Jinja loop), a
-PySpark job, and an Airflow DAG (mainframe and shell were dropped from scope: docs/23, "Lineage
+PySpark job, and an Airflow DAG (mainframe and shell were dropped from scope: docs/corpus/23, "Lineage
 scope"). Accept: edge precision ≥ 0.98
 and recall ≥ 0.75 for L0 alone, measured by a test that diffs extracted vs gold and prints the confusion;
 every gold edge that is missed appears in the run's gap list (**recall + reported gaps covers 100%** —

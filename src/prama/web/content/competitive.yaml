@@ -4,7 +4,7 @@
 # Ratings are exactly Yes, Partial or No; prama.web.about refuses anything else.
 # Kept as data rather than Python because it is copy about products, and the
 # layering guard rightly refuses a module that both names models and verdicts.
-# docs/20-competitive-analysis.md is the vendor-by-vendor long form.
+# docs/corpus/20-competitive-analysis.md is the vendor-by-vendor long form.
 #
 # Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 categories:

@@ -34,7 +34,7 @@ with no way back in that does not involve the database. This refuses and says
 why.
 
 What this module is not: an HTTP endpoint. The routes that speak SCIM's wire
-format are not written, and `docs/19` says so. What is here is the part where
+format are not written, and `docs/corpus/19` says so. What is here is the part where
 being wrong is expensive.
 
 Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.

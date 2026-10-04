@@ -27,8 +27,8 @@ from prama.web import about, help_catalog
 from prama.web.rendering import NAVIGATION, render
 from prama.web.routes.base import UiRoutes
 
-#: Images the corpus embeds. A closed set: the route serves these names and
-#: nothing else, so it cannot be walked out of ``docs/assets``.
+#: Images the corpus embeds (diagrams, screenshots, the mark). A closed set:
+#: ``help_catalog.asset`` refuses anything that resolves outside ``docs/assets``.
 _ASSET_TYPES = {".svg": "image/svg+xml", ".png": "image/png"}
 
 
@@ -74,7 +74,7 @@ class PublicRoutes(UiRoutes):
         self.page("/about/competitive", self.competitive, name="competitive", scope=None)
         self.page("/legal", self.legal, name="legal", scope=None)
         self.page("/help", self.help_index, name="help_index", scope=None)
-        self.page("/help/assets/{name}", self.help_asset, name="help_asset", scope=None)
+        self.page("/help/assets/{name:path}", self.help_asset, name="help_asset", scope=None)
         # Before /help/{slug}, which would otherwise read "case-studies" as a topic.
         self.page("/help/case-studies", self.case_studies, name="help_case_studies", scope=None)
         self.page("/help/case-studies/{slug}", self.case_study, name="help_case_study", scope=None)
@@ -201,15 +201,9 @@ class PublicRoutes(UiRoutes):
         )
 
     async def help_asset(self, name: str) -> Any:
-        path = help_catalog.ASSETS_DIR / name
-        media = _ASSET_TYPES.get(path.suffix.lower())
-        if (
-            media is None
-            or "/" in name
-            or "\\" in name
-            or name.startswith(".")
-            or not path.is_file()
-        ):
+        path = help_catalog.asset(name)
+        media = _ASSET_TYPES.get(path.suffix.lower()) if path else None
+        if path is None or media is None:
             raise NotFoundError(
                 f"no such help asset: {name!r}",
                 remedy="Help pages link their own images.",

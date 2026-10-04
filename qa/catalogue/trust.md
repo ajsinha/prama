@@ -2985,7 +2985,7 @@ Written from the code under `src/prama/evidence`, `src/prama/security`,
 - **Why:** an audit record saying "3 fields changed" answers nothing.
 
 ### SEC-112 · There are no SCIM routes, and the product says so
-- **Area:** `security/scim.py` module docstring · `docs/19`
+- **Area:** `security/scim.py` module docstring · `docs/corpus/19`
 - **Type:** documentation
 - **Priority:** P2
 - **Precondition:** none

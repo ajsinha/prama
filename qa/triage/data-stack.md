@@ -825,7 +825,7 @@ a module. Listed by qa-area for scanning, not because area implies cause.
 |---|---|---|
 | DER-058 | P1 | `ast.Literal.render()` never escapes an internal `/` in a PATTERN literal — any value-domain regex containing an ordinary unescaped slash (path-shaped codes, `dd/mm/yyyy`) generates a control that does not re-parse |
 | IND-011 | P1 | `_subject_of`/`_probes` only walks a plain predicate's `.subject` — `ExpressionAssertion` (what `SATISFIES` produces) has no such attribute, so a tautology like `SATISFIES 1 = 1` gets zero probes and is `Validated` despite never being able to fail |
-| SEM-060 | P2 | `RelationshipKind.FEEDS.generates` omits the "RCA path" control family `docs/03` §2.4 promises for it |
+| SEM-060 | P2 | `RelationshipKind.FEEDS.generates` omits the "RCA path" control family `docs/corpus/03` §2.4 promises for it |
 | SEM-145 | P3 | `MaturityScore.percent` uses bare `round()`; `round(0.5)` banker's-rounds to `0`, so a score of exactly `0.005` reports `0%` instead of `1%` |
 | SEM-163 | P2 | `temporality`/`sensitivity`/`authoritativeness` have no `CHECK` constraint in `schema/sqlite.sql`, unlike the sibling enum columns `criticality`/`shape`/`lifecycle_state` on the same table — `declare()` accepts any string for all three |
 | SEM-215 | P1 | `ConnectorRegistry.create()` validates the config *after* `_resolve_credential` has injected the live secret — `ConnectorConfigSchema.validate()` then unconditionally refuses the very credential the method just injected, breaking every connector whose credential field is marked `secret=True` (the norm) |

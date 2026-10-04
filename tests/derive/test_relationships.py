@@ -48,7 +48,7 @@ def declare(kind: RelationshipKind, **overrides: object) -> RelationshipDeclarat
 
 @pytest.mark.parametrize("kind", list(RelationshipKind))
 def test_every_kind_produces_something_and_nothing_silently(kind: RelationshipKind) -> None:
-    """docs/03 §2.4 lists what each kind generates. A kind that produced
+    """docs/corpus/03 §2.4 lists what each kind generates. A kind that produced
     nothing, and said nothing about why, would leave a declaration the business
     made with no visible effect at all."""
     result = generation_for(declare(kind, tolerance=EUR))

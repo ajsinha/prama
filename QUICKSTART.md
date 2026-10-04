@@ -397,13 +397,13 @@ More of these, and the reasoning behind them, in
 **Understanding it**
 
 * [`README.md`](README.md) — what Prama is, and the claim it makes falsifiable
-* [`docs/03-business-semantic-layer.md`](docs/03-business-semantic-layer.md) — the conceptual heart
-* [`docs/07-rule-language-spec.md`](docs/07-rule-language-spec.md) — PQL in full
-* [`docs/19-implementation-roadmap.md`](docs/19-implementation-roadmap.md) — what is built and what is not
+* [`docs/corpus/03-business-semantic-layer.md`](docs/corpus/03-business-semantic-layer.md) — the conceptual heart
+* [`docs/corpus/07-rule-language-spec.md`](docs/corpus/07-rule-language-spec.md) — PQL in full
+* [`docs/corpus/19-implementation-roadmap.md`](docs/corpus/19-implementation-roadmap.md) — what is built and what is not
 * [`CLAUDE.md`](CLAUDE.md) — the rules this codebase is held to
 
 Every design document in `docs/` opens with an **As built** section saying how
-much of it exists. Where a document and the code disagree, `docs/19` decides.
+much of it exists. Where a document and the code disagree, `docs/corpus/19` decides.
 
 ---
 

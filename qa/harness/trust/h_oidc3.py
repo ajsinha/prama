@@ -80,7 +80,7 @@ if console_has_oidc_route:
     verdict_note = "a console route exists to drive; case is executable"
 else:
     verdict_note = ("no console or API route calls prama.security.oidc at all; the module ships "
-                     "tested and standalone (docs/19 W10.3) but sign-in (auth_routes.py) is "
+                     "tested and standalone (docs/corpus/19 W10.3) but sign-in (auth_routes.py) is "
                      "local-password-only, so this case's Steps (drive a failed sign-in through the "
                      "console) cannot be carried out against this build -- cannot be verified true or "
                      "false, treated as FAIL rather than a silent pass")

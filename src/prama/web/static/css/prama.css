@@ -1,6 +1,6 @@
 /* Prama design tokens.
  *
- * The palette is docs/brand.md §4, and the six spectrum hues are not
+ * The palette is docs/reference/brand.md §4, and the six spectrum hues are not
  * decoration: they are the product's dimension colour language. The same hue
  * means the same dimension on every scorecard, chart and report, which is why
  * they are named for dimensions here rather than for colours — a token called
@@ -9,7 +9,7 @@
  *
  * Unverified Grey is reserved, absolutely, for "stale or not yet examined".
  * Most products render that state as healthy or hide it; making it visible is
- * a product decision (docs/03 §6.3), and giving it a colour nothing else may
+ * a product decision (docs/corpus/03 §6.3), and giving it a colour nothing else may
  * use is how the decision survives contact with a designer in a hurry.
  *
  * Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.

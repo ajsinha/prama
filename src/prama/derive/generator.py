@@ -4,7 +4,7 @@ The claim that makes Prama a business tool rather than an engineer's tool: a
 person answers "what does one row represent?" and eight controls appear, each
 carrying the sentence that justifies it. No SQL is written by anyone.
 
-The mapping is docs/03 §5, and it is deliberately *explicit*. A user can always
+The mapping is docs/corpus/03 §5, and it is deliberately *explicit*. A user can always
 ask "why does this control exist?" and get "because you declared X on 4 March",
 because the provenance is attached at generation and cannot be absent.
 
@@ -27,7 +27,7 @@ estate of duplicates nobody recognises and a review queue full of controls that
 already exist.
 
 **Nothing it emits is active.** Every control here is a proposal, whatever its
-origin. `docs/03 §5` says "proposed, never silently activated", and the reason
+origin. `docs/corpus/03 §5` says "proposed, never silently activated", and the reason
 is not caution: an estate that appeared without anybody agreeing to it is an
 estate nobody owns, and unowned alerts get muted rather than fixed.
 

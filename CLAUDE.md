@@ -1,7 +1,7 @@
 # Prama — working notes
 
 Prama is a business-owned, evidence-first data quality control plane. The design corpus is
-`docs/00`–`docs/19`; `docs/03` (business semantic layer) is the conceptual heart and `docs/19` is
+`docs/corpus/00`–`docs/corpus/19`; `docs/corpus/03` (business semantic layer) is the conceptual heart and `docs/corpus/19` is
 the implementation roadmap. Version is `src/prama/version.py::VERSION` — that constant is the only
 authority; every other version string is a copy that can rot.
 

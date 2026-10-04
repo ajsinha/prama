@@ -127,14 +127,29 @@ class TestThePublicPages:
         self, stranger: Any
     ) -> None:
         assert (await stranger.get("/help/assets/prama-mark.svg")).status_code == 200
-        for bad in ("..%2FLICENSE", "preview.html", ".hidden.svg", "nope.svg"):
+        for bad in (
+            "..%2FLICENSE",
+            "..%2F..%2FLICENSE",
+            "diagrams%2F..%2F..%2F..%2FLICENSE",
+            "preview.html",
+            ".hidden.svg",
+            "nope.svg",
+        ):
             assert (await stranger.get(f"/help/assets/{bad}")).status_code == 404, bad
 
     async def test_corpus_links_are_rewritten_to_help_pages(self) -> None:
-        html = help_catalog._relink('<a href="07-rule-language-spec.md#x">x</a>')
+        corpus = help_catalog.REPO_ROOT / "docs" / "corpus"
+        html = help_catalog._relink('<a href="07-rule-language-spec.md#x">x</a>', corpus)
         assert html == '<a href="/help/pql#x">x</a>'
+        # By path, not by file name: from docs/corpus, ../sdk/README.md is the SDK page.
+        sdk = help_catalog._relink('<a href="../sdk/README.md">s</a>', corpus)
+        assert sdk == '<a href="/help/sdk">s</a>', sdk
         untouched = '<a href="not-in-the-catalogue.md">y</a>'
-        assert help_catalog._relink(untouched) == untouched
+        assert help_catalog._relink(untouched, corpus) == untouched
+        image = help_catalog._relink('<img src="../assets/prama-mark.svg">', corpus)
+        assert image == '<img src="/help/assets/prama-mark.svg">'
+        outside = '<img src="../../LICENSE">'
+        assert help_catalog._relink(outside, corpus) == outside
 
     async def test_every_page_carries_the_proprietary_notice(self, stranger: Any) -> None:
         for path in ("/", "/about", "/help", "/legal", "/sign-in"):

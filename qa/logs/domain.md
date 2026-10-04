@@ -327,7 +327,7 @@ Blocked cases (not counted as pass or fail): CLS-097, CTR-039, PCK-054, RCN-020
 | `PCK-208` | FAIL | rationale='Currency-specific materiality. A yen ledger has no minor unit, so a tolerance of one hundredth is a tolerance of nothing.' tolerance=Tolerance(absolute=0.01, relative=0.0001, currency=None, rounding_scale=None) Tolerance_fields=['absolute', 'relative', 'currency', 'rounding_scale'] has_currency_awareness=True |
 | `PCK-209` | FAIL | window=3 pairs=0 breaks=2 break_kinds=['MISSING', 'EXTRA'] (Expected: one pair classified TIMING, not one missing+one extra) |
 | `PCK-210` | PASS | templates_with_empty_expected_breaks=[] |
-| `PCK-211` | FAIL | BreakKind enum = ['TIMING','FX','ROUNDING','MISSING','EXTRA','DUPLICATE','SIGN','GENUINE'] (8 kinds); docs/12 sec6 table names taxonomy terms 'fee','cancel/amend','unpresented','in-transit','corporate action','mapping','filter','aggregation','settlement timing','price source' for these same reconciliations -- none of these five extra terms map to any BreakKind member; confirmed genuine doc/code mi… |
+| `PCK-211` | FAIL | BreakKind enum = ['TIMING','FX','ROUNDING','MISSING','EXTRA','DUPLICATE','SIGN','GENUINE'] (8 kinds); docs/corpus/12 sec6 table names taxonomy terms 'fee','cancel/amend','unpresented','in-transit','corporate action','mapping','filter','aggregation','settlement timing','price source' for these same reconciliations -- none of these five extra terms map to any BreakKind member; confirmed genuine doc/code mi… |
 | `PCK-212` | PASS | exit=1 lists_all_nine=True output="\nerror: no reconciliation template called 'nosuch'\n  code: INPUT.INVALID\n  next: One of: front-office-to-subledger, subledger-to-gl, position-to-custodian, cashbook-to-statement, nostro-vostro, repository-to-trade-store, mt-to-mx, roll-forward, return-to-feeder.\n  template: nosuch\n" |
 | `CLS-001` | PASS | count=20; dup_registration_raised=True |
 | `CLS-002` | PASS | validators_rejecting_None=[] |
@@ -2311,8 +2311,8 @@ Each reproduction snippet below is the exact block executed against this tree (`
 - **Assessment:** defect
 
 ### PCK-211 · The shipped taxonomies are reachable kinds
-- **Expected:** each declared kind is producible; the docs/12 table's extra names (fee, cancel/amend, unpresented, in-transit, corporate action) are either mapped to a `BreakKind` or removed from the document
-- **Observed:** BreakKind enum = ['TIMING','FX','ROUNDING','MISSING','EXTRA','DUPLICATE','SIGN','GENUINE'] (8 kinds); docs/12 sec6 table names taxonomy terms 'fee','cancel/amend','unpresented','in-transit','corporate action','mapping','filter','aggregation','settlement timing','price source' for these same reconciliations -- none of these five extra terms map to any BreakKind member; confirmed genuine doc/code mismatch
+- **Expected:** each declared kind is producible; the docs/corpus/12 table's extra names (fee, cancel/amend, unpresented, in-transit, corporate action) are either mapped to a `BreakKind` or removed from the document
+- **Observed:** BreakKind enum = ['TIMING','FX','ROUNDING','MISSING','EXTRA','DUPLICATE','SIGN','GENUINE'] (8 kinds); docs/corpus/12 sec6 table names taxonomy terms 'fee','cancel/amend','unpresented','in-transit','corporate action','mapping','filter','aggregation','settlement timing','price source' for these same reconciliations -- none of these five extra terms map to any BreakKind member; confirmed genuine doc/code mismatch
 - **Reproduce:** run from the repo root (`cd /home/ashutosh/PycharmProjects/prama`):
   ```bash
   python3 -c "
@@ -2321,7 +2321,7 @@ Each reproduction snippet below is the exact block executed against this tree (`
   print([k.name for k in BreakKind])
   "
   # Observed: ['TIMING','FX','ROUNDING','MISSING','EXTRA','DUPLICATE','SIGN','GENUINE'] (8 kinds)
-  # docs/12 section 6's table names, for these same reconciliation templates, the extra
+  # docs/corpus/12 section 6's table names, for these same reconciliation templates, the extra
   # taxonomy terms 'fee', 'cancel/amend', 'unpresented', 'in-transit', 'corporate action',
   # 'mapping', 'filter', 'aggregation', 'settlement timing', 'price source' -- none of the
   # five extra kinds map to any BreakKind member

@@ -1,7 +1,7 @@
 """
 The rendered audit: what the deck looks like once a real renderer has laid it out.
 
-    python tools/deck/render_audit.py docs/deck/Prama-Evidence-First-Data-Quality.pptx
+    python tools/deck/render_audit.py docs/publications/deck/Prama-Evidence-First-Data-Quality.pptx
 
 ``audit.py`` checks geometry from estimates. Estimates are what failed in Maya's decks:
 the builder believed a box fitted, the audit agreed, and the rendered slide had its last

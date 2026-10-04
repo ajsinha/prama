@@ -2,7 +2,7 @@
 
 `prama.score.trust.TrustPropagator` computes how far a column can be trusted
 given its own evidence and everything upstream of it. It had no caller outside
-the tests, because no graph was persisted to hand it (docs/23 §1, E1). This
+the tests, because no graph was persisted to hand it (docs/corpus/23 §1, E1). This
 supplies both halves from what Prama already stores: the lineage graph from the
 lineage store, and each dataset's local trust from the latest verdict of every
 control over it.

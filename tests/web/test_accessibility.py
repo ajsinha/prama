@@ -307,7 +307,7 @@ class TestEveryThemeIsLegible:
 
     #: The six spectrum hues. ``integrity`` and ``conformity`` are excluded
     #: because they have no spectrum hue of their own and take the brand blues
-    #: by design (docs/brand.md §4) — so on the default theme the accent
+    #: by design (docs/reference/brand.md §4) — so on the default theme the accent
     #: legitimately *is* the integrity colour.
     SPECTRUM = ("accuracy", "completeness", "consistency", "timeliness", "uniqueness", "validity")
 

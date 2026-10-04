@@ -1,6 +1,6 @@
 """Baselines, and an honest account of which ones were actually run.
 
-``docs/15 §4`` names five classes of baseline: declarative OSS, ML
+``docs/corpus/15 §4`` names five classes of baseline: declarative OSS, ML
 observability, platform-native, enterprise DQ, and ablations of Prama. **None of
 the external tools is run here.** Running Great Expectations or Soda Core
 fairly means configuring each the way its own documentation recommends, ideally
@@ -16,7 +16,7 @@ The **trivial bounds** exist because a benchmark without them cannot be read.
 "Recall 0.82" means nothing until you know that alerting on every column scores
 1.0 and that the corpus has a floor. They are not strawmen — they are the axes.
 
-The **ablations** are the comparison ``docs/15`` calls the most important, and
+The **ablations** are the comparison ``docs/corpus/15`` calls the most important, and
 the reason is that they answer the question a reviewer and a buyer both ask:
 which of the claims is doing the work? A pattern-only detector is what a
 schema-derived rule set gets you; if it scores within noise of the full system,
@@ -101,7 +101,7 @@ def _detect_everything(corpus: Corpus) -> tuple[Alert, ...]:
 
     Perfect recall by construction, at the cost of an alert on everything that
     was fine. This is the shape of "something is wrong with this table", and
-    the reason ``docs/15 §3.1`` insists on scoring the locus.
+    the reason ``docs/corpus/15 §3.1`` insists on scoring the locus.
     """
     alerts = []
     for scenario in corpus.scenarios:

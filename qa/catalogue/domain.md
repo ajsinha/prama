@@ -474,12 +474,12 @@ What each area covers:
 - **Why:** a raw `KeyError` reaching a terminal is finding Q-28's shape, and
   the CLI conversion is the only thing preventing it here.
 
-### PCK-037 · `prama pack list` advertises four calendars and docs/12 claims seven
-- **Area:** `cli/pack.py::PackListCommand` vs `docs/12 §7`
+### PCK-037 · `prama pack list` advertises four calendars and docs/corpus/12 claims seven
+- **Area:** `cli/pack.py::PackListCommand` vs `docs/corpus/12 §7`
 - **Type:** documentation
 - **Priority:** P2
 - **Precondition:** none
-- **Steps:** compare `prama pack list` output against docs/12 §7, which names
+- **Steps:** compare `prama pack list` output against docs/corpus/12 §7, which names
   "TARGET2, US SIFMA, UK, JPX, HKEX, per-market and per-currency"
 - **Expected:** either the doc is corrected to the four that ship, or the
   missing three are listed as not shipped
@@ -535,7 +535,7 @@ What each area covers:
 - **Expected:** `False` from both sides
 - **Why:** both identifiers are individually valid here — this is the defect
   class that single-column validation structurally cannot reach, and the one
-  docs/12 §3 names as the reason the module exists.
+  docs/corpus/12 §3 names as the reason the module exists.
 
 ### PCK-042 · Two empty identifiers are UNKNOWN, not consistent
 - **Area:** `crossfield.py::_iban_bic_consistent` SQL template
@@ -1945,7 +1945,7 @@ What each area covers:
 - **Precondition:** none
 - **Steps:** import the module; count `CONCEPTS`; assert each has
   `identifying`
-- **Expected:** 17, matching docs/12's stated "seventeen-concept ontology";
+- **Expected:** 17, matching docs/corpus/12's stated "seventeen-concept ontology";
   every one has at least one identifying property
 - **Why:** "a concept with no identifying property matches every table with the
   right shape, and would be reported as a confident match" — and the guard runs
@@ -2392,16 +2392,16 @@ What each area covers:
 
 ## Reference reconciliation templates — `packs/banking/reconciliations.py`
 
-### PCK-203 · Nine templates ship and docs/12 §6 lists eleven
-- **Area:** `reconciliations.py::TEMPLATES` vs `docs/12 §6`
+### PCK-203 · Nine templates ship and docs/corpus/12 §6 lists eleven
+- **Area:** `reconciliations.py::TEMPLATES` vs `docs/corpus/12 §6`
 - **Type:** documentation
 - **Priority:** P2
 - **Precondition:** none
 - **Steps:** compare the identities against the table
 - **Expected:** the same set, or the two absent ones ("Risk system ↔ finance",
   "Legacy ↔ target during migration") marked as not shipped
-- **Why:** the module docstring opens "docs/12 §6 lists eleven reconciliations
-  every bank runs" and then ships nine. docs/12's own summary says nine, so the
+- **Why:** the module docstring opens "docs/corpus/12 §6 lists eleven reconciliations
+  every bank runs" and then ships nine. docs/corpus/12's own summary says nine, so the
   document disagrees with itself and the module quotes the wrong half.
 
 ### PCK-204 · Every template binds to a runnable definition
@@ -2495,11 +2495,11 @@ What each area covers:
 - **Precondition:** none
 - **Steps:** for each template, construct data that produces each declared
   kind through the real classifier
-- **Expected:** each declared kind is producible; the docs/12 table's extra
+- **Expected:** each declared kind is producible; the docs/corpus/12 table's extra
   names (fee, cancel/amend, unpresented, in-transit, corporate action) are
   either mapped to a `BreakKind` or removed from the document
 - **Why:** a taxonomy a classifier cannot produce is a promise on a slide, and
-  the ones in docs/12 §6 have no counterpart in `BreakKind` at all.
+  the ones in docs/corpus/12 §6 have no counterpart in `BreakKind` at all.
 
 ### PCK-212 · `template()` raises a bare KeyError
 - **Area:** `reconciliations.py::template`

@@ -343,7 +343,7 @@ Blocked cases (not counted as pass or fail): CLS-097, CTR-039, PCK-054, RCN-020
 | `PCK-208` | PASS | PASS | rationale='Currency-specific materiality. A yen ledger has no minor unit, so a tolerance of one hundredth is a tolerance of nothing.' tolerance=Tolerance(absolute=0.01, relative=0.0001, currency=None, rounding_scale=None) Tolerance_fields=['absolute', 'relative', 'currency', 'rounding_scale'] has_currency_awareness=True |
 | `PCK-209` | FAIL | FAIL | window=3 pairs=0 breaks=2 break_kinds=['MISSING', 'EXTRA'] (Expected: one pair classified TIMING, not one missing+one extra) |
 | `PCK-210` | PASS | PASS | templates_with_empty_expected_breaks=[] |
-| `PCK-211` | FAIL | FAIL | BreakKind enum = {duplicate,extra,fx,genuine,missing,rounding,sign,timing} (8 kinds); docs/12 sec6 table still names 'fee','cancel/amend','unpresented','in-transit','corporate action','mapping','filter','aggregation','settlement timing','price source','posting','truncation','enrichment loss' for its reconciliations -- none of these map to a BreakKind member -- unfixed |
+| `PCK-211` | FAIL | FAIL | BreakKind enum = {duplicate,extra,fx,genuine,missing,rounding,sign,timing} (8 kinds); docs/corpus/12 sec6 table still names 'fee','cancel/amend','unpresented','in-transit','corporate action','mapping','filter','aggregation','settlement timing','price source','posting','truncation','enrichment loss' for its reconciliations -- none of these map to a BreakKind member -- unfixed |
 | `PCK-212` | PASS | PASS | exit=1 lists_all_nine=True output="\nerror: no reconciliation template called 'nosuch'\n  code: INPUT.INVALID\n  next: One of: front-office-to-subledger, subledger-to-gl, position-to-custodian, cashbook-to-statement, nostro-vostro, repository-to-trade-store, mt-to-mx, roll-forward, return-to-feeder.\n  template: nosuch\n" |
 | `CLS-001` | PASS | PASS | count=20; dup_registration_raised=True |
 | `CLS-002` | PASS | PASS | validators_rejecting_None=[] |
@@ -2189,15 +2189,15 @@ Reproduction snippets are the exact blocks executed against this tree, either fr
 - **Severity:** P1
 
 ### PCK-211 · The shipped taxonomies are reachable kinds
-- **Expected:** each declared kind is producible; the docs/12 table's extra names (fee, cancel/amend, unpresented, in-transit, corporate action) are either mapped to a `BreakKind` or removed from the document
-- **Observed:** BreakKind enum = {duplicate,extra,fx,genuine,missing,rounding,sign,timing} (8 kinds); docs/12 sec6 table still names 'fee','cancel/amend','unpresented','in-transit','corporate action','mapping','filter','aggregation','settlement timing','price source','posting','truncation','enrichment loss' for its reconciliations -- none of these map to a BreakKind member -- unfixed
+- **Expected:** each declared kind is producible; the docs/corpus/12 table's extra names (fee, cancel/amend, unpresented, in-transit, corporate action) are either mapped to a `BreakKind` or removed from the document
+- **Observed:** BreakKind enum = {duplicate,extra,fx,genuine,missing,rounding,sign,timing} (8 kinds); docs/corpus/12 sec6 table still names 'fee','cancel/amend','unpresented','in-transit','corporate action','mapping','filter','aggregation','settlement timing','price source','posting','truncation','enrichment loss' for its reconciliations -- none of these map to a BreakKind member -- unfixed
 - **Round 3 result:** FAIL
 - **Reproduce:**
   ```
   from prama.recon.classify import BreakKind
   print(sorted(k.value for k in BreakKind))
   # {'duplicate','extra','fx','genuine','missing','rounding','sign','timing'}
-  # docs/12 sec6 still names: fee, cancel/amend, unpresented, in-transit, corporate action,
+  # docs/corpus/12 sec6 still names: fee, cancel/amend, unpresented, in-transit, corporate action,
   # mapping, filter, aggregation, settlement timing, price source, posting, truncation,
   # enrichment loss -- none map to a BreakKind member
   ```

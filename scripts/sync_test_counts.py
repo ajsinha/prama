@@ -3,7 +3,7 @@
 
 A number in a document is a claim, and a claim about a test suite is the easiest
 kind to be wrong about — it rots every time somebody adds a test and nobody
-rereads the prose. `docs/18` calls this out as DishtaYantra's discipline worth
+rereads the prose. `docs/corpus/18` calls this out as DishtaYantra's discipline worth
 porting, and until now the script it named did not exist.
 
 So: numbers in documentation are **derived from a green run**, never typed.
@@ -47,9 +47,9 @@ DOCUMENTS = (
     "README.md",
     "QUICKSTART.md",
     "CLAUDE.md",
-    "docs/19-implementation-roadmap.md",
-    "docs/15-evaluation-benchmark-methodology.md",
-    "docs/18-technology-stack.md",
+    "docs/corpus/19-implementation-roadmap.md",
+    "docs/corpus/15-evaluation-benchmark-methodology.md",
+    "docs/corpus/18-technology-stack.md",
 )
 
 MARKER = re.compile(r"(<!--tests-->)(.*?)(<!--/tests-->)", re.DOTALL)

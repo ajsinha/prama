@@ -92,7 +92,7 @@ class SemDatasetVersion(UlidPrimaryKey, Versioned, Base):
     """A dataset declaration.
 
     Every column here answers a question a business owner can answer, and every
-    one of them generates a control (docs/03 §5). ``shape`` records what kind of
+    one of them generates a control (docs/corpus/03 §5). ``shape`` records what kind of
     thing this is — a table, a feed, a set of feeds, a return, or nothing yet —
     because a feed's controls are not a table's.
     """

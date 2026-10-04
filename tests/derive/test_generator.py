@@ -31,7 +31,7 @@ from prama.semantic.values import (
 
 
 def positions(**overrides: object) -> DatasetDeclaration:
-    """The declaration from the docs/03 §5 worked example."""
+    """The declaration from the docs/corpus/03 §5 worked example."""
     base = {
         "name": "positions",
         "slug": "pos",
@@ -481,7 +481,7 @@ def test_a_dataset_with_no_profile_yet_is_taken_at_its_word() -> None:
 
 @pytest.mark.parametrize("rule", ["grain.uniqueness", "rhythm.freshness", "rhythm.volume"])
 def test_each_documented_declaration_generates_its_stated_control(rule: str) -> None:
-    """docs/03 §5, row by row."""
+    """docs/corpus/03 §5, row by row."""
     assert ControlGenerator().generate(positions()).by_rule(rule)
 
 

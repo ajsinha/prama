@@ -283,7 +283,7 @@ class Db2Dialect(_JdbcDialect):
 
     z/OS is the one that matters commercially: it is where a lot of banking
     reference data still lives, and it is the reason the mainframe formats in
-    `docs/12` exist.
+    `docs/corpus/12` exist.
     """
 
     name = "db2"
