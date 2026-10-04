@@ -65,7 +65,7 @@ without editing the compiler; a validator is added without editing the parser.
 `src/prama/core/registry.py` holds the generic machinery:
 
 ```python
-# src/prama/core/registry.py:80
+# src/prama/core/registry.py:81
 class Plugin(ABC):
     """Base of every discovered implementation."""
 
@@ -78,13 +78,13 @@ class Plugin(ABC):
         """Describe this plugin. Called without instantiating it."""
 ```
 
-A `PluginManifest` (line 54) says what the plugin is: `key`, `kind`, `display_name`, `version`,
+A `PluginManifest` (line 55) says what the plugin is: `key`, `kind`, `display_name`, `version`,
 its `capabilities`, the `conformance_suite` that proves it, and `verification`
-(`verified` or `code_complete`, defaulting to the weaker claim). A `Capability` (line 36) is
+(`verified` or `code_complete`, defaulting to the weaker claim). A `Capability` (line 37) is
 one declared ability with qualifying attributes, such as `pushdown.regex` with
 `regex_flavour=posix`. The compiler consults capabilities and never probes a source to find out.
 
-`Registry` (line 92) validates at registration, so an ill-formed plugin fails by name when it is
+`Registry` (line 93) validates at registration, so an ill-formed plugin fails by name when it is
 added rather than deep inside a run: the class must subclass the base, `manifest()` must return a
 `PluginManifest` whose `kind` matches the registry and whose `key` is not empty, and a duplicate
 key is refused unless `replace=True` is passed deliberately.
@@ -95,17 +95,20 @@ There are three ways in, and each extension point uses one of them:
 
 | Way | Used by | Where it is wired |
 |---|---|---|
-| **Entry point** advertised by an installed distribution | validators (`"prama.validators"`), delegates (`"prama.delegates"`) | `kernel/src/prama_kernel/plugins.py` `load_entry_points`, called from `install_shipped` in `src/prama/packs/__init__.py`; `DelegateRegistry.load_entry_points` in `kernel/src/prama_kernel/delegates/registry.py` |
+| **Entry point** advertised by an installed distribution | connectors (`"prama.connectors"`), detectors (`"prama.monitors"`), notifiers (`"prama.notifiers"`), validators (`"prama.validators"`), delegates (`"prama.delegates"`) | `prama.plugins.bootstrap` in `src/prama/plugins.py`, one loader per group in `LOADERS`; `DelegateRegistry.load_entry_points` in `kernel/src/prama_kernel/delegates/registry.py` |
 | **A table in the owning package** | connectors (`BUILTIN`), compile dialects (`DIALECTS`), importers (`IMPORTERS`), model provider kinds (`KINDS`), code readers (`READ`), agent engines (`_BY_ENGINE`), store dialects (`_DIALECTS`) | one mapping in the package that owns the base class |
-| **An explicit install** at start | pack functions and calendars | `install_shipped()` in `src/prama/packs/__init__.py`, called from the CLI entry point and `create_app` |
+| **An explicit install** at start | pack functions and calendars | `install_shipped()` in `src/prama/packs/__init__.py`, called by `prama.plugins.bootstrap` |
 
-`config/application.yaml` lists six entry-point groups under `plugins.entry_point_groups`, and
-`plugins.disabled` switches one off by name. **Only `"prama.validators"` is loaded from that list
-today.** The connector registry has a `discover()` for `"prama.connectors"`
-(`src/prama/connect/registry.py`), but nothing calls it, and `"prama.backends"`,
-`"prama.monitors"`, `"prama.notifiers"` and `"prama.scorers"` have no registry behind them. Each guide
-says which path its extension really takes; do not ship a third-party package that relies on a
-group that is not read.
+`plugins.entry_point_groups` lists four groups, and each has a loader in `prama.plugins.LOADERS`:
+`"prama.connectors"`, `"prama.monitors"`, `"prama.notifiers"` and `"prama.validators"`.
+`prama.plugins.bootstrap` loads them once per process, from both `create_app` and the CLI's
+`Application.run`, after the configuration is known, and `plugins.disabled` switches a plugin off
+by entry-point name or key; a disabled plugin is never imported. A plugin cannot take a shipped
+plugin's key. `tests/architecture/test_plugin_groups.py` fails the build if a listed group has no
+loader. Two groups were listed once and read by nothing, and are gone because there is no seam for
+a plugin to fill: `"prama.backends"` (a compile dialect also needs the function catalogue's
+engines and the conformance corpus, so an engine ships in-tree) and `"prama.scorers"` (scoring
+methods are closed enums, so a score always names its arithmetic).
 
 ### The rule: name a concrete type only inside its package
 
@@ -151,14 +154,15 @@ every extension's tests must answer:
 
 | Extension point | Base class or seam | Found by | Guide |
 |---|---|---|---|
-| Source connector | `prama.connect.spi.Connector` | `BUILTIN` table | [connectors](connectors.md) |
+| Source connector | `prama.connect.spi.Connector` | `BUILTIN` table; `"prama.connectors"` entry point | [connectors](connectors.md) |
 | SQL dialect for a source | `connect.sources.sql.dialect.SqlDialect` (ABC) | the connector's `dialect` | [backends and dialects](backends-and-dialects.md) |
 | Compile dialect (engine) | `prama.backend.dialect.SqlDialect` | `DIALECTS` | [backends and dialects](backends-and-dialects.md) |
 | Prama's own store | `prama.db.dialects.Dialect` | `_DIALECTS`, `database.dialect` | [backends and dialects](backends-and-dialects.md) |
 | PQL function | `prama.pql.functions.Function` | `install(registry)` | [PQL functions](pql-functions.md) |
 | Semantic-type validator | `prama.classify.validators.SemanticValidator` | `"prama.validators"` entry point | [validators](validators.md) |
-| Monitor detector | `prama.monitor.detect.Detector` | passed to `Monitor` or `Ensemble` | [monitors and notifiers](monitors-and-notifiers.md) |
-| Alert routing | `prama.alert.route.Router` | constructed by the caller | [monitors and notifiers](monitors-and-notifiers.md) |
+| Monitor detector | `prama.monitor.detect.Detector` | `"prama.monitors"` entry point; by name or instance to `Monitor`, `Ensemble` | [monitors and notifiers](monitors-and-notifiers.md) |
+| Alert notifier | `prama.alert.notify.Notifier` | `"prama.notifiers"` entry point; chosen per role in `alerts.channels` | [monitors and notifiers](monitors-and-notifiers.md) |
+| Alert routing | `prama.alert.route.Router` | built by `prama.alert.pipeline` after every run | [monitors and notifiers](monitors-and-notifiers.md) |
 | Scoring method, trust semiring | `Method`, `Semiring` enums | edited in place | [scorers](scorers.md) |
 | Control importer | `prama.importers.spi.Importer` | `IMPORTERS` | [importers](importers.md) |
 | Model provider | `prama.llm.spi.ModelProvider` | `KINDS` and `build` | [LLM providers](llm-providers.md) |

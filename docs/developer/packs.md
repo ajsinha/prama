@@ -135,12 +135,12 @@ layout.
 
 ## Registration and configuration
 
-A pack is installed by one function, called from exactly two places, the CLI entry point and
-`create_app`:
+A pack is installed by one function, called by `prama.plugins.bootstrap`, which the CLI and
+`create_app` both call:
 
 ```python
 # src/prama/packs/__init__.py
-def install_shipped(*, disabled_plugins: Iterable[str] = ()) -> None:
+def install_shipped() -> None:
     ...
     from prama.packs.banking.calendars import install as install_calendars
     from prama.packs.banking.crossfield import install as install_functions

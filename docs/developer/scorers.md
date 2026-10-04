@@ -91,8 +91,9 @@ card whose composites disagree says which method says what.
 ## Registration and configuration
 
 None: a method or a semiring is part of the code, and a score names the one that produced it.
-The `"prama.scorers"` entry-point group listed in `plugins.entry_point_groups` is read by nothing;
-do not ship a scorer that relies on it.
+There is no entry-point group for scoring: `"prama.scorers"`, once listed in
+`plugins.entry_point_groups` and read by nothing, has been removed, because a method that arrived
+by being installed would change what an estate's cards mean without anybody deciding it.
 
 ## Testing
 

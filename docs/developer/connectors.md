@@ -194,9 +194,19 @@ with its capability matrix and its overlay. `register_builtin()` is what the CLI
 the connectivity service call. Keep the overlay beside the other overlays in that file, so the
 one hand-written part of every form is in one place.
 
-**From another distribution.** The registry declares the `"prama.connectors"` entry-point group
-and has a `discover()` method, but **nothing in the server calls it yet**, so a third-party
-connector advertised there is not loaded. Until that is wired, a connector ships in-tree.
+**From another distribution.** Advertise the class on the `"prama.connectors"` entry-point group:
+
+```toml
+[project.entry-points."prama.connectors"]
+fixed_width = "acme_prama.fixed_width:FixedWidthConnector"
+```
+
+`prama.plugins.bootstrap`, called by the CLI and by `create_app`, registers the shipped
+connectors and then calls `ConnectorRegistry.discover()` once, honouring `plugins.disabled`
+(by entry-point name or key). A discovered connector cannot take a shipped connector's key, has
+no curated overlay (its form is derived from its code alone), and has an empty capability matrix,
+so the compiler pushes nothing down to it until it ships in-tree with one.
+`tests/core/test_plugin_bootstrap.py` installs the example below this way and reads through it.
 
 **Configuration a connector reads** is a connection's own `config` mapping, never
 `config/application.yaml`:
