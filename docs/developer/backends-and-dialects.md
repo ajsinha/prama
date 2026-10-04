@@ -175,8 +175,10 @@ owning package, and the conformance corpus below is what proves it.
 | Compile dialect | `DIALECTS` in `src/prama/backend/dialect.py` | `--dialect`, `scheduler.dialect`, the connection, the agent source |
 | Store dialect | `_DIALECTS` in `src/prama/db/dialects.py` | `database.dialect: sqlite \| postgres` in `config/application.yaml` |
 
-The `"prama.backends"` entry-point group in `plugins.entry_point_groups` is read by nothing: an
-engine ships in-tree.
+There is no entry-point group for an engine, and `"prama.backends"`, once listed in
+`plugins.entry_point_groups` and read by nothing, has been removed: a compile dialect must also be
+named in the function catalogue's `ENGINES` and pass the conformance corpus, so an engine ships
+in-tree.
 
 ## Testing
 

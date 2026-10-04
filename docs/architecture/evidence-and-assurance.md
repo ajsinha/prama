@@ -157,10 +157,22 @@ with the check that would confirm it.
 
 `prama.alert.route.Router` decides who hears and when: arrival, schema and
 calibration faults go to the custodian; value, definition and reconciliation
-faults to the steward. An unchanged alert is not re-sent, low-urgency ones go to
-a digest, and quiet hours hold the rest. As built, routing is decided and
-recorded; no notifier plugin (email, chat, ticketing) ships yet, and the
-prama.notifiers entry-point group is declared for them.
+faults to the steward, falling back to the owner. An unchanged alert is not
+re-sent within the quiet period, low-urgency ones go to a daily digest, and the
+residency gate withholds an alert whose channel delivers outside the tenant's
+residency.
+
+After every run commits (the scheduler, `prama control run`, the API and agent
+reports), `prama.alert.pipeline` turns each failing record into an alert, takes
+the recipients from the dataset's declared owner, steward and custodian, and
+routes it with a router seeded from the database (`alr_state`), so an open
+incident is not announced again after a restart or from another server. The
+immediate ones go out through a `prama.alert.notify.Notifier` (`log`,
+`webhook`, `email`, or one a distribution adds on `"prama.notifiers"`), the rest
+wait in `alr_digest` for the scheduler's daily digest, and a control that passes
+again sends its resolution. Alerting is off until `alerts.enabled` is set, and a
+delivery failure is recorded on the alert and never fails the run: the evidence
+is the product, the alert a courtesy.
 
 ![What is currently wrong: one row per control, with indeterminate results explained](../assets/screenshots/incidents.png)
 
@@ -203,7 +215,7 @@ adjudication. What it has and has not measured is in
 | `scripts/verify_evidence.py` | offline verification, standard library only |
 | `src/prama/score/` | composites, scorecards, trust propagation |
 | `src/prama/calibrate/`, `src/prama/monitor/` | conformal calibration, selection, validity; detectors, drift, seasonality, cold start, tournament |
-| `src/prama/incident/`, `src/prama/alert/route.py` | triage, correlation, root cause; routing |
+| `src/prama/incident/`, `src/prama/alert/` | triage, correlation, root cause; routing (`route.py`), delivery after a run (`pipeline.py`), notifiers (`notify.py`, `channels.py`) |
 | `src/prama/report/` | packs, attestations, BCBS 239 pack, deterministic SVG charts, themes |
 | `src/prama/learn/loop.py`, `src/prama/bench/` | the feedback loop; the benchmark |
 

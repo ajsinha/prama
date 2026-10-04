@@ -308,21 +308,30 @@ class TestWhatIsAdvertisedExists:
 
     def test_the_bootstrap_is_reachable_from_src(self) -> None:
         """The defect was structural, not a typo: nothing outside tests called
-        it. This pins that a production entry point still does."""
+        it. This pins that a production entry point still does.
+
+        `install_shipped` is called by `prama.plugins.bootstrap`, and that is
+        called by the CLI and by the app — both must reach it.
+        """
         import ast
         from pathlib import Path
 
         src = Path(__file__).resolve().parents[2] / "src" / "prama"
-        callers = [
-            path.relative_to(src).as_posix()
-            for path in src.rglob("*.py")
-            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
-            if isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Name)
-            and node.func.id == "install_shipped"
-        ]
-        assert len(callers) >= 2, (
-            f"install_shipped() is called from {callers or 'nowhere in src/'}; "
+
+        def callers(name: str) -> list[str]:
+            return [
+                path.relative_to(src).as_posix()
+                for path in src.rglob("*.py")
+                for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+                if isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == name
+            ]
+
+        assert callers("install_shipped") == ["plugins.py"], callers("install_shipped")
+        reach = sorted(callers("bootstrap_plugins"))
+        assert reach == ["api/app.py", "cli/base.py"], (
+            f"the plugin bootstrap is called from {reach or 'nowhere in src/'}; "
             "the CLI and the app must both install what the packs advertise"
         )
 

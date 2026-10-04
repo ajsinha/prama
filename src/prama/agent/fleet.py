@@ -168,6 +168,9 @@ class Fleet:
         self._uow = uow
         self._settings = settings
         self._clock = clock or SystemClock()
+        #: The evidence records `report` put in the ledger, for the caller to
+        #: alert on once they have committed (`prama.alert.pipeline`).
+        self.reported: list[Any] = []
 
     # -- administration ----------------------------------------------------
 
@@ -647,6 +650,7 @@ class Fleet:
                 ),
                 tenant_id=tenant_id,
             )
+            self.reported.append(linked)
             if target is not None:
                 await self._uow.fleet.mark_done(
                     tenant_id, target, now=now, evidence_sequence=linked.sequence

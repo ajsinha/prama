@@ -91,7 +91,10 @@ class Scheduler:
         """Run everything due, if this server wins the lease."""
         started = _now()
         leases = self._database.lease_provider()
-        lease = await leases.acquire(LEASE, self._holder, max(self.interval * 2, 30.0))
+        # Held across two intervals, and never for less than the configured
+        # lease (concurrency.lease.ttl), so a short interval cannot make it flap.
+        floor = self._database.lease_settings.ttl_seconds
+        lease = await leases.acquire(LEASE, self._holder, max(self.interval * 2, floor))
         if lease is None:
             tick = Tick(started, "skipped", "another server holds the scheduler lease")
             from prama.telemetry import metrics
@@ -115,13 +118,27 @@ class Scheduler:
                             delegates=self._delegates,
                         ).execute_all()
                     if self._config is not None:
+                        from prama.alert.pipeline import alert_after_run
                         from prama.evidence.anchor import anchor_after_run
 
                         await anchor_after_run(self._database, tenant, self._config)
+                        # After the run's own unit of work has committed, and
+                        # never able to fail it: see prama.alert.pipeline.
+                        await alert_after_run(
+                            self._database, tenant, self._config, run_id=report.run_id
+                        )
                     executed += report.executed
                     verdicts.update(report.verdicts)
             finally:
                 close()
+            if self._config is not None:
+                # Once a day after alerts.digest_hour, and only by the server
+                # holding this tick's lease, so one digest goes out, not one
+                # per server.
+                from prama.alert.pipeline import digest_if_due
+
+                for tenant in self.tenants:
+                    await digest_if_due(self._database, tenant, self._config)
             tick = Tick(started, "ran", "", executed, dict(verdicts))
         except Exception as exc:
             # A tick that fails is shown on the Schedule page and logged; the

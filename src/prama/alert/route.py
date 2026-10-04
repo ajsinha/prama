@@ -210,6 +210,44 @@ class Alert:
             "message": self.compose(),
         }
 
+    def as_stored(self) -> dict[str, Any]:
+        """Every field, so :meth:`from_stored` rebuilds the same alert.
+
+        `to_dict` is for a reader and leaves out what a reader does not need;
+        this is for the router's own store, which needs the alert back whole
+        when it is time to say it is over.
+        """
+        return {
+            "identity": self.identity,
+            "dataset": self.dataset,
+            "fault": self.fault.value,
+            "what": self.what,
+            "consequence": self.consequence,
+            "likely_cause": self.likely_cause,
+            "severity": self.severity,
+            "at": self.at.isoformat() if self.at else None,
+            "disclosure": self.disclosure,
+            "jurisdiction": self.jurisdiction,
+            "covers": self.covers,
+        }
+
+    @classmethod
+    def from_stored(cls, payload: Mapping[str, Any]) -> Alert:
+        at = payload.get("at")
+        return cls(
+            identity=str(payload["identity"]),
+            dataset=str(payload["dataset"]),
+            fault=Fault(str(payload["fault"])),
+            what=str(payload.get("what", "")),
+            consequence=str(payload.get("consequence", "")),
+            likely_cause=str(payload.get("likely_cause", "")),
+            severity=float(payload.get("severity", 0.5)),
+            at=datetime.fromisoformat(str(at)) if at else None,
+            disclosure=str(payload.get("disclosure", "")),
+            jurisdiction=str(payload.get("jurisdiction", "")),
+            covers=int(payload.get("covers", 1)),
+        )
+
 
 class Change(enum.Enum):
     """What happened to an alert that had already been sent."""
@@ -301,6 +339,7 @@ class Router:
         channels: Mapping[Role, str] | None = None,
         channel_regions: Mapping[str, str] | None = None,
         gate: Gate | None = None,
+        history: Mapping[str, tuple[datetime, float]] | None = None,
     ) -> None:
         #: (dataset, role) → person. Missing entries fall back to the owner,
         #: and an alert with nobody at all is reported rather than dropped.
@@ -311,12 +350,29 @@ class Router:
         #: the person: the same steward reachable on an in-region chat tool and
         #: on an external pager is two different residency answers.
         self._channel_regions = dict(channel_regions or {})
-        self._sent: dict[str, tuple[datetime, float]] = {}
+        #: fingerprint → (when it was last sent, at what severity). Seeded from
+        #: *history* — what this or another server already sent, as
+        #: `prama.alert.pipeline` keeps it in the database — because a router
+        #: that starts empty announces every open incident again on restart.
+        self._sent: dict[str, tuple[datetime, float]] = dict(history or {})
         #: The residency check. Optional, because most deployments have no
         #: obligation and a required argument would be one every caller passes
         #: None to — but where there is a rule, an alert body quoting failing
         #: values is data leaving, and it is checked before it goes.
         self._gate = gate
+
+    @property
+    def history(self) -> dict[str, tuple[datetime, float]]:
+        """What has been sent and is still open: a copy, to be saved.
+
+        The same shape the constructor's ``history`` takes, so a router built
+        from what another one saved behaves as that one would have.
+        """
+        return dict(self._sent)
+
+    def has_sent(self, alert: Alert) -> bool:
+        """Whether this alert is open: sent, and not yet resolved."""
+        return alert.fingerprint in self._sent
 
     def dispatch(self, alert: Alert) -> Dispatch:
         """One alert, routed and deduplicated."""

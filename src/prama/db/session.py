@@ -50,6 +50,7 @@ if TYPE_CHECKING:
         SettingDao,
         TenantDao,
     )
+    from prama.db.dao.alert import AlertDao
     from prama.db.dao.code import CodeDao
     from prama.db.dao.comment import CommentDao
     from prama.db.dao.delegate import DelegateUploadDao
@@ -161,6 +162,12 @@ class UnitOfWork:
         from prama.db.dao import AuditDao
 
         return self._dao("audit", AuditDao)  # type: ignore[no-any-return]
+
+    @property
+    def alerts(self) -> AlertDao:
+        from prama.db.dao.alert import AlertDao
+
+        return self._dao("alerts", AlertDao)  # type: ignore[no-any-return]
 
     @property
     def fleet(self) -> FleetDao:

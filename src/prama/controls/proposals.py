@@ -239,12 +239,15 @@ async def accept(
         rule=rule,
         source_ref=dataset_id,
         status="proposed",
-        authored_by=by,
+        # Derived, not written: the derivation is the maker and `by` the check
+        # (prama.controls.approval). Recording `by` as the author would make a
+        # Tier-1 derived control unacceptable by anybody.
+        authored_by=None,
         reason=reason,
     )
-    return await uow.controls.activate(
-        str(control.id), tenant_id=tenant_id, approved_by=by or "console", reason=reason
-    )
+    from prama.controls.approval import activate
+
+    return await activate(uow, str(control.id), tenant_id=tenant_id, approver=by, reason=reason)
 
 
 async def reject(
@@ -371,12 +374,14 @@ async def adopt(
             criticality=criticality,
             schedule=schedule,
             status="proposed",
-            authored_by=by,
+            authored_by=None,  # derived: see accept()
             reason=reason,
         )
         if activate and version.status != "active":
-            version = await uow.controls.activate(
-                str(entity.id), tenant_id=tenant_id, approved_by=by or "api", reason=reason
+            from prama.controls.approval import activate as approve
+
+            version = await approve(
+                uow, str(entity.id), tenant_id=tenant_id, approver=by, reason=reason
             )
         adopted.append({"identity": derived.identity, "version": version})
     return adopted

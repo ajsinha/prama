@@ -781,6 +781,35 @@ async def _one_of_everything(uow: Any, tenant: str) -> None:
         reason="theirs",
         reported_at="2026-09-28T06:00:00.000+00:00",
     )
+    # Alert delivery: an open alert, a digest item already sent and one pending,
+    # so history, open_alerts, last_digest_at and pending each have a row.
+    await uow.alerts.remember(
+        tenant,
+        fingerprint="theirs",
+        identity=str(their_control.id),
+        dataset="positions_eod",
+        fault="value",
+        severity=1.0,
+        last_sent_at="2026-09-28T06:00:00+00:00",
+        alert={},
+    )
+    sent = await uow.alerts.queue(
+        tenant,
+        fingerprint="theirs",
+        dataset="positions_eod",
+        change="opened",
+        dispatch={},
+        queued_at="2026-09-28T06:00:00+00:00",
+    )
+    await uow.alerts.mark_sent(tenant, [str(sent.id)], sent_at="2026-09-28T09:00:00+00:00")
+    await uow.alerts.queue(
+        tenant,
+        fingerprint="theirs",
+        dataset="positions_eod",
+        change="opened",
+        dispatch={},
+        queued_at="2026-09-28T10:00:00+00:00",
+    )
     await uow.flush()
 
 

@@ -10,7 +10,7 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 from prama.connect.capability import CapabilityMatrix
@@ -63,9 +63,21 @@ class ConnectorRegistry:
         self._extra_fields[key] = extra_fields
         self._schemas.pop(key, None)  # rebuilt lazily against the new class
 
-    def discover(self) -> int:
-        """Load third-party connectors advertised on the entry-point group."""
-        return self._registry.discover()
+    def discover(self, *, disabled: Iterable[str] = ()) -> int:
+        """Load third-party connectors advertised on the entry-point group.
+
+        Called once per process by `prama.plugins.bootstrap`, after the shipped
+        connectors are registered, so a distribution cannot shadow one of them.
+        A discovered connector has no curated overlay: its form is derived from
+        its code alone, and its capability matrix is empty until it says
+        otherwise — the compiler then pushes nothing down to it rather than
+        guessing.
+        """
+        return self._registry.discover(disabled=disabled)
+
+    @property
+    def discovered(self) -> bool:
+        return self._registry.discovered
 
     # -- lookup ------------------------------------------------------------
 
@@ -108,16 +120,29 @@ class ConnectorRegistry:
         )
 
     def create(
-        self, key: str, config: dict[str, Any], *, policy: ReadPolicy | None = None
+        self,
+        key: str,
+        config: dict[str, Any],
+        *,
+        policy: ReadPolicy | None = None,
+        credential: dict[str, Any] | None = None,
     ) -> Connector:
         """Validate the configuration, then build the connector.
 
         Validation first, always: a missing field should be a message beside the
         input, not a driver error twenty seconds into a connection attempt.
+
+        ``credential`` is a secret resolved from the connection's reference,
+        keyed by the connector's ``credential_field``. It is kept apart from
+        ``config`` until after validation, because validation refuses a secret
+        in configuration — rightly, for what is *stored* — and a resolved
+        credential merged in first was refused as though somebody had stored
+        it. Every connector with a secret field (PostgreSQL, Snowflake, ...)
+        was unusable with a ``credential_ref``.
         """
         connector_class = self._registry.get(key)
         self.schema(key).validate(config)
-        return connector_class(config, policy=policy)
+        return connector_class({**config, **(credential or {})}, policy=policy)
 
     # -- health of the registry itself -------------------------------------
 

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import dataclasses
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from importlib.metadata import EntryPoint, entry_points
 from typing import Any, ClassVar, Generic, TypeVar
 
@@ -124,26 +125,49 @@ class Registry(Generic[T]):
     def disable(self, keys: list[str]) -> None:
         self._disabled.update(keys)
 
-    def discover(self, group: str | None = None) -> int:
+    def discover(self, group: str | None = None, *, disabled: Iterable[str] = ()) -> int:
         """Load implementations advertised on an entry-point group.
 
         A plugin that fails to import is logged and skipped rather than taking
         the process down: one broken third-party connector must not prevent the
         platform from starting, and the failure is visible in health output.
+
+        *disabled* is ``plugins.disabled``: names an operator has switched off,
+        matched against the entry point's name and the plugin's key, without
+        regard to case. A disabled plugin is never imported, and says so in
+        the log — a plugin missing because somebody turned it off must not look
+        the same as one that failed to load.
+
+        A plugin is never allowed to replace one already registered under its
+        key: a distribution that shadowed a shipped connector by being
+        installed would change what every control reads, and nobody decided it.
         """
         group_name = group or self._group
         if not group_name:
             return 0
+        refused = {name.strip().lower() for name in disabled if name and name.strip()}
         loaded = 0
         for ep in _entry_points_for(group_name):
+            if ep.name.lower() in refused:
+                _log.info("%s plugin %r is disabled by configuration", self._kind, ep.name)
+                continue
             try:
                 implementation = ep.load()
+                key = self._validate(implementation).key
+                if key.lower() in refused:
+                    _log.info("%s plugin %r is disabled by configuration", self._kind, key)
+                    continue
                 self.register(implementation)
                 loaded += 1
             except Exception as exc:
                 _log.warning("plugin %r from group %r failed to load: %s", ep.name, group_name, exc)
         self._discovered = True
         return loaded
+
+    @property
+    def discovered(self) -> bool:
+        """Whether :meth:`discover` has run on this registry."""
+        return self._discovered
 
     def get(self, key: str) -> type[T]:
         if key in self._disabled:

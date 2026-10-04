@@ -5,15 +5,14 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-
 _installed = False
 
 
-def install_shipped(*, disabled_plugins: Iterable[str] = ()) -> None:
+def install_shipped() -> None:
     """Install everything the shipped packs contribute to the core registries.
 
-    Called from exactly two places — the CLI entry point and `create_app` —
+    Called from `prama.plugins.bootstrap`, which the CLI (`Application.run`)
+    and `create_app` both call —
     because the alternative is installing on import, and a function that exists
     because a module happened to be imported is one whose availability depends
     on import order. A control that compiles in one process and refuses in
@@ -50,23 +49,11 @@ def install_shipped(*, disabled_plugins: Iterable[str] = ()) -> None:
     # nobody holds — which is indistinguishable from not calling it at all.
     install_calendars(default_calendars(), replace=True)
 
-    # Third-party validators, from the entry points a distribution advertises.
-    #
-    # `load_entry_points` had *no caller anywhere* — not in src, not in tests —
-    # so the whole plugin mechanism was inert: `plugins.entry_point_groups` and
-    # `plugins.disabled` were read by nothing, and the implementation-hash
-    # freeze that stops a validator's code changing under a sealed plan could
-    # never fire, because PLUGINS was always empty (QA findings CFG-036 and
-    # BE-179).
-    #
-    # That is the same defect this function's own docstring was written about,
-    # one layer along: `install()` was written, tested, and called only from
-    # `tests/`. A mechanism nothing calls is indistinguishable from one that
-    # does not exist, and both of them pass their unit tests.
-    from prama.classify.plugins import load_entry_points
-    from prama.classify.validators import REGISTRY
-
-    load_entry_points(REGISTRY, disabled=disabled_plugins)
+    # Third-party validators used to be loaded here, and were the only plugin
+    # group anything loaded (QA findings CFG-036 and BE-179 were about that
+    # loader having no caller at all). Every group now has its loader in
+    # `prama.plugins.LOADERS`, called from the same bootstrap as this, so a
+    # pack and a plugin are installed at the same moment in both processes.
     _installed = True
 
 

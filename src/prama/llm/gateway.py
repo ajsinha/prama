@@ -35,7 +35,10 @@ from typing import Any, ClassVar
 
 from prama.core import pjson
 from prama.core.errors import PramaError, ValidationError
+from prama.core.log import get_logger
 from prama.llm.spi import Hosting, ModelProvider, Request, Response
+
+_log = get_logger(__name__)
 
 #: How local each hosting class is; fallback may only move to an equal or
 #: lower number unless a profile allows otherwise.
@@ -210,9 +213,13 @@ class LlmGateway:
         api_key_id: str | None = None,
         cache: ResponseCache | None = None,
         payloads: str = "none",
+        guard: Any = None,
     ) -> None:
         #: `none`, `redacted` or `full`: what of each exchange is kept.
         self._payloads = payloads
+        #: The budgets binding this gateway (``prama.llm.budget.BudgetGuard``):
+        #: ``admit(profile_id)`` before a call, ``charge(record)`` after one.
+        self._guard = guard
         self._routes = routes
         self._api_key = api_key_id
         self._cache = cache
@@ -273,6 +280,7 @@ class LlmGateway:
             "temperature": 0.0,
             "seed": None,
         }
+        self._admit(route, base, started, clock)
         for candidate in route.candidates:
             try:
                 vectors = candidate.provider.embed(texts, sensitivity=level)
@@ -315,6 +323,7 @@ class LlmGateway:
             **_template_of(request),
             "_request": request,
         }
+        self._admit(route, base, started, clock)
         first_locality = LOCALITY[route.candidates[0].hosting]
         attempts, previous, refusal, failure = 0, None, None, None
         for candidate in route.candidates:
@@ -408,6 +417,7 @@ class LlmGateway:
             **_template_of(request),
             "_request": request,
         }
+        self._admit(route, base, started, clock)
         first_locality = LOCALITY[route.candidates[0].hosting]
         refusal: PramaError | None = None
         for candidate in route.candidates:
@@ -438,6 +448,17 @@ class LlmGateway:
         if refusal is not None:
             raise refusal
         raise ValidationError(detail, remedy="Check the profile's route and its hosting.")
+
+    def _admit(self, route: Route, base: dict[str, Any], started: str, clock: float) -> None:
+        """Hold the call to its budgets; a refusal is recorded, then raised."""
+        if self._guard is None:
+            return
+        try:
+            for warning in self._guard.admit(route.profile_id or None):
+                _log.warning("%s: %s", base["purpose"], warning)
+        except PramaError as exc:
+            self._record(base, started, clock, None, None, 0, None, "refused_budget", str(exc))
+            raise
 
     def _keep(self, request: Request, response: Response) -> str:
         """Store the exchange per policy; return its digest. Redacted unless `full`."""
@@ -499,6 +520,8 @@ class LlmGateway:
             served_from=served_from,
         )
         self._ledger.append(record)
+        if self._guard is not None and outcome == "ok" and served_from == "provider":
+            self._guard.charge(record)
         from prama.telemetry import metrics
 
         metrics.LLM_CALLS.inc(purpose=record.purpose, outcome=str(outcome))

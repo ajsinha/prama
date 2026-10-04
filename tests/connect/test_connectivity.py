@@ -244,6 +244,43 @@ class TestCredentialResolution:
             ).connector_for(connection_id)
             assert connector.config["password"] == "from-the-vault"
 
+    async def test_a_connector_with_a_secret_field_accepts_its_resolved_credential(
+        self, started_database: Database, tenant_id: str, registry
+    ) -> None:
+        # PostgreSQL declares `password` secret, so configuration may not hold
+        # it. The resolved credential was merged in before validation and
+        # refused as a stored secret: every PostgreSQL connection with a
+        # credential_ref failed. SQLite, which has no secret field, hid it.
+        resolver = SecretResolver([MemorySecretProvider({"pg": "from-the-vault"})])
+        async with started_database.unit_of_work() as uow:
+            entity, _ = await ConnectionService(uow).configure(
+                tenant_id=tenant_id,
+                name="Risk warehouse",
+                source_type="postgresql",
+                config={
+                    "host": "db.example",
+                    "database": "risk",
+                    "user": "prama_ro",
+                    "schemas": ["risk"],
+                },
+                authored_by="alice",
+            )
+            declared = await uow.connections.current(str(entity.id), tenant_id=tenant_id)
+            assert declared is not None
+            declared.credential_ref = "memory://pg"
+            connector = await ConnectivityService(
+                uow, registry=registry, secrets=resolver
+            ).connector_for(str(entity.id))
+            assert connector.config["password"] == "from-the-vault"
+            assert "password" not in json.dumps(declared.config_json or {})
+
+    def test_a_secret_written_into_configuration_is_still_refused(self, registry) -> None:
+        with pytest.raises(ValidationError, match="secret may not be stored"):
+            registry.create(
+                "postgresql",
+                {"host": "h", "database": "d", "user": "u", "schemas": ["s"], "password": "x"},
+            )
+
     async def test_where_the_credential_lands_is_the_connectors_decision(
         self, started_database: Database, tenant_id: str, source: Path, registry
     ) -> None:

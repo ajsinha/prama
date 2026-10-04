@@ -45,6 +45,8 @@ import math
 from collections.abc import Sequence
 from typing import Any, ClassVar
 
+from prama.core.registry import Plugin, PluginManifest
+
 #: Below this, no detector says anything: the statistics it would compute are
 #: dominated by the points used to compute them.
 MINIMUM_HISTORY = 10
@@ -91,8 +93,14 @@ class Score:
         }
 
 
-class Detector(abc.ABC):
-    """Turns an observation and its history into a nonconformity score."""
+class Detector(Plugin):
+    """Turns an observation and its history into a nonconformity score.
+
+    A :class:`prama.core.registry.Plugin`, so a detector can be found by name
+    (`prama.monitor.registry`) and shipped by a third party on the
+    ``prama.monitors`` entry-point group. Its manifest is derived from
+    ``name``, ``good_at`` and ``blind_to``; nothing is restated.
+    """
 
     name: ClassVar[str] = ""
     #: What this detector is good at, for the model card and for the person
@@ -102,6 +110,16 @@ class Detector(abc.ABC):
     #: something, and a suite that only advertises strengths is a suite whose
     #: gaps are discovered in production.
     blind_to: ClassVar[str] = ""
+
+    @classmethod
+    def manifest(cls) -> PluginManifest:
+        return PluginManifest(
+            key=cls.name,
+            kind="detector",
+            display_name=cls.name.replace("_", " "),
+            version="1",
+            description=f"good at {cls.good_at}; blind to {cls.blind_to}",
+        )
 
     def score(self, observation: float, history: Sequence[float]) -> Score | None:
         """The nonconformity score, or None when the history cannot support one.

@@ -53,12 +53,54 @@ from prama.secrets.spi import (
 )
 from prama.secrets.value import SecretValue
 
-__all__ = ["ReadResult", "VaultSecretProvider", "VaultTransport"]
+__all__ = ["ReadResult", "VaultSecretProvider", "VaultTransport", "http_transport"]
 
 #: A callable taking (path, token) and returning the parsed JSON body, or
 #: raising. A protocol rather than a client, so a deployment substitutes its own
 #: with mTLS, proxying and retries already applied.
 VaultTransport = Callable[[str, str], Mapping[str, Any]]
+
+
+def http_transport(
+    address: str, *, namespace: str = "", ca_file: str = "", timeout: float = 10.0
+) -> VaultTransport:
+    """The default transport: ``GET {address}/v1/{path}`` with the token in a header.
+
+    The standard library's HTTP client, so the server needs no extra package for
+    Vault. A deployment with its own client (mTLS, a proxy, retries) passes that
+    to :class:`VaultSecretProvider` instead. ``ca_file`` trusts a private CA;
+    certificate verification is never turned off.
+    """
+    import json
+    import ssl
+    import urllib.error
+    import urllib.request
+
+    base = address.rstrip("/")
+    context = ssl.create_default_context(cafile=ca_file or None)
+
+    def read(path: str, token: str) -> Mapping[str, Any]:
+        headers = {"X-Vault-Token": token, "Accept": "application/json"}
+        if namespace:
+            headers["X-Vault-Namespace"] = namespace
+        request = urllib.request.Request(f"{base}/v1/{path.lstrip('/')}", headers=headers)
+        try:
+            with urllib.request.urlopen(request, timeout=timeout, context=context) as response:
+                body: Mapping[str, Any] = json.loads(response.read().decode("utf-8"))
+                return body
+        except urllib.error.HTTPError as exc:
+            # 404 is "no such secret", 403 a token without the policy: both are
+            # answers about the reference, not an outage, so say which.
+            reason = {404: "no secret at this path", 403: "the token may not read it"}
+            raise SecretResolutionError(
+                f"Vault refused {path}: {reason.get(exc.code, f'HTTP {exc.code}')}",
+                remedy=(
+                    "Check the path (KV v2 paths include the data/ segment) and the token's policy."
+                ),
+                context={"path": path, "status": str(exc.code)},
+            ) from exc
+
+    return read
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -144,8 +186,8 @@ class VaultSecretProvider(SecretProvider):
             missing.append("no token reference")
         return (
             f"Vault is installed but not configured: it has {' and '.join(missing)}. "
-            "Set the address and a token reference (env://VAULT_TOKEN) in "
-            "configuration — the token is itself a credential, so it is given as a "
+            "Set secrets.vault.address and secrets.vault.token_ref (env://VAULT_TOKEN) "
+            "in configuration — the token is itself a credential, so it is given as a "
             "reference and not as a literal."
         )
 
@@ -154,7 +196,7 @@ class VaultSecretProvider(SecretProvider):
             raise SecretProviderUnavailableError(
                 "Vault is referenced but not configured",
                 remedy=(
-                    "Set the Vault address and a token reference in configuration. "
+                    "Set secrets.vault.address and secrets.vault.token_ref in configuration. "
                     "The token is itself a credential, so it is given as a "
                     "reference (env://VAULT_TOKEN) and not as a literal."
                 ),

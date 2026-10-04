@@ -46,6 +46,18 @@ agents:
   enabled: true
   interval: 60s                     # how often due goals are checked
 
+secrets:
+  # Credentials are referenced, never stored: env://NAME, file://path,
+  # vault://secret/data/path#field.
+  file_root: ""                     # file:// references resolve under this; empty: as written
+  vault:                            # HashiCorp Vault KV v2, for vault:// references
+    address: ""                     # e.g. https://vault.internal:8200; empty: vault:// refused
+    token_ref: ""                   # a reference to the token (env://VAULT_TOKEN), never the token
+    namespace: ""                   # Vault Enterprise namespace, if any
+    ca_file: ""                     # a private CA bundle; verification is never turned off
+    region: ""                      # Vault's jurisdiction, for residency checks
+    timeout_seconds: 10
+
 fleet:
   # Agents that run beside the data and report findings, never data
   # (docs/design/agent-fleet-http.md). Each agent's signing key is derived
@@ -112,6 +124,31 @@ scheduler:
   interval: 60s
   against: ""                       # a local .duckdb or .sqlite file
   dialect: duckdb                   # duckdb | sqlite
+
+alerts:
+  # Off by default: nothing is sent until an operator decides where alerts go.
+  # On, a failing run alerts the dataset's owner, steward or custodian (chosen
+  # by the kind of fault), once per incident; a pass sends the resolution.
+  enabled: false
+  channels:                         # log | webhook | email, or a prama.notifiers plugin
+    owner: log
+    steward: log
+    custodian: log
+  channel_regions: {}               # channel -> region, for the residency gate
+  quiet_period: 6h                  # no repeat of an open incident unless it worsens
+  digest_hour: 9                    # UTC; the scheduler's tick sends the daily digest after it
+  webhook:
+    url: ""                         # JSON is POSTed here
+    secret_ref: ""                  # e.g. env://PRAMA_ALERT_HOOK_SECRET; signs X-Prama-Signature
+    timeout: 10                     # seconds
+  email:
+    host: ""                        # the SMTP relay
+    port: 587
+    starttls: true
+    sender: ""                      # the From address
+    username: ""
+    password_ref: ""                # e.g. env://PRAMA_SMTP_PASSWORD; never the password
+    timeout: 30                     # seconds
 
 runs:
   # Directories a run requested over the API (POST /api/v1/runs) may read a
@@ -200,11 +237,14 @@ concurrency:
     clock_skew_allowance: 2s
 
 plugins:
+  # Each group has a loader (prama.plugins), run once at start by the CLI and
+  # the server alike. prama.backends and prama.scorers were listed once and read
+  # by nothing; they are gone because there is no seam for a plugin to fill: an
+  # engine needs the function catalogue and the conformance corpus (in-tree),
+  # and scoring methods are closed enums so a score names its arithmetic.
   entry_point_groups:
-    - prama.connectors
-    - prama.backends
-    - prama.monitors
-    - prama.notifiers
-    - prama.scorers
-    - prama.validators
-  disabled: []
+    - prama.connectors              # source connectors, beside the shipped ones
+    - prama.monitors                # monitor detectors, by name
+    - prama.notifiers               # alert channels, named in alerts.channels
+    - prama.validators              # semantic-type validators, purity-checked
+  disabled: []                      # entry-point names or plugin keys switched off

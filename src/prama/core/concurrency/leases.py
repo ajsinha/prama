@@ -32,6 +32,7 @@ import dataclasses
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from types import TracebackType
+from typing import Any
 
 from prama.core.clock import Clock, SystemClock
 from prama.core.errors import LeaseLostError
@@ -48,6 +49,19 @@ class LeaseSettings:
     ttl_seconds: float = 30.0
     renew_interval_seconds: float = 10.0
     clock_skew_allowance_seconds: float = 2.0
+
+    @classmethod
+    def from_config(cls, config: Any) -> LeaseSettings:
+        """``concurrency.lease.ttl``, ``renew_interval`` and ``clock_skew_allowance``."""
+        settings = cls(
+            ttl_seconds=config.get_duration("concurrency.lease.ttl", "30s"),
+            renew_interval_seconds=config.get_duration("concurrency.lease.renew_interval", "10s"),
+            clock_skew_allowance_seconds=config.get_duration(
+                "concurrency.lease.clock_skew_allowance", "2s"
+            ),
+        )
+        settings.validate()
+        return settings
 
     def validate(self) -> None:
         if self.renew_interval_seconds >= self.ttl_seconds:
@@ -111,6 +125,10 @@ class LeaseProvider(ABC):
     async def inspect(self, resource: str) -> Lease | None:
         """Current holder, if any. For diagnostics and health output."""
 
+    #: The configured ``concurrency.lease`` settings, for a holder that does not
+    #: bring its own. Set by whoever builds the provider from configuration.
+    default_settings: LeaseSettings | None = None
+
     def hold(
         self,
         resource: str,
@@ -119,7 +137,8 @@ class LeaseProvider(ABC):
         settings: LeaseSettings | None = None,
         clock: Clock | None = None,
     ) -> LeaseHolder:
-        return LeaseHolder(self, resource, holder=holder, settings=settings, clock=clock)
+        chosen = settings or self.default_settings
+        return LeaseHolder(self, resource, holder=holder, settings=chosen, clock=clock)
 
 
 class LeaseHolder:

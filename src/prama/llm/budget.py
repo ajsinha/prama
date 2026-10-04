@@ -102,6 +102,140 @@ async def check(
     return warnings
 
 
+@dataclasses.dataclass(slots=True)
+class _Allowance:
+    """One budget that binds a gateway's calls: its limits, and what is spent."""
+
+    scope_kind: str
+    scope_id: str
+    period: str
+    action: str
+    limit_micros: int | None
+    limit_tokens: int | None
+    micros: int
+    tokens: int
+
+    @property
+    def over(self) -> bool:
+        return (self.limit_micros is not None and self.micros >= self.limit_micros) or (
+            self.limit_tokens is not None and self.tokens >= self.limit_tokens
+        )
+
+    def message(self) -> str:
+        return (
+            f"the {self.period}ly model budget for this {self.scope_kind} is spent "
+            f"({self.micros / 1_000_000:.2f} of {(self.limit_micros or 0) / 1_000_000:.2f})"
+        )
+
+
+class BudgetGuard:
+    """The budgets binding one gateway, checked before every call and charged after it.
+
+    Built by ``gateway_for`` from the ledger's spend at that moment, so every
+    path that calls a model — a steward's task, code intake, fitness search,
+    the CLI, the console — is held to the same budgets as ``POST /llm/chat``.
+    Before this, only that route checked, and everything else spent freely.
+
+    The guard is per gateway and in memory: it stops one task overrunning
+    with many calls. The fleet-wide reservation under a lease (``admit``)
+    remains on the API route, where concurrent callers race.
+    """
+
+    def __init__(
+        self,
+        allowances: list[_Allowance],
+        prices: dict[tuple[str, str], Any],
+        *,
+        principal_id: str | None,
+        api_key_id: str | None,
+    ) -> None:
+        self._allowances = allowances
+        self._prices = prices
+        self._principal = principal_id
+        self._api_key = api_key_id
+
+    def _binding(self, profile_id: str | None) -> list[_Allowance]:
+        wanted = {
+            ("tenant", ""),
+            ("principal", self._principal or "\x00"),
+            ("api_key", self._api_key or "\x00"),
+            ("profile", profile_id or "\x00"),
+        }
+        return [a for a in self._allowances if (a.scope_kind, a.scope_id) in wanted]
+
+    def admit(self, profile_id: str | None) -> list[str]:
+        """Refuse when a refusing budget is spent; return the warnings of the rest."""
+        warnings: list[str] = []
+        for allowance in self._binding(profile_id):
+            if not allowance.over:
+                continue
+            if allowance.action == "warn":
+                warnings.append(allowance.message())
+                continue
+            raise BudgetExhausted(
+                allowance.message(),
+                remedy="Raise the budget on the Models page, or wait for the period to reset.",
+                context={"scope": allowance.scope_kind, "period": allowance.period},
+            )
+        return warnings
+
+    def charge(self, record: CallRecord) -> None:
+        """Add a completed call to every budget it counts against."""
+        tokens = int(record.input_tokens) + int(record.output_tokens)
+        price = self._prices.get((record.provider_id or "", record.model_requested))
+        micros = cost_micros(price, record.input_tokens, record.output_tokens)
+        for allowance in self._binding(record.profile_id):
+            allowance.tokens += tokens
+            allowance.micros += micros
+
+
+async def guard_for(
+    uow: Any,
+    tenant_id: str,
+    routes: Any,
+    *,
+    principal_id: str | None,
+    api_key_id: str | None,
+) -> BudgetGuard | None:
+    """The guard for a gateway over *routes*, or ``None`` when no budget is set."""
+    budgets = await uow.llm.budgets(tenant_id)
+    if not budgets:
+        return None
+    profiles = {r.profile_id for r in routes.values() if r.profile_id}
+    wanted = {("tenant", ""), ("principal", principal_id or "\x00")}
+    wanted |= {("api_key", api_key_id or "\x00")} | {("profile", p) for p in profiles}
+    allowances = []
+    for budget in budgets:
+        if (budget.scope_kind, budget.scope_id) not in wanted:
+            continue
+        micros, tokens = await uow.llm.spend(
+            tenant_id,
+            period_start(budget.period),
+            scope_kind=budget.scope_kind,
+            scope_id=budget.scope_id,
+        )
+        allowances.append(
+            _Allowance(
+                budget.scope_kind,
+                budget.scope_id,
+                budget.period,
+                budget.action,
+                budget.limit_micros,
+                budget.limit_tokens,
+                int(micros),
+                int(tokens),
+            )
+        )
+    prices: dict[tuple[str, str], Any] = {}
+    for route in routes.values():
+        for candidate in route.candidates:
+            if candidate.provider_id:
+                prices[(candidate.provider_id, candidate.model)] = await uow.llm.price_for(
+                    tenant_id, candidate.provider_id, candidate.model, _now()
+                )
+    return BudgetGuard(allowances, prices, principal_id=principal_id, api_key_id=api_key_id)
+
+
 def refusal(tenant_id: str, purpose: str, request: Any, caller: Any, detail: str) -> CallRecord:
     """The ledger's record of a call refused for budget: made, never sent."""
     import hashlib
@@ -159,7 +293,8 @@ async def admit(
     leases = database.lease_provider()
     resource = f"llm-budget:{tenant_id}"
     deadline = asyncio.get_running_loop().time() + LEASE_WAIT_SECONDS
-    lease = await leases.acquire(resource, holder, 30.0)
+    ttl = database.lease_settings.ttl_seconds  # concurrency.lease.ttl
+    lease = await leases.acquire(resource, holder, ttl)
     while lease is None:
         if asyncio.get_running_loop().time() > deadline:
             raise BudgetBusy(
@@ -168,7 +303,7 @@ async def admit(
                 context={"tenant": tenant_id},
             )
         await asyncio.sleep(0.05)
-        lease = await leases.acquire(resource, holder, 30.0)
+        lease = await leases.acquire(resource, holder, ttl)
     try:
         async with database.unit_of_work() as uow:
             current = await uow.llm.current(tenant_id, purpose)

@@ -172,7 +172,7 @@ class Monitor:
         metric: str,
         *,
         kind: MetricKind = MetricKind.VOLUME,
-        detector: Detector | None = None,
+        detector: Detector | str | None = None,
         season: SeasonalModel | None = None,
         alpha: float = 0.01,
         half_life: float | None = None,
@@ -181,6 +181,12 @@ class Monitor:
         self.dataset = dataset
         self.metric = metric
         self.kind = kind
+        if isinstance(detector, str):
+            # By name, through the registry a third-party detector is loaded
+            # into; an unknown name is refused there, with what is available.
+            from prama.monitor.registry import detector as by_name
+
+            detector = by_name(detector)
         self._detector = detector or _default_detector(kind)
         self._season = season or SeasonalModel()
         self._alpha = alpha

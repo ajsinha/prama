@@ -38,6 +38,13 @@ becomes `PRAMA_DATABASE__SQLITE__PATH`.
 | `server.port` | `5900` | the console and the API share this listener |
 | `agents.enabled` | `True` |  |
 | `agents.interval` | `60s` | how often due goals are checked |
+| `secrets.file_root` | *(empty)* | file:// references resolve under this; empty: as written |
+| `secrets.vault.address` | *(empty)* | e.g. https://vault.internal:8200; empty: vault:// refused |
+| `secrets.vault.token_ref` | *(empty)* | a reference to the token (env://VAULT_TOKEN), never the token |
+| `secrets.vault.namespace` | *(empty)* | Vault Enterprise namespace, if any |
+| `secrets.vault.ca_file` | *(empty)* | a private CA bundle; verification is never turned off |
+| `secrets.vault.region` | *(empty)* | Vault's jurisdiction, for residency checks |
+| `secrets.vault.timeout_seconds` | `10` |  |
 | `fleet.token_hours` | `1` | how long an enrolment token is good for |
 | `fleet.lease_seconds` | `900` | a claimed assignment returns to the queue after this |
 | `fleet.poll_seconds` | `30` | what an agent is told to wait between calls |
@@ -73,6 +80,22 @@ becomes `PRAMA_DATABASE__SQLITE__PATH`.
 | `scheduler.interval` | `60s` |  |
 | `scheduler.against` | *(empty)* | a local .duckdb or .sqlite file |
 | `scheduler.dialect` | `duckdb` | duckdb \| sqlite |
+| `alerts.enabled` | `False` |  |
+| `alerts.channels.owner` | `log` |  |
+| `alerts.channels.steward` | `log` |  |
+| `alerts.channels.custodian` | `log` |  |
+| `alerts.quiet_period` | `6h` | no repeat of an open incident unless it worsens |
+| `alerts.digest_hour` | `9` | UTC; the scheduler's tick sends the daily digest after it |
+| `alerts.webhook.url` | *(empty)* | JSON is POSTed here |
+| `alerts.webhook.secret_ref` | *(empty)* | e.g. env://PRAMA_ALERT_HOOK_SECRET; signs X-Prama-Signature |
+| `alerts.webhook.timeout` | `10` | seconds |
+| `alerts.email.host` | *(empty)* | the SMTP relay |
+| `alerts.email.port` | `587` |  |
+| `alerts.email.starttls` | `True` |  |
+| `alerts.email.sender` | *(empty)* | the From address |
+| `alerts.email.username` | *(empty)* |  |
+| `alerts.email.password_ref` | *(empty)* | e.g. env://PRAMA_SMTP_PASSWORD; never the password |
+| `alerts.email.timeout` | `30` | seconds |
 | `runs.roots` | `case-studies` | e.g. [/data/landing, /data/warehouse] |
 | `llm.offline` | `False` | true: only self-hosted models on a local or private address |
 | `llm.per_principal_rpm` | `60` | requests per minute per principal through /api/v1/llm |
@@ -112,5 +135,5 @@ becomes `PRAMA_DATABASE__SQLITE__PATH`.
 | `concurrency.lease.ttl` | `30s` |  |
 | `concurrency.lease.renew_interval` | `10s` |  |
 | `concurrency.lease.clock_skew_allowance` | `2s` |  |
-| `plugins.entry_point_groups` | `prama.connectors, prama.backends, prama.monitors, prama.notifiers, prama.scorers, prama.validators` |  |
-| `plugins.disabled` | *(empty)* |  |
+| `plugins.entry_point_groups` | `prama.connectors, prama.monitors, prama.notifiers, prama.validators` |  |
+| `plugins.disabled` | *(empty)* | entry-point names or plugin keys switched off |

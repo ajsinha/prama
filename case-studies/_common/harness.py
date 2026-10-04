@@ -321,7 +321,9 @@ class Harness:
         """A control a person wrote, declared and then activated by an approver."""
         declared = self.sdk.controls.declare(pql, identity=identity, criticality=1)
         control = declared.get("control", declared)
-        self.sdk.controls.activate(control["id"], reason=reason)
+        # By the owner, not the author: a Tier-1 control written by one person
+        # is switched on by another (maker-checker), and Prama refuses otherwise.
+        self.approver.controls.activate(control["id"], reason=reason)
         self.accepted += 1
         return control
 

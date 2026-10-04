@@ -116,7 +116,7 @@ is allowed (a date-format validator parses dates); asking it what time it is is 
 nhs_number = "acme_validators.nhs:NhsNumberValidator"
 ```
 
-Install it into the environment the server runs in, and restart. `install_shipped()` calls `load_entry_points` at start; each entry point's class is
+Install it into the environment the server runs in, and restart. `prama.plugins.bootstrap` calls `load_entry_points` at start, in the CLI and the server alike; each entry point's class is
 instantiated, admitted and registered in `REGISTRY`, and a refused one is logged with the reason
 while the rest still load. Switch one off by entry-point name in configuration:
 
