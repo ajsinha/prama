@@ -2,27 +2,33 @@
 
 # Discussion and your queue
 
-## Comments
+Comment threads on the estate, and one place that gathers everything waiting on you. Your queue is
+**My queue** in the user menu, or the inbox icon in the top bar (`/queue`).
 
-Every dataset's **Metadata** page has a **Discussion** section. Comment on the dataset or on one
-of its attributes, and mention a colleague with `@username`. Replying to a resolved thread
-reopens it. Comments can also be posted on a control, a glossary term or an incident, through
-the API (`POST /api/v1/comments`) or the CLI (`prama comment … --as you`). Every comment and
-resolution is written to the audit log.
+## To start or answer a discussion
 
-## My queue
+1. Open the dataset's page under **Estate → Metadata**, and go to its **Discussion** section.
+2. Choose the dataset or one of its attributes, write the comment, and mention a colleague with
+   `@username`. The mention reaches their queue.
+3. **Reply** to continue a thread, and **Resolve** it when it is settled. Replying to a resolved thread
+   reopens it.
 
-**My queue** (user menu) gathers everything waiting on you, read from where it already lives:
+Controls, glossary terms and incidents take comments through the API (`POST /api/v1/comments`) or the
+CLI (`prama comment <target> "…" --as you`). Every comment and resolution is written to the audit log.
+
+## To work your queue
+
+**My queue** is read from where each item already lives, so nothing is copied into it:
 
 - threads that mention you, and open threads on datasets you own or steward;
 - failing controls on those datasets;
-- metadata inconsistencies that touch those datasets;
-- curation suggestions for those datasets;
-- if you can approve controls, the rules and delegate uploads that **somebody else** proposed.
+- metadata inconsistencies that touch them;
+- curation suggestions for them;
+- if you may approve controls, the rules and delegate uploads that **somebody else** proposed.
 
-Datasets come into your queue when you are their owner or steward on the declaration.
-
-The same queue is available at `GET /api/v1/queue`, and from `prama queue --as you --approver`.
+A dataset is yours when you are its owner or steward on the declaration. An item leaves when it is
+resolved, not when it is seen. The same queue is at `GET /api/v1/queue` and
+`prama queue --as you --approver`.
 
 ## Go deeper
 

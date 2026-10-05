@@ -4,7 +4,19 @@
 
 # Design — Code-to-Lineage and Persistent Prama Agents
 
-Status: proposal. Builds on `prama.lineage` (graph/sql/scan), `prama.propose`, `prama.derive.relationships`,
+**As built (2026-10-05).** Both parts are built: `prama.codeintake` (ZIP and git intake, the sandboxed
+worker, model-suggested edges, change review) and `prama.steward` (identity, task protocol, runner,
+kill switch). How they work is [architecture/lineage-and-code.md](../architecture/lineage-and-code.md);
+adding a reader is [developer/code-readers.md](../developer/code-readers.md). Where the build departs
+from this proposal: a steward runs inside the server and thinks through the gateway that
+`prama.llm.wiring.gateway_for` builds, under its own identity and budgets, rather than over a
+`POST /api/v1/llm/complete` endpoint; its forbidden scopes are `prama.steward.identity.FORBIDDEN`
+(`admin`, `control:approve`, `attestation:sign`, `relationship:write`, `declaration:write`); the
+`CodeSource` and detector entry-point groups were not built and stay marked `(planned)`; mainframe code
+and shell were dropped from scope (doc 23, "Lineage scope"). The rest of this note is the proposal as
+written.
+
+Builds on `prama.lineage` (graph/sql/scan), `prama.propose`, `prama.derive.relationships`,
 `prama.induce`, `prama.agent`, `prama.assistant`, `prama.llm`, `prama.security.egress`, `prama.core.concurrency`.
 Nothing here needs a migration: new tables are appended to `schema/sqlite.sql` and `schema/postgres.sql`
 byte-identically and applied by `prama db init`.
@@ -25,7 +37,7 @@ Governing invariants, restated because both features touch them:
 
 ## Part A — Code-to-lineage
 
-### A1. Ingestion (`(planned) prama.codeintake`)
+### A1. Ingestion (`prama.codeintake`)
 
 Two sources behind one ABC, `CodeSource` (entry point group `(planned) prama.code_sources`), each yielding a
 `Snapshot` = content-addressed tree of files (path → sha256, size) plus an origin descriptor.
@@ -205,7 +217,7 @@ in `prama/db`.
 
 Today's `prama.agent` is an **execution agent**: zone-bound, outbound-only, runs compiled plans, signs
 evidence. That stays exactly as is. A **persistent AI agent** ("steward agent") is a new, separate
-runtime (`(planned) prama.steward`) that shares the identity and transport discipline but never executes controls
+runtime (`prama.steward`) that shares the identity and transport discipline but never executes controls
 and never produces evidence records. Keeping them separate is deliberate: an execution agent's verdict
 must equal the control plane's, and nothing probabilistic belongs in that process.
 
@@ -219,7 +231,7 @@ containing them. Keys expire (default 30 days) and rotate via the outbound chann
 
 ### B2. The LLM gateway — the only way a steward thinks
 
-`POST /api/v1/llm/complete` (server-side `(planned) prama.llm.gateway`). The steward sends a `Request`-shaped body
+`POST /api/v1/llm/complete` (server-side `prama.llm.gateway`). The steward sends a `Request`-shaped body
 minus provider selection; the server:
 
 1. authenticates the key, checks `agent:llm`;
@@ -235,7 +247,7 @@ minus provider selection; the server:
 
 Providers' credentials live only on the server. The steward package has no dependency on any provider
 SDK, enforced by an architecture test (no import of `prama.llm.providers` or vendor SDKs from
-`(planned) prama.steward`).
+`prama.steward`).
 
 ### B3. Goals, tasks and the task protocol
 
@@ -408,20 +420,8 @@ swap is measured, not assumed. Steward sprawl — every steward has a human spon
 ## Change review on a pull request (as built)
 
 `prama code review --base REF [--head REF] [--format markdown|json] [--offline]`
-(`prama.codeintake.review`).
-
-**How it reads the code.** Both versions come from `git archive`, so the working tree is untouched.
-Each is read by the same sandboxed reader intake uses.
-
-**What it reports:**
-
-- **Changed lineage.** Edges added, removed, or changed in kind: a copy becoming a derivation is a
-  change.
-- **Reach.** The blast radius of each changed column, in the head's lineage.
-- **Implied controls.** Lineage-derived proposals new at the head.
-- **Lost basis.** Proposals present at the base and gone at the head. If a live control has one of
-  those identities, the change removed what it checks. The review lists it and exits 3.
-
+(`prama.codeintake.review`). What it reads and reports, and why it exits 3, is
+[architecture/lineage-and-code.md](../architecture/lineage-and-code.md#reviewing-a-change).
 `--offline` skips the estate's controls and reports lineage and proposals only.
 
 In CI, for example GitHub Actions:

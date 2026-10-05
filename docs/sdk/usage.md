@@ -51,3 +51,13 @@ ranked["undeclared"]                              # used, but nobody has declare
 Most used first; among equally used datasets, the one with fewer active controls
 first. Datasets the warehouse reads that nobody has declared are listed separately,
 because the first thing they need is a declaration. This needs `report:read`.
+
+---
+
+<div align="center">
+<img src="../assets/prama-mark.svg" width="30" alt=""/><br/>
+<sub><b>PRAMA</b> — <i>Declare it. Prove it. Trust it.</i><br/>
+Copyright © 2026 <b>Ashutosh Sinha</b> &lt;ajsinha@gmail.com&gt; · All rights reserved.<br/>
+Proprietary and confidential. No licence is granted except by separate written agreement.<br/>
+See <a href="../../LICENSE">LICENSE</a> and <a href="../../NOTICE">NOTICE</a>. Third-party names and marks are the property of their respective owners.</sub>
+</div>

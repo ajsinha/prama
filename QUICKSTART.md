@@ -62,6 +62,7 @@ uv python install 3.13
 # The project
 uv venv --python 3.13
 uv sync --extra dev --extra serve
+source .venv/bin/activate        # every command below assumes this
 ```
 
 `uv sync` installs exactly what `uv.lock` pins — the set the gate last ran green
@@ -70,20 +71,26 @@ the extras you name, which is what makes it reproducible; to *add* an extra to
 an environment you already have, use `uv pip install -e ".[postgres]"` instead,
 as the PostgreSQL section below does.
 
-Plain `venv` works too, if the interpreter on your PATH is already 3.12 or newer. Note
-that `pip` cannot read `uv.lock`, so this path floats to the newest release of
-every dependency:
+Plain `pip` works too, if the interpreter on your PATH is already 3.12 or newer.
+`pip` cannot read `uv.lock`, so the same pins are exported for it:
+`requirements.txt` (the server and console) and `requirements-dev.txt` (plus the
+tests and linters). They are generated from the lock by
+`scripts/export_requirements.py`, and the gate refuses a copy that has drifted.
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev,serve]"
+pip install -r requirements-dev.txt          # or requirements.txt to only run it
 ```
 
 Check it:
 
 ```bash
-prama version
+prama version                    # or python -m prama version: the same CLI
 ```
+
+Every extra (`serve`, `postgres`, `sso`, `kafka`, `audit`, …) is listed in
+`pyproject.toml`; a feature that needs one you have not installed refuses by
+name (§7).
 
 ---
 
@@ -94,7 +101,8 @@ python run_prama_web.py --prepare
 ```
 
 `--prepare` applies the schema and creates an estate before starting. Leave it
-off once both exist.
+off once both exist. `--reload` restarts the server on every source change, for
+development; it reads configuration files and the environment, not `--set`.
 
 ```
    ___
@@ -169,11 +177,10 @@ machine can read it. A provisioning script pipes it instead:
 printf '%s' "$PASSWORD" | prama principal create svc-loader --role steward
 ```
 
-Then sign in at `/sign-in`. The user menu (the avatar, top right) offers **My
-account**, **My API keys** (mint a scoped, expiring key for a program; it is
-shown once), **Change password** and **My queue**. An `admin` also gets the
-**Admin** menu: **People & roles** (`/admin/users`: add people, set roles, reset
-passwords, disable), **All API keys** (`/admin/keys`), **Models** and **Agents**. The help centre at `/help` explains each of these.
+Then sign in at `/sign-in`. The user menu (the avatar, top right) and, for an
+`admin`, the **Admin** menu are explained in the console under **Help → Accounts,
+roles and sign-in** and **Help → API keys**; every page also has an **About this page**
+note at its foot.
 
 ### Make the estate stick
 
@@ -233,20 +240,18 @@ python run.py
 ```
 
 That seeds a trading book in SQLite with known defects, signs in to your server (as
-`admin` / `prama-dev-admin` unless you pass `--username` and `--password`), creates an
-estate for the run, declares it, derives the controls from the declarations, and has the
-server run them against the book. It prints what it found — including a table of what it
-planted against what it caught, and what it did **not** catch — and where to look in the
+`admin` / `prama-dev-admin` unless told otherwise), creates an estate for the run, declares
+it, derives the controls from the declarations, and has the server run them. It prints what
+it planted against what it caught, what it did **not** catch, and where to look in the
 console: sign in to the run's estate (the form asks which, once there is more than one).
 
-A study starts no server of its own. It finds yours from `config/application.yaml`
-(`server.host`, `server.port`); pass `--config` with another file for another server. The
-server reads the study's data itself, which it may do because `runs.roots` in the shipped
-configuration lists `case-studies`. The same SDK is yours to script with: see
+There are eight studies, each an estate of its own, so they can run one after another or at
+once against the same server. **[case-studies/README.md](case-studies/README.md)** lists them,
+and says how a study finds your server and which data the server may read; the console shows
+the same under **Help → Case studies**. The SDK they use is yours to script with:
 [docs/sdk](docs/sdk/README.md).
 
-| | Study | What it is for |
-|---|---|---|
+---|---|---|
 | 1 | `01-trading-book-sqlite` | The whole loop on one source |
 | 2 | `02-feeds-csv-parquet` | Arrival, and content in CSV, Parquet and JSON Lines feeds |
 | 3 | `03-mixed-estate` | Relationships: defects no single dataset can see |
@@ -351,8 +356,9 @@ a check over no rows passes every test it can run and has established nothing.
 
 ## 6. Configuration
 
-Three layers, later winning: built-in defaults → `config/application.yaml`
-(tracked) → `config/application.local.yaml` (git-ignored) → environment.
+Five sources, later winning: built-in defaults → `config/application.yaml`
+(tracked) → `config/application.local.yaml` (git-ignored) → environment →
+`--set key=value` on the command line.
 
 Environment variables use `PRAMA_` and `__` for nesting:
 
@@ -373,7 +379,7 @@ database:
 ```
 
 ```bash
-pip install -e ".[postgres]"
+uv pip install -e ".[postgres]"     # plain pip: pip install -e ".[postgres]"
 prama db init
 ```
 

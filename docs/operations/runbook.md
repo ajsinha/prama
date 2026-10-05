@@ -37,34 +37,24 @@ Or set `PRAMA_SECURITY__SESSION_SECRET` in the environment. `run_prama_web.py
 **Do not** put it in `config/application.yaml`. That file is tracked, and the
 pre-commit hook refuses a non-empty secret in it.
 
-### `the live schema has drifted`
+### `the live … database does not match schema/<dialect>.sql`
 
 `prama db verify` compares the database against `schema/<dialect>.sql` and fails
 loudly rather than repairing anything. **There are no migrations in this
 product**, by design: a schema that silently changed under running controls is
 how evidence stops meaning what it said.
 
-The message names what differs. Decide which is right — the file or the database
-— and make the other match deliberately. `prama db init` applies the schema file
-idempotently and will not drop or alter an existing column.
+The message names what differs. `prama db init` applies the schema file
+idempotently and only creates what is missing; it never drops or alters a column.
+When the schema file changed a table, the database is recreated from it on a
+fresh file (a development database is simply deleted) rather than altered.
 
 ### The interpreter is missing
 
-The venv is built from a standalone CPython under `~/.local/share/uv/python/`,
-not from `/usr/bin`. An OS upgrade that removes the system Python does not touch
-it. If the venv is broken anyway:
-
-```bash
-uv python install 3.13
-uv venv --python 3.13
-uv sync --extra dev --extra serve --extra postgres --extra fast \
-        --extra audit --extra sso --extra kafka --extra rest
-```
-
-`uv sync` installs exactly what `uv.lock` pins, which is the point on a
-server: the host gets the set the gate ran green on, not whatever released
-between the build and the deploy. It also removes anything outside the extras
-named, so list every extra the host needs in one command.
+The venv is built from a standalone CPython that `uv` owns, not from `/usr/bin`,
+so an OS upgrade does not remove it. If it is broken anyway, rebuild it as
+[QUICKSTART §1](../../QUICKSTART.md#which-python) shows, naming in one `uv sync`
+every extra the host needs: `uv sync` removes anything outside the extras named.
 
 ---
 
@@ -74,7 +64,7 @@ named, so list every extra the host needs in one command.
 
 Look at the **source**, not the controls. Forty controls failing together is
 almost always one upstream event: a feed that did not arrive, a schema change, a
-truncated load. `prama connect health <source>` and the dataset's arrival
+truncated load. `prama connect test --connection <id>` and the dataset's arrival
 control answer this faster than reading forty failures.
 
 ### A control fails and the data looks right

@@ -27,8 +27,12 @@ python3 scripts/generate_docs.py --check
 # everything else.
 if command -v uv >/dev/null 2>&1; then
   uv lock --check
+  # requirements.txt and requirements-dev.txt are derived from the lock, for
+  # pip users; a copy that has drifted from it pins the wrong versions.
+  python3 scripts/export_requirements.py --check
 else
   echo "uv not installed; skipping the lock-file check"
 fi
-pytest tests -q | tail -3
+# Both suites pyproject's testpaths names: tests/ and qa/regression-suite/.
+pytest -q | tail -3
 echo "gate: green"

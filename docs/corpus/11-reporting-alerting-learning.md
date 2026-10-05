@@ -24,7 +24,11 @@ Requirements: [`FR-SCR`](04-requirements-functional.md#k-scoring-reporting--anal
 `prama.score` — composite scoring and trust propagation along lineage, derived
 from evidence rather than assigned. `prama.report` — scorecards, charts, the
 RDARR attestation pack, the SOC 2 readiness matrix, and the theme machinery.
-`prama.alert` — routing, deduplication, severity, digests, and the quiet period.
+`prama.alert` — routing, deduplication, severity, digests, the quiet period, and
+delivery: after every run (the scheduler tick, `prama control run`, `POST /runs`, an
+agent's report) failing records become alerts for the dataset's declared owner,
+steward or custodian, sent through the `log`, webhook and email notifiers. Delivery
+is off by default (`alerts.enabled`).
 `prama.incident` — correlation and root-cause analysis. `prama.learn` — the
 feedback loop. `prama.integrate.catalog` — quality badges written back to
 Collibra, Alation and DataHub.
@@ -36,8 +40,8 @@ residency is withheld from **everybody or nobody**: delivered to some recipients
 and silently withheld from others is worse than either, because the ones who got
 it assume everyone did.
 
-A badge cannot be constructed without a date. "Trusted" on a table nobody has
-checked since March reads as current, and a reader has no way to tell.
+Catalogue write-back, including why a badge cannot be constructed without a
+date, is stated once, in [09 §16.1](09-connectivity-and-formats.md#161-catalogue-write-back-as-built).
 
 **Not built:** the longitudinal measurements in §6 — alert precision, proposal
 acceptance and break-classification accuracy over twelve months — which need

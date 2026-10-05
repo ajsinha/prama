@@ -122,7 +122,7 @@ MENU: tuple[NavGroup, ...] = (
             NavItem("Delegates", "delegates", "/delegates", "bi-braces",
                     "Python checks admitted to run as controls"),
             NavItem("Code intake", "code", "/code", "bi-file-earmark-code",
-                    "Controls read out of existing DQ code"),
+                    "Lineage read from application code"),
         )),
     )),
     NavGroup("Assurance", "bi-patch-check", (

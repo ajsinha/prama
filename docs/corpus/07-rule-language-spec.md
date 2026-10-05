@@ -489,7 +489,7 @@ every hard control goes until the declarative core is decoration around a pile o
 What is supported is what already worked: a `SemanticValidator` with a SQL **screen** and a
 Python **residual**, which is how `ISIN` and `LEI` have always been checked. The PQL surface does
 not change — `IS VALID 'my_scheme'` — and a distribution advertises one through the
-`prama.classify.validators` entry point.
+`"prama.validators"` entry point (admitted by `prama_kernel.plugins`).
 
 The contract is enforced, not documented:
 

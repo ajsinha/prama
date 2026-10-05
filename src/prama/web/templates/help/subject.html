@@ -1,0 +1,65 @@
+{# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
+{# One subject (prama/web/help_subjects.py), after Maya's subject page: it opens with
+   its first reading in full, then lists the rest by what each is for. Nothing here is
+   written for the page: every title and summary is its document's own. #}
+{% extends "base.html" %}
+{% block title %}{{ v.subject.title }} — Prama help{% endblock %}
+{% block content %}
+<nav class="help-crumbs" aria-label="Breadcrumb">
+  <a href="{{ url_for('help_index') }}"><i class="bi bi-book" aria-hidden="true"></i> Help</a><i class="bi bi-chevron-right" aria-hidden="true"></i>
+  <a href="{{ url_for('help_index') }}#cat-{{ v.category.id }}">{{ v.category.name }}</a><i class="bi bi-chevron-right" aria-hidden="true"></i>
+  <span aria-current="page">{{ v.subject.title }}</span>
+</nav>
+<header class="help-topic-hero">
+  <span class="ico"><i class="bi bi-{{ v.subject.icon }}" aria-hidden="true"></i></span>
+  <div><h1>{{ v.subject.title }}{% if v.subject.badge %} <span class="badge">{{ v.subject.badge }}</span>{% endif %}</h1>
+    <p>{{ v.subject.summary }}</p></div>
+</header>
+
+<nav class="help-onpage" aria-label="On this page">
+  <a class="chip" href="#opening"><i class="bi bi-{{ v.opening.icon }}" aria-hidden="true"></i> {{ v.opening.entry.title }}</a>
+  {% if v.further %}<a class="chip" href="#further"><i class="bi bi-signpost-2" aria-hidden="true"></i> Go further ({{ v.further | length }})</a>{% endif %}
+</nav>
+
+<section class="help-opening" id="opening">
+  <div class="opening-role"><i class="bi bi-{{ v.opening.icon }}" aria-hidden="true"></i> {{ v.opening.label }}</div>
+  {% if opening %}
+  <article class="help-doc">{{ opening.html | safe }}</article>
+  {% else %}
+  <div class="alert alert-info">{{ v.opening.entry.title }} lives in the source repository
+    (<code>{{ v.opening.entry.path }}</code>), not in the installed package. Read it there.</div>
+  {% endif %}
+  <p class="small text-muted mt-2">Read it on its own page: <a href="{{ url_for('help_topic', slug=v.opening.entry.slug) }}">{{ v.opening.entry.title }}</a>.</p>
+</section>
+
+{% if v.further %}
+<section class="help-further" id="further">
+  <h2><i class="bi bi-signpost-2" aria-hidden="true"></i> Go further</h2>
+  <div class="row g-3">
+    {% for r in v.further %}
+    <div class="col-md-6 col-xl-4">
+      <a class="card subject-card h-100" href="{{ url_for('help_topic', slug=r.entry.slug) }}"><div class="card-body">
+        <span class="role"><i class="bi bi-{{ r.icon }}" aria-hidden="true"></i> {{ r.label }}</span>
+        <div class="hc-title"><span>{{ r.entry.title }}</span></div>
+        <p>{{ r.entry.summary }}</p>
+        <span class="more">Read <i class="bi bi-arrow-right" aria-hidden="true"></i></span>
+      </div></a>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<div class="help-pager">
+  {% if v.prev %}<a class="btn btn-outline-secondary" href="{{ url_for('help_topic', slug=v.prev.slug) }}"><i class="bi bi-arrow-left" aria-hidden="true"></i> {{ v.prev.title }}</a>{% else %}<span></span>{% endif %}
+  {% if v.next %}<a class="btn btn-primary" href="{{ url_for('help_topic', slug=v.next.slug) }}">{{ v.next.title }} <i class="bi bi-arrow-right" aria-hidden="true"></i></a>{% endif %}
+</div>
+<div class="help-related">
+  <div class="head"><i class="bi bi-grid" aria-hidden="true"></i> More in {{ v.category.name }}</div>
+  <div class="chips">
+    {% for s in v.siblings %}<a class="chip" href="{{ url_for('help_topic', slug=s.slug) }}"><i class="bi bi-{{ s.icon }}" aria-hidden="true"></i> {{ s.title }}</a>{% endfor %}
+    <a class="chip" href="{{ url_for('help_index') }}"><i class="bi bi-book" aria-hidden="true"></i> All help</a>
+    <a class="chip" href="{{ url_for('help_library') }}"><i class="bi bi-collection" aria-hidden="true"></i> Library</a>
+  </div>
+</div>
+{% endblock %}

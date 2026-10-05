@@ -2,12 +2,16 @@
 
 # Themes and display
 
-Choose a theme from the palette button in the top bar. Your choice is stored in a cookie and applied by
-the server before the page is drawn, so there is no flash of the wrong colours. Add `?theme=<name>` to
-any URL to preview a theme without changing your choice.
+How the console looks: its colour theme and how dense its tables are. Both are in the top bar, and
+both are yours alone.
 
-Prama has exactly Maya's four themes, under Maya's names, so the two consoles match on one desk and a
-choice means the same thing in both:
+## To choose a theme
+
+1. Press the palette button in the top bar.
+2. Pick one of the four themes. Your choice is kept in a cookie and applied by the server before the
+   page is drawn, so there is no flash of the wrong colours.
+
+To preview a theme without changing your choice, add `?theme=<name>` to any URL.
 
 | Theme | Register |
 |---|---|
@@ -16,20 +20,19 @@ choice means the same thing in both:
 | Blue | SAJHA's blue on a cool ground. |
 | Green | Deep green and house gold on a cream ground. |
 
-The theme sets the whole shell: the gradient of the top bar and its menus, buttons, cards, tabs and the
-footer all take their colour from it.
+They are Maya's four themes under Maya's names, so the two consoles match on one desk. The theme sets
+the whole shell: the top bar and its menus, buttons, cards, tabs and the footer.
 
-## Why the colours are derived
+## To change row density
 
-Each theme declares only its surfaces and brand colour. The colours for the eight quality dimensions are
-*computed* for each theme, moved only as far as needed to meet contrast rules: 3:1 for a mark and 4.5:1 for
-text. A test regenerates the stylesheet and fails the build if anyone hand-edits it, and another fails if
-a brand colour comes too close to a dimension colour — which is why Dark's accent is slightly pinker
-here than in Maya.
+Press the list button next to the theme menu to switch tables between *comfortable* and *compact*.
 
-## Row density
+## What to know
 
-The list button next to the theme menu switches tables between *comfortable* and *compact*.
+Each theme declares only its surfaces and brand colour. The colours of the quality dimensions are
+*computed* for each theme, moved only as far as needed to meet contrast (3:1 for a mark, 4.5:1 for
+text). A test fails the build if the stylesheet is edited by hand, and another if a brand colour
+comes too close to a dimension colour, which is why Dark's accent is slightly pinker here than in Maya.
 
 ## Go deeper
 

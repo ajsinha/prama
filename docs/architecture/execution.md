@@ -139,6 +139,13 @@ cannot express is refused at compile time. The conformance suite
 and against the reference interpreter, and requires the same verdict, the same
 metrics to nine decimal places and the same segments.
 
+SQLite needs one switch to keep that promise. It reads a double-quoted column
+name it cannot find as a string, so a control on a misspelled column would test
+a constant and pass every row; DuckDB and PostgreSQL refuse it. Every SQLite
+connection that runs a control, on the server or an agent, is opened through
+`prama_kernel.strict_sqlite`, which turns that off (Python 3.12 or newer) or
+refuses the connection.
+
 ### Built and not wired
 
 `prama.execute.claim` (claims with fencing tokens) and
@@ -166,22 +173,11 @@ limits, no network where the host allows `unshare`, a minimal environment, and
 an audit hook that refuses sockets, subprocesses and `exec`. Which isolation
 was used is recorded in the evidence.
 
-A delegate reaches a host one of three ways: an installed entry point, a
-configured directory, or a console upload that is vetted in the sandbox and then
-approved by **someone other than the uploader**. Each host (the server and every
-agent) runs only what its own configuration admits:
-
-```yaml
-delegates:
-  enabled: true
-  paths: []                         # directories of delegate .py files, vetted before import
-  entry_points: true                # also load the prama.delegates entry point
-  sandbox: true                     # run in a resource-limited subprocess
-  timeout: 120                      # CPU seconds per run
-  memory_mb: 2048
-  max_rows: 5000000                 # a larger dataset is refused, never truncated
-  batch_rows: 10000
-```
+A delegate reaches a host from an installed entry point, a configured directory,
+or a console upload approved by **someone other than the uploader**, and each host
+(the server and every agent) runs only what its own `delegates:` configuration
+admits. The three ways in and every setting are in
+[developer/delegates.md](../developer/delegates.md#registration-and-configuration).
 
 ![DQ delegates: two uploads, vetted and approved by a second person, with what each reads](../assets/screenshots/delegates.png)
 

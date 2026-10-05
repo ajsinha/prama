@@ -1,6 +1,10 @@
-# Controls, proposals, derivation and runs from Python
+<img src="../assets/prama-lockup.svg" alt="Prama — Declare it. Prove it. Trust it." width="330"/>
 
-Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
+*Copyright © 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.*
+
+---
+
+# Controls, proposals, derivation and runs from Python
 
 These namespaces are the stages a case study walks — declare, derive (Γ),
 accept, run, read — and everything around them the console's control pages
@@ -17,7 +21,9 @@ and `prama control …` offer:
 
 Every method works on `Client` and `AsyncClient`; the examples use the
 synchronous client. The server-side logic is `prama.controls`, which the
-console and the CLI call too, so all three give the same answers.
+console and the CLI call too, so all three give the same answers; how a
+control goes from a sentence to SQL is in
+[Controls and PQL](../architecture/controls-and-pql.md).
 
 ## Declare, derive, accept
 
@@ -98,13 +104,15 @@ evidence (they are personal data on a retention clock); `due_only=True` runs
 only what each control's schedule says is due.
 
 **What the server will read is the operator's decision, not the connection's.**
-A connection's path is data that anybody with `declaration:write` can set, so
-a run only opens paths under `runs.roots` in the server's configuration, and
-refuses outright if a root contains Prama's own database. With no roots set,
-nothing is opened. The engine is fenced as well as the path: a DuckDB source
-cannot read files outside the roots even from a `CUSTOM SQL` control, and every
-statement must be a single read-only query. See
-`src/prama/connect/sources/confined.py`.
+A run only opens paths under `runs.roots` in the server's configuration, and
+refuses outright if a root contains Prama's own database; with no roots set,
+nothing is opened. Why, and how the engine is fenced as well as the path, is in
+[Execution](../architecture/execution.md#connectors-reaching-a-source).
+
+These run connections take `path`. A connection made for the connector
+framework (`client.connectors.test`, `browse`, `profile`) takes the
+connector's own form instead: `database_path` for SQLite
+([knowledge and code](knowledge-and-code.md#connectors)).
 
 The run is recorded exactly as `prama control run` records it — one evidence
 record per control in the hash-chained ledger — and can be read back:
@@ -136,6 +144,13 @@ estate.controls.retire(c["id"], reason="replaced")
 [v["status"] for v in estate.controls.history(c["id"])]
 # ['proposed', 'active', 'suppressed', 'retired']
 ```
+
+A control is declared at Tier 4 unless `criticality=` says otherwise. At
+Tier 1, the person who wrote it cannot activate it: `activate` raises
+`prama.ValidationError` ("cannot be approved by its own author") and a second
+person holding `control:approve` must. A control Prama derived has no author,
+so whoever accepts it is the check
+([who may activate](../architecture/controls-and-pql.md#who-may-activate)).
 
 Declaring the same `identity` again amends that control; identical text
 changes nothing. An unreadable schedule is refused at declaration, because it
@@ -177,3 +192,13 @@ lists what did not come across one by one.
 due, and — for the estate the server's scheduler runs — its recent ticks.
 `estate.schedule.run_now()` runs one tick; it is refused when the scheduler is
 off, or runs a different estate.
+
+---
+
+<div align="center">
+<img src="../assets/prama-mark.svg" width="30" alt=""/><br/>
+<sub><b>PRAMA</b> — <i>Declare it. Prove it. Trust it.</i><br/>
+Copyright © 2026 <b>Ashutosh Sinha</b> &lt;ajsinha@gmail.com&gt; · All rights reserved.<br/>
+Proprietary and confidential. No licence is granted except by separate written agreement.<br/>
+See <a href="../../LICENSE">LICENSE</a> and <a href="../../NOTICE">NOTICE</a>. Third-party names and marks are the property of their respective owners.</sub>
+</div>

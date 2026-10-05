@@ -56,6 +56,7 @@ These are not review conventions; they fail the build.
 | Validator plugins are pure — no clock, no socket, no model | Source scanning at registration, with the implementation hash folded into the plan id |
 | The assistant cannot mutate anything | No mutating tool can be registered |
 | No secret in tracked configuration | `.githooks/pre-commit` |
+| A Tier-1 control is switched on by somebody other than its author | `prama.controls.approval`, the one path to activation; `tests/api/test_control_approval_tier.py` |
 
 The plugin hash detail matters for supply chain: editing a validator's code
 changes the identity of every control that used it, rather than silently
@@ -126,11 +127,13 @@ None of these is presented as done anywhere in the corpus. `docs/corpus/19` trac
 
 Every requirement in `pyproject.toml` is a `>=` with no ceiling, which is a
 deliberate trade: security fixes arrive without intervention. **`uv.lock` pins
-what that resolved to** — 62 packages across every extra — so a rebuild is
-reproducible even though the declaration is not pinned. The gate runs
-`uv lock --check`, which fails if the lock no longer describes the project: a
-lock that has drifted is worse than none, because it looks like a reproducible
-build and is not one.
+what that resolved to**, across every extra, so a rebuild is reproducible even
+though the declaration is not pinned. `requirements.txt` and
+`requirements-dev.txt` carry the same pins for `pip`, generated from the lock by
+`scripts/export_requirements.py`. The gate runs `uv lock --check` and the
+export's `--check`, which fail if either no longer describes the project: a lock
+that has drifted is worse than none, because it looks like a reproducible build
+and is not one.
 
 Updating a dependency is therefore a visible act. `uv lock` changes a tracked
 file, and the diff says exactly which versions moved.

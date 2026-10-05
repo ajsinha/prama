@@ -46,9 +46,10 @@ Prama generate cross-dataset controls nobody would write by hand.
 
 **Approval is by tier.** `prama.semantic.policy.ApprovalPolicy` holds a Tier-1
 declaration for maker-checker (the author cannot approve it), a Tier-2 one for
-review, and lets Tiers 3 and 4 through. The policy applies to declarations and
-relationships; a control derived from an approved declaration then goes through
-the proposal queue ([controls-and-pql.md](controls-and-pql.md)).
+review, and lets Tiers 3 and 4 through. The policy applies to declarations,
+relationships and control activation alike: a control derived from an approved
+declaration goes through the proposal queue, and a Tier-1 control a person wrote
+needs somebody else to switch it on ([controls-and-pql.md](controls-and-pql.md#who-may-activate)).
 
 ### Example: declaring a dataset through the SDK
 

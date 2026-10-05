@@ -121,6 +121,12 @@ class Source:
     config: dict[str, Any] = dataclasses.field(default_factory=dict)
 
 
+#: The key a connector names its file by. SQLite's connector reads
+#: `database_path`; a control run accepts that or `path`. Using the connector's
+#: own key lets the connection be tested and browsed as well as run.
+_PATH_KEY = {"sqlite": "database_path"}
+
+
 class Harness:
     """One case study, from sign-in to a verified evidence chain."""
 
@@ -333,7 +339,7 @@ class Harness:
             source.name,
             source.source_type,
             description=f"{self.title}: {source.name}",
-            config={"path": str(source.path), **source.config},
+            config={_PATH_KEY.get(source.source_type, "path"): str(source.path), **source.config},
         )
         return str(connection["id"])
 

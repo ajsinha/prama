@@ -18,7 +18,8 @@
 This is the commercial delivery plan; `docs/corpus/19` is the engineering one, and
 `docs/corpus/19` is the authority on what exists.
 
-The engineering waves are complete through Wave 11. The commercial milestones
+The engineering waves are complete through Wave 11, and most of the intelligence waves in
+[23](23-intelligence-and-lineage-roadmap.md) are built. The commercial milestones
 here — design partners, the shadow studies, certification, GA — are **not
 started**, and none of them is a build task.
 

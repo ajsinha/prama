@@ -1,0 +1,90 @@
+# requirements.txt: the server, the console and the API, pinned to exactly what uv.lock resolves.
+#
+#     python -m venv .venv && source .venv/bin/activate     # Python 3.12 or newer
+#     pip install -r requirements.txt
+#
+# GENERATED from uv.lock by scripts/export_requirements.py; do not edit by hand.
+# Change a dependency in pyproject.toml, run `uv lock`, then
+# `python scripts/export_requirements.py --write`. The gate refuses a stale copy.
+# Optional extras (postgres, snowflake, kafka, ...) are added on top:
+#     pip install -e ".[postgres]"
+#
+# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
+-e .
+-e ./kernel
+    # via prama
+aiosqlite==0.22.1
+    # via prama
+annotated-doc==0.0.5
+    # via fastapi
+annotated-types==0.8.0
+    # via pydantic
+anyio==4.15.1
+    # via
+    #   starlette
+    #   watchfiles
+click==8.5.0
+    # via uvicorn
+duckdb==1.5.5
+    # via prama
+fastapi==0.141.1
+    # via prama
+greenlet==3.5.5 ; platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'
+    # via sqlalchemy
+h11==0.16.0
+    # via uvicorn
+httptools==0.8.0
+    # via uvicorn
+idna==3.19
+    # via anyio
+itsdangerous==2.2.0
+    # via prama
+jinja2==3.1.6
+    # via prama
+markdown==3.11
+    # via prama
+markupsafe==3.0.3
+    # via jinja2
+pyarrow==25.0.1
+    # via prama
+pydantic==2.13.5
+    # via
+    #   fastapi
+    #   prama
+pydantic-core==2.46.5
+    # via pydantic
+python-dotenv==1.2.3
+    # via uvicorn
+python-multipart==0.0.32
+    # via prama
+pyyaml==6.0.3
+    # via
+    #   prama
+    #   uvicorn
+sqlalchemy==2.0.52
+    # via prama
+sqlglot==30.20.0
+    # via prama
+starlette==1.6.0
+    # via fastapi
+typing-extensions==4.16.0
+    # via
+    #   anyio
+    #   fastapi
+    #   pydantic
+    #   pydantic-core
+    #   sqlalchemy
+    #   starlette
+    #   typing-inspection
+typing-inspection==0.4.4
+    # via
+    #   fastapi
+    #   pydantic
+uvicorn==0.52.4
+    # via prama
+uvloop==0.22.1 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
+    # via uvicorn
+watchfiles==1.2.0
+    # via uvicorn
+websockets==17.1
+    # via uvicorn

@@ -79,9 +79,9 @@ names the estate you are in and offers **Switch estate**.
 ## Approval: somebody else signs it off
 
 A Tier-1 or Tier-2 declaration (a dataset, an amendment, a relationship, a journey) is
-**held** when you make it: recorded, with `lifecycle_state` `proposed`, and not in effect.
-It takes effect when somebody holding `declaration:approve` (an owner, an administrator)
-approves it, as themselves; at Tier 1, somebody other than its author:
+**held** when you make it, with `lifecycle_state` `proposed`, until somebody holding
+`declaration:approve` approves it as themselves. The rules by tier are in
+[the semantic layer](../architecture/semantic-layer.md); from Python:
 
 ```python
 held = client.datasets.declare("FRTB Feeder", criticality=1)   # lifecycle_state: proposed
@@ -90,9 +90,9 @@ owner.relationships.confirm(relationship_id)                     # confirming is
 owner.journeys.approve(journey_id)
 ```
 
-Nobody names an approver on a declaration. That used to be a field anyone could fill with
-anybody's name; now the approver is whoever approves. An amendment cannot approve itself
-either: `lifecycle_state`, `approved_by` and `authored_by` are refused in its `changes`.
+At Tier 1 the approver must not be the author, and the same holds for activating a control
+a person wrote ([controls](controls.md#a-controls-life)). An amendment cannot approve itself:
+`lifecycle_state`, `approved_by` and `authored_by` are refused in its `changes`.
 
 ## Sync and async
 
@@ -119,26 +119,27 @@ except prama.NotFoundError as error:
 ```
 
 `UnauthorisedError` (401), `ForbiddenError` (403, a missing scope), `NotFoundError`,
-`ConflictError`, `ValidationError`, and `ServerUnavailable` when nothing answered at all.
+`ConflictError`, `ValidationError`, `RateLimitedError` (429, a model budget or a rate
+exhausted), `ServerError` (5xx; its context carries the correlation id), and
+`ServerUnavailable` when nothing answered at all. All derive from `prama.PramaError`.
 
 ## The namespaces
 
 Forty-two namespaces cover 250 endpoints: everything the console and the CLI do, except what is
-purely local to one machine (`prama db init`, `prama serve`, `prama lsp serve`). The pages beside
-this one describe each area with worked examples.
+purely local to one machine (`prama db init`, `prama serve`, `prama lsp serve`). Each page
+beside this one covers one area, with worked examples:
 
-| Area | Namespaces | Page |
+| Page | What it is | Namespaces |
 |---|---|---|
-| Signing in, estates, the server | `auth`, `tenants`, `system` | this page |
-| The semantic layer | `datasets`, `relationships`, `concepts`, `journeys`, `connections`, `estate` | this page |
-| Controls and runs | `controls`, `pql`, `proposals`, `derive`, `runs`, `schedule` | [controls](controls.md) |
-| Evidence and assurance | `evidence`, `incidents`, `scorecards`, `attestations`, `reports` | [evidence](evidence.md) |
-| Reconciliation | `reconciliation`, `breaks` | [reconciliation](reconciliation.md) |
-| Data contracts | `contracts` | [contracts](contracts.md) |
-| Usage | `usage` | [usage](usage.md) |
-| People and administration | `principals`, `roles`, `api_keys`, `account`, `models`, `agents`, `config`, `audit` | [administration](administration.md) |
-| Knowledge and code | `lineage`, `code`, `glossary`, `metadata`, `comments`, `delegates`, `packs`, `connectors`, `llm` | [knowledge and code](knowledge-and-code.md) |
-| The agent fleet: agents beside the data, and their administration | `fleet` | [fleet](fleet.md) |
+| this page | Connecting, credentials, estates, approval, errors; declaring the semantic layer | `auth`, `tenants`, `system`, `datasets`, `relationships`, `concepts`, `journeys`, `connections`, `estate` |
+| [controls](controls.md) | Deriving, authoring, activating and running controls, and the language | `controls`, `pql`, `proposals`, `derive`, `runs`, `schedule` |
+| [evidence](evidence.md) | Reading and verifying the ledger, incidents, scores, attestations, report packs | `evidence`, `incidents`, `scorecards`, `attestations`, `reports` |
+| [reconciliation](reconciliation.md) | What a reconciliation found, working its breaks, the period-end certificate | `reconciliation`, `breaks` |
+| [contracts](contracts.md) | Gating a build on an ODCS contract, and diffing two versions of a dataset | `contracts` |
+| [usage](usage.md) | Importing warehouse query history and ranking what to control first | `usage` |
+| [administration](administration.md) | People, roles and keys; models, budgets and the call ledger; steward agents; configuration and audit | `principals`, `roles`, `api_keys`, `account`, `models`, `agents`, `config`, `audit` |
+| [knowledge and code](knowledge-and-code.md) | Lineage, code intake and review, glossary, metadata, comments, delegates, packs, connectors | `lineage`, `code`, `glossary`, `metadata`, `comments`, `delegates`, `packs`, `connectors`, `llm` |
+| [fleet](fleet.md) | Administering agents beside the data, and the calls an agent itself makes | `fleet` |
 
 ## A whole estate, from Python
 
@@ -169,4 +170,15 @@ print(client.evidence.verify()["intact"])
 ```
 
 The server reads the source itself, so its path must be under one of the server's `runs.roots`
-(`config/application.yaml`); Prama's own database never may be.
+(`config/application.yaml`); Prama's own database never may be. The connection kinds a run
+can open are in [controls](controls.md#run-on-the-server).
+
+---
+
+<div align="center">
+<img src="../assets/prama-mark.svg" width="30" alt=""/><br/>
+<sub><b>PRAMA</b> — <i>Declare it. Prove it. Trust it.</i><br/>
+Copyright © 2026 <b>Ashutosh Sinha</b> &lt;ajsinha@gmail.com&gt; · All rights reserved.<br/>
+Proprietary and confidential. No licence is granted except by separate written agreement.<br/>
+See <a href="../../LICENSE">LICENSE</a> and <a href="../../NOTICE">NOTICE</a>. Third-party names and marks are the property of their respective owners.</sub>
+</div>

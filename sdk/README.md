@@ -18,14 +18,9 @@ client = prama.connect("https://prama.example.com", api_key="pk_live_…")
 print(client.auth.me())
 ```
 
-`connect()` reads `server.host` and `server.port` from the server's
-`application.yaml` (or the file `PRAMA_CONFIG` names, or `connect(config=…)`),
-with its `application.local.yaml` overlay and `PRAMA_SERVER__HOST` /
-`PRAMA_SERVER__PORT` overrides, as the server itself does.
-
-The guide, with every namespace and worked examples, is `docs/sdk/` in the Prama
-repository. Every endpoint of the server's API has a method here; the server's
-build fails if one does not.
+The guide (connecting, credentials, errors, and every namespace with worked
+examples) is `docs/sdk/` in the Prama repository. Every endpoint of the server's
+API has a method here; the server's build fails if one does not.
 
 Copyright © 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 Proprietary and confidential; see the LICENSE file in the Prama repository.

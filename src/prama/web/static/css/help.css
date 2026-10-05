@@ -1,0 +1,70 @@
+/* help.css — the help centre by subject: categories, subject cards, the subject
+ * page's hero, reading list, pager and related chips. Ported from Maya's
+ * theme.css, styled only through the theme tokens so all four themes hold.
+ * `.subject-card` is Maya's `.help-card`, renamed: Prama's library cards
+ * already own that name.
+ * Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. */
+.help-toolbar { position: sticky; top: 64px; z-index: 5; padding: .7rem 0 .6rem; margin-bottom: 1rem; background: var(--maya-canvas); }
+.help-search { position: relative; max-width: 640px; margin: 0 auto .7rem; }
+.help-search i { position: absolute; left: .9rem; top: 50%; transform: translateY(-50%); color: var(--maya-slate); }
+.help-search input { width: 100%; padding: .65rem 1rem .65rem 2.4rem; font-size: 1rem; border-radius: 999px; outline: none;
+  border: 1px solid var(--maya-border); background: var(--maya-surface); color: var(--maya-ink); }
+.help-search input:focus { border-color: var(--maya-crimson); }
+.cat-chips, .help-related .chips, .help-onpage { display: flex; flex-wrap: wrap; gap: .4rem; justify-content: center; }
+.cat-chips .chip, .help-related .chip, .help-onpage .chip { display: inline-flex; align-items: center; gap: .4rem; font-size: 12.5px;
+  font-weight: 600; padding: .3rem .8rem; min-height: 28px; border-radius: 999px; text-decoration: none; color: var(--maya-ink);
+  border: 1px solid var(--maya-border); background: var(--maya-surface); }
+.cat-chips .chip:hover, .help-related .chip:hover, .help-onpage .chip:hover { border-color: var(--maya-crimson); color: var(--maya-crimson); }
+.cat-chips .chip span { color: var(--maya-slate); font-variant-numeric: tabular-nums; }
+.help-cat { border: 1px solid var(--maya-border); border-radius: 16px; margin-bottom: 1rem; background: var(--maya-surface);
+  box-shadow: 0 8px 24px -18px rgba(41,51,82,.4); }
+.help-cat > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: .8rem; padding: .9rem 1.2rem;
+  font-weight: 700; font-size: 1.1rem; }
+.help-cat > summary::-webkit-details-marker { display: none; }
+.help-cat > summary::after { content: "\F282"; font-family: "bootstrap-icons"; color: var(--maya-slate); margin-left: .4rem; }
+.help-cat[open] > summary::after { content: "\F286"; }
+.help-cat[open] > summary { border-bottom: 1px solid var(--maya-border); }
+.help-cat .cat-name { display: flex; align-items: center; gap: .7rem; margin-right: auto; }
+.cat-ico, .hc-ico { display: inline-grid; place-items: center; color: var(--maya-on-nav); border-radius: 10px;
+  background: linear-gradient(135deg, var(--maya-nav-via), var(--maya-nav-to)); box-shadow: 0 6px 14px -8px var(--maya-crimson); }
+.cat-ico { width: 34px; height: 34px; }
+.help-cat .cat-count { font-size: 12px; font-weight: 700; color: var(--maya-crimson); background: var(--maya-crimson-tint);
+  border-radius: 999px; padding: .1rem .6rem; }
+.help-cat .cat-blurb { color: var(--maya-slate); margin: .8rem 1.2rem .2rem; }
+.help-cat .cat-body { padding: .6rem 1.2rem 1.2rem; }
+.subject-card { text-decoration: none; color: var(--maya-ink); background: var(--maya-surface);
+  transition: transform .15s, box-shadow .15s, border-color .15s; border: 1px solid var(--maya-border); }
+.subject-card:hover { transform: translateY(-4px); color: var(--maya-ink); border-color: var(--maya-crimson);
+  box-shadow: 0 18px 34px -18px rgba(41,51,82,.55); }
+.subject-card .card-body { display: flex; flex-direction: column; gap: .5rem; }
+.subject-card .hc-title { display: flex; align-items: center; gap: .7rem; font-weight: 700; font-size: 1.02rem; }
+.hc-ico { flex: 0 0 38px; height: 38px; font-size: 1.1rem; }
+.subject-card p { color: var(--maya-slate); margin: 0; flex: 1; }
+.subject-card .more { color: var(--maya-crimson); font-weight: 700; font-size: 13px; }
+.subject-card .badge, .help-topic-hero .badge { background: var(--maya-crimson); color: var(--maya-on-crimson); font-size: 10.5px;
+  vertical-align: middle; }
+.subject-card .role { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--maya-crimson); }
+@media (prefers-reduced-motion: reduce) { .subject-card, .subject-card:hover { transition: none; transform: none; } }
+
+.help-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; font-size: 13px; color: var(--maya-slate); margin-bottom: .8rem; }
+.help-crumbs a { text-decoration: none; font-weight: 600; }
+.help-crumbs .bi-chevron-right { font-size: 10px; }
+.help-topic-hero { display: flex; gap: 1.1rem; align-items: center; padding: 1.3rem 1.5rem; border-radius: 18px; margin-bottom: 1.4rem;
+  color: var(--maya-on-nav); background: linear-gradient(120deg, var(--maya-nav-from), var(--maya-nav-via) 55%, var(--maya-nav-to));
+  box-shadow: 0 20px 40px -24px rgba(41,51,82,.7); }
+.help-topic-hero .ico { flex: 0 0 60px; height: 60px; border-radius: 16px; display: grid; place-items: center; font-size: 1.8rem;
+  background: rgba(255,255,255,.16); }
+.help-topic-hero h1 { color: var(--maya-on-nav); margin: 0; font-size: 1.6rem; }
+.help-topic-hero p { margin: .2rem 0 0; opacity: .92; }
+.help-topic-hero .badge { background: var(--maya-on-nav); color: var(--maya-crimson-deep); }
+.help-onpage { justify-content: flex-start; margin-bottom: 1.2rem; }
+.help-opening .opening-role { display: flex; align-items: center; gap: .5rem; font-weight: 700; color: var(--maya-crimson); margin-bottom: .4rem; }
+.help-further { margin-top: 2rem; }
+.help-further h2 { font-size: 1.15rem; font-weight: 750; margin-bottom: .8rem; }
+.help-pager { display: flex; justify-content: space-between; gap: 1rem; margin: 2rem 0 1rem; }
+.help-related { border-top: 1px solid var(--maya-border); padding-top: 1rem; margin-top: 1rem; }
+.help-related .head { font-weight: 700; margin-bottom: .6rem; display: flex; align-items: center; gap: .5rem; }
+.help-related .chips { justify-content: flex-start; }
+.help-partof { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin: 0 0 1rem; font-size: 13px; color: var(--maya-slate); }
+.help-partof .chip { display: inline-flex; align-items: center; gap: .35rem; font-weight: 600; padding: .25rem .7rem; min-height: 28px;
+  border-radius: 999px; text-decoration: none; border: 1px solid var(--maya-border); background: var(--maya-surface); color: var(--maya-ink); }

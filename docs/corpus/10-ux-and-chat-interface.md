@@ -24,7 +24,9 @@ block, search box, queue, theme and user menus; Maya's cards, forms and footer
 (`static/css/shell.css`); and exactly Maya's four themes under Maya's names — Crimson (the
 default), Dark, Blue and Green. A fresh installation seeds an `admin` account with the password
 `prama-dev-admin`, bannered until changed and refused outside development
-(`prama.security.bootstrap`).
+(`prama.security.bootstrap`). Every page ends with **About this page** — what the screen is
+for, what can be done there, who may use it (derived from the permission the page checks) and a
+link to its help page — held as data in `prama.web.page_help`, and a test fails a page without one.
 
 Colour is **derived, not picked**. `prama.report.themes` computes WCAG 2.2 AA
 contrast against three grounds — surface, body and raised — and

@@ -326,6 +326,30 @@ def _sections() -> tuple[HelpSection, ...]:
         "Using the console",
         (
             _g(
+                "declaring",
+                "Declaring the estate",
+                "Datasets, grain, tier and relationships, in an owner's words.",
+                "bi-diagram-3",
+            ),
+            _g(
+                "controls",
+                "Working with controls",
+                "Proposals, starting and silencing controls, the studio and the builder.",
+                "bi-shield-check",
+            ),
+            _g(
+                "evidence",
+                "Evidence, incidents and sign-off",
+                "What is failing, scorecards, the ledger, attestations and reports.",
+                "bi-patch-check",
+            ),
+            _g(
+                "reconciliation",
+                "Reconciliation and breaks",
+                "Results, the break workbench, and accepting a break with a reason.",
+                "bi-arrow-left-right",
+            ),
+            _g(
                 "accounts",
                 "Accounts, roles and sign-in",
                 "Who can do what, and how an administrator manages people.",

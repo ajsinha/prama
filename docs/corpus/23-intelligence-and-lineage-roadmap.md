@@ -67,8 +67,9 @@ Three questions are answered here, each with a design note behind it:
     replay is idempotent.
   - `prama lineage ingest-dbt manifest.json` reads compiled models through the SQL parser. An
     uncompiled model is a gap; Prama never renders a project's Jinja.
-  - Warehouse access-history readers (Snowflake, Databricks, BigQuery) wait on those connectors
-    meeting a live account (remaining-work §4).
+  - Warehouse access-history readers (Snowflake, Databricks, BigQuery) were built later from
+    exports, without waiting for live connectors (*Warehouse query history* under the lineage
+    scope below).
 - **LLM phase 2, the core.**
   - `POST /api/v1/llm/chat` needs the new `llm:use` scope, which the owner and steward roles
     hold; admin holds everything. It has a bounded per-principal rate limit.
@@ -77,7 +78,8 @@ Three questions are answered here, each with a design note behind it:
     price in force when it started.
   - **Budgets** (tenant, profile, principal, API key; day or month; refuse or warn) are checked
     against spend derived from the ledger. A refusal is HTTP 429, and is itself recorded as
-    `refused_budget`.
+    `refused_budget`. Every gateway call is checked and charged — stewards, code intake,
+    fitness search, the CLI and the console as well as `/llm/chat` (`prama.llm.budget`).
   - The Models page shows this month's spend and sets budgets and prices.
 - **Fleet-wide reservation.** The check and an estimate reservation happen under the tenant's
   budget lease, in a committed transaction of their own, so other servers see an in-flight
@@ -394,8 +396,9 @@ Modules named in the design notes that do not exist yet are marked `(planned)` t
   `/api/v1/metadata/ask`). Candidates are retrieved by keyword. A `discover` model ranks and
   explains them, may cite only candidates it was given, and falls back to keywords without a
   model.
-- **Next:** feed the data-side signals (value overlap and query co-access, `prama.discover`) into
-  correlation.
+- **Query co-access, built:** datasets read together by the warehouse, with a column in common
+  and no declared relationship, are listed by `prama metadata correlate` as hints, never
+  proposals. **Next:** value overlap (`prama.discover`).
 
 **Wave 17, E5 (glossary and catalog imports), as built:**
 

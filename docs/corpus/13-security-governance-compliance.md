@@ -24,6 +24,10 @@ has not been run against a live server, and no disconnected install has been
 performed on a host with no route out. Each module says so in its own docstring,
 and a test asserts the docstring still says so.
 
+Segregation of duties reaches the rule as well as the declaration: every control
+activation goes through `prama.controls.approval`, so a Tier-1 control a person
+wrote must be switched on by somebody else.
+
 ---
 
 ## 1. Threat model
@@ -206,8 +210,9 @@ number of masked failing-row samples. There is no Prama-side copy of customer da
 References are stored, values are resolved at the point of use. Three providers
 ship: `env://`, `file://` and `vault://` (HashiCorp KV v2).
 
-Vault is **registered but unconfigured** by default, which is not the same as
-absent: a reference then fails with *what to set* rather than with "no provider
+Vault is configured by `secrets.vault.*` (`address`, and `token_ref`, a
+reference to the token) and is **registered but unconfigured** by default, which
+is not the same as absent: a reference then fails with *what to set* rather than with "no provider
 for scheme 'vault'", and the second message sends somebody looking for a plugin
 that is already installed. A provider supplies its own unavailability remedy —
 the resolver knows a provider said no, but only the provider knows which setting

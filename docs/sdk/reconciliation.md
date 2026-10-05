@@ -104,3 +104,13 @@ somebody accepted from the part nobody has explained. It is refused when no run 
 recorded a match rate. It needs `attestation:sign`, and it is returned, not stored:
 keep the document, and the `content_hash` it carries, where the period's close is
 filed.
+
+---
+
+<div align="center">
+<img src="../assets/prama-mark.svg" width="30" alt=""/><br/>
+<sub><b>PRAMA</b> — <i>Declare it. Prove it. Trust it.</i><br/>
+Copyright © 2026 <b>Ashutosh Sinha</b> &lt;ajsinha@gmail.com&gt; · All rights reserved.<br/>
+Proprietary and confidential. No licence is granted except by separate written agreement.<br/>
+See <a href="../../LICENSE">LICENSE</a> and <a href="../../NOTICE">NOTICE</a>. Third-party names and marks are the property of their respective owners.</sub>
+</div>

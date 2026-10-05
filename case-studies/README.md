@@ -81,7 +81,7 @@ found, including the rows in neither column.
 
 That last part is the discipline. A tool with no false negatives on data it was
 tuned against tells you nothing. A tool that says plainly *"these four I did not
-catch, and here is why"* tells you what it is. Across the three studies:
+catch, and here is why"* tells you what it is. Across the studies:
 
 - Defects Prama **finds** — duplicates, nulls in a CDE, out-of-range values, bad
   codelist values, orphans, missing and duplicated deliveries.
@@ -97,8 +97,6 @@ catch, and here is why"* tells you what it is. Across the three studies:
 
 ## What is *not* here
 
-- **No authentication.** The console takes its tenant from configuration. Real
-  deployments do not; that is Wave 10.
 - **No scheduler running.** The studies run the controls once, by hand. Prama's
   scheduler exists and is wired, but a case study you have to wait a day for is
   not a case study.

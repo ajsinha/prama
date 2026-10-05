@@ -21,20 +21,12 @@ not exist.
 
 ## As built
 
-`schema/sqlite.sql` and `schema/postgres.sql` are the authority, and they are
-**byte-identical apart from their headers** — `tests/db/test_schema.py` fails if
-they ever are not. There are **no migrations**: `prama db init` applies the
-schema idempotently and `prama db verify` fails loudly on drift rather than
-repairing it.
-
-Only four column types are permitted, because only those mean the same thing in
-both engines: `VARCHAR(n)`, `TEXT`, `INTEGER`, `REAL`. Timestamps are ISO-8601
-UTC text in `VARCHAR(32)`, which sorts chronologically. Identifiers are ULIDs
-minted client-side, so a worker needs no round trip and a retry can reuse one.
-
-`prama.db` is the only package that may import SQLAlchemy;
-`tests/architecture/test_layering.py` enforces it by import scanning. Everything
-else goes through DAOs behind a unit of work, and twenty-two tenant-isolation
+The canonical entities below are realised in two schema files,
+`schema/sqlite.sql` and `schema/postgres.sql`, with **no migrations**, four
+portable column types, and `prama.db` as the only package that touches
+SQLAlchemy. How that works is [architecture: platform](../architecture/platform.md);
+how to change a table is [schema and DAOs](../developer/schema-and-daos.md).
+Everything else goes through DAOs behind a unit of work, and twenty-two tenant-isolation
 tests scan those DAOs **by method signature** rather than by name, so a new one
 that forgets its tenant filter fails the build.
 

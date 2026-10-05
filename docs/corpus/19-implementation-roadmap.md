@@ -245,7 +245,7 @@ under thirty minutes, unattended, without writing anything — the zero-declarat
 | W3.1 | Connector SPI and registry | ✅ |
 | W3.2 | Capability matrix, declared and never probed | ✅ |
 | W3.3 | **Config schema derived from connector source, with an overlay audit test** | ✅ |
-| W3.4 | Credentials by vault reference, never displayed or stored | ✅ `env://` and `file://` providers, caching with TTL, audit trail; external vaults register a scheme |
+| W3.4 | Credentials by vault reference, never displayed or stored | ✅ `env://`, `file://` and `vault://` (HashiCorp KV v2, configured by `secrets.vault.*`) providers, caching with TTL, audit trail; other vaults register a scheme |
 | W3.5 | Discovery browser ranked by size and recency, not alphabetically | ✅ |
 | W3.6 | Snapshot capture per source kind, with an honest `exact` flag | ✅ for the shipped connectors |
 | W3.7 | Sampling planner with stated statistical bounds | ✅ |
@@ -617,7 +617,7 @@ W8.7 lineage ingestion and graph store ◑ (the in-memory graph, attenuation and
 W8.9 **legacy scanners (the docs/corpus/20 G2 gap)** ◑ (SQL dialects verified; ETL shapes configurable
 and explicitly unverified against a real export) · W8.10 incident correlation and lifecycle ✅ ·
 W8.11 RCA hypothesis ranking ✅ · W8.12 impact analysis ✅ · W8.13 scoring and
-materiality weighting ✅ · W8.14 **trust propagation** ✅ · W8.15 alerting and routing ✅ ·
+materiality weighting ✅ · W8.14 **trust propagation** ✅ · W8.15 alerting and routing ✅ (delivery was wired only on 2026-10-04: `prama.alert.pipeline` runs after every run and sends through the log, webhook and email notifiers; off by default, `alerts.enabled`) ·
 W8.16 learning loop with promotion gates and rollback ✅.
 
 ### Acceptance criteria

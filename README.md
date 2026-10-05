@@ -124,27 +124,20 @@ The worked example is in **[docs/corpus/07 §10](docs/corpus/07-rule-language-sp
 
 ```bash
 uv venv --python 3.13 && uv sync --extra dev --extra serve
+source .venv/bin/activate
 python run_prama_web.py --init-secret --prepare
 ```
 
 Then open **http://127.0.0.1:5900/** — the landing page, with the help centre
 at `/help` — or go straight to the console at `/estate`. The port is
-`server.port` in configuration.
+`server.port` in configuration. That applies the schema, creates an estate,
+writes a session secret into the git-ignored local config, and starts the
+console and the API in one process.
 
-**In PyCharm or IntelliJ IDEA?** The repository ships run configurations for the
-server, live reload, the debugger and the case studies:
-**[Running Prama in PyCharm and IntelliJ IDEA](docs/developer/ide.md)**.
-
-`uv sync` installs what `uv.lock` pins, so a fresh clone gets the set the gate
-last ran green on rather than whatever released this morning. It also *removes*
-anything outside the extras you name — that is what makes it reproducible, and
-it is why `uv pip install -e ".[dev,serve]"` is the right command when you are
-adding an extra to an environment you already have.
-
-That applies the schema, creates an estate, writes a session secret into the
-git-ignored local config, and starts the console and the API in one process. The
-full path — including what each refusal means and how to run the steps
-separately on a real deployment — is in **[QUICKSTART.md](QUICKSTART.md)**.
+**[QUICKSTART.md](QUICKSTART.md)** is the full path: which Python and why, `pip`
+instead of `uv`, what each refusal means, and how to run the steps separately on
+a real deployment. In PyCharm or IntelliJ IDEA, the repository ships run
+configurations: **[the IDE guide](docs/developer/ide.md)**.
 
 An empty console is honest but not persuasive. To see Prama find real defects in
 a realistic banking estate:
@@ -161,20 +154,13 @@ console shows each one under **Help → Case studies**.
 
 ## Documentation
 
-**[The documentation index](docs/README.md)** lists every document and says who should read
-which. The main entry points:
-
-| If you want to… | Read |
-|---|---|
-| run it | [QUICKSTART.md](QUICKSTART.md), then [operations](docs/operations/README.md) |
-| run it from PyCharm or IntelliJ IDEA | [The IDE guide](docs/developer/ide.md): interpreter, shared run configurations, live reload, debugging, tests |
-| understand how it fits together | [Architecture](docs/architecture/README.md): every component, with diagrams, real screenshots and examples |
-| extend it | [Developer guides](docs/developer/README.md): connectors, PQL functions, validators, providers, delegates, tables, endpoints |
-| script it | [The Python SDK](docs/sdk/README.md) |
-| run an agent beside the data | [The agent operator's guide](docs/agent/README.md) |
-| know why it is built this way | [The design corpus](docs/README.md#reading-order), starting with [00](docs/corpus/00-executive-summary.md) and [03](docs/corpus/03-business-semantic-layer.md), the conceptual heart |
-
-The same documents are in the console under **Help**, one card each.
+**[The documentation index](docs/README.md#start-here)** says who should read
+which document, and how the folders divide the work: architecture (how it fits),
+developer (how to extend it), sdk (scripting it), agent and operations (running
+it), and the design corpus (why it is built this way, starting with
+[00](docs/corpus/00-executive-summary.md) and
+[03](docs/corpus/03-business-semantic-layer.md), the conceptual heart). The same
+documents are in the console under **Help**.
 
 ---
 
@@ -225,7 +211,7 @@ Five contributions, targeting **ACM JDIQ** with a **VLDB Industrial** companion 
 are complete, apart from two tasks that are open on infrastructure rather than code. So is most of
 the intelligence roadmap in [docs/corpus/23](docs/corpus/23-intelligence-and-lineage-roadmap.md): the LLM gateway
 and the lineage workbench, code-to-lineage, steward agents, and DQ delegates. What is left is in
-[docs/corpus/remaining-work.md](docs/corpus/remaining-work.md). The suite is at <!--tests-->6,771 passing, 96 skipped<!--/tests-->,
+[docs/corpus/remaining-work.md](docs/corpus/remaining-work.md). The suite is at <!--tests-->6,809 passing, 96 skipped<!--/tests-->,
 derived from a green run by `scripts/sync_test_counts.py` rather than typed — a
 count in prose rots the first time somebody adds a test.
 
@@ -324,11 +310,13 @@ Repository layout:
 prama/
 ├── README.md          ← you are here
 ├── QUICKSTART.md      ← install, run, and the first control
-├── LICENSE            ← proprietary; all rights reserved
-├── NOTICE             ← legal notice, trademarks, third-party references
+├── LICENSE · NOTICE   ← proprietary; legal notice, trademarks, third-party references
 ├── SECURITY.md        ← reporting, what Prama holds, and what is unverified
 ├── CONTRIBUTING.md    ← the habits this codebase is held to
-├── src/prama/         ← the product: 46 packages
+├── src/prama/         ← the server: API, console, scheduler, evidence ledger
+├── kernel/            ← prama-kernel: the deterministic core the server and agent share
+├── sdk/               ← prama-sdk: the Python client
+├── agent/             ← prama-agent: the daemon that runs beside the data
 ├── tests/             ← the suite, mirroring the package tree
 ├── qa/                ← the QA corpus: catalogue, logs, harness, regressions
 ├── schema/            ← sqlite.sql and postgres.sql; there are no migrations
@@ -336,20 +324,14 @@ prama/
 ├── deploy/            ← Dockerfile, Helm chart, operator CRDs
 ├── scripts/           ← the gate, the file-length ceiling, the evidence verifier
 ├── case-studies/      ← eight worked examples, end to end
-├── tools/            ← the deck and diagram generators, and their rendered audits
-└── docs/
-    ├── 00–23          ← the analysis, requirements, design and roadmap corpus
-    ├── design/        ← design notes: LLM gateway, code lineage, delegates, Manta/Alation gap
-    ├── operations/    ← runbook, configuration and CLI reference, troubleshooting
-    ├── assets/        ← logo, seal, favicon, brand preview
-    ├── brand.md · glossary.md
-    ├── medium/        ← the Medium article and its diagrams
-    ├── deck/          ← the deck, generated by tools/deck and audited
-    └── paper/         ← the paper (LaTeX and PDF), article, bibliography, experiment plan
+├── tools/             ← the deck, diagram and screenshot generators
+├── .run/              ← shared PyCharm and IntelliJ IDEA run configurations
+└── docs/              ← architecture, developer, sdk, agent, operations, corpus (00–23),
+                         design, reference, publications: see docs/README.md
 ```
 
 Branching: work lands on **`develop`** and is merged to **`main`** at the end of
-a wave.
+a wave ([CONTRIBUTING](CONTRIBUTING.md#git)).
 
 ---
 

@@ -74,3 +74,16 @@ def test_a_python_that_cannot_switch_it_off_is_refused_not_trusted() -> None:
     with pytest.raises(ConfigError, match="cannot make SQLite refuse"):
         strict_sqlite.strict(lenient)  # type: ignore[arg-type]
     assert lenient.closed
+
+
+def test_a_run_reads_the_file_the_connection_form_names(tmp_path: Path, book: Path) -> None:
+    """The connection form writes `database_path`; a control run read only `path`, so a
+    SQLite connection made in the console could be tested but never run."""
+    from prama.connect.sources.confined import open_confined
+
+    for key in ("database_path", "path"):
+        opened = open_confined("sqlite", {key: str(book)}, roots=[tmp_path])
+        try:
+            assert opened.path == book.resolve(), key
+        finally:
+            opened.close()

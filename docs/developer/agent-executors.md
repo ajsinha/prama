@@ -56,7 +56,7 @@ A missing optional driver fails when the executor is built, at start, naming the
 (`_optional`), never on the first assignment at three in the morning. Credentials are read from
 the environment variable the source names, at each use, never from `agent.yaml`.
 
-`Executors` (line 144) picks the executor for an assignment: by its binding first, then by a
+`Executors` (line 145) picks the executor for an assignment: by its binding first, then by a
 source that lists the assignment's dataset, and refuses an engine mismatch rather than running a
 query against data it was not compiled for.
 
@@ -116,7 +116,7 @@ A new engine **for the daemon** is three places, two in the agent and one on the
 1. `ENGINES` in `agent/src/prama_agent/config.py` (line 33), and any alias in `ENGINE_ALIASES`;
    then the source validation in `_sources`, which says which keys an engine takes (`path` for a
    file, `dsn` or `dsn_env` and `password_env` for a server) and refuses an inline secret;
-2. the executor class in `_BY_ENGINE` in `agent/src/prama_agent/executors.py` (line 133), with an
+2. the executor class in `_BY_ENGINE` in `agent/src/prama_agent/executors.py` (line 134), with an
    optional extra in `agent/pyproject.toml` if it needs a driver;
 3. a compile dialect for the engine in the server's `DIALECTS`, so there is SQL to send it
    (see [backends and dialects](backends-and-dialects.md)).
@@ -129,7 +129,7 @@ A source in `agent.yaml`:
 ```yaml
 sources:
   warehouse:                    # the binding name assignments use
-    engine: sqlite              # sqlite | duckdb | postgres (postgresql is accepted)
+    engine: sqlite              # sqlite | duckdb | postgres (postgresql, pg accepted)
     path: /srv/data/warehouse.db
     datasets: [trades, positions]
 ```

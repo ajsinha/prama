@@ -8,9 +8,10 @@
 
 `client.fleet` is both halves of the [agent fleet](../design/agent-fleet-http.md): the
 administration of agents that run beside the data, and the three calls an agent itself
-makes. An agent receives work compiled by the server, runs it against sources only it can
-reach, and reports findings, never data. The findings land in the estate's evidence
-ledger, where the chain covers them like any other record.
+makes. How agents, the kernel and the server fit is in
+[Agents and the fleet](../architecture/agents-and-fleet.md); running the daemon is the
+[agent operator's guide](../agent/README.md). You need the agent-side calls only to write
+an agent of your own: `prama-agent` already makes them.
 
 ## Administering the fleet
 
@@ -74,9 +75,8 @@ enrolled = agent.fleet.enrol(
 key = bytes.fromhex(enrolled["key"])            # store it with mode 0600; shown once
 ```
 
-The server stores no key. It derives one when it needs it,
-`HMAC-SHA256(fleet secret, "agent:" + tenant_id + ":" + agent_id)`, so revoking an agent
-is a change of state, and a copy of the database cannot sign as any agent.
+The server stores no key; it derives one from `fleet.secret` when it needs it
+([identity and trust](../design/agent-fleet-http.md#identity-and-trust)).
 
 ```python
 receipt = agent.fleet.hello(hello.to_dict(), key=key)      # a Hello message
@@ -109,22 +109,23 @@ if "reason" in answer:
     stop = answer["permanent"]
 ```
 
-## Configuration
+## Configuration and signing
 
-| Key | Default | Meaning |
-|---|---|---|
-| `fleet.secret` | *(empty)* | the secret agent keys are derived from; empty falls back to `security.session_secret`. Set it only in `config/application.local.yaml`, never in a tracked file. Changing it invalidates every enrolled agent's key. |
-| `fleet.token_hours` | `1` | how long an enrolment token is good for |
-| `fleet.lease_seconds` | `900` | how long a claimed assignment is held before it returns to the queue |
-| `fleet.poll_seconds` | `30` | what an agent is told to wait between calls |
-| `fleet.stale_minutes` | `15` | silence after which health names an agent |
+The `fleet.*` keys (the key-derivation secret, token lifetime, lease, poll interval and
+staleness threshold) are in the
+[configuration reference](../operations/configuration-reference.md); `fleet.secret` belongs
+only in `config/application.local.yaml`.
 
-## How the signature is computed
+The SDK writes the kernel's canonical JSON with the standard library (`prama_sdk.signing`),
+and `tests/sdk/test_fleet_signing.py` holds it byte-equal to the kernel for Hello and Report
+messages, so a client signs exactly what the server verifies.
 
-The SDK writes the kernel's canonical JSON with the standard library
-(`prama_sdk.signing`), and `tests/sdk/test_fleet_signing.py` holds it byte-equal to the
-kernel for Hello and Report messages. The kernel writes the same bytes whether or not
-`orjson` is installed: its standard-library path spells every float as `orjson` does
-(`0.00001`, `1e-7`), and `tests/core/test_pjson_backends.py` compares the two backends on
-thousands of floats. So a server and an agent built differently still agree on every
-signature and every evidence hash.
+---
+
+<div align="center">
+<img src="../assets/prama-mark.svg" width="30" alt=""/><br/>
+<sub><b>PRAMA</b> — <i>Declare it. Prove it. Trust it.</i><br/>
+Copyright © 2026 <b>Ashutosh Sinha</b> &lt;ajsinha@gmail.com&gt; · All rights reserved.<br/>
+Proprietary and confidential. No licence is granted except by separate written agreement.<br/>
+See <a href="../../LICENSE">LICENSE</a> and <a href="../../NOTICE">NOTICE</a>. Third-party names and marks are the property of their respective owners.</sub>
+</div>

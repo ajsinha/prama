@@ -171,10 +171,16 @@ reading the queue.
 Suppression needs an end date and a reason. Nothing is deleted: a retired control
 keeps its history, because evidence refers to it.
 
-**Who may activate.** Accepting a proposal or activating a control needs the
-`control:approve` scope; a steward proposes, an owner approves. Only the
-`declaration` origin may ever be auto-activated (`prama.core.provenance`), and
-only when its backtest is actionable.
+### Who may activate
+
+Accepting a proposal or activating a control needs the `control:approve` scope;
+a steward proposes, an owner approves. Every activation goes through
+`prama.controls.approval.activate`, which holds the control to its tier with the
+same `ApprovalPolicy` as declarations: a Tier-1 control needs a named approver,
+and when a person wrote it, that approver must be somebody else. A derived or
+mined control records no author, so the person accepting it is the check. Only
+the `declaration` origin may ever be auto-activated (`prama.core.provenance`),
+and only when its backtest is actionable.
 
 ![Proposals: what the declarations imply, including what could not be generated and why](../assets/screenshots/proposals.png)
 

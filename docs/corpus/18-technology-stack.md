@@ -21,28 +21,34 @@ world-class UI ([`FR-UIX`](04-requirements-functional.md#p-user-interface-fr-uix
 
 ## As built
 
-The stack is as chosen. Python 3.13 from a standalone CPython under
-`~/.local/share/uv/python/` rather than from the OS — a decision the repository
-records because an Ubuntu upgrade removed `/usr/bin/python3.12` mid-build and
-orphaned the venv. FastAPI, SQLAlchemy 2.0, Jinja2, pyarrow, DuckDB, and nothing
+The stack is as chosen. Python 3.12 is the floor and 3.13 is pinned, from a
+standalone CPython under `~/.local/share/uv/python/` rather than from the OS — a
+decision the repository records because an Ubuntu upgrade removed
+`/usr/bin/python3.12` mid-build and orphaned the venv. Which versions, and why
+3.12 is the floor, is stated once, in
+[QUICKSTART](../../QUICKSTART.md#which-python). FastAPI, SQLAlchemy 2.0, Jinja2, pyarrow, DuckDB, and nothing
 in the console that needs a build step.
 
 Optional extras rather than hard dependencies, each refusing **by name** when
-absent rather than falling back to something weaker: `serve`, `postgres`,
-`fast`, `audit`, `sso`, `kafka`, `rest`.
+absent rather than falling back to something weaker; `pyproject.toml` lists
+them (`serve`, `postgres`, `fast`, `audit`, `sso`, `kafka`, `rest`, `jdbc`,
+`snowflake`, `otel` and the rest).
 
 **Two departures from §1.** Work distribution uses leases held as a conditional row on the
 `lease` table (`prama.db.lease_provider`), on SQLite and PostgreSQL alike, rather than PostgreSQL
-advisory locks, and DishtaYantra's ZooKeeper, Redis and S3 lease providers were not ported. The
+advisory locks (`concurrency.lease` picks `database` or an in-process `memory` provider, and
+its timings), and DishtaYantra's ZooKeeper, Redis and S3 lease providers were not ported. The
 package layout is four distributions rather than the dozen of §8; see
 [architecture/packages.md](../architecture/packages.md).
 
 **Dependency floors have no ceilings, and `uv.lock` pins what they resolved
 to.** Every requirement is a `>=`, so the declaration floats to the newest
-release — and the lock file records the 62 packages that actually resolved,
-across every extra, so a rebuild is reproducible. The gate runs
-`uv lock --check`: a lock that has drifted from `pyproject.toml` is worse than
-none, because it looks like a reproducible build and is not one.
+release — and the lock file records what actually resolved, across every
+extra, so a rebuild is reproducible. The gate runs `uv lock --check`: a lock
+that has drifted from `pyproject.toml` is worse than none, because it looks like
+a reproducible build and is not one. For `pip`, which cannot read the lock,
+`scripts/export_requirements.py` exports it as `requirements.txt` and
+`requirements-dev.txt`, and the gate refuses a copy that has drifted.
 
 §3.2's `sync_test_counts.py` — named here as DishtaYantra's discipline worth
 porting — now exists, and the gate runs it. Numbers in prose are derived from a

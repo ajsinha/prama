@@ -1,6 +1,6 @@
 <!-- Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. -->
 
-**Status (2026-09-27):** built. This includes templates, evaluation suites and the activation gate, stored payloads and the ledger verifier (`prama llm verify`). Evaluation graders are the deterministic set in `llm/evaluation.py`; the model-based rubric grader is not built, and the gate would ignore it anyway.
+**Status (2026-09-27):** built. This includes templates, evaluation suites and the activation gate, stored payloads and the ledger verifier (`prama llm verify`). Evaluation graders are the deterministic set in `llm/evaluation.py`; the model-based rubric grader is not built, and the gate would ignore it anyway. Budgets are checked before, and charged after, every gateway call, not only `/api/v1/llm/chat`. Of the configuration block in §4, only `llm.offline`, `llm.per_principal_rpm`, `llm.audit.payloads`, `llm.audit.payload_retention_days` and `llm.eval.gate_activation` exist (`src/prama/core/config/defaults.py`); the rest is the proposal. How the gateway works as built is [architecture/intelligence.md](../architecture/intelligence.md#the-gateway); adding a provider is [developer/llm-providers.md](../developer/llm-providers.md).
 
 > Design note behind [23 — Intelligence and lineage roadmap](../corpus/23-intelligence-and-lineage-roadmap.md). Written 2026-09-27. Where this note and doc 23 disagree, doc 23's reconciliation wins.
 
@@ -141,7 +141,7 @@ residency vocabulary.
 ## 4. Configuration keys (`core/config/defaults.py`, block `llm`)
 
 Deployment policy only; providers/profiles/budgets are data in the DB (single authority), seeded
-declaratively with `prama llm apply llm.yaml` (idempotent, prints a diff, like control import).
+declaratively with `prama llm apply llm.yaml` (idempotent, prints a diff, like control import; not built: providers and profiles are added with `prama llm provider add` and `prama llm profile set`).
 
 ```yaml
 llm:
