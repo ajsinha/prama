@@ -102,3 +102,22 @@
     });
   });
 })(jQuery);
+
+// "About this page": collapsed once, it stays collapsed in this browser; the ?
+// in the header opens it, brings it into view and shows where it is.
+(function () {
+  var box = document.getElementById("page-help");
+  if (!box) { return; }
+  try { if (window.localStorage.getItem("prama.pageHelp") === "closed") { box.open = false; } } catch (e) { /* private window */ }
+  box.addEventListener("toggle", function () {
+    try { window.localStorage.setItem("prama.pageHelp", box.open ? "open" : "closed"); } catch (e) { /* private window */ }
+  });
+  document.querySelectorAll("[data-page-help]").forEach(function (link) {
+    link.addEventListener("click", function (ev) {
+      ev.preventDefault();
+      box.open = true;
+      box.scrollIntoView({ behavior: "smooth", block: "start" });
+      box.classList.remove("ph-flash"); void box.offsetWidth; box.classList.add("ph-flash");
+    });
+  });
+})();

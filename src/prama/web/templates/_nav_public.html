@@ -11,6 +11,7 @@
       {% endfor %}
     </ul>
     <div class="d-flex align-items-center gap-2">
+      {% if page_help %}<a class="tool" href="#page-help" data-page-help aria-label="About this page" title="About this page"><i class="bi bi-question-circle" aria-hidden="true"></i></a>{% endif %}
       {% include "_theme_menu.html" %}
       {% if signed_in %}
       <a class="btn btn-light btn-sm fw-bold" href="{{ url_for('estate_map') }}"><i class="bi bi-grid" aria-hidden="true"></i> Console</a>

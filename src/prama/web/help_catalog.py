@@ -71,7 +71,7 @@ CURATED: dict[str, tuple[str, str, str]] = {
     "QUICKSTART.md": (
         "quickstart",
         "From a fresh clone to a running console.",
-        "bi-rocket-takeoff",
+        "bi-flag",
     ),
     "docs/README.md": ("corpus", "Every document, and who should read which.", "bi-collection"),
     "docs/reference/glossary.md": ("terms", "Every term Prama uses, defined once.", "bi-book"),
@@ -83,7 +83,7 @@ CURATED: dict[str, tuple[str, str, str]] = {
     "docs/sdk/README.md": (
         "sdk",
         "Everything Prama does, from Python, against your running server.",
-        "bi-filetype-py",
+        "bi-code-square",
     ),
     "docs/sdk/controls.md": (
         "sdk-controls",
@@ -148,7 +148,11 @@ CURATED: dict[str, tuple[str, str, str]] = {
         "Identity, scopes, evidence and audit.",
         "bi-shield-lock",
     ),
-    "docs/corpus/14-data-model-and-apis.md": ("data-model", "Tables and endpoints.", "bi-database"),
+    "docs/corpus/14-data-model-and-apis.md": (
+        "data-model",
+        "Tables and endpoints.",
+        "bi-hdd-stack",
+    ),
     "docs/corpus/12-banking-domain-pack.md": (
         "banking-pack",
         "What the banking pack ships, and what it does not claim.",
@@ -176,7 +180,7 @@ CURATED: dict[str, tuple[str, str, str]] = {
 FOLDERS: tuple[tuple[str, tuple[str, ...], str], ...] = (
     ("How Prama fits together", ("docs/architecture",), "bi-building"),
     ("Developer guides", ("docs/developer",), "bi-tools"),
-    ("Python SDK", ("docs/sdk",), "bi-filetype-py"),
+    ("Python SDK", ("docs/sdk",), "bi-code-square"),
     ("Agents beside the data", ("docs/agent",), "bi-hdd-network"),
     ("Operations", ("docs/operations",), "bi-gear"),
     ("Design corpus", ("docs/corpus",), "bi-journal-text"),
