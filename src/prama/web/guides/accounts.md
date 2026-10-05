@@ -2,59 +2,54 @@
 
 # Accounts, roles and sign-in
 
-## Signing in
+Who can sign in, and what each person may do. You manage your own account from the user menu
+(the avatar, top right); an administrator manages everybody under **Admin → People & roles**
+(`/admin/users`).
 
-Sign in at **/sign-in** with a username and password. Every failure gives the same message —
-"those details did not work" — whether the username is unknown, the password is wrong or the account
-is disabled, so the form cannot be used to discover who has an account.
+## To sign in
 
-A **single-tenant** deployment can set `tenancy.default_tenant`; the console then opens without
-signing in. That fallback has no account, so **My account** and **My API keys** still ask you to sign in.
+1. Open **/sign-in** and enter your username and password.
+2. If the estate has more than one tenant, choose which.
 
-## Your account
+Every failure says the same thing, "Those details did not work.", whether the username is unknown,
+the password wrong or the account disabled, so the form cannot reveal who has an account. A
+single-tenant deployment that sets `tenancy.default_tenant` opens the console without signing in;
+that fallback has no account, so **My account** and **My API keys** still ask you to sign in.
 
-The user menu (top right) holds:
+## To look after your own account
 
-- **My account** — your name, roles, and the scopes those roles give you, re-read on every request.
-- **My API keys** — see [API keys](/help/api-keys).
-- **Change password** — needs your current password. Length is the only rule. Changing it signs out every
-  *other* session you have; this one stays signed in.
+- **My account** shows your name, roles, and the scopes those roles give you.
+- **Change password** needs your current password; length is the only rule. It signs out every
+  *other* session you have and keeps this one.
+- **My API keys** mints keys for programs: see [API keys](/help/api-keys).
 
-## Roles
+## To add a person, or change what they may do
 
-There are four built-in roles. Scopes are listed on **My account**.
+On **People & roles**:
 
-| Role | Purpose |
-|---|---|
-| `admin` | Everything, including managing people and keys. |
-| `owner` | The business owner: declares datasets, approves controls, signs attestations. |
-| `steward` | Works incidents and breaks; proposes controls but does not approve them. |
-| `auditor` | Reads everything and changes nothing. |
+1. **Add a person**: username, name, email, kind (human or service), an initial password, and roles.
+2. **Set roles**: tick and save. The change takes effect at once; the person's existing sessions end.
+3. **Reset a password**: the person's sessions end.
+4. **Disable**: every session and API key the person holds stops working at once. This is how
+   somebody is offboarded.
 
-The split that matters is **proposing** a control versus **approving** it; they are separate scopes.
+The four built-in roles are `admin` (everything, including people and keys), `owner` (declares
+datasets, approves controls, signs attestations), `steward` (works incidents and breaks, proposes
+controls but does not approve them) and `auditor` (reads everything, changes nothing). Proposing a
+control and approving it are separate scopes.
 
-## Administration
+## What it refuses
 
-An administrator manages people at **People & roles** (user menu → *People & roles*, or `/admin/users`):
+- **Deleting anybody.** Evidence and attestations name the person who acted, so people are disabled,
+  never deleted.
+- **Locking out the last administrator.** You cannot disable yourself or remove your own `admin` role.
 
-- **Add a person** — username, name, email, kind (human or service), an initial password, and roles.
-- **Set roles** — tick and save. Removing a role takes effect immediately: the person's existing sessions
-  end, because any change to an account invalidates sessions issued before it.
-- **Reset a password** — sets a new one; the person's sessions end.
-- **Disable / enable** — disabling ends every session at once. This is how someone is offboarded.
-
-Nobody is deleted: evidence and attestations name the person who acted, and a record pointing at
-someone who no longer exists answers nothing. An administrator cannot disable themselves or remove
-their own `admin` role, so an estate cannot lock out its last administrator.
-
-Every change here is written to the audit log.
-
-The same operations exist on the command line:
+Every change here is written to the audit log. The same operations are on the command line:
 
 ```bash
-prama principal create alice --role owner
+prama principal roles                      # what each built-in role may do
+prama principal create alice --role owner  # the password is prompted for
 prama principal list
-prama principal roles
 ```
 
 ## Go deeper

@@ -2,39 +2,43 @@
 
 # API keys
 
-A program uses an API key to call the REST API under `/api/v1`:
+A program (a script, the SDK, a CI job) calls the REST API under `/api/v1` with an API key. You mint
+your own under **My API keys** in the user menu; an administrator sees every key in the estate under
+**Admin → All API keys** (`/admin/keys`).
 
 ```bash
 curl -H "Authorization: Bearer pk_live_…" http://127.0.0.1:5900/api/v1/health
 ```
 
-## Creating a key
+## To create a key
 
-Open **My API keys** from the user menu. Give the key a name that says which program uses it, choose an
-expiry (90 days by default, at most 365), and tick its scopes.
+1. Open **My API keys**.
+2. Name the key after the program that will use it.
+3. Choose an expiry: 90 days by default, at most 365.
+4. Tick its scopes, and create it.
+5. Copy the key from the page. **It is shown once**: only its prefix and a hash are stored. If you
+   lose it, revoke it and create another.
 
-- **A key can never do more than you can.** Only the scopes you hold are offered, and anything else is
-  refused on the server as well.
+## To revoke a key
+
+Press **Revoke** beside it, on **My API keys** or, as an administrator, on **All API keys**. It stops
+working at once. Revoked keys stay listed, because "which keys has this person ever had" is the
+question an access review asks.
+
+## What to know
+
+- **A key can never do more than you can.** Only the scopes you hold are offered, and the server
+  refuses anything else as well.
 - **A key with no scopes does nothing.** An empty list means "nothing", never "everything".
-- **The key is shown once**, on the page that created it. Only its prefix and a hash are stored, so it
-  cannot be shown again. If you lose it, revoke it and create another.
+- **A disabled person's keys stop with them.**
 
-## Revoking
-
-Press **Revoke** beside the key. It stops working at once. Revoked keys stay listed, because "which keys
-has this person ever had" is the question an access review asks.
-
-An administrator sees every key in the estate at **All API keys** (`/admin/keys`) and can revoke any of them.
-
-## From the command line
+Every creation and revocation is written to the audit log. From the command line:
 
 ```bash
 prama apikey create nightly --principal alice --scope report:read --expires-in-days 30
 prama apikey list
 prama apikey revoke pk_live_abcd
 ```
-
-Every creation and revocation is written to the audit log.
 
 ## Go deeper
 

@@ -12,16 +12,13 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import re
-from collections.abc import AsyncIterator
 from typing import Any
 
-import httpx
 import pytest
-from httpx import ASGITransport
 
 from prama.api import create_app
 from prama.core.config import Configuration
-from prama.web import help_catalog, page_help
+from prama.web import help_catalog, help_subjects, page_help
 from prama.web.routes.base import PAGE_SCOPES
 
 #: Routes the console serves that are not pages of it: the API's own docs.
@@ -62,7 +59,8 @@ def test_an_entry_is_short_and_points_somewhere_real(path: str) -> None:
         assert len(re.sub(r"<[^>]+>", "", tile.text)) <= 140, (path, tile.heading)
     if entry.more is not None:
         slug = entry.more.split("#")[0]
-        assert slug in help_catalog.BY_SLUG, f"{path}: More in Help names {slug!r}"
+        known = slug in help_catalog.BY_SLUG or slug in help_subjects.SUBJECTS
+        assert known, f"{path}: More in Help names {slug!r}"
 
 
 def test_who_can_use_it_is_the_check_that_runs() -> None:
@@ -76,28 +74,15 @@ def test_who_can_use_it_is_the_check_that_runs() -> None:
     assert PAGE_SCOPES["/"] is None and "no sign-in" in public.text
 
 
-@pytest.fixture
-async def stranger(
-    sqlite_config: Configuration, started_database: Any, tenant_id: str
-) -> AsyncIterator[httpx.AsyncClient]:
-    """No session: somebody arriving from outside."""
-    app = create_app(sqlite_config, database=started_database)
-    async with (
-        httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as http,
-        app.router.lifespan_context(app),
-    ):
-        yield http
-
-
 async def test_it_is_at_the_foot_of_a_public_page(stranger: Any) -> None:
     page = (await stranger.get("/sign-in")).text
     assert 'id="page-help"' in page and "About this page" in page
     assert 'class="ph-tile"' in page and "Who can use this page" in page
-    assert 'href="/help/accounts"' in page  # More in Help
+    assert 'href="/help/people-and-access"' in page  # More in Help: the subject
     assert "data-page-help" in page  # the ? in the header
 
 
 async def test_it_is_at_the_foot_of_a_console_page(ui: Any) -> None:
     page = (await ui.get("/estate")).text
     assert 'id="page-help"' in page and "The four counts" in page
-    assert 'href="/help/architecture-semantic-layer"' in page
+    assert 'href="/help/the-estate"' in page

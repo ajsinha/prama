@@ -8,9 +8,9 @@
 <section class="help-hero">
   <i class="bi bi-book hero-ico" aria-hidden="true"></i>
   <h1>Help &amp; documentation</h1>
-  <p>Everything about Prama, with worked estates. Search, or browse by section.</p>
+  <p>Everything about Prama, by subject, with worked estates. Search, or browse by category.</p>
   <div class="d-flex flex-wrap gap-2 justify-content-center mt-3 position-relative">
-    <a class="btn btn-light" href="{{ url_for('help_topic', slug='console-tour') }}"><i class="bi bi-flag" aria-hidden="true"></i> Getting started</a>
+    <a class="btn btn-light" href="{{ url_for('help_topic', slug='getting-started') }}"><i class="bi bi-flag" aria-hidden="true"></i> Getting started</a>
     {% if 'architecture' in slugs %}<a class="btn btn-outline-light" href="{{ url_for('help_topic', slug='architecture') }}"><i class="bi bi-building" aria-hidden="true"></i> How it fits together</a>{% endif %}
     {% if 'developer' in slugs %}<a class="btn btn-outline-light" href="{{ url_for('help_topic', slug='developer') }}"><i class="bi bi-tools" aria-hidden="true"></i> Developer guides</a>{% endif %}
     <a class="btn btn-outline-light" href="{{ url_for('help_case_studies') }}"><i class="bi bi-journal-code" aria-hidden="true"></i> Case studies</a>
@@ -20,51 +20,65 @@
   </div>
 </section>
 
-<p class="text-muted" style="max-width: 46rem">Every page here is rendered from the document that is
-  the authority for it — the console guides shipped with Prama, and every document in the
-  repository's <code>docs/</code>: the architecture, the developer guides, the SDK, operations and
-  the design corpus. Each card is derived from its document, so the help and the documentation
-  cannot disagree.</p>
-
-<div class="mb-4" style="max-width: 28rem">
-  <label class="visually-hidden" for="help-search">Search help</label>
-  <input class="form-control" id="help-search" type="search" placeholder="Search help topics…"
-         data-help-search autocomplete="off">
+<div class="help-toolbar">
+  <div class="help-search">
+    <i class="bi bi-search" aria-hidden="true"></i>
+    <label class="visually-hidden" for="help-search">Search help</label>
+    <input id="help-search" type="search" data-help-search autocomplete="off"
+           placeholder="Search help: reconciliation, PQL, lineage, API key, delegate…">
+  </div>
+  <div class="cat-chips">
+    {% for c in catalog %}<a class="chip" href="#cat-{{ c.category.id }}"><i class="bi bi-{{ c.category.icon }}" aria-hidden="true"></i> {{ c.category.name }} <span>{{ c.subjects | length }}</span></a>{% endfor %}
+    <a class="chip" href="{{ url_for('help_case_studies') }}"><i class="bi bi-journal-code" aria-hidden="true"></i> Case studies <span>{{ studies | length }}</span></a>
+    <a class="chip" href="{{ url_for('help_library') }}"><i class="bi bi-collection" aria-hidden="true"></i> Library <span>{{ documents }}</span></a>
+  </div>
 </div>
 
-{% if studies %}
-<section class="mb-4" aria-labelledby="studies-h">
-  <div class="d-flex align-items-baseline gap-3 mb-2">
-    <h2 class="h5 mb-0" id="studies-h"><i class="bi bi-journal-code" aria-hidden="true"></i> Case studies</h2>
-    <a class="small" href="{{ url_for('help_case_studies') }}">All {{ studies | length }} <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
-  </div>
-  <div class="row g-3">
-    {% for s in studies %}
-    <div class="col-md-6 col-xl-4">
-      <a class="card h-100 text-decoration-none" href="{{ url_for('help_case_study', slug=s.slug) }}"><div class="card-body py-2">
-        <div class="d-flex align-items-center gap-2"><span class="badge rounded-pill text-bg-primary">{{ s.num }}</span>
-          <span class="fw-semibold text-body">{{ s.title }}</span></div>
-        <p class="small text-muted mb-0 mt-1">{{ s.about }}</p></div></a>
+{# Help by subject, after Maya's: one card per thing a person wants to understand,
+   each gathering its console guide, architecture, SDK, developer and design pages
+   (prama/web/help_subjects.py). Every document is also in the Library. #}
+{% for c in catalog %}
+<details class="help-cat" id="cat-{{ c.category.id }}" data-help-section open>
+  <summary><span class="cat-name"><span class="cat-ico"><i class="bi bi-{{ c.category.icon }}" aria-hidden="true"></i></span> {{ c.category.name }}</span>
+    <span class="cat-count">{{ c.subjects | length }}</span></summary>
+  <p class="cat-blurb">{{ c.category.blurb }}</p>
+  <div class="row g-3 cat-body">
+    {% for s in c.subjects %}
+    <div class="col-md-6 col-xl-4" data-help-text="{{ (s.title ~ ' ' ~ s.summary ~ ' ' ~ c.category.name ~ ' ' ~ (s.readings | map('last') | join(' '))) | lower }}">
+      <a class="card subject-card h-100" href="{{ url_for('help_topic', slug=s.slug) }}">
+        <div class="card-body">
+          <div class="hc-title"><span class="hc-ico"><i class="bi bi-{{ s.icon }}" aria-hidden="true"></i></span>
+            <span>{{ s.title }}{% if s.badge %} <span class="badge">{{ s.badge }}</span>{% endif %}</span></div>
+          <p>{{ s.summary }}</p>
+          <span class="more">{{ s.readings | length }} to read <i class="bi bi-arrow-right" aria-hidden="true"></i></span>
+        </div>
+      </a>
     </div>
     {% endfor %}
   </div>
-</section>
-{% endif %}
+</details>
+{% endfor %}
 
-{% for section in sections %}
-<section class="mb-4" data-help-section>
-  <h2 class="h5 mb-3">{{ section.title }}</h2>
-  <div class="help-grid">
-    {% for e in section.entries %}
-    <a class="help-card" href="{{ url_for('help_topic', slug=e.slug) }}"
-       data-help-text="{{ (e.title ~ ' ' ~ e.summary) | lower }}">
-      <i class="bi {{ e.icon }}" aria-hidden="true"></i>
-      <div><strong>{{ e.title }}</strong><span>{{ e.summary }}</span></div>
-    </a>
+{% if studies %}
+<details class="help-cat" id="cat-studies" data-help-section open>
+  <summary><span class="cat-name"><span class="cat-ico"><i class="bi bi-journal-code" aria-hidden="true"></i></span> Case studies</span>
+    <span class="cat-count">{{ studies | length }}</span></summary>
+  <p class="cat-blurb">Worked estates over fabricated banking data, each run against your own server through the SDK.</p>
+  <div class="row g-3 cat-body">
+    {% for s in studies %}
+    <div class="col-md-6 col-xl-4" data-help-text="{{ (s.title ~ ' ' ~ s.about) | lower }}">
+      <a class="card subject-card h-100" href="{{ url_for('help_case_study', slug=s.slug) }}"><div class="card-body">
+        <div class="hc-title"><span class="hc-ico"><span aria-hidden="true">{{ s.num }}</span></span><span>{{ s.title }}</span></div>
+        <p>{{ s.about }}</p></div></a>
+    </div>
     {% endfor %}
   </div>
-</section>
-{% endfor %}
-<p class="text-muted small">The REST API documents itself at <a href="/api/v1/docs">/api/v1/docs</a>.</p>
+</details>
+{% endif %}
+
+<p class="text-muted small">Every page here is rendered from the document that is its authority: a console
+  guide shipped with Prama, or a document in the repository's <code>docs/</code>. The
+  <a href="{{ url_for('help_library') }}">Library</a> lists all {{ documents }} of them by kind.
+  The REST API documents itself at <a href="/api/v1/docs">/api/v1/docs</a>.</p>
 {% endblock %}
 {% block scripts %}<script src="{{ url_for('static', filename='js/help.js') }}"></script>{% endblock %}

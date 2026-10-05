@@ -2,12 +2,18 @@
 {% extends "base.html" %}
 {% block title %}{{ entry.title }} — Prama help{% endblock %}
 {% block breadcrumb %}
-<nav aria-label="Breadcrumb"><ol class="breadcrumb small">
-  <li class="breadcrumb-item"><a href="{{ url_for('help_index') }}">Help</a></li>
-  <li class="breadcrumb-item active" aria-current="page">{{ entry.title }}</li>
-</ol></nav>
+<nav class="help-crumbs" aria-label="Breadcrumb">
+  <a href="{{ url_for('help_index') }}"><i class="bi bi-book" aria-hidden="true"></i> Help</a><i class="bi bi-chevron-right" aria-hidden="true"></i>
+  {% if part_of %}<a href="{{ url_for('help_topic', slug=part_of[0].slug) }}">{{ part_of[0].title }}</a>{% else %}<a href="{{ url_for('help_library') }}">Library</a>{% endif %}<i class="bi bi-chevron-right" aria-hidden="true"></i>
+  <span aria-current="page">{{ entry.title }}</span>
+</nav>
 {% endblock %}
 {% block content %}
+{% if part_of | length > 1 %}
+<p class="help-partof">Part of:
+  {% for s in part_of %}<a class="chip" href="{{ url_for('help_topic', slug=s.slug) }}"><i class="bi bi-{{ s.icon }}" aria-hidden="true"></i> {{ s.title }}</a>{% endfor %}
+</p>
+{% endif %}
 {% if rendered %}
 <div class="row g-4">
   <article class="col-lg-9 help-doc">{{ rendered.html | safe }}</article>

@@ -24,7 +24,7 @@ from prama.core.errors import NotFoundError
 from prama.report.themes import THEMES
 from prama.security.scopes import SCOPES
 from prama.version import SCHEMA_VERSION
-from prama.web import about, help_catalog
+from prama.web import about, help_catalog, help_subjects
 from prama.web.rendering import NAVIGATION, render
 from prama.web.routes.base import UiRoutes
 
@@ -80,6 +80,8 @@ class PublicRoutes(UiRoutes):
         # Before /help/{slug}, which would otherwise read "case-studies" as a topic.
         self.page("/help/case-studies", self.case_studies, name="help_case_studies", scope=None)
         self.page("/help/case-studies/{slug}", self.case_study, name="help_case_study", scope=None)
+        # Before /help/{slug}, which would otherwise read "library" as a topic.
+        self.page("/help/library", self.help_library, name="help_library", scope=None)
         self.page("/help/{slug}", self.help_topic, name="help_topic", scope=None)
 
     async def landing(self, request: Request) -> Any:
@@ -149,9 +151,19 @@ class PublicRoutes(UiRoutes):
             request,
             "help/index.html",
             public_nav=not request.session.get("principal_id"),
-            sections=help_catalog.SECTIONS,
+            catalog=help_subjects.catalog(),
+            documents=len(help_catalog.BY_SLUG),
             slugs=help_catalog.BY_SLUG,
             studies=_studies(),
+        )
+
+    async def help_library(self, request: Request) -> Any:
+        """Every guide and document, by kind: the catalogue derived from the files."""
+        return render(
+            request,
+            "help/library.html",
+            public_nav=not request.session.get("principal_id"),
+            sections=help_catalog.SECTIONS,
         )
 
     async def case_studies(self, request: Request) -> Any:
@@ -187,11 +199,22 @@ class PublicRoutes(UiRoutes):
         )
 
     async def help_topic(self, request: Request, slug: str) -> Any:
+        """A subject (help_subjects), or one guide or document (help_catalog)."""
+        view = help_subjects.view(slug)
+        if view is not None:
+            opening = view["opening"]["entry"]
+            return render(
+                request,
+                "help/subject.html",
+                public_nav=not request.session.get("principal_id"),
+                v=view,
+                opening=help_catalog.render_entry(opening),
+            )
         entry = help_catalog.BY_SLUG.get(slug)
         if entry is None:
             raise NotFoundError(
                 f"there is no help topic called {slug!r}",
-                remedy="The help centre at /help lists every topic.",
+                remedy="/help lists every subject, and /help/library every document.",
                 context={"slug": slug},
             )
         return render(
@@ -201,6 +224,7 @@ class PublicRoutes(UiRoutes):
             entry=entry,
             rendered=help_catalog.render_entry(entry),
             sections=help_catalog.SECTIONS,
+            part_of=help_subjects.subjects_reading(slug),
         )
 
     async def help_image(self, name: str) -> Any:

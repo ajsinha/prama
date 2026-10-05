@@ -76,7 +76,7 @@ PAGES: dict[str, PageHelp] = {
             "flag",
             "Sign in, or read the <strong>Quickstart</strong> to run it yourself.",
         ),
-        more="quickstart",
+        more="getting-started",
     ),
     "/about": _p(
         "Who built Prama, and why it exists.",
@@ -120,7 +120,7 @@ PAGES: dict[str, PageHelp] = {
             "The bootstrap admin is <code>admin</code> / <code>prama-dev-admin</code>; change the "
             "password at once.",
         ),
-        more="accounts",
+        more="people-and-access",
     ),
     # -- help --------------------------------------------------------------------------
     "/help": _p(
@@ -136,10 +136,20 @@ PAGES: dict[str, PageHelp] = {
             "<strong>Getting started</strong> for the console; <strong>How it fits "
             "together</strong> for the architecture.",
         ),
-        more="console-tour",
+        more="getting-started",
+    ),
+    "/help/library": _p(
+        "Every guide and document, by kind, with a card derived from each document.",
+        (
+            "By kind, not by subject",
+            "collection",
+            "Console guides, architecture, developer guides, SDK, operations, the design corpus "
+            "and publications.",
+        ),
+        more="getting-started",
     ),
     "/help/{slug}": _p(
-        "One guide or document, rendered from its Markdown source.",
+        "One subject, or one guide or document rendered from its Markdown source.",
         (
             "The source",
             "file-earmark-code",
@@ -174,7 +184,7 @@ PAGES: dict[str, PageHelp] = {
             "person-badge",
             "What you may do comes from your roles; an administrator changes them.",
         ),
-        more="accounts",
+        more="people-and-access",
     ),
     "/account/password": _p(
         "Change your password.",
@@ -183,7 +193,7 @@ PAGES: dict[str, PageHelp] = {
             "shield-exclamation",
             "Until the bootstrap admin's default password is changed, every page says so.",
         ),
-        more="accounts",
+        more="people-and-access",
     ),
     "/account/keys": _p(
         "Your API keys: for scripts, the SDK and CI.",
@@ -197,7 +207,7 @@ PAGES: dict[str, PageHelp] = {
             "eye-slash",
             "The key is displayed when created and never again; only its hash is stored.",
         ),
-        more="api-keys",
+        more="people-and-access",
     ),
     "/admin/users": _p(
         "The people in this estate: add them, set roles, reset passwords.",
@@ -207,7 +217,7 @@ PAGES: dict[str, PageHelp] = {
             "<strong>admin</strong>, <strong>owner</strong>, <strong>steward</strong> and "
             "<strong>auditor</strong>; each card says what it may do.",
         ),
-        more="accounts",
+        more="people-and-access",
     ),
     "/admin/keys": _p(
         "Every API key in the estate, whoever holds it.",
@@ -216,7 +226,7 @@ PAGES: dict[str, PageHelp] = {
             "key",
             "Keys are minted by their holder; an administrator can see and revoke any of them.",
         ),
-        more="api-keys",
+        more="people-and-access",
     ),
     # -- the estate --------------------------------------------------------------------
     "/estate": _p(
@@ -237,7 +247,7 @@ PAGES: dict[str, PageHelp] = {
             "exclamation-triangle",
             "What the estate cannot yet answer for, listed rather than hidden.",
         ),
-        more="architecture-semantic-layer",
+        more="the-estate",
     ),
     "/estate/gaps": _p(
         "What the business declared and Prama cannot act on.",
@@ -247,7 +257,7 @@ PAGES: dict[str, PageHelp] = {
             "Unreachable, unowned or unshaped: drawn from what owners said, which no crawler "
             "would see.",
         ),
-        more="architecture-semantic-layer",
+        more="the-estate",
     ),
     "/estate/{dataset_id}": _p(
         "One dataset: what it is, its attributes, its relationships, and what can be controlled.",
@@ -262,7 +272,7 @@ PAGES: dict[str, PageHelp] = {
             "Says which kinds of control the declaration supports, and what it would need "
             "for the rest.",
         ),
-        more="architecture-semantic-layer",
+        more="the-estate",
     ),
     "/declarations": _p(
         "Every declaration, with what each one still cannot produce.",
@@ -277,7 +287,7 @@ PAGES: dict[str, PageHelp] = {
             "Tier 1 and 2 changes wait for approval, Tier 1 by a second person; Tier 3 and 4 "
             "take effect at once.",
         ),
-        more="semantic-layer",
+        more="the-estate",
     ),
     "/declarations/new": _p(
         "Declare a dataset in business terms: meaning, grain, rhythm, owner, tier.",
@@ -292,7 +302,7 @@ PAGES: dict[str, PageHelp] = {
             "A Tier-1 declaration is recorded and held until someone other than its author "
             "approves it.",
         ),
-        more="semantic-layer",
+        more="the-estate",
     ),
     "/relationships": _p(
         "How datasets relate: reconciles-with, derives-from, feeds, same-entity-as.",
@@ -307,7 +317,7 @@ PAGES: dict[str, PageHelp] = {
             "arrow-left-right",
             "A relationship yields controls across two datasets, such as a reconciliation.",
         ),
-        more="architecture-semantic-layer",
+        more="the-estate",
     ),
     "/relationships/new": _p(
         "Declare that two datasets relate, and how.",
@@ -316,7 +326,7 @@ PAGES: dict[str, PageHelp] = {
             "diagram-2",
             "A declared relationship is derived into controls like any other declaration.",
         ),
-        more="architecture-semantic-layer",
+        more="the-estate",
     ),
     "/glossary": _p(
         "The business glossary: terms, what they mean, and the data they name.",
@@ -330,7 +340,7 @@ PAGES: dict[str, PageHelp] = {
             "box-arrow-in-down",
             "<code>prama glossary import</code> takes an Alation or Collibra export.",
         ),
-        more="glossary",
+        more="meaning-and-metadata",
     ),
     "/metadata": _p(
         "Metadata and business context: find data by what it means, and see where meaning "
@@ -350,7 +360,7 @@ PAGES: dict[str, PageHelp] = {
             "graph-up",
             "From query history: where a missing control would hurt most.",
         ),
-        more="metadata",
+        more="meaning-and-metadata",
     ),
     "/metadata/d/{slug}": _p(
         "One dataset's metadata, its business context, and the rules they imply.",
@@ -361,7 +371,7 @@ PAGES: dict[str, PageHelp] = {
             "sends it for review.",
         ),
         ("Discussion", "chat-left-text", "Comments with @mentions reach the named person's queue."),
-        more="metadata",
+        more="meaning-and-metadata",
     ),
     "/queue": _p(
         "Everything waiting on you: mentions, approvals, breaks and reviews.",
@@ -370,7 +380,7 @@ PAGES: dict[str, PageHelp] = {
             "check2-circle",
             "An item leaves when it is resolved, not when it is seen.",
         ),
-        more="queue",
+        more="working-together",
     ),
     # -- controls ----------------------------------------------------------------------
     "/controls": _p(
@@ -390,7 +400,7 @@ PAGES: dict[str, PageHelp] = {
             "volume-mute",
             "Silencing needs an expiry and a reason; retired controls keep their evidence.",
         ),
-        more="pql",
+        more="controls-and-pql",
     ),
     "/controls/studio": _p(
         "Write a control in PQL, check it as you type, and see what it would have done.",
@@ -404,7 +414,7 @@ PAGES: dict[str, PageHelp] = {
             "clock-history",
             "Where the data allows, run the control day by day over last month first.",
         ),
-        more="pql",
+        more="controls-and-pql",
     ),
     "/controls/build": _p(
         "Build a control from a form, for anyone who will never write PQL.",
@@ -414,7 +424,7 @@ PAGES: dict[str, PageHelp] = {
             "The control appears as PQL as soon as you build it: the same text a person would "
             "type.",
         ),
-        more="pql",
+        more="controls-and-pql",
     ),
     "/proposals": _p(
         "Controls Prama derived from declarations and mining, waiting for a person.",
@@ -428,7 +438,7 @@ PAGES: dict[str, PageHelp] = {
             "robot",
             "A proposal may come from a model; the verdict on data never does.",
         ),
-        more="architecture-controls-and-pql",
+        more="controls-and-pql",
     ),
     "/proposals/{dataset_id}": _p(
         "The proposals for one dataset.",
@@ -437,7 +447,7 @@ PAGES: dict[str, PageHelp] = {
             "diagram-3",
             "Each proposal names the declaration or metadata that implied it.",
         ),
-        more="architecture-controls-and-pql",
+        more="controls-and-pql",
     ),
     "/schedule": _p(
         "When controls run, and what the scheduler did on its last ticks.",
@@ -451,7 +461,7 @@ PAGES: dict[str, PageHelp] = {
             "play-circle",
             "Runs what is due immediately, rather than waiting for the interval.",
         ),
-        more="architecture-execution",
+        more="sources-and-runs",
     ),
     # -- assurance ---------------------------------------------------------------------
     "/incidents": _p(
@@ -466,7 +476,7 @@ PAGES: dict[str, PageHelp] = {
             "search",
             "The failing rows, the control's history, and what lies upstream in the lineage.",
         ),
-        more="architecture-evidence-and-assurance",
+        more="evidence-and-sign-off",
     ),
     "/incidents/{control_id}": _p(
         "One failing control: what it says, the rows that failed, and where to look.",
@@ -481,12 +491,12 @@ PAGES: dict[str, PageHelp] = {
             "code-slash",
             "The control exactly as it ran; its plan id ties it to the evidence.",
         ),
-        more="architecture-evidence-and-assurance",
+        more="evidence-and-sign-off",
     ),
     "/reconciliation": _p(
         "Every reconciliation and its latest result, from the same ledger as everything else.",
         ("Break queues", "inboxes", "Open one to work its breaks, most urgent first."),
-        more="sdk-reconciliation",
+        more="reconciliation-and-breaks",
     ),
     "/reconciliation/{definition}": _p(
         "Every break for one reconciliation, ordered by what needs a person, not by size.",
@@ -500,7 +510,7 @@ PAGES: dict[str, PageHelp] = {
             "person-check",
             "Accepting a break needs a reason: an acceptance nobody explained cannot be defended.",
         ),
-        more="sdk-reconciliation",
+        more="reconciliation-and-breaks",
     ),
     "/scorecards": _p(
         "A score per dataset, and exactly how it was derived.",
@@ -511,7 +521,7 @@ PAGES: dict[str, PageHelp] = {
             "typed in.",
         ),
         ("Grey until proven", "circle-half", "No evidence means no score, not a good one."),
-        more="architecture-evidence-and-assurance",
+        more="evidence-and-sign-off",
     ),
     "/evidence": _p(
         "The evidence ledger: every verdict Prama has recorded, chained so any edit shows.",
@@ -532,7 +542,7 @@ PAGES: dict[str, PageHelp] = {
             "cpu",
             "A deterministic engine decides every verdict; no model does.",
         ),
-        more="architecture-evidence-and-assurance",
+        more="evidence-and-sign-off",
     ),
     "/attestations": _p(
         "Sign-offs: a named person stating that the evidence supports a claim.",
@@ -541,7 +551,7 @@ PAGES: dict[str, PageHelp] = {
             "pen",
             "Controls and evidence with no sign-off have nobody accountable for them.",
         ),
-        more="sdk-evidence",
+        more="evidence-and-sign-off",
     ),
     "/attestations/new": _p(
         "See exactly what you would attest to, then sign it.",
@@ -550,7 +560,7 @@ PAGES: dict[str, PageHelp] = {
             "clipboard-data",
             "The coverage and verdicts behind the statement are shown before anybody signs.",
         ),
-        more="sdk-evidence",
+        more="evidence-and-sign-off",
     ),
     "/attestations/{attestation_id}": _p(
         "One signed attestation: the statement, its coverage, and whether it is intact.",
@@ -559,13 +569,13 @@ PAGES: dict[str, PageHelp] = {
             "file-earmark-zip",
             "Download the pack: the artefact that leaves the building, checkable on its own.",
         ),
-        more="sdk-evidence",
+        more="evidence-and-sign-off",
     ),
     "/reports": _p(
         "Packs to hand to an auditor or a regulator.",
         ("Declaration pack", "journal-text", "What the business says its data is."),
         ("Control pack", "shield-check", "Every control, why it exists, and the SQL it becomes."),
-        more="sdk-evidence",
+        more="evidence-and-sign-off",
     ),
     # -- intelligence, code and lineage ------------------------------------------------
     "/lineage": _p(
@@ -577,7 +587,7 @@ PAGES: dict[str, PageHelp] = {
             "person, or <strong>confirmed</strong> by one.",
         ),
         ("Impact", "bullseye", "Name a column to see everything downstream of a defect in it."),
-        more="lineage",
+        more="lineage-and-code",
     ),
     "/code": _p(
         "Send an application's code, as a ZIP or a git location; Prama reads its lineage.",
@@ -588,7 +598,7 @@ PAGES: dict[str, PageHelp] = {
             "Each intake shows the files read, the edges found, the gaps, and what is not yet "
             "read.",
         ),
-        more="code",
+        more="lineage-and-code",
     ),
     "/models": _p(
         "The language models Prama may use: providers, profiles, budgets and the call ledger.",
@@ -608,7 +618,7 @@ PAGES: dict[str, PageHelp] = {
             "Every call is hash-chained; by default it keeps hashes of the prompt and answer, "
             "not the text.",
         ),
-        more="models",
+        more="models-and-ai",
     ),
     "/agents": _p(
         "Steward agents: AI that reads the estate and proposes, never approves.",
@@ -618,11 +628,11 @@ PAGES: dict[str, PageHelp] = {
             "Each steward works towards goals; a goal can wait for a person before it runs.",
         ),
         (
-            "The kill switch",
+            "Pause, stop, revoke",
             "power",
-            "Suspending a steward stops its key and its model access at once.",
+            "A steward can be paused or stopped here; revoking it also revokes its key.",
         ),
-        more="agents",
+        more="models-and-ai",
     ),
     "/delegates": _p(
         "Python checks PQL cannot say: uploaded, vetted, approved, and judged by Prama.",
@@ -636,7 +646,7 @@ PAGES: dict[str, PageHelp] = {
             "people",
             "An upload is approved by someone other than the person who uploaded it.",
         ),
-        more="delegates",
+        more="python-checks",
     ),
 }
 

@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from prama.web import help_catalog, page_help
+from prama.web import help_catalog, help_subjects, page_help
 
 WEB = Path(help_catalog.__file__).parent
 SHIPPED = set(
@@ -44,5 +44,8 @@ def test_every_icon_in_the_templates_and_the_help_exists() -> None:
         ("page_help", tile.icon) for entry in page_help.PAGES.values() for tile in entry.tiles
     }
     named |= {("page_help", "shield-lock"), ("page_help", "unlock")}  # the derived tile
+    named |= {("help_subjects", s.icon) for s in help_subjects.SUBJECTS.values()}
+    named |= {("help_subjects", c.icon) for c in help_subjects.CATEGORIES}
+    named |= {("help_subjects", icon) for _, icon in help_subjects.ROLES.values()}
     missing = sorted((where, name) for where, name in named if name not in SHIPPED)
     assert missing == [], f"icons the shipped font does not have: {missing}"

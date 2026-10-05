@@ -2,16 +2,17 @@
 
 # Models: providers, profiles and the call ledger
 
-Models draft controls, explain findings and summarise; **they never decide a verdict**. A
-deterministic engine does, and a build test fails if any verdict-producing module can import the
-model layer.
+The language models Prama may use, which one serves which purpose, what they may cost, and the
+record of every call. The page is **Admin → Models** (`/models`). Models draft controls, explain
+findings, summarise and search; **they never decide a verdict**, so with no model configured every
+control, verdict and piece of evidence works exactly the same.
 
-## Providers
+## To add a provider
 
-A provider is where a model runs. Add one on the **Models** page (user menu → *Models*) or:
+A provider is where a model runs. On **Models**, fill in **Add provider**, or:
 
 ```bash
-# A local Ollama serving Qwen or Llama: nothing leaves this machine.
+# A local Ollama: nothing leaves this machine.
 prama llm provider add local --kind openai_compatible --hosting self_hosted \
     --dialect ollama --endpoint http://localhost:11434
 
@@ -20,78 +21,38 @@ prama llm provider add vendor --kind anthropic --hosting hosted \
     --credential-ref env://ANTHROPIC_API_KEY
 ```
 
-- **No model configured? The mock.** When a purpose has no profile, Prama routes it to a built-in
-  **mock** model. The mock always answers with **nothing**, plus a note saying that no LLM is
-  configured. This is deliberate: a placeholder that produced words would be stored or shown as
-  if it were a real answer. Every model-assisted extra quietly does not appear. Deterministic
-  controls, verdicts and evidence never depend on a model, so they are unaffected. Each call is
-  still recorded in the call ledger as `mock`. You can also name the mock explicitly with
-  `--kind mock`.
-- **Amazon Bedrock**: `--kind bedrock --hosting tenant` with the AWS region in the provider's
-  settings (`aws_region`) and a credential reference resolving to
-  `ACCESS_KEY_ID:SECRET_ACCESS_KEY[:SESSION_TOKEN]`. Requests are signed with SigV4, checked against
-  AWS's own published example.
-- **Azure OpenAI**: `--kind azure_openai --hosting tenant --endpoint https://<resource>.openai.azure.com`.
-  The route's model is the **deployment name**. The key is sent as `api-key`, and the API version
-  is pinned.
-- **Google Vertex AI**: `--kind vertex --hosting hosted`, with the endpoint set to
-  `https://<location>-aiplatform.googleapis.com/v1/projects/<project>/locations/<location>/endpoints/openapi`.
-  The credential reference resolves to an OAuth access token. Models are Vertex names, such as
-  `google/gemini-2.0-flash-001`.
-- **OpenAI, Hugging Face and other OpenAI-shaped APIs**: `--kind openai_compatible --hosting hosted`
-  with the vendor's endpoint and a credential reference.
-- **Hosting is required** and decides what data may be sent: `self_hosted` may receive anything,
-  `tenant` (a vendor's model in your own cloud) anything but restricted data, and `hosted` only
-  public and internal data. A vendor's API cannot be declared self-hosted.
-- **Server dialect** matters for constrained output. vLLM enforces a grammar and a regex,
-  llama.cpp a grammar only, and Ollama, LM Studio, TGI and OpenAI neither. Prama records a
-  constraint as enforced only when the server really applies it.
-- **Credentials** are references such as `env://NAME` or `vault://path`. The page never shows a
-  key.
+1. **Choose the kind.** `openai_compatible` covers OpenAI, Hugging Face, vLLM, Ollama, llama.cpp, LM
+   Studio and TGI. The others need a little more:
+   - `bedrock`: the AWS region (the provider's `aws_region` setting, else `--region`), and a
+     credential reference resolving to `ACCESS_KEY_ID:SECRET_ACCESS_KEY[:SESSION_TOKEN]`;
+   - `azure_openai`: `--endpoint https://<resource>.openai.azure.com`, and the route's model is the
+     **deployment name**;
+   - `vertex`: the endpoint
+     `https://<location>-aiplatform.googleapis.com/v1/projects/<project>/locations/<location>/endpoints/openapi`,
+     a credential resolving to an OAuth access token, and Vertex model names such as
+     `google/gemini-2.0-flash-001`.
+2. **Declare the hosting.** It decides what data may be sent: `self_hosted` anything, `tenant` (a
+   vendor's model in your own cloud) anything but restricted data, `hosted` only public and internal
+   data. A vendor's API cannot be declared self-hosted.
+3. **Choose the server dialect** for a local server. It matters for constrained output: vLLM enforces
+   a grammar and a regex, llama.cpp a grammar only, the rest neither, and Prama records a constraint
+   as enforced only when the server applies it.
+4. **Give a credential reference** (`env://NAME`, `vault://path`), never a key. The page never shows one.
 
-## Profiles
+## To route a purpose to a model
 
-A profile maps a purpose (`author`, `explain`, `summarise`) to an ordered route of `provider:model`:
+A profile maps a purpose to an ordered route of `provider:model`. **Save as a new version** on the
+page, or:
 
 ```bash
 prama llm profile set author --route local:qwen2.5-coder:7b --route vendor:claude-sonnet-5
 prama llm profile show
 ```
 
-The gateway tries each step in order and retries a failure once before moving on. **It never falls
-back to a less local model** unless the profile allows it. Saving a profile makes a new version,
-so you can always tell which model wrote a proposal.
-
-## Budgets and cost
-
-Set a price per million tokens for each model (Models page, or `uow.llm.set_price`). Every call is
-then costed in integer micro-units from the price in force when it started. A budget for the
-estate, a profile, a person or an API key, per day or month, either **refuses** further calls
-(HTTP 429, and the refusal is recorded) or **warns**. Spend is always derived from the call
-ledger, so it cannot disagree with it.
-
-## For programs and agents
-
-Programs and Prama agents call the server rather than a provider:
-
-```bash
-curl -X POST http://127.0.0.1:5900/api/v1/llm/chat \
-     -H "Authorization: Bearer pk_live_…" -H "content-type: application/json" \
-     -d '{"purpose": "author", "prompt": "Write a control that trades.notional is never null"}'
-```
-
-The key needs the `llm:use` scope. The server applies the profile, residency, redaction, the
-budget and a per-person rate limit, and records the call. No program needs a provider key.
-
-## Offline
-
-Set `llm.offline: true` in `config/application.yaml` for an air-gapped estate. Only self-hosted
-providers on this machine or a private network address are then used.
-
-## Purposes Prama uses
-
-A purpose with no profile falls back to the mock model, which does nothing. These are the
-purposes Prama uses:
+Each step is tried in order, and the route never falls back to a *less local* model unless the profile
+allows it. Every save is a new version, so you can tell which model wrote a proposal. A purpose with
+no profile goes to the built-in **mock**, which answers with nothing and says no model is configured,
+so model-assisted extras simply do not appear.
 
 | Purpose | What for |
 |---|---|
@@ -99,50 +60,57 @@ purposes Prama uses:
 | `lineage` | proposing lineage for code the parsers could not read |
 | `curate` | drafting descriptions for datasets that have none |
 | `discover` | explaining which datasets fit a stated purpose |
-| `embed` | embedding dataset profiles for meaning-based search (an embedding model) |
+| `embed` | embedding dataset profiles for meaning-based search |
 
-## Templates, evaluation and the gate
+## To control spend
 
-A **prompt template** is a feature's instructions, with named `{{ variables }}`. Each variable
-declares a sensitivity, and whether it is trusted, meaning Prama composed it itself. Everything
-untrusted reaches the model fenced, marked as data rather than instructions.
+1. **Save price** for each model: currency units per million input and output tokens. Each call is
+   costed from the price in force when it started.
+2. **Save budget** for the estate, per day or month, to either **refuse** further calls (HTTP 429, and
+   the refusal is recorded) or **warn**. Budgets for a profile, a person or an API key are set through
+   the API (`PUT /api/v1/models/budgets`) or the SDK's `client.models.set_budget`.
 
-```bash
-prama llm template add explain.yaml               # a new draft version
-prama llm eval run explain-suite.yaml             # grade it: deterministic checks only
-prama llm template approve explain 3 --by <id>    # someone other than its author
-```
+Every model call is checked against the budgets, whichever path makes it: the console, the API,
+stewards, code intake, search or the CLI. Spend is derived from the call ledger, so the two cannot
+disagree.
 
-An **evaluation suite** lists cases and what each answer must satisfy: `nonempty`, `contains`,
-`absent`, `matches`, `json_valid`, `json_keys`, `pql_parses` or `max_latency_ms`. No model grades
-another model.
+## To try a prompt, and read the ledger
 
-With `llm.eval.gate_activation: true`, `prama llm profile set` records a new version without
-making it current. After a passing run, `prama llm eval run suite.yaml --profile-version N` and
-then `prama llm profile activate <purpose> N` make it current. With no model configured nothing
-can pass, because the mock answers with nothing.
-
-## Stored payloads
-
-By default only hashes are kept. Set `llm.audit.payloads: redacted` to keep each exchange with
-secrets, card numbers, IBANs and emails removed, or `full` to keep it exactly. Stored payloads
-are blanked after `payload_retention_days`. `prama llm verify` recomputes the call ledger's hash
-chain, and it still verifies after payloads expire.
-
-## The call ledger
-
-Every call, including refusals and failures, is recorded with its purpose, model, hosting,
-tokens, latency and outcome. Prompts and answers are stored as hashes, never as text. Records
-are hash-chained per estate, like the evidence ledger. Secrets and card numbers are removed from
-prompts before they leave.
+Use **Try a prompt** on the page, or:
 
 ```bash
 prama llm ask author "Write a control that trades.notional is never null"
-prama llm calls
+prama llm calls          # newest first: purpose, model, hosting, tokens, latency, outcome
+prama llm verify         # recompute the ledger's hash chain
 ```
+
+Every call, refusals and failures included, is recorded and hash-chained per estate. By default only
+hashes of the prompt and answer are kept; `llm.audit.payloads: redacted` keeps each exchange with
+secrets, card numbers, IBANs and emails removed, and `full` keeps it exactly, blanked after
+`llm.audit.payload_retention_days`. The chain still verifies after payloads expire.
+
+## To gate a prompt or profile on an evaluation
+
+```bash
+prama llm template add explain.yaml               # a new draft version
+prama llm eval run explain-suite.yaml             # deterministic checks only
+prama llm template approve explain 3 --by <id>    # someone other than its author
+```
+
+An evaluation suite lists cases and what each answer must satisfy (`nonempty`, `contains`, `absent`,
+`matches`, `json_valid`, `json_keys`, `pql_parses`, `max_latency_ms`); no model grades another. With
+`llm.eval.gate_activation: true`, `prama llm profile set` records a version without making it current;
+`prama llm eval run suite.yaml --profile-version N` then `prama llm profile activate <purpose> N` does.
+
+## For programs and air-gapped estates
+
+Programs call the server, never a provider: `POST /api/v1/llm/chat` with a key holding `llm:use`,
+naming a `purpose` and a `prompt`. The server applies the profile, residency, redaction, the budget
+and a per-person rate limit (`llm.per_principal_rpm`). Set `llm.offline: true` to use only
+self-hosted providers on this machine or a private address.
 
 ## Go deeper
 
-- [Intelligence](../../../../docs/architecture/intelligence.md#the-gateway): the gateway, profiles, budgets and the call ledger.
+- [Intelligence: the gateway](../../../../docs/architecture/intelligence.md#the-gateway): the order of budget, routing, policy, redaction and record on every call.
 - [Writing a model provider](../../../../docs/developer/llm-providers.md): adding a provider dialect.
 - [LLM gateway: design](../../../../docs/design/llm-gateway.md): the design note.
