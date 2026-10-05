@@ -289,3 +289,40 @@ body.maya-public { background:
   .maya-nav .btn-sm { white-space: nowrap; }
   .maya-nav .navbar-nav .nav-link i { display: none; }
 }
+
+/* "About this page" at the foot of every page (prama/web/page_help.py), after
+   Maya's: tiles in the cards' own language, collapsible, themed by tokens so all
+   four themes hold. */
+.page-help { margin: 2.5rem 0 1rem; }
+.page-help > summary { list-style: none; cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline;
+  gap: .3rem .8rem; margin-bottom: .8rem; }
+.page-help > summary::-webkit-details-marker { display: none; }
+.page-help:not([open]) > summary { margin-bottom: 0; }
+.page-help .ph-title { font-size: 1.15rem; font-weight: 750; letter-spacing: -.01em;
+  background: linear-gradient(90deg, var(--maya-heading), var(--maya-crimson) 55%, var(--maya-indigo));
+  -webkit-background-clip: text; background-clip: text; color: transparent; }
+.page-help .ph-title i { color: var(--maya-crimson); -webkit-text-fill-color: var(--maya-crimson); }
+.page-help .ph-title::after { content: "\F282"; font-family: "bootstrap-icons"; font-size: .8rem; margin-left: .4rem;
+  display: inline-block; color: var(--maya-slate); -webkit-text-fill-color: var(--maya-slate); transition: transform .15s; }
+.page-help:not([open]) .ph-title::after { transform: rotate(-90deg); }
+.page-help .ph-what { color: var(--maya-slate); font-size: .9rem; flex: 1 1 20rem; }
+.page-help .ph-foot { margin: .8rem 0 0; text-align: right; }
+.page-help .ph-more { display: inline-flex; align-items: center; gap: .3rem; min-height: 32px; padding: 0 .4rem;
+  font-weight: 600; font-size: .88rem; white-space: nowrap; }
+.page-help .ph-grid { display: grid; gap: 1rem; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.page-help .ph-grid.ph-n1 { grid-template-columns: minmax(0, 1fr); max-width: 40rem; }
+.page-help .ph-grid.ph-n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.page-help .ph-grid.ph-n3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.page-help .ph-tile { background: var(--maya-surface); border: 1px solid color-mix(in srgb, var(--maya-border) 70%, transparent);
+  border-radius: 14px; overflow: hidden;
+  box-shadow: 0 1px 2px rgba(26,26,26,.04), 0 8px 24px -14px rgba(41,51,82,.28); }
+.page-help .ph-head { display: flex; align-items: center; gap: .55rem; padding: .55rem .9rem; font-weight: 650; font-size: .9rem;
+  color: var(--maya-heading); background: linear-gradient(90deg, var(--maya-crimson-tint), transparent); }
+.page-help .ph-head i { display: inline-grid; place-items: center; flex: none; width: 26px; height: 26px; border-radius: 8px;
+  background: var(--maya-crimson); color: var(--maya-on-crimson); font-size: .85rem; }
+.page-help .ph-tile p { margin: 0; padding: .6rem .9rem .8rem; font-size: .86rem; }
+.page-help.ph-flash .ph-tile { animation: ph-flash 1.2s ease-out; }
+@keyframes ph-flash { from { box-shadow: 0 0 0 3px color-mix(in srgb, var(--maya-crimson) 45%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .page-help.ph-flash .ph-tile { animation: none; } .page-help .ph-title::after { transition: none; } }
+@media (max-width: 1100px) { .page-help .ph-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .page-help .ph-grid, .page-help .ph-grid.ph-n2, .page-help .ph-grid.ph-n3 { grid-template-columns: minmax(0, 1fr); } }

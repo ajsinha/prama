@@ -21,6 +21,13 @@ from prama.web.deps import ui_scope
 _log = get_logger(__name__)
 
 
+#: The permission each console page checks, by route template, as registered.
+#: Read by the "About this page" footer (``prama.web.page_help``), whose "Who can
+#: use this page" tile is derived from it rather than written, so the words and
+#: the check cannot disagree. ``None`` is a page anybody may open.
+PAGE_SCOPES: dict[str, str | None] = {}
+
+
 class UiRoutes:
     """Base for a group of pages."""
 
@@ -107,6 +114,8 @@ class UiRoutes:
                     f"Add it to prama.security.scopes.SCOPES, or set WRITE_SCOPE "
                     f"on the class to the verb the vocabulary already has."
                 )
+        if "GET" in verbs:
+            PAGE_SCOPES[path] = scope
         self.app.add_api_route(
             path,
             handler,

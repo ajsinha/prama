@@ -179,6 +179,18 @@ authority (`src/prama/web/help_catalog.py`). A console guide is
 card derived from its title and the summary its folder's README gives it. Link the page to its
 guide.
 
+### "About this page"
+
+Every console page ends with a short **About this page** (`src/prama/web/page_help.py`): one
+sentence on what the page is for, one to three tiles, and a *More in Help* link. Add an entry
+keyed by the route's path template, or list the route in `EXEMPT` with a reason if it answers
+with something other than a page (a download, an event stream). Do not write the last tile:
+**Who can use this page** is derived from the scope the page was registered with, through
+`PAGE_SCOPES` in `src/prama/web/routes/base.py`, and the built-in roles that grant it.
+`tests/web/test_page_help.py` fails for a page with no entry, an entry with no page, a tile
+too long to be a hint, or a *More in Help* slug that does not exist. Icons are checked against
+the shipped font by `tests/web/test_icons.py`.
+
 ![The help centre: case studies, guides and documents, each rendered from the file that is its authority](../assets/screenshots/help.png)
 
 ## Testing
@@ -205,6 +217,7 @@ guide.
 - [ ] An SDK method for every new endpoint; `tests/sdk/test_parity.py` green.
 - [ ] Pages registered through `self.page`; the class in `ROUTE_CLASSES`; the template carries the notice.
 - [ ] A help entry the page links to, rendered from the file that is its authority.
+- [ ] An "About this page" entry in `page_help.PAGES`; `tests/web/test_page_help.py` green.
 
 ---
 

@@ -55,6 +55,29 @@
       {% block breadcrumb %}{% endblock %}
       {% if self.heading() | trim %}<h1 class="h4 mb-3">{% block heading %}{% endblock %}</h1>{% endif %}
       {% block content %}{% endblock %}
+
+      {# "About this page" (prama/web/page_help.py), after Maya's: what this page is
+         for, as tiles, collapsible, and reachable from the ? in the header. The last
+         tile, who can use it, is derived from the page's registered permission. #}
+      {% if page_help %}
+      <details class="page-help" id="page-help" open>
+        <summary>
+          <span class="ph-title"><i class="bi bi-compass" aria-hidden="true"></i> About this page</span>
+          <span class="ph-what">{{ page_help.what | safe }}</span>
+        </summary>
+        <div class="ph-grid ph-n{{ [page_help.tiles | length, 4] | min }}">
+          {% for tile in page_help.tiles %}
+          <div class="ph-tile">
+            <div class="ph-head"><i class="bi bi-{{ tile.icon }}" aria-hidden="true"></i>{{ tile.heading }}</div>
+            <p>{{ tile.text | safe }}</p>
+          </div>
+          {% endfor %}
+        </div>
+        {# Outside the summary: a link inside it is a control nested in a control,
+           which the accessibility gate (tests/web/test_axe.py) refuses. #}
+        {% if page_help.more %}<p class="ph-foot"><a class="ph-more" href="{{ url_for('help_topic', slug=page_help.more.split('#')[0]) }}{% if '#' in page_help.more %}#{{ page_help.more.split('#')[1] }}{% endif %}">More in Help <i class="bi bi-arrow-right" aria-hidden="true"></i></a></p>{% endif %}
+      </details>
+      {% endif %}
     </main>
 
     {# The page's closing line, as Maya's: the slogan in italics, then the

@@ -320,6 +320,14 @@ def _group(request: Request, group: NavGroup, path: str) -> dict[str, Any]:
     }
 
 
+def _page_help(request: Request) -> dict[str, Any] | None:
+    """The "About this page" footer for the route being rendered (``page_help``)."""
+    from prama.web.page_help import for_route
+
+    route = request.scope.get("route")
+    return for_route(getattr(route, "path", None))
+
+
 def render(request: Request, template: str, status_code: int = 200, **context: Any) -> Any:
     """Render a template with the shell's context already supplied."""
     path = request.url.path
@@ -343,6 +351,7 @@ def render(request: Request, template: str, status_code: int = 200, **context: A
         "themes",
         [{"name": t.name, "label": t.label, "note": t.note, "header": t.header} for t in THEMES],
     )
+    context.setdefault("page_help", _page_help(request))
     context.setdefault("app_version", VERSION)
     context.setdefault("app_tagline", PRODUCT_TAGLINE)
     # Who is signed in, for the shell. The sign-out control needs to know
