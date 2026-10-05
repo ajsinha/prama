@@ -2,8 +2,8 @@
 
 # DQ delegates
 
-**Status:** built (Wave 18). Code: `src/prama/delegates/`. User guide:
-`src/prama/web/guides/delegates.md`. Worked example: `case-studies/05-dq-delegates/`.
+**Status:** built (Wave 18). Code: `src/prama/delegates/`. Console guide:
+`src/prama/web/guides/delegates.md`; writing one: [developer/delegates.md](../developer/delegates.md). Worked example: `case-studies/05-dq-delegates/`.
 
 ## The problem
 
@@ -81,7 +81,7 @@ each refusal with its reason.
 
 ## Sandbox (`prama/delegates/worker.py`)
 
-`python -m prama.delegates.worker` runs with rlimits on CPU seconds, address space, open files and
+`python -m prama_kernel.delegates.worker` (the kernel's copy, so an agent runs the same worker) runs with rlimits on CPU seconds, address space, open files and
 core dumps, via `prama_kernel.delegates.limits.limit_resources`. It re-scans a path delegate before
 importing it, because the file may have changed since admission. The request goes in on stdin and
 the answer comes out on stdout.

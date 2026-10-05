@@ -68,7 +68,9 @@ Leases are how several servers share work without a coordinator.
 `prama.db.lease_provider.DatabaseLeaseProvider` takes a lease with an atomic
 conditional insert or update on the `lease` table and hands out monotonically
 increasing fencing tokens. The scheduler's tick, the LLM budget reservation and
-steward tasks all use it.
+steward tasks all use it. `concurrency.lease.provider` chooses it (`database`) or
+an in-process provider (`memory`, one process only), and the lease's `ttl`,
+`renew_interval` and `clock_skew_allowance` come from the same block.
 
 ## The database layer
 
@@ -153,7 +155,8 @@ that can reach the network and is not registered fails the build.
 A secret is never a value in configuration or the database; it is a
 **reference**, `scheme://location[#key]`, resolved when used:
 `env://PRAMA_PG_PASSWORD`, `file:///run/secrets/pg`, or a HashiCorp Vault KV v2
-path through the `vault` provider. `prama.secrets.resolver.SecretResolver`
+path through the `vault` provider, configured under `secrets.vault` (an address,
+and a *reference* to the token). `prama.secrets.resolver.SecretResolver`
 caches with expiry and records each access; a resolved `SecretValue` prints as
 `<secret>` and yields its text only through `.reveal()`, so it cannot leak into a
 log by accident. The connection form, the model provider and git intake all take

@@ -28,7 +28,9 @@ client = prama.connect()          # server and credentials from application.yaml
 ```
 
 Nothing here decides a verdict. The executor recorded it; these calls read it, check the
-chain still holds, and package it for someone outside Prama.
+chain still holds, and package it for someone outside Prama. How the ledger, scores,
+incidents and attestations are built is in
+[Evidence and assurance](../architecture/evidence-and-assurance.md).
 
 ## The ledger
 
@@ -122,9 +124,9 @@ print(one["sample"]["description"])          # which failing rows are held, and 
 client.incidents.comment(control_id, "@bo is the upstream feed late again?")
 ```
 
-An incident is a control whose **latest** record isn't a pass. There's one per control,
-not one per run. There's no separate incident record to assign or close: when the control
-passes again, the incident goes, and the ledger keeps the history. People work an incident
+An incident is a control whose **latest** record isn't a pass, one per control
+([incidents](../architecture/evidence-and-assurance.md#incidents-and-alerts)). There is no
+incident record to assign or close: it goes when the control passes again. People work it
 by discussing it, and a mention reaches that person's queue (`client.comments.queue()`).
 
 `began` is blank when the failure started before the oldest record held. A date there
@@ -143,10 +145,11 @@ client.scorecards.get("trades")
 client.scorecards.estate()
 ```
 
-Scores come from each control's latest record. The whole ledger would weight an hourly
-control sixty times as heavily as a daily one. A control that couldn't run is counted in
-`not_run` and lowers `coverage`, rather than scoring as a zero or a one. `decomposed` is
-false when some records predate evidence format 1.1 and carry no dimension of their own.
+Scores come from each control's latest record
+([how](../architecture/evidence-and-assurance.md#scores-are-derived-from-evidence)). A
+control that couldn't run is counted in `not_run` and lowers `coverage`, rather than scoring
+as a zero or a one. `decomposed` is false when some records predate evidence format 1.1 and
+carry no dimension of their own.
 
 ## Attestations
 
@@ -180,8 +183,8 @@ open("declarations.html", "wb").write(client.reports.declarations())
 content = client.reports.controls(as_json=True)      # what the pack is rendered from
 ```
 
-The packs are standalone HTML with their styles inlined. To get a PDF, print one from a
-browser: Prama has no server-side PDF renderer.
+The packs are standalone HTML with their styles inlined; for a PDF, print one from a
+browser.
 
 ## The estate as files
 
@@ -203,3 +206,13 @@ These are the same operations as `prama estate export` and `prama estate diff`. 
 reports disagreement in both directions and never resolves it. Writing files back into the
 store isn't an operation: that's a governed change and goes through approval.
 `client.estate.maturity()` scores how much of the estate has been described.
+
+---
+
+<div align="center">
+<img src="../assets/prama-mark.svg" width="30" alt=""/><br/>
+<sub><b>PRAMA</b> — <i>Declare it. Prove it. Trust it.</i><br/>
+Copyright © 2026 <b>Ashutosh Sinha</b> &lt;ajsinha@gmail.com&gt; · All rights reserved.<br/>
+Proprietary and confidential. No licence is granted except by separate written agreement.<br/>
+See <a href="../../LICENSE">LICENSE</a> and <a href="../../NOTICE">NOTICE</a>. Third-party names and marks are the property of their respective owners.</sub>
+</div>

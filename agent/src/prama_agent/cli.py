@@ -90,7 +90,7 @@ def _parser() -> argparse.ArgumentParser:
 
     run = commands.add_parser("run", help="run the daemon")
     run.add_argument("--config", required=True, type=Path, help="agent.yaml")
-    run.add_argument("--once", action="store_true", help="one cycle, then exit")
+    run.add_argument("--once", action="store_true", help="drain what is queued now, then exit")
 
     status = commands.add_parser("status", help="identity, spool, gaps and last contact")
     status.add_argument("--config", required=True, type=Path, help="agent.yaml")

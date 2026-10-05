@@ -41,7 +41,7 @@ schemas, and there is no such thing as an estate without a tenant.
 ### `the vault secret provider is not usable in this deployment`
 
 Registered but unconfigured, which is not the same as absent. The message names
-what is missing — an address, a token reference, or both. A Vault token is
+what is missing — `secrets.vault.address`, `secrets.vault.token_ref`, or both. A Vault token is
 itself a credential, so it is given as a reference (`env://VAULT_TOKEN`) and
 never as a literal.
 
@@ -52,7 +52,7 @@ asymmetric cryptography, and a deployment that cannot verify signatures must
 refuse to do SSO rather than do it weakly.
 
 ```bash
-pip install -e ".[sso]"
+uv pip install -e ".[sso]"
 ```
 
 ### `enable.auto.commit is set, and this transport cannot honour it`
@@ -120,6 +120,10 @@ says.
 | `kafka` | the Kafka stream transport | a named refusal |
 | `rest` | the REST connector | a named refusal |
 | `audit` | the axe-core accessibility suite | those tests skip loudly |
+| `jdbc` | the JDBC connector (also needs a JRE and the driver jar) | a named refusal |
+| `snowflake`, `clickhouse`, `mongo` | those connectors | a named refusal |
+| `otel` | exporting OpenTelemetry spans | spans are not exported |
+| `deck` | rebuilding the deck in `tools/deck` | the deck cannot be rebuilt; nothing else is affected |
 | `fast` | orjson | nothing; it is a speed-up |
 
 A missing extra always produces a **named** refusal. If you are getting an

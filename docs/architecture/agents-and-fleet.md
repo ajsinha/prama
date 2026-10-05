@@ -42,29 +42,23 @@ process and its tests; the server runs the persisted `Fleet`.
 
 ![Who sends what over /api/v1/fleet, from issuing a token to a permanent refusal](../assets/diagrams/arch-fleet-conversation.svg)
 
-**The protocol is four messages.** `Hello` (who I am, what I can do, how much I
-can take), `Report` (findings and gaps), `Receipt` (your work, or what was
-accepted) and `Refusal` (stop, and why). They are frozen dataclasses in
-`prama_kernel.agent.protocol`, each with `to_dict`/`from_dict`, and a signed
-message's `signable()` (canonical JSON) is identical after a round trip. Because
-the agent always initiates, a `Refusal` is a response body, not an HTTP error,
-and work reaches the agent when it next asks.
-
-**Keys are derived, never stored.** Enrolment redeems a one-time token
-(`pft_…`, kept only as a digest) for an agent id and a key. The key is
-`HMAC-SHA256(fleet secret, "agent:" + tenant + ":" + agent_id)`, so the server
-holds no key to steal; revoking an agent is a state change. Every agent message
-is signed with HMAC-SHA256 over `signable()` and sent with `X-Prama-Agent` and
-`X-Prama-Signature`. The SDK reimplements the kernel's canonical JSON so it does
-not depend on the kernel, and `tests/sdk/test_fleet_signing.py` proves the two
-produce the same bytes.
+**The protocol is four messages**, `Hello`, `Report`, `Receipt` and `Refusal`:
+frozen dataclasses in `prama_kernel.agent.protocol`, each with
+`to_dict`/`from_dict`. Because the agent always initiates, a `Refusal` is a
+response body, not an HTTP error, and work reaches the agent when it next asks.
+Enrolment, the derived per-agent keys, the signature headers, and the
+deduplication rules for reports are the wire contract, stated once in
+[the fleet over HTTP](../design/agent-fleet-http.md). The SDK reimplements the
+kernel's canonical JSON so it does not depend on the kernel, and
+`tests/sdk/test_fleet_signing.py` proves the two produce the same bytes.
 
 **Work is assigned by zone, and claimed.** `POST /fleet/dispatch` compiles the
 active controls on a zone's datasets and queues them. On `hello`, the server
 releases expired claims, then hands the agent queued assignments up to its free
-slots, each under a lease (`fleet.lease_seconds`, 900 by default), so two agents
-in a zone never run the same one and a claim nobody reports returns to the
-queue. The zone comes from the agent's enrolment, never from anything it says.
+slots, each under a lease (`fleet.lease_seconds`, 900 by default). The zone
+comes from the agent's enrolment, never from anything it says. Accepted report
+records are appended to the tenant's evidence ledger with
+`triggered_by: agent:<id>`.
 
 **Capabilities are compared, not assumed.**
 `prama_kernel.agent.capability.fits` checks a plan against what the agent
@@ -72,13 +66,6 @@ declared (IR version, engine, pushdown, datasets, delegates) and collects
 *every* reason it does not fit, so an agent short of three things is upgraded
 once. A control no agent can run is reported as unassignable in fleet health,
 never silently skipped.
-
-**Reports are at-least-once, and deduplicated.** Records at or below the agent's
-last sequence are duplicates; a jump is recorded and named. A record about a plan
-never assigned to the agent's zone is rejected and not written, so a compromised
-agent cannot write evidence about work it was never given. The server, not the
-message, names the control a record is about and who sent it
-(`triggered_by: agent:<id>`), then appends it to the tenant's evidence ledger.
 
 ## The daemon's cycle
 
@@ -92,23 +79,17 @@ zone's residency boundary, spools the finding, and reports until the spool is
 empty. A source that fails produces an `error` finding with its reason and the
 next assignment runs.
 
-- **Residency.** `prama_kernel.agent.residency.Boundary` applies one of four
-  dispositions (`withhold`, `fingerprint`, `mask`, `send`). As built, the rows
-  themselves stay on the machine under every disposition: a finding carries the
-  sample count and, where policy allows, a digest naming the sample set, and the
-  report states the policy in words so the server records *why* there are no
-  samples.
+- **Residency.** `prama_kernel.agent.residency.Boundary` applies the zone's
+  sample disposition (`withhold`, `fingerprint`, `mask`, `send`); as built, the
+  rows themselves stay on the machine under every one. What each disposition
+  lets leave is in [the agent guide](../agent/README.md#what-leaves-the-machine-and-what-never-does).
 - **The spool** (`prama_kernel.agent.spool`, `spool.json` in the state directory)
-  is hash-chained per agent, written whole and renamed into place, and bounded:
-  when full, the oldest findings are dropped and recorded as a numbered gap that
-  is reported in the same channel as the evidence. A corrupt spool becomes a gap,
-  not a crash.
-- **Waiting.** After a successful cycle the daemon waits `poll_after_seconds`,
-  bounded by its config; when the server is unreachable it backs off
-  exponentially with jitter and keeps its findings.
-- **`--once`** drains: it runs cycles until one runs nothing, then exits 0. A
-  permanent refusal (revoked, or a signature that does not verify) exits 3, and
-  the daemon will not start again until re-enrolled.
+  is hash-chained per agent, written whole and renamed into place, and bounded;
+  overflow and corruption become numbered gaps
+  ([why](../corpus/22-distributed-execution.md#6-surviving-an-outage)).
+- **Waiting and exiting.** After a successful cycle the daemon waits
+  `poll_after_seconds`, bounded by its config, and backs off with jitter when the
+  server is unreachable. `--once` drains, then exits 0; a permanent refusal exits 3.
 
 ### Example: the end-to-end test
 

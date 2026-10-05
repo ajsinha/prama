@@ -105,9 +105,10 @@ A reference is what configuration holds, everywhere a credential is needed: a co
 `credential_ref`, a model provider's credential, a git source's token. A value that is not a
 reference is refused, not stored.
 
-> **As built:** `default_resolver()` constructs `VaultSecretProvider()` with no address, token or
-> transport, and no configuration key supplies them, so a `vault://` reference is always refused
-> as "not usable in this deployment". Wiring Vault from configuration is open work.
+Vault is configured under `secrets.vault`: `address` and `token_ref` (a reference to the token,
+such as `env://VAULT_TOKEN`, never the token), with optional `namespace`, `ca_file`, `region` and
+`timeout_seconds`. With both set, `default_resolver()` reads KV v2 over the standard library's
+HTTP client; without them, a `vault://` reference fails saying what to set.
 
 ## Lease providers
 
@@ -169,13 +170,12 @@ which it catches.
 
 ### Registration and configuration
 
-`Database.lease_provider()` (`src/prama/db/__init__.py`) returns the database provider, and the
-scheduler, the steward protocol and the LLM budget take their leases from it.
-
-> **As built:** `concurrency.lease` in `config/application.yaml` (`provider: database | memory`,
-> `ttl`, `renew_interval`, `clock_skew_allowance`) is read by nothing; the provider is always the
-> database one, and each caller passes its own TTL. A new provider today means changing
-> `Database.lease_provider()`; making the setting real is open work.
+`Database.lease_provider()` (`src/prama/db/__init__.py`) returns the provider that
+`concurrency.lease.provider` names: `database` (the default, correct across a fleet) or `memory`
+(one instance per process, so one process only). The scheduler, the steward protocol and the LLM
+budget take their leases from it, and `concurrency.lease.ttl`, `renew_interval` and
+`clock_skew_allowance` reach every holder that does not set its own. A new provider means a new
+value there and a branch in `Database.lease_provider()`.
 
 ## Configuration sources
 

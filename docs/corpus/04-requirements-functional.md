@@ -39,9 +39,9 @@ calibration), `FR-REC` (reconciliation, including n-way), `FR-RPT` (scorecards,
 alerting, incidents), `FR-UIX` (the console), `FR-EXT` (plugin registries with
 purity enforcement), `FR-SEC` (RBAC, SSO, SCIM, residency, CMK).
 
-Partially implemented, with the gap stated where it lives: `FR-CON` — six of
-eight GA connectors, with JDBC/ODBC and Snowflake outstanding because each needs
-a driver stack and a live service to verify against.
+Partially implemented, with the gap stated where it lives: `FR-CON` — the eight
+GA connectors are written and seven verified against a live service; Snowflake has
+never met an account and ODBC is not built ([19 §W3.11](19-implementation-roadmap.md)).
 
 **The requirement identifiers are load-bearing.** Controls, obligations and
 tests cite them, so a requirement renumbered here breaks a reference somewhere

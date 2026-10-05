@@ -104,7 +104,9 @@ client.api_keys.revoke_any(key_id)
 ## Models
 
 A provider says where a model runs and how it is hosted; a profile maps a purpose
-(`author`, `explain`, `summarise`) to an ordered route of provider and model.
+(`author`, `explain`, `summarise`) to an ordered route of provider and model. How the
+gateway routes, budgets, redacts and records each call is in
+[Intelligence](../architecture/intelligence.md#the-gateway).
 
 ```python
 client.models.add_provider(
@@ -119,10 +121,10 @@ client.models.set_profile("author", ["local:qwen2.5-coder", "openai:gpt-4o-mini"
 client.models.try_model("author", "Draft a completeness check for trades.")
 ```
 
-**No secret is stored.** `credential_ref` is a reference — `env://…`, `file://…`,
-`vault://…` — resolved only when a call is made. A value that is not a reference (a pasted
-key) is refused, not stored, and so is a provider setting named like a credential
-(`api_key`, `token`, `password`…). A listing shows only `"credential": "reference set"`.
+**No secret is stored.** `credential_ref` is a reference (`env://…`, `file://…`,
+`vault://…`, the last configured under `secrets.vault`) resolved only when a call is made.
+A pasted key is refused, and so is a provider setting named like a credential (`api_key`,
+`token`, `password`…). A listing shows only `"credential": "reference set"`.
 
 Prices, budgets and the call ledger:
 
@@ -135,6 +137,10 @@ client.models.budgets()        # each with what has been spent this period
 client.models.calls(limit=20)  # hashes, tokens, cost, outcome — never the prompt's text
 client.models.verify()         # {"intact": True, "checked": 412, "break": ""}
 ```
+
+A budget binds every call through the gateway, whoever makes it: the API, steward agents,
+code intake, fitness search and the CLI. A call beyond a refusing budget is recorded in the
+call ledger and raised as `prama.RateLimitedError`.
 
 `verify` recomputes the ledger's hash chain, as `prama llm verify` does. Any altered record
 breaks it, and `break` names the first call that no longer matches its seal.
@@ -213,3 +219,13 @@ client.audit.list(object_kind="principal", object_id=person_id)
 The configuration is always redacted over the API. `prama config show --raw` exists on the
 host; it is not offered over the network, because a secret fetchable by anybody holding an
 admin key is one more place for it to leak from.
+
+---
+
+<div align="center">
+<img src="../assets/prama-mark.svg" width="30" alt=""/><br/>
+<sub><b>PRAMA</b> — <i>Declare it. Prove it. Trust it.</i><br/>
+Copyright © 2026 <b>Ashutosh Sinha</b> &lt;ajsinha@gmail.com&gt; · All rights reserved.<br/>
+Proprietary and confidential. No licence is granted except by separate written agreement.<br/>
+See <a href="../../LICENSE">LICENSE</a> and <a href="../../NOTICE">NOTICE</a>. Third-party names and marks are the property of their respective owners.</sub>
+</div>

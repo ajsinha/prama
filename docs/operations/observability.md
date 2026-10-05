@@ -17,7 +17,7 @@ data quality score.
 | `GET /livez` | Kubernetes liveness | The process answers. Touches nothing else. |
 | `GET /readyz` | Kubernetes readiness | The database answers and its schema is the one the code was built for. Returns 503 with the reason when not. |
 | `GET /metrics` | Prometheus | Operational metrics in the text exposition format. The [metrics reference](metrics-reference.md) lists every metric, generated from the code. |
-| `GET /api/v1/health` | API clients | As before: version, schema and dialect. |
+| `GET /api/v1/health` | API clients | Version, schema and dialect. |
 
 **Why liveness and readiness differ.** A database outage makes every pod unready, so traffic
 stops. It does not make them unlive, so Kubernetes doesn't restart pods that are healthy. A
@@ -65,7 +65,7 @@ verdict as attributes. Controls nest under their run. They go to any OpenTelemet
 over OTLP/HTTP:
 
 ```bash
-pip install 'prama[otel]'
+uv pip install -e ".[otel]"
 ```
 
 ```yaml
@@ -120,6 +120,11 @@ and HTTP latency, the scheduler, anchors, delegates, model calls and spend, and 
 delivery. A test checks that every metric it queries is one the code exports.
 
 ## Alerts worth having
+
+These are Prometheus rules about Prama itself. Alerts about your *data* (a failing
+control reaching its owner) are Prama's own `alerts:` configuration, off by
+default; how they are routed is in
+[incidents and alerts](../architecture/evidence-and-assurance.md#incidents-and-alerts).
 
 ```yaml
 - alert: PramaSchedulerFailing

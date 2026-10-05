@@ -315,7 +315,9 @@ def open_confined(
                     ),
                     context={"root": str(root)},
                 )
-    raw = str(config.get("path", "") or "").strip()
+    # `path`, or `database_path` as the SQLite connection form writes it: a
+    # connection made in the console must run like one made from the SDK.
+    raw = str(config.get("path", "") or config.get("database_path", "") or "").strip()
     if not raw:
         raise ValidationError(
             "this connection names no path",

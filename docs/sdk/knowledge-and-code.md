@@ -188,7 +188,9 @@ structural defect, not "valid".
 ## Connectors
 
 The configuration form of each connector is derived from its code. A connection is
-configured with `client.connections.create(...)` and used here.
+configured with `client.connections.create(...)` and used here, with the connector's own
+field names (`database_path` for SQLite). A connection the server *runs controls* against
+takes `path` instead ([controls](controls.md#run-on-the-server)).
 
 ```python
 sqlite = next(c for c in client.connectors.list() if c["key"] == "sqlite")
@@ -207,3 +209,13 @@ client.connectors.cost(conn["id"], "main.trades")   # without reading it
 `prama delegate check` (the conformance kit over a local directory, for CI) and
 `prama delegate pull` (copying approved uploads into an agent's directory) work on the
 caller's own files; `vet` and `uploads()`/`source()` are their API counterparts.
+
+---
+
+<div align="center">
+<img src="../assets/prama-mark.svg" width="30" alt=""/><br/>
+<sub><b>PRAMA</b> — <i>Declare it. Prove it. Trust it.</i><br/>
+Copyright © 2026 <b>Ashutosh Sinha</b> &lt;ajsinha@gmail.com&gt; · All rights reserved.<br/>
+Proprietary and confidential. No licence is granted except by separate written agreement.<br/>
+See <a href="../../LICENSE">LICENSE</a> and <a href="../../NOTICE">NOTICE</a>. Third-party names and marks are the property of their respective owners.</sub>
+</div>

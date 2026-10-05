@@ -11,9 +11,10 @@ This summary was written before the product existed. It now does.
 Eleven waves are complete. The semantic layer, PQL and its engine-neutral IR,
 the evidence ledger with deterministic replay, declaration-derived controls,
 mining and induction, monitoring and calibration, the console, the banking pack,
-six of eight GA connectors, and the enterprise surface — SSO, SCIM, residency,
+the eight GA connectors (seven verified; Snowflake has never met an account, and ODBC is not built), and the enterprise surface — SSO, SCIM, residency,
 customer-managed keys, an operator, an offline bundle with publisher signing —
-are all in `src/prama/`.
+are all in `src/prama/`, and most of the intelligence roadmap in `docs/corpus/23` (the
+LLM gateway, lineage from code, steward agents, DQ delegates) is built beside them.
 
 **Every number in this document that is a target remains a target.** Detection
 quality, alert precision, time-to-control, connector breadth against the ~45 GA

@@ -12,19 +12,14 @@ asks the server for the work its zone may do, runs it locally, judges the result
 same code the server would use, redacts what its zone may not send, and reports
 **findings, never data**.
 
-It is its own package, `prama-agent`, and it is independent of the server:
-
-* it depends on `prama-kernel` (the plan model, judge, evidence record, residency policy
-  and spool it shares with the server — one copy, so a verdict judged here is the verdict
-  the server would give) and on `prama-sdk` (the only way it talks to the server);
-* it never imports the server, and the server never imports it. The server's build
-  (`tests/architecture/test_packages_standalone.py`) fails otherwise: it runs a full daemon
-  cycle in an interpreter where the server cannot be imported, and builds the agent's wheel
-  to check it carries nothing else and requires nothing else;
-* it always **calls out**. The server never calls in, so installing it needs no inbound
-  firewall rule, no open port in a secure zone, no VPN and no jump host.
-
-The wire contract between the two halves is [the agent fleet over HTTP](../design/agent-fleet-http.md).
+It is its own package, `prama-agent`, depending only on `prama-kernel` (the code it shares
+with the server, so a verdict judged here is the verdict the server would give) and
+`prama-sdk`; it never imports the server ([the four packages](../architecture/packages.md)).
+It always **calls out**, so installing it needs no inbound firewall rule, open port, VPN or
+jump host. How the daemon, the kernel and the server's coordinator fit together is
+[architecture/agents-and-fleet.md](../architecture/agents-and-fleet.md); the wire contract is
+[the agent fleet over HTTP](../design/agent-fleet-http.md); why it is built this way is
+[corpus/22](../corpus/22-distributed-execution.md).
 
 ## Installing
 
@@ -61,7 +56,7 @@ sudo -u prama-agent PRAMA_AGENT_TOKEN=… \
 ```
 
 `--token` works too; the environment variable keeps the token out of shell history.
-`--config` is optional and lets the enrolment carry the capabilities the configuration
+`--ca-bundle` and `--insecure` mean what they do under `server:` below. `--config` is optional and lets the enrolment carry the capabilities the configuration
 implies. The answer — the agent's id, its zone, and its **key**, which the server shows
 once and does not keep — is written to `identity.json` in the state directory with mode
 0600, in a directory with mode 0700. Whoever can read that file can sign findings as this
@@ -83,7 +78,7 @@ state_dir: /var/lib/prama-agent         # required: identity.json, spool.json, c
 
 sources:                                # required: what this agent may read, by binding name
   warehouse:                            # the binding name assignments use
-    engine: sqlite                      # sqlite | duckdb | postgres (postgresql is accepted)
+    engine: sqlite                      # sqlite | duckdb | postgres (postgresql, pg accepted)
     path: /srv/data/warehouse.db
   lake:
     engine: duckdb
@@ -243,21 +238,23 @@ none; why that distinction matters is [corpus/22 §3](../corpus/22-distributed-e
 * the agent's key — it signs each message (HMAC-SHA256 over the message) and is never sent;
 * raw scans, query results, and any row the policy did not permit.
 
-The agent executes SQL the server compiled — it never compiles its own, because two
-compilers is how one control comes to mean two things — and every source is opened
-**read-only by construction** (SQLite `mode=ro`, DuckDB `read_only=True`, a read-only
-PostgreSQL session), so a query cannot write through it whoever wrote the query.
+The agent runs only SQL the server compiled, and opens every source **read-only by
+construction** (SQLite `mode=ro`, DuckDB `read_only=True`, a read-only PostgreSQL session),
+so a query cannot write through it whoever wrote it.
 
-## How it talks to the server
+## Version mismatches
 
-The daemon talks to the server only through a `FleetLink` with three calls (`enrol`,
-`hello`, `report`), implemented by `SdkFleetLink` over the SDK's `client.fleet` namespace,
-which calls the server's fleet API. With a `prama-sdk` that has no `client.fleet`, `enrol`
-and `run` stop at start and say so (exit 1), because that is an installation problem. Against
-a server that does not serve the fleet routes (an older one), the daemon treats the missing
-route like an outage: it keeps its findings, backs off and retries rather than exiting.
+With a `prama-sdk` that has no `client.fleet`, `enrol` and `run` stop at start and say so
+(exit 1), because that is an installation problem. Against a server that does not serve the
+fleet routes (an older one), the daemon treats the missing route like an outage: it keeps its
+findings, backs off and retries rather than exiting.
 
-How this daemon, the kernel it shares with the server, and the server's coordinator fit
-together is drawn in [architecture/agents-and-fleet.md](../architecture/agents-and-fleet.md);
-why the agent is built this way (outbound-only, findings not data, a terminal refusal) is
-[corpus/22](../corpus/22-distributed-execution.md).
+---
+
+<div align="center">
+<img src="../assets/prama-mark.svg" width="30" alt=""/><br/>
+<sub><b>PRAMA</b> — <i>Declare it. Prove it. Trust it.</i><br/>
+Copyright © 2026 <b>Ashutosh Sinha</b> &lt;ajsinha@gmail.com&gt; · All rights reserved.<br/>
+Proprietary and confidential. No licence is granted except by separate written agreement.<br/>
+See <a href="../../LICENSE">LICENSE</a> and <a href="../../NOTICE">NOTICE</a>. Third-party names and marks are the property of their respective owners.</sub>
+</div>

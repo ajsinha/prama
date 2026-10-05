@@ -172,10 +172,8 @@ def test_balance_continuity_conforms() -> None:
 ```
 
 or without Python: `prama delegate check delegates/ --cases cases.json`, which exits non-zero on
-any failure. It checks, per delegate: vetted before import, admitted (shape, determinism,
-robustness on probe rows), parameter defaults of their declared kind, the same answer over a
-one-shot iterator as over a list, 50,000 synthetic rows streamed through the real sandboxed host
-within the time limit, and your cases. `prama delegate test acme.x --rows sample.csv` runs one
+any failure. What it checks, and why each check exists, is in
+[the design note](../design/dq-delegates.md#the-conformance-kit-pramadelegatestestkit). `prama delegate test acme.x --rows sample.csv` runs one
 over a file exactly as a control would.
 
 **The counterfactual.** A case whose expectation is wrong must fail the kit, and the example's

@@ -2,7 +2,7 @@
 
 # What is left to build
 
-Written 2026-09-27. The forward plan for AI, lineage and agents is [23](23-intelligence-and-lineage-roadmap.md). Collected from `docs/corpus/19-implementation-roadmap.md` (the ◑ and ⏳ rows and the
+Written 2026-09-27; items re-checked against the code on 2026-10-05. The forward plan for AI, lineage and agents is [23](23-intelligence-and-lineage-roadmap.md). Collected from `docs/corpus/19-implementation-roadmap.md` (the ◑ and ⏳ rows and the
 "Not done" column), from `qa/HANDOVER.md`, and from defects found while adopting Maya's console
 pages. **The roadmap and the handover remain the authorities.** Where this list and one of them
 disagree, the list is the stale one; correct it or delete it, never both.
@@ -98,7 +98,7 @@ has an endpoint yet. Converting the eight case studies to the SDK found these:
 | 7.1 | ~~**`approved_by` was free text**~~ **done** (2026-09-29): a Tier-1/2 change is held and approved by the second person themselves (`declaration:approve`); no request names an approver, and an amendment cannot set its own approval. | Maker-checker over the API is now a control, not a claim. |
 | 7.2 | ~~**Changing someone's roles did not narrow their keys**~~ **done** (2026-09-29): a person's key is bounded by their roles as they stand now; a service account's key (a steward agent) is its grant. | Taking a role takes it from every key at once. |
 | 7.3 | No endpoint judges **feed arrival** (`prama.connect.feed`); study 2 no longer claims the missing delivery. | Arrival is half of a feed's quality. |
-| 7.4 | The **data-plane agent** (`prama.agent`: assignment, `fits`, residency) has no API; study 5 shows its try-out instead. | Remote execution beside the data is not scriptable. |
+| 7.4 | ~~The **data-plane agent** has no API~~ **done**: the fleet over HTTP (`/api/v1/fleet/*`, `client.fleet`, [design](../design/agent-fleet-http.md)) enrols, dispatches to and reports from `prama-agent`. Study 5 still shows the in-process try-out rather than a fleet dispatch. | Remote execution beside the data is now scriptable. |
 | 7.5 | No call creates **one glossary term**; study 7 imports a one-term export. | Small, but a gap. |
 | 7.6 | `lineage.impact` returns reach and hops but not the **path**. | The route is what an engineer follows. |
 | 7.7 | `pql.compile` returns follow-up checks without the validator's **implementation hash**, and `SELECT *` for a delegate control where a run fetches only `requires`. | The plan shown differs from the plan run. |
@@ -112,8 +112,9 @@ has an endpoint yet. Converting the eight case studies to the SDK found these:
   a `WHERE` on reconciliations, and PQL forms for row-count, aggregate and roll-forward parity,
   which are still specifications.
 - **Wave 17:**
-  - correlation from data-side signals: value overlap and query co-access fed into the built,
-    metadata-based correlation;
+  - correlation from value overlap (`prama.discover`). Query co-access is built: `prama metadata
+    correlate` lists datasets queried together, with a column in common and no declared
+    relationship, as hints for a steward;
   - E9: write-back verified against live catalogs, which needs live catalogs.
 - **Delegates:** Arrow record batches in place of JSON lines.
 - **Out of scope by decision (2026-09-27):** mainframe code (COBOL, JCL, copybooks), and DataStage,

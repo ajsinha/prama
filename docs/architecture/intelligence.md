@@ -59,10 +59,13 @@ configuration change rather than a code change.
 
 On each call:
 
-1. **Budget.** On the API surface, `prama.llm.budget.admit` checks tenant,
-   profile, principal and key budgets against spend derived from the call ledger,
-   under a lease so concurrent servers see each other's in-flight spend. A
-   refusal is HTTP 429 and is itself recorded.
+1. **Budget.** Every gateway that `prama.llm.wiring.gateway_for` builds carries
+   a `BudgetGuard` (`prama.llm.budget`), whoever built it: the API, stewards,
+   code intake, fitness search, the CLI. Tenant, profile, principal and key
+   budgets are checked before each call and charged after it; a refusal is
+   recorded in the call ledger (HTTP 429 on the API). The API's chat endpoint
+   also reserves its estimate under a lease, so concurrent servers see each
+   other's in-flight spend.
 2. **Route.** `prama.llm.wiring.gateway_for` loads the current profile versions.
    A purpose with no profile falls back to a mock, so a feature that would use a
    model degrades to its deterministic path rather than failing.

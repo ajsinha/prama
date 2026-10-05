@@ -6,13 +6,8 @@
 
 # The agent fleet over HTTP
 
-A **Prama agent** runs beside the data, on a customer's machine, as a daemon: it
-receives work its zone may do, runs it against sources only it can reach, judges it
-with the same code the server would use, redacts what its zone may not send, and
-reports findings, never data. It is a separate package, `prama-agent`, that depends
-on `prama-kernel` (the deterministic code it shares with the server) and `prama-sdk`
-(how it talks to the server), and on nothing else of the server.
-
+A **Prama agent** is a daemon beside the data that reports findings, never data
+([what it is](../architecture/agents-and-fleet.md); [why](../corpus/22-distributed-execution.md)).
 This page is the contract between the two halves. The server side lives in
 `prama.agent` (coordinator, registry, compilation of assignments) and a fleet API;
 the agent side in `agent/src/prama_agent`. Message shapes are the kernel's
@@ -78,9 +73,6 @@ only; timestamps as ISO-8601 text.
 
 ## The daemon
 
-The other half of this contract is `prama-agent`: `enrol` redeems a token through
-`POST /fleet/enrol`, and `run` loops hello, run, redact, spool, report against
-`/fleet/hello` and `/fleet/report`. How to install, configure (`agent.yaml`), run and
-supervise it, and exactly what leaves the machine, is the operator's guide,
-[docs/agent/README.md](../agent/README.md). How the daemon, the kernel and the server's
-coordinator fit together is [architecture/agents-and-fleet.md](../architecture/agents-and-fleet.md).
+The agent side of this contract is `prama-agent`: `enrol` calls `POST /fleet/enrol`, and `run`
+loops against `/fleet/hello` and `/fleet/report`. Operating it is
+[the agent guide](../agent/README.md).

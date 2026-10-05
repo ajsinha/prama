@@ -32,14 +32,10 @@ Python support in IntelliJ IDEA is the PyCharm engine as a plugin.
 ## 2. The interpreter
 
 Prama needs **Python 3.12 or newer** and is developed on **3.13**, pinned in
-`.python-version`. [Which Python](../../QUICKSTART.md#which-python) says why 3.12
-is the floor and which versions the suite runs on. Create the environment once, from a terminal in the project root:
-
-```bash
-uv python install 3.13
-uv venv --python 3.13
-uv sync --extra dev --extra serve      # add --extra postgres etc. as you need them
-```
+`.python-version`. Create the environment once, from a terminal in the project
+root, exactly as [QUICKSTART §1](../../QUICKSTART.md#which-python) shows (`uv venv
+--python 3.13`, then `uv sync --extra dev --extra serve`); it also says why 3.12 is
+the floor.
 
 That leaves a virtual environment in `.venv/`. Point the IDE at it; do not let
 the IDE create its own. An IDE-made environment is built from whatever Python the

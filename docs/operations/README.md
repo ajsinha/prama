@@ -10,12 +10,14 @@ For people running Prama rather than designing it.
 
 | Document | When you need it |
 |---|---|
+| [QUICKSTART](../../QUICKSTART.md) | Installing it, the first run, and running the steps separately on a real deployment |
 | [Runbook](runbook.md) | Something is wrong in production and you are on call |
 | [Troubleshooting](troubleshooting.md) | You are trying to make it work, or an error means something other than it says |
 | [CLI reference](cli-reference.md) | Every command and flag — *generated from the argument parser* |
 | [Configuration reference](configuration-reference.md) | Every setting and its default — *generated from the shipped YAML* |
 | [Observability](observability.md) | Probes, Prometheus metrics, traces, OpenLineage, the Helm values, alerts |
 | [Metrics reference](metrics-reference.md) | Every metric at `/metrics` — *generated from the registry* |
+| [The agent operator's guide](../agent/README.md) | Installing and running `prama-agent` beside the data |
 
 The three references are generated. If one disagrees with the code, the gate fails
 — so a flag listed here exists, and one that is not listed does not.

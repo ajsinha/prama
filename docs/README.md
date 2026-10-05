@@ -35,13 +35,15 @@ the flattering direction.
 
 | Folder | What lives there | The authority for |
 |---|---|---|
+| [QUICKSTART](../QUICKSTART.md) | Install and first run, including which Python and why | Installing it |
+| Console guides (`src/prama/web/guides/`) | Using one console screen, step by step; shown under **Help** and linked from each page's **About this page** | Using a screen |
 | [architecture/](architecture/README.md) | How every component works and fits, as built | Module maps, data flow, what calls what |
 | [developer/](developer/README.md) | How to extend or change each component, with tested examples | Interfaces, registration, conformance |
 | [sdk/](sdk/README.md) | The Python SDK, resource by resource | Client usage |
 | [agent/](agent/README.md) | Installing and running the agent daemon | Operating an agent |
 | [operations/](operations/README.md) | Running the server; the CLI, configuration and metrics references (generated) | Operations |
 | [corpus/](corpus/00-executive-summary.md) | The numbered design corpus, below | Intent, requirements, rationale |
-| [design/](design/agent-fleet-http.md) | Design notes for single features | A feature's design decisions |
+| [design/](#design-notes) | Design notes for single features | A feature's design decisions |
 | [reference/](reference/glossary.md) | Glossary and brand | Terms and names |
 | [publications/](publications/paper/README.md) | The paper, the Medium article, the deck | — |
 | [assets/](assets/) | Images: the mark, diagrams drawn by `tools/docs/diagrams.py`, screenshots taken by `tools/docs/screenshots.py` | — |

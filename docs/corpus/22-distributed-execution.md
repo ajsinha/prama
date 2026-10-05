@@ -32,8 +32,8 @@ The outbound-only customer-hosted worker is built as three pieces: the daemon
 the shared kernel (`prama_kernel.agent`); and on the server `prama.agent.fleet`
 (enrolment, keys, claimed assignments, the fleet API) with `prama.agent.assign`
 (the server compiles every assignment). `prama.execute` holds the claim/lease
-machinery, in-flight enforcement with dead-lettering, and the broker seam. `prama.core.concurrency` — supervised task groups, byte-bounded queues and
-leases, which everything must use; there are no bare threads in this codebase
+machinery, in-flight enforcement with dead-lettering, and the broker seam, on `prama.core.concurrency` (supervised task groups, byte-bounded queues and
+leases), which everything must use: there are no bare threads in this codebase
 and no unbounded queues.
 
 The streaming path (`prama.execute.stream`, `inflight`, `transport` and the

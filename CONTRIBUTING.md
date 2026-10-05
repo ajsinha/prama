@@ -11,9 +11,11 @@ alone. This document is for anyone working on it under a separate written
 agreement, and for the future maintainer who is me in eighteen months.
 
 `CLAUDE.md` is the short list of things that are cheap to get wrong here and
-expensive to discover later. Read that first; this is the longer form. How to
-extend or change each part (a connector, a PQL function, an endpoint, a table)
-is in the [developer guides](docs/developer/README.md).
+expensive to discover later. Read that first; this is the longer form. Setting
+up an environment is [QUICKSTART §1](QUICKSTART.md#1-install) (or
+[the IDE guide](docs/developer/ide.md)); how to extend or change each part (a
+connector, a PQL function, an endpoint, a table) is in the
+[developer guides](docs/developer/README.md).
 
 ---
 
@@ -135,6 +137,8 @@ read return page one repeatedly and call itself complete.
 
 ## Documentation
 
+Each folder under `docs/` is the one home for one kind of fact, and a second
+mention is a link, not a copy ([how the documentation is organised](docs/README.md#how-the-documentation-is-organised)).
 Design documents describe intent. Each opens with an **As built** section saying
 what is built, what is not, and what is built but has never met the real thing —
 that third category is the one summaries lose.
@@ -148,7 +152,7 @@ Code a developer guide shows as a complete implementation lives in
 every file there, so a guide's code cannot rot unseen.
 
 Generated references (`docs/operations/cli-reference.md`,
-`configuration-reference.md`) carry a banner. Edit the code and regenerate;
+`configuration-reference.md`, `metrics-reference.md`) carry a banner. Edit the code and regenerate;
 editing the prose fails the gate.
 
 ---
@@ -156,7 +160,8 @@ editing the prose fails the gate.
 ## The loop
 
 ```bash
-bash scripts/gate.sh     # ruff, format, mypy, file length, generated docs, pytest
+bash scripts/gate.sh     # ruff, format, mypy, file length, version source,
+                         # generated docs, uv.lock and requirements*.txt, pytest
 ```
 
 The gate exists because piping pytest into `tail` returns tail's exit code, so a

@@ -302,7 +302,7 @@ def _without_offset(harness: Harness, erp: Path) -> None:
         control = declared.get("control", declared)
         counterfactual.controls.activate(control["id"], reason="the counterfactual")
         connection = counterfactual.connections.create(
-            "the ERP (SQLite)", "sqlite", config={"path": str(erp)}
+            "the ERP (SQLite)", "sqlite", config={"database_path": str(erp)}
         )
         # The estate's only control; nothing else is declared here.
         counterfactual.runs.start(connection["id"])

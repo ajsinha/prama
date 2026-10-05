@@ -131,7 +131,9 @@ sqlite:
 **The real one.** `src/prama/connect/sources/sqlite.py` is the smallest complete connector in
 the product: a SQLite file opened read-only, a snapshot from the file's size, nanosecond mtime
 and page count, offset paging in a worker thread, and `can_run_controls = True` because SQLite
-is a query engine. Read it beside this guide.
+is a query engine. It opens its file through `prama_kernel.strict_sqlite`, as any connector that
+runs controls on SQLite must, so a misspelled column is an error rather than a string constant.
+Read it beside this guide.
 
 **A new one.** `docs/developer/examples/fixed_width_connector.py` reads a folder of fixed-width
 text extracts, the format a mainframe or a vendor feed delivers with a copybook. It declares no

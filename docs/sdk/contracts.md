@@ -64,3 +64,13 @@ document = client.contracts.export("positions_eod")      # a declared dataset, b
 not come across (`ignored`), the facts Prama needs that the contract does not carry
 (`defaulted`), and its quality blocks as PQL controls, with the ones that could not
 be translated and why. Declaring the dataset is `client.datasets.declare`.
+
+---
+
+<div align="center">
+<img src="../assets/prama-mark.svg" width="30" alt=""/><br/>
+<sub><b>PRAMA</b> — <i>Declare it. Prove it. Trust it.</i><br/>
+Copyright © 2026 <b>Ashutosh Sinha</b> &lt;ajsinha@gmail.com&gt; · All rights reserved.<br/>
+Proprietary and confidential. No licence is granted except by separate written agreement.<br/>
+See <a href="../../LICENSE">LICENSE</a> and <a href="../../NOTICE">NOTICE</a>. Third-party names and marks are the property of their respective owners.</sub>
+</div>

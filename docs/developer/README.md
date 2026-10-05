@@ -20,8 +20,9 @@ and a checklist for the pull request.
 - **Open it in an IDE**: [Running Prama in PyCharm and IntelliJ IDEA](ide.md) covers the
   interpreter, the shared run configurations in `.run/`, live reload, the debugger and
   the tests.
-- **Set up and run the gate** as [CONTRIBUTING.md](../../CONTRIBUTING.md#the-loop) describes.
-  `bash scripts/gate.sh` is the one command; the full list of commands is in `CLAUDE.md`.
+- **Install** as [QUICKSTART §1](../../QUICKSTART.md#1-install) describes, and **run the gate**
+  as [CONTRIBUTING.md](../../CONTRIBUTING.md#the-loop) describes: `bash scripts/gate.sh` is the
+  one command; the full list of commands is in `CLAUDE.md`.
 - **Read the hard rules** in `CLAUDE.md`. Four of them shape almost every extension: no
   migrations, only `prama.db` imports SQLAlchemy, no file over 1500 code lines, and AI never
   adjudicates.
@@ -127,7 +128,8 @@ everything else asks a registry by key. That is what makes "add a connector" a c
 ## The gate a change must pass
 
 `bash scripts/gate.sh` runs ruff, the formatter check, mypy, the file-length ceiling, the
-generated-documents check, and pytest; [CONTRIBUTING.md](../../CONTRIBUTING.md#the-loop) explains
+version-source and generated-documents checks, the lock-file and requirements checks, and
+pytest; [CONTRIBUTING.md](../../CONTRIBUTING.md#the-loop) explains
 why it is one script. The guards that most often stop an extension are in `tests/architecture/`:
 
 | Guard | What it refuses |
