@@ -67,7 +67,7 @@
       <p class="lp-note">Illustrative run. The PQL is real.</p>
     </div>
     <div class="lp-actions">
-      {% if single_tenant %}
+      {% if signed_in or single_tenant %}
       <a class="lp-btn lp-btn-primary" href="{{ url_for('estate_map') }}"><i class="bi bi-diagram-3" aria-hidden="true"></i> Open the console</a>
       {% else %}
       <a class="lp-btn lp-btn-primary" href="{{ url_for('sign_in') }}"><i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> Sign in</a>
@@ -194,7 +194,7 @@
   <h2>{{ app_tagline }}</h2>
   <p>Sign in to the console, or start with the help centre if you have not seen Prama before.</p>
   <div class="lp-actions">
-    <a class="lp-btn lp-btn-light" href="{{ url_for('estate_map') if single_tenant else url_for('sign_in') }}">{{ 'Open the console' if single_tenant else 'Sign in' }}</a>
+    <a class="lp-btn lp-btn-light" href="{{ url_for('estate_map') if (signed_in or single_tenant) else url_for('sign_in') }}">{{ 'Open the console' if (signed_in or single_tenant) else 'Sign in' }}</a>
     <a class="lp-btn lp-btn-ghost" href="{{ url_for('help_index') }}">Help centre</a>
     <a class="lp-btn lp-btn-ghost" href="{{ url_for('about') }}">About Prama</a>
   </div>
