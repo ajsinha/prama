@@ -50,13 +50,14 @@ class TestThePublicPages:
         assert 'href="/sign-in"' in response.text
         assert 'href="/help"' in response.text
 
-    async def test_a_signed_in_person_goes_straight_to_the_estate(
+    async def test_signing_in_lands_on_the_estate(
         self, stranger: Any, started_database: Database, tenant_id: str
     ) -> None:
+        """Signing in goes to the console; "/" itself stays the landing page, which
+        the brand links to (TestTheBrandLeadsToTheLandingPage)."""
         await _person(started_database, tenant_id, "alice", "admin")
-        await _sign_in(stranger, "alice")
-        response = await stranger.get("/")
-        assert response.status_code == 307
+        response = await stranger.post("/sign-in", data={"username": "alice", "password": PASSWORD})
+        assert response.status_code == 303
         assert response.headers["location"] == "/estate"
 
     async def test_the_landing_numbers_are_counted_not_typed(self, stranger: Any) -> None:
@@ -281,3 +282,35 @@ class TestAKeyIsNoMoreUsableThanItsHolder:
             dana.status = "disabled"
         after = await ui.get(probe, headers=headers)
         assert after.status_code == 401, after.text
+
+
+class TestTheBrandLeadsToTheLandingPage:
+    """The PRAMA mark and name link to the landing page, for everyone: a signed-in
+    person used to be sent straight on to /estate, so the link looked dead."""
+
+    async def test_signed_in_the_landing_page_still_shows(
+        self, stranger: Any, started_database: Database, tenant_id: str
+    ) -> None:
+        await _person(started_database, tenant_id, "ada", "owner")
+        await _sign_in(stranger, "ada")
+        estate = (await stranger.get("/estate")).text
+        assert 'class="navbar-brand maya-brand" href="/"' in estate  # the brand, in the console
+        landing = await stranger.get("/")
+        assert landing.status_code == 200 and "data-lp-hero" in landing.text
+
+    async def test_and_offers_the_way_back(
+        self, stranger: Any, started_database: Database, tenant_id: str
+    ) -> None:
+        await _person(started_database, tenant_id, "ada", "owner")
+        await _sign_in(stranger, "ada")
+        landing = (await stranger.get("/")).text
+        header = landing.split("</nav>", 1)[0]
+        assert 'href="/estate"' in header and "Console" in header  # the header's way back
+        assert (
+            "Open the console" in landing
+            and '>\n      <i class="bi bi-box-arrow-in-right"' not in landing
+        )
+
+    async def test_without_a_session_it_offers_sign_in(self, stranger: Any) -> None:
+        landing = (await stranger.get("/")).text
+        assert 'href="/sign-in"' in landing

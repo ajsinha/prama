@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import Request
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse
 
 from prama.core.errors import NotFoundError
 from prama.report.themes import THEMES
@@ -85,8 +85,13 @@ class PublicRoutes(UiRoutes):
         self.page("/help/{slug}", self.help_topic, name="help_topic", scope=None)
 
     async def landing(self, request: Request) -> Any:
-        if request.session.get("principal_id"):
-            return RedirectResponse(url="/estate", status_code=307)
+        """What Prama is. Shown to everybody, signed in or not.
+
+        It used to send a signed-in person straight on to /estate, so the brand
+        in the header, which links here, looked broken to anyone using the
+        console. Now the brand always reaches it, and the way back is the
+        Console button in the header and the "Open the console" buttons here.
+        """
         config = request.app.state.config
         # Numbers on the landing page are counted, never typed: a figure that
         # is restated here is one that is wrong the day after it is written.
