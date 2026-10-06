@@ -326,3 +326,28 @@ body.maya-public { background:
 @media (prefers-reduced-motion: reduce) { .page-help.ph-flash .ph-tile { animation: none; } .page-help .ph-title::after { transition: none; } }
 @media (max-width: 1100px) { .page-help .ph-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 700px) { .page-help .ph-grid, .page-help .ph-grid.ph-n2, .page-help .ph-grid.ph-n3 { grid-template-columns: minmax(0, 1fr); } }
+
+/* Phones and small tablets. Checked by tests/web/test_mobile.py, which opens every
+   console page at 390px and fails on anything that makes the page scroll sideways. */
+@media (max-width: 991.98px) {
+  /* A table wider than the screen scrolls inside its own box instead of
+     stretching the page (and pushing the menu button off the edge with it). */
+  /* `position: relative` makes the table the containing block of anything absolutely
+     positioned in its cells (screen-reader labels, dropdowns): without it they escape
+     the scrolling box and widen the page anyway. */
+  #main table:not(.no-scroll) { display: block; max-width: 100%; overflow-x: auto;
+    position: relative; -webkit-overflow-scrolling: touch; }
+  /* Code in a cell (PQL, a hash, a column path) wraps at spaces and keeps a readable
+     width; the table scrolls sideways instead of squeezing it to a letter a line. */
+  #main td:has(> code), #main td:has(> .font-monospace) { min-width: 14rem; }
+  #main dd code { overflow-wrap: anywhere; }
+  #main pre { max-width: 100%; overflow-x: auto; }
+  #main img, #main svg, #main canvas { max-width: 100%; }
+}
+@media (max-width: 767.98px) {
+  .maya-nav .navbar-collapse .d-flex { padding: .4rem .2rem .8rem; }
+}
+/* The break workbench's two sides line up in columns where there is room; on a
+   phone they wrap instead of forcing the page wider than the screen. */
+.wb-side { min-width: 9rem; }
+@media (max-width: 575.98px) { .wb-side { min-width: 0; } }

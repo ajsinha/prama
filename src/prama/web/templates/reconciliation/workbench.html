@@ -4,8 +4,8 @@
 {% block heading %}{{ definition }}{% endblock %}
 
 {% macro sides(row) %}
-<div class="d-flex gap-3 align-items-baseline">
-  <div class="text-end" style="min-width:9rem">
+<div class="d-flex flex-wrap gap-3 align-items-baseline">
+  <div class="text-end wb-side">
     {% if row.left %}<span class="font-monospace">{{ row.left }}</span>
     {% else %}
     {# Not zero. "Nothing on the left" and "zero on the left" are different
@@ -14,7 +14,7 @@
     <span class="text-muted fst-italic">nothing</span>{% endif %}
   </div>
   <div class="text-muted">vs</div>
-  <div style="min-width:9rem">
+  <div class="wb-side">
     {% if row.right %}<span class="font-monospace">{{ row.right }}</span>
     {% else %}<span class="text-muted fst-italic">nothing</span>{% endif %}
   </div>
