@@ -1,23 +1,36 @@
 {# Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved. Proprietary; see LICENSE. #}
-{# The top bar for the public pages when nobody is signed in, after Maya's
-   _nav_public.html: the console's menus mean nothing before signing in. #}
-<nav class="navbar navbar-expand maya-nav fixed-top" aria-label="Primary">
+{# The top bar for the public pages, after Maya's _nav_public.html: the console's
+   menus mean nothing before signing in. On a phone the links and tools fold into
+   a menu, like the console's; Sign in (or Console) stays in the bar, because it is
+   the one thing a visitor came to do. #}
+<nav class="navbar navbar-expand-md maya-nav fixed-top" aria-label="Primary">
   <div class="container-fluid">
     {% include "_brand.html" %}
-    <ul class="navbar-nav me-auto">
-      {% for item in public_links %}
-      <li class="nav-item"><a class="nav-link {% if item.active %}active{% endif %}" href="{{ item.href }}"
-          {% if item.active %}aria-current="page"{% endif %}><i class="bi {{ item.icon }}" aria-hidden="true"></i> {{ item.label }}</a></li>
-      {% endfor %}
-    </ul>
-    <div class="d-flex align-items-center gap-2">
-      {% if page_help %}<a class="tool" href="#page-help" data-page-help aria-label="About this page" title="About this page"><i class="bi bi-question-circle" aria-hidden="true"></i></a>{% endif %}
-      {% include "_theme_menu.html" %}
-      {% if signed_in %}
-      <a class="btn btn-light btn-sm fw-bold" href="{{ url_for('estate_map') }}"><i class="bi bi-grid" aria-hidden="true"></i> Console</a>
-      {% else %}
-      <a class="btn btn-light btn-sm fw-bold" href="{{ url_for('sign_in') }}"><i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> Sign in</a>
-      {% endif %}
+    {% if signed_in %}
+    <a class="btn btn-light btn-sm fw-bold ms-auto me-2 d-md-none" href="{{ url_for('estate_map') }}"><i class="bi bi-grid" aria-hidden="true"></i> Console</a>
+    {% else %}
+    <a class="btn btn-light btn-sm fw-bold ms-auto me-2 d-md-none" href="{{ url_for('sign_in') }}"><i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> Sign in</a>
+    {% endif %}
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav-public"
+            aria-controls="nav-public" aria-expanded="false" aria-label="Toggle navigation">
+      <i class="bi bi-list" aria-hidden="true"></i>
+    </button>
+    <div class="collapse navbar-collapse" id="nav-public">
+      <ul class="navbar-nav me-auto">
+        {% for item in public_links %}
+        <li class="nav-item"><a class="nav-link {% if item.active %}active{% endif %}" href="{{ item.href }}"
+            {% if item.active %}aria-current="page"{% endif %}><i class="bi {{ item.icon }}" aria-hidden="true"></i> {{ item.label }}</a></li>
+        {% endfor %}
+      </ul>
+      <div class="d-flex align-items-center gap-2">
+        {% if page_help %}<a class="tool" href="#page-help" data-page-help aria-label="About this page" title="About this page"><i class="bi bi-question-circle" aria-hidden="true"></i></a>{% endif %}
+        {% include "_theme_menu.html" %}
+        {% if signed_in %}
+        <a class="btn btn-light btn-sm fw-bold d-none d-md-inline-block" href="{{ url_for('estate_map') }}"><i class="bi bi-grid" aria-hidden="true"></i> Console</a>
+        {% else %}
+        <a class="btn btn-light btn-sm fw-bold d-none d-md-inline-block" href="{{ url_for('sign_in') }}"><i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> Sign in</a>
+        {% endif %}
+      </div>
     </div>
   </div>
 </nav>

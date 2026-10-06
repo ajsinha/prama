@@ -32,16 +32,12 @@ Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 from __future__ import annotations
 
 import json
-import threading
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-import uvicorn
+from tests.web.conftest import live_console
 
-from prama.api import create_app
-from prama.core.config import Configuration, ConfigurationBuilder
-from prama.db import Database
 from prama.report.themes import BASES
 from prama.report.themes import THEMES as _THEMES
 
@@ -105,71 +101,13 @@ def _playwright():
 
 @pytest.fixture(scope="module")
 def server(tmp_path_factory) -> Iterator[str]:
-    """The real application on a real port.
+    """The real application on a real port (tests/web/conftest.py, ``live_console``).
 
     A live server rather than an ASGI transport: axe runs inside a browser, and
     a browser needs a URL. Started once for the module, because the audit visits
     eighty pages and a per-test server would dominate the runtime.
     """
-    from prama.core.config.defaults import DEFAULTS
-
-    root = tmp_path_factory.mktemp("axe")
-    config: Configuration = (
-        ConfigurationBuilder()
-        .with_defaults(DEFAULTS)
-        .with_mapping(
-            {
-                "database": {
-                    "dialect": "sqlite",
-                    "sqlite": {"path": str(root / "axe.db")},
-                    "schema_dir": str(Path(__file__).resolve().parents[2] / "schema"),
-                    "verify_on_start": True,
-                },
-                "security": {"session_secret": "axe-audit-secret", "cookies_https_only": False},
-                "web": {"enabled": True},
-            },
-            name="axe",
-        )
-        .build()
-    )
-    # A tenant, and the configuration that names it, before the app is built.
-    # Without it every page 303s to the sign-in redirect and the audit measures
-    # that instead — which passes nothing and looks like sixteen broken pages.
-    import asyncio
-
-    async def _tenant() -> str:
-        database_ = Database.from_config(config)
-        database_.initialise(applied_by="axe-audit")
-        await database_.start()
-        try:
-            async with database_.unit_of_work() as uow:
-                tenant = uow.tenants.create(slug="axe-bank", display_name="Axe Bank")
-                await uow.flush()
-                return str(tenant.id)
-        finally:
-            await database_.stop()
-
-    tenant_id = asyncio.run(_tenant())
-    config = (
-        ConfigurationBuilder()
-        .with_defaults(config.raw())
-        .with_mapping({"tenancy": {"default_tenant": tenant_id}}, name="axe-tenant")
-        .build()
-    )
-
-    database = Database.from_config(config)
-    app = create_app(config, database=database)
-
-    server_ = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=0, log_level="warning"))
-    thread = threading.Thread(target=server_.run, daemon=True)
-    thread.start()
-    while not server_.started:
-        if not thread.is_alive():  # pragma: no cover - the server failed to boot
-            raise RuntimeError("the console did not start")
-    port = server_.servers[0].sockets[0].getsockname()[1]
-    yield f"http://127.0.0.1:{port}"
-    server_.should_exit = True
-    thread.join(timeout=10)
+    yield from live_console(tmp_path_factory.mktemp("axe"))
 
 
 @pytest.fixture(scope="module")

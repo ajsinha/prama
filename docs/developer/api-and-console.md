@@ -205,6 +205,8 @@ the shipped font by `tests/web/test_icons.py`.
 - **Pages.** `tests/web/` renders pages through the app; `tests/web/test_accessibility.py`
   checks structure, and `tests/web/test_axe.py` runs axe-core in Chrome when the `audit` extra is
   installed.
+  `tests/web/test_mobile.py` opens every page at phone width (390px) and fails if any
+  makes the page scroll sideways; a wide table scrolls inside its own box instead.
 - **The counterfactual.** Annotate a new POST with `Reader` and `test_scopes.py` fails; annotate a
   route with plain `Caller` and it fails differently. Both are worth seeing once before relying
   on the guard.
