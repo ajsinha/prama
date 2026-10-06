@@ -193,15 +193,23 @@ def main() -> int:
     from prama.api import create_app
 
     if args.host is None:
-        args.host = config.get_str("server.host", "127.0.0.1")
+        args.host = config.get_str("server.host", "0.0.0.0")
     if args.port is None:
         args.port = config.get_int("server.port")
-    base = f"http://{args.host}:{args.port}"
+    # The URLs a person can open: never the bind address 0.0.0.0 itself.
+    from prama.cli.commands import network_caveats, reachable_urls
+
+    bases = reachable_urls(args.host, args.port)
+    base = bases[0]
     print()
     if config.get_bool("web.enabled", True):
         print(f"  Console  {base}/estate")
+        for other in bases[1:]:
+            print(f"           {other}/estate   (from the network)")
     print(f"  API      {base}/api/v1")
     print(f"  Docs     {base}/api/v1/docs")
+    for line in network_caveats(args.host, config):
+        print(line)
     if config.get_bool("web.enabled", True) and not tenant:
         print()
         print("  No tenant is configured, so every console page will redirect to a")

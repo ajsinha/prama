@@ -58,7 +58,9 @@ DEFAULTS: dict[str, Any] = {
         # The console and the API share one listener. 5900 is Prama's port;
         # `prama serve`, `run_prama_web.py`, the image and the chart all read
         # it from here rather than restating it.
-        "host": "127.0.0.1",
+        # Every interface, so the console is reachable from another machine on the
+        # network (a phone, a colleague's browser). 127.0.0.1 keeps it on this one.
+        "host": "0.0.0.0",
         "port": 5900,
     },
     "agents": {

@@ -99,6 +99,7 @@ Then it serves. The Run window prints the addresses:
 
 ```
   Console  http://127.0.0.1:5900/estate
+           http://192.168.1.20:5900/estate   (from the network)
   API      http://127.0.0.1:5900/api/v1
   Docs     http://127.0.0.1:5900/api/v1/docs
 ```
@@ -195,7 +196,7 @@ The run configurations do not change.
 |---|---|
 | `security.session_secret is empty` | Run **Prama - first run** once. It writes the secret to the git-ignored local file. |
 | `schema drift against schema/sqlite.sql` at start | The schema files changed since your database was made, and Prama never migrates. Delete the database file (`data/prama.db` by default, which loses its data), then run **Prama - first run**. |
-| `cannot listen on 127.0.0.1:5900` | Another server holds the port, often one already running in another Run tab. Stop it, or set `server.port` in the local file. |
+| `cannot listen on 0.0.0.0:5900` | Another server holds the port, often one already running in another Run tab. Stop it, or set `server.port` in the local file. |
 | Every console page redirects to sign-in | No estate exists yet. Run **Prama - first run** (it creates `acme-bank`). |
 | `ModuleNotFoundError: prama` | The configuration is using another interpreter. Check §2. |
 | Imports resolve in the terminal but are red in the editor | The IDE indexed a different interpreter. Re-select `.venv/bin/python` (§2), then *File → Invalidate Caches*. |
