@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import socket
+from typing import Any
 
 from prama.cli.apikey import ApiKeyCommand
 from prama.cli.base import EXIT_DRIFT, EXIT_OK, Command, CommandContext, CommandGroup
@@ -203,6 +204,52 @@ class DbCommand(CommandGroup):
         return [DbInitCommand(), DbVerifyCommand(), DbInfoCommand()]
 
 
+#: Bind addresses meaning "every interface". Not an address a browser can open.
+EVERY_INTERFACE = ("0.0.0.0", "::", "")
+
+
+def _lan_address() -> str | None:
+    """This machine's address on its network, or None.
+
+    A UDP socket "connected" to a documentation address (RFC 5737) picks the
+    outgoing interface without sending a packet, so nothing leaves the host.
+    """
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.connect(("192.0.2.1", 9))
+            address = str(probe.getsockname()[0])
+    except OSError:
+        return None
+    return None if address.startswith("127.") else address
+
+
+def reachable_urls(host: str, port: int) -> list[str]:
+    """The URLs a person can open for a server bound to *host*: this machine first.
+
+    A server bound to every interface used to print ``http://0.0.0.0:5900``,
+    which is a bind address and not one a browser opens.
+    """
+    if host not in EVERY_INTERFACE:
+        return [f"http://{host}:{port}"]
+    lan = _lan_address()
+    return [f"http://127.0.0.1:{port}", *([f"http://{lan}:{port}"] if lan else [])]
+
+
+def network_caveats(host: str, config: Any) -> list[str]:
+    """What someone reaching this server from another machine needs to know."""
+    if host in ("127.0.0.1", "localhost", "::1"):
+        return []
+    lines = ["", "  Listening on the network: anybody who can reach this machine can reach"]
+    lines.append("  the sign-in page. Set server.host: 127.0.0.1 to keep it on this machine.")
+    if config.get_bool("security.cookies_https_only", True):
+        lines += [
+            "  Signing in from another machine over plain http needs",
+            "  security.cookies_https_only: false (in application.local.yaml), or TLS",
+            "  in front: browsers keep a secure-only cookie only for https and localhost.",
+        ]
+    return lines
+
+
 class ServeCommand(Command):
     name = "serve"
     help = "run the HTTP API"
@@ -232,7 +279,7 @@ class ServeCommand(Command):
         from prama.api import create_app
 
         if ctx.args.host is None:
-            ctx.args.host = ctx.config.get_str("server.host", "127.0.0.1")
+            ctx.args.host = ctx.config.get_str("server.host", "0.0.0.0")
         port = int(
             ctx.args.port if ctx.args.port is not None else ctx.config.get_int("server.port")
         )
@@ -269,15 +316,20 @@ class ServeCommand(Command):
                 cause=exc,
             ) from exc
 
-        base = f"http://{ctx.args.host}:{port}"
+        bases = reachable_urls(ctx.args.host, port)
+        base = bases[0]
         ctx.emit(f"Prama {VERSION} — {PRODUCT_TAGLINE}")
         if ctx.config.get_bool("web.enabled", True):
             # First, because it is the thing a person opens. The API and its
             # documentation are what a program uses, and printing them alone
             # left the console — the actual product — undiscoverable.
             ctx.emit(f"  Console  {base}/estate")
+            for other in bases[1:]:
+                ctx.emit(f"           {other}/estate   (from the network)")
         ctx.emit(f"  API      {base}/api/v1")
         ctx.emit(f"  Docs     {base}/api/v1/docs")
+        for line in network_caveats(ctx.args.host, ctx.config):
+            ctx.emit(line)
         if ctx.config.get_bool("web.enabled", True) and not ctx.config.get_str(
             "tenancy.default_tenant", ""
         ):

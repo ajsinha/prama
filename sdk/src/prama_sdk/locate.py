@@ -10,7 +10,8 @@ server its operator configured, without importing the server.
 It is deliberately small: three keys, YAML or ``.properties``, the local
 overlay, the environment, and ``${VAR:default}`` in those values. It is not
 the server's configuration engine and does not try to be; a value it cannot
-read falls back to the server's own default, 127.0.0.1:5900.
+read falls back to 127.0.0.1:5900, where a server on this machine is reached
+whatever interfaces it binds.
 
 Copyright (c) 2026 Ashutosh Sinha <ajsinha@gmail.com>. All rights reserved.
 """

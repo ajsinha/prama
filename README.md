@@ -130,7 +130,9 @@ python run_prama_web.py --init-secret --prepare
 
 Then open **http://127.0.0.1:5900/** — the landing page, with the help centre
 at `/help` — or go straight to the console at `/estate`. The port is
-`server.port` in configuration. That applies the schema, creates an estate,
+`server.port` in configuration; other machines on your network reach it at this
+machine's address ([From another machine](QUICKSTART.md#from-another-machine)).
+That applies the schema, creates an estate,
 writes a session secret into the git-ignored local config, and starts the
 console and the API in one process.
 

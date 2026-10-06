@@ -34,7 +34,7 @@ becomes `PRAMA_DATABASE__SQLITE__PATH`.
 | `security.cookies_https_only` | `True` | false only for local http development |
 | `security.bootstrap_admin` | `True` |  |
 | `tenancy.default_tenant` | *(empty)* |  |
-| `server.host` | `127.0.0.1` | bind address; 0.0.0.0 accepts on every interface |
+| `server.host` | `0.0.0.0` | every interface: reachable from the network; 127.0.0.1 keeps it local |
 | `server.port` | `5900` | the console and the API share this listener |
 | `agents.enabled` | `True` |  |
 | `agents.interval` | `60s` | how often due goals are checked |

@@ -26,6 +26,20 @@ Two things, in one process:
 
 5900 is `server.port`; change it there (or pass `--port`), not in several places.
 
+### From another machine
+
+The server binds every interface (`server.host: 0.0.0.0`), so a phone or a
+colleague on the same network opens it at `http://<this machine's address>:5900`;
+`prama serve` prints that address beside the loopback one. Two consequences:
+
+- **Anybody who can reach the machine can reach the sign-in page.** To keep it
+  on this machine only, set `server.host: 127.0.0.1`.
+- **Signing in from another machine over plain `http` needs
+  `security.cookies_https_only: false`** in `config/application.local.yaml`, or
+  TLS in front. The session cookie is secure-only by default, and browsers keep
+  such a cookie only for `https` and for `localhost`, so without one of those the
+  sign-in page simply returns.
+
 They are one application deliberately, not two that share a database: a console
 and an API that could disagree about the estate would eventually disagree about
 whether a control passed.
