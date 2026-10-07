@@ -90,7 +90,10 @@ verified control execution.* It should never be used as the app icon; it is rese
 
 **Asset set.** `assets/prama-mark.svg` (primary) · `assets/prama-seal.svg` (evidence artefacts) ·
 `assets/prama-lockup.svg` (horizontal lockup with slogan) · `assets/prama-favicon.svg`
-(simplified, three rays, dark tile — the only permitted simplification).
+(the console header's mark, three rays, on a tile of the header's crimson-to-indigo gradient —
+the only permitted simplification). The favicon is derived, not drawn separately:
+`tests/web/test_favicon.py` fails unless its shapes are the header mark's and its tile is the
+light theme's header gradient, so a change to either reaches the browser tab.
 
 **Usage rules.**
 - Clear space on all sides ≥ the height of the prism.
