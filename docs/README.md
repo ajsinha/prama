@@ -114,7 +114,7 @@ differ, `docs/corpus/19` decides.
 | [Experiment plan](publications/paper/experiment-plan.md) | The experimental protocol written before the code existed |
 | [The Medium article](publications/medium/README.md) | How the article and its diagrams are built |
 | [*Your dashboard is green. Can you prove it?*](publications/medium/your-dashboard-is-green.md) | Nine design ideas, with diagrams and examples |
-| [Deck](publications/deck/Prama-Evidence-First-Data-Quality.pptx) | 45 slides for the people who must stand behind a number; built from [`tools/deck/`](../tools/deck/GUIDE.md) and audited as rendered |
+| [Deck](publications/deck/Prama-Evidence-First-Data-Quality.pptx) | 59 slides for the people who must stand behind a number, told answer first: a TL;DR, ten principles, ten sections and three worked examples; built from [`tools/deck/`](../tools/deck/GUIDE.md) and audited as rendered |
 | [Adversarial review, 2026-09-11](reviews/2026-09-11-adversarial-review.md) | Five reviewers told to find defects rather than praise, and what was done about each |
 
 ## The one-paragraph thesis

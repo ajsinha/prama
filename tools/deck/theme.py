@@ -1,7 +1,9 @@
 """
-The deck design system: Prama Indigo and Refract Blue over a cool white ground,
-the prism's six-colour spectrum as the one flourish (docs/reference/brand.md), Georgia for
-headings and Calibri for text, and the layout primitives every deck is drawn with.
+The deck design system: the console's crimson theme (src/prama/web/static/css/themes.css,
+the light theme), so the deck and the product look like one thing. Crimson for accents and
+table heads, the deep heading crimson for titles, and the console header's gradient (deep
+crimson through crimson to indigo) for the dark slides. The prism's six-colour spectrum is
+the one flourish (docs/reference/brand.md). Calibri throughout, bold for headings.
 
 Every primitive that places text measures it with ``metrics`` — the same
 estimator the geometry audit uses — and the fitting helpers shrink the type or
@@ -23,19 +25,26 @@ from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.util import Emu, Pt
 from pptx.util import Inches as In
 
-from metrics import FOOTER_Y, SAFETY, SANS, SERIF, SH, SW, est_lines, text_extent, text_h
+from metrics import FOOTER_Y, SAFETY, SANS, SH, SW, est_lines, text_extent, text_h
 
-REFRACT = RGBColor(0x2B, 0x3F, 0xA8)  # Refract Blue: accents, table heads, rules
-INDIGO = RGBColor(0x0E, 0x1A, 0x46)  # Prama Indigo: the dark surfaces
-HAZE = RGBColor(0xAE, 0xB8, 0xE8)
-MIST = RGBColor(0xE4, 0xE8, 0xF8)
-INK = RGBColor(0x14, 0x18, 0x2E)
-SLATE = RGBColor(0x5A, 0x64, 0x80)
-MUTED = RGBColor(0x8A, 0x93, 0xAD)  # Unverified Grey
-RULE = RGBColor(0xD6, 0xDA, 0xE6)
-FROST = RGBColor(0xF3, 0xF5, 0xFA)
+# The console's light theme, token for token (--maya-*). The names below are the deck's
+# roles; REFRACT and INDIGO keep their old names so every layout follows the new palette.
+REFRACT = RGBColor(0xA5, 0x1C, 0x30)  # --maya-crimson: accents, table heads, numbers
+HEADING = RGBColor(0x6E, 0x11, 0x20)  # --maya-heading: slide titles
+INDIGO = RGBColor(0x5C, 0x0E, 0x1B)  # --maya-nav-from: the dark surfaces
+NAV_TO = RGBColor(0x29, 0x33, 0x52)  # --maya-nav-to: where the dark gradient ends
+HAZE = RGBColor(0xF3, 0xC6, 0xCF)  # --maya-glow: labels on the dark surfaces
+MIST = RGBColor(0xFB, 0xEE, 0xF0)  # --maya-crimson-tint: text on dark; tinted rows
+TINT = RGBColor(0xFB, 0xEE, 0xF0)  # --maya-crimson-tint
+INK = RGBColor(0x1A, 0x1A, 0x1A)  # --maya-ink
+SLATE = RGBColor(0x63, 0x6B, 0x76)  # --maya-slate
+MUTED = RGBColor(0x8E, 0x94, 0x9C)
+RULE = RGBColor(0xE3, 0xDE, 0xD7)  # --maya-border
+FROST = RGBColor(0xF7, 0xF5, 0xF2)  # --maya-canvas: alternate rows, tiles
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
 GOLD = RGBColor(0xE8, 0xB3, 0x3A)
+OK = RGBColor(0x1E, 0x6B, 0x3A)  # --maya-ok
+WARN = RGBColor(0x7A, 0x52, 0x00)  # --maya-warn
 #: The prism's six rays, one per quality dimension (docs/reference/brand.md). On a slide
 #: they are always the six together, in this order, never one used decoratively.
 SPECTRUM = [
@@ -213,10 +222,51 @@ def spectrum(sl: Any, x: float, y: float, w: float, h: float, vertical: bool = F
             rect(sl, x + i * w / n, y, w / n, h, fill=colour)
 
 
+def ground(sl: Any) -> Any:
+    """The dark slides' ground: the console header's gradient, deep crimson through
+    crimson to indigo, left to right."""
+    s = rect(sl, 0, 0, SW, SH, fill=INDIGO)
+    s.fill.gradient()
+    s.fill.gradient_angle = 0
+    stops = s.fill.gradient_stops
+    stops[0].color.rgb, stops[0].position = INDIGO, 0.0
+    stops[1].color.rgb, stops[1].position = NAV_TO, 1.0
+    # A third stop, the console's crimson, a little past the middle: python-pptx makes two.
+    from copy import deepcopy
+
+    mid = deepcopy(stops._gsLst[0])
+    mid.set("pos", "55000")
+    mid[0].set("val", "A51C30")
+    stops._gsLst.insert(1, mid)
+    return s
+
+
+def circle(
+    sl: Any, x: float, y: float, d: float, label: str, fill: Any = None, size: float = 14
+) -> Any:
+    """A filled circle with a centred label: the deck's numbered-step motif."""
+    s = rect(sl, x, y, d, d, fill=fill or REFRACT, shape=MSO_SHAPE.OVAL)
+    tf = s.text_frame
+    tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
+    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+    p = tf.paragraphs[0]
+    p.alignment = PP_ALIGN.CENTER
+    r = p.add_run()
+    r.text = label
+    r.font.size = Pt(size)
+    r.font.bold = True
+    r.font.color.rgb = WHITE
+    r.font.name = SANS
+    return s
+
+
 def footer(sl: Any) -> None:
     rect(sl, ML, FOOTER_Y, CW, 0.008, fill=RULE)
     tf = txt(sl, ML, SH - 0.46, CW * 0.7, 0.24)
-    para(tf, _state["chapter"], size=8.5, color=MUTED, first=True, space_after=0)
+    label = "PRAMA  •  Ashutosh Sinha"
+    if _state["chapter"]:
+        label += f"  •  {_state['chapter']}"
+    para(tf, label, size=8.5, color=MUTED, first=True, space_after=0)
     tf = txt(sl, ML + CW * 0.7, SH - 0.46, CW * 0.3, 0.24, align=PP_ALIGN.RIGHT)
     para(tf, str(_state["n"]), size=8.5, color=MUTED, first=True, space_after=0, bold=True)
 
@@ -226,61 +276,68 @@ def content(title: str, kicker: str | None = None) -> tuple[Any, float]:
     _state["n"] += 1
     sl = blank()
     rect(sl, 0, 0, SW, SH, fill=WHITE)
-    rect(sl, 0, 0.62, 0.30, 0.055, fill=REFRACT)
-    y = 0.52
+    y = 0.48
     if kicker:
         tf = txt(sl, ML, y, CW, 0.24)
         para(tf, kicker.upper(), size=10.5, color=REFRACT, bold=True, first=True, space_after=0)
         y += 0.30
-    size = 26.0
-    while size > 20 and est_lines(title, CW * SAFETY, size, False, SERIF) > 1:
+    size = 28.0
+    while size > 20 and est_lines(title, CW * SAFETY, size, True, SANS) > 1:
         size -= 1
-    th = text_h(title, CW * SAFETY, size, False, SERIF, 1.15)
+    th = text_h(title, CW * SAFETY, size, True, SANS, 1.1)
     tf = txt(sl, ML, y, CW, th + 0.04)
-    para(tf, title, size=size, color=INK, font=SERIF, first=True, space_after=0, line=1.15)
-    body_top = y + th + 0.24
+    para(tf, title, size=size, color=HEADING, bold=True, first=True, space_after=0, line=1.1)
+    body_top = y + th + 0.26
     rect(sl, ML, body_top - 0.14, CW, 0.012, fill=RULE)
     footer(sl)
     return sl, body_top
 
 
 def divider(num: str, title: str, sub: str, points: list[str]) -> Any:
-    """An indigo part divider, edged with the spectrum, with its contents on the right."""
-    _state["chapter"] = f"{num} · {title}"
+    """A section divider on the dark gradient: a large numbered circle, the section's
+    title and its promise, and what it covers on the right."""
+    _state["chapter"] = title
     _state["n"] += 1
     sl = blank()
-    rect(sl, 0, 0, SW, SH, fill=INDIGO)
-    spectrum(sl, 0, 0, 0.18, SH, vertical=True)
-    tf = txt(sl, ML + 0.25, 2.0, CW * 0.58, 0.4)
-    para(tf, f"PART {num}", size=12, color=HAZE, bold=True, first=True, space_after=0)
-    tw = CW * 0.58
-    size = 42.0
-    while size > 26 and est_lines(title, tw * SAFETY, size, False, SERIF) > 1:
+    ground(sl)
+    d = 1.45
+    circle(sl, ML + 0.1, 1.15, d, num, fill=REFRACT, size=48)
+    tw = CW * 0.56
+    size = 40.0
+    while size > 26 and est_lines(title, tw * SAFETY, size, True, SANS) > 2:
         size -= 2
-    tf = txt(sl, ML + 0.25, 2.5, tw, 1.0)
-    para(tf, title, size=size, color=WHITE, font=SERIF, first=True, space_after=0)
-    rect(sl, ML + 0.25, 3.7, 1.5, 0.035, fill=HAZE)
+    th = text_h(title, tw * SAFETY, size, True, SANS, 1.05)
+    tf = txt(sl, ML + 0.1, 2.95, tw, th + 0.05)
+    para(tf, title, size=size, color=WHITE, bold=True, first=True, space_after=0, line=1.05)
+    top = 2.95 + th + 0.30
     fitted(
         sl,
-        ML + 0.25,
-        3.95,
+        ML + 0.1,
+        top,
         tw,
-        1.9,
+        SH - 0.7 - top,
         lambda tf, s: para(
-            tf, sub, size=s, color=MIST, italic=True, first=True, space_after=0, line=1.3
+            tf, sub, size=s, color=HAZE, italic=True, first=True, space_after=0, line=1.3
         ),
-        15,
+        17,
         11,
     )
-    x = ML + CW * 0.66
-    tf = txt(sl, x, 2.0, CW * 0.34, 0.3)
-    para(tf, "IN THIS PART", size=9.5, color=HAZE, bold=True, first=True, space_after=0)
+    x = ML + CW * 0.64
+    tf = txt(sl, x, 1.2, CW * 0.36, 0.3)
+    para(tf, "IN THIS SECTION", size=10, color=HAZE, bold=True, first=True, space_after=0)
 
     def write(tf: Any, s: float) -> None:
         for i, pnt in enumerate(points):
-            para(tf, pnt, size=s, color=MIST, space_after=6, line=1.15, first=i == 0)
+            runs(
+                tf,
+                [(f"{i + 1:02d}   ", HAZE, True), (pnt, WHITE, False)],
+                size=s,
+                space_after=9,
+                first=i == 0,
+                line=1.15,
+            )
 
-    fitted(sl, x, 2.4, CW * 0.34, 4.0, write, 12, 9)
+    fitted(sl, x, 1.62, CW * 0.36, 4.6, write, 15, 10)
     return sl
 
 
@@ -373,7 +430,6 @@ def fitted_table(
 def card(sl: Any, x: float, y: float, w: float, h: float, num: str, title: str, body: str) -> None:
     """A bordered card whose contents are fitted inside the border."""
     rect(sl, x, y, w, h, fill=WHITE, line=RULE, lw=0.9)
-    rect(sl, x, y, w, 0.055, fill=REFRACT)
     inner = w - 0.40
     top = y + 0.18
     if num:
@@ -390,14 +446,13 @@ def card(sl: Any, x: float, y: float, w: float, h: float, num: str, title: str, 
             tf,
             title,
             size=s,
-            color=INK,
+            color=HEADING,
             bold=True,
-            font=SERIF,
             first=True,
             space_after=0,
             line=1.12,
         ),
-        16,
+        18,
         10.5,
     )
     by = top + used + 0.10
@@ -408,50 +463,30 @@ def card(sl: Any, x: float, y: float, w: float, h: float, num: str, title: str, 
         inner,
         (y + h - 0.14) - by,
         lambda tf, s: para(tf, body, size=s, color=SLATE, first=True, space_after=0, line=1.2),
-        14,
+        16,
         8.5,
     )
 
 
-def statbar(sl: Any, y: float, stats: list[tuple[str, str]], h: float = 1.25) -> None:
+def statbar(sl: Any, y: float, stats: list[tuple[str, str]], h: float = 1.35) -> None:
+    """Large-number tiles: the figure in crimson, what it counts beneath, both centred."""
     gap = 0.22
     bw = (CW - gap * (len(stats) - 1)) / len(stats)
     for i, (big, label) in enumerate(stats):
         x = ML + i * (bw + gap)
-        rect(sl, x, y, bw, h, fill=FROST)
-        rect(sl, x, y, 0.045, h, fill=REFRACT)
-        fitted(
-            sl,
-            x + 0.22,
-            y + 0.14,
-            bw - 0.34,
-            0.5,
-            lambda tf, s, b=big: para(
-                tf,
-                b,
-                size=s,
-                color=REFRACT,
-                bold=True,
-                font=SERIF,
-                first=True,
-                space_after=0,
-                line=1.0,
-            ),
-            24,
-            14,
-        )
-        fitted(
-            sl,
-            x + 0.22,
-            y + 0.66,
-            bw - 0.34,
-            h - 0.74,
-            lambda tf, s, lab=label: para(
-                tf, lab, size=s, color=SLATE, first=True, space_after=0, line=1.12
-            ),
-            10.5,
-            8,
-        )
+        rect(sl, x, y, bw, h, fill=WHITE, line=RULE, lw=1.0)
+        tf = txt(sl, x + 0.15, y + 0.12, bw - 0.30, 0.6, align=PP_ALIGN.CENTER)
+        size = 32.0
+        while size > 16 and est_lines(big, (bw - 0.30) * SAFETY, size, True, SANS) > 1:
+            size -= 1
+        para(tf, big, size=size, color=REFRACT, bold=True, first=True, space_after=0, line=1.0)
+        tf.paragraphs[0].alignment = PP_ALIGN.CENTER
+
+        def write(tf: Any, s: float, lab: str = label) -> None:
+            para(tf, lab, size=s, color=SLATE, first=True, space_after=0, line=1.12)
+            tf.paragraphs[0].alignment = PP_ALIGN.CENTER
+
+        fitted(sl, x + 0.15, y + 0.74, bw - 0.30, h - 0.82, write, 11.5, 8)
 
 
 def connect(

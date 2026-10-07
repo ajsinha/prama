@@ -1,8 +1,10 @@
 """
-Parts 1 to 3 of the Prama deck: why data quality fails, declaring what data means, and the
-language controls are written in.
+Parts of the Prama deck: the opening (a TL;DR in five questions, ten principles, the
+failure modes, what a supervisor asks for, Prama in one slide) and sections 1 to 3: how
+Prama works, declaring what data means, and the language.
 
-Every figure is from the code, a test, a case study's run or ``prama bench run --seed 42``.
+Every figure is from the code, a test, a case study's run or
+``prama bench run --seed 42``; ``{tests}`` is filled from the README's synced count.
 
 Copyright (c) 2026 Ashutosh Sinha. All rights reserved.
 Proprietary and confidential. See LICENSE and NOTICE at the repository root.
@@ -13,45 +15,126 @@ from __future__ import annotations
 from typing import Any
 
 SLIDES: list[dict[str, Any]] = [
-    # ------------------------------------------------------------------ part 1
     {
-        "kind": "divider",
-        "num": "1",
-        "title": "Why data quality fails",
-        "sub": "The dashboard is green and the number is wrong. Nobody lied; nothing was proved.",
-        "points": [
-            "The question every number must answer",
-            "Four ways a data quality programme fails",
-            "What a supervisor actually asks for",
-            "Prama in one slide",
+        "kind": "qa",
+        "kicker": "TL;DR",
+        "title": "Executive summary",
+        "rows": [
+            (
+                "What is the problem?",
+                "Every reported number eventually meets somebody who asks how you "
+                "know. Most estates answer with a green dashboard: the absence of a "
+                "failure somebody thought to look for, not the presence of a proof.",
+            ),
+            (
+                "What is Prama?",
+                "A data quality control plane the business owns. Owners declare what "
+                "their data means; Prama derives the controls, runs them where the "
+                "data lives, and seals every verdict in a ledger anyone can verify "
+                "offline.",
+            ),
+            (
+                "Why does it matter?",
+                "Controls derived from declarations cannot drift from them; verdicts "
+                "with evidence survive an audit; alerts with a stated false-alarm rate "
+                "get believed; and no model ever decides pass or fail.",
+            ),
+            (
+                "What can it do today?",
+                "A semantic layer; PQL compiled to SQLite, DuckDB and PostgreSQL; "
+                "reconciliation with a break workbench; a hash-chained evidence "
+                "ledger; lineage read from code; an LLM gateway; agents beside the "
+                "data; console, API, CLI and Python SDK.",
+            ),
+            (
+                "Where is it going?",
+                "Reference customers, verified legacy-ETL lineage scanners, certified "
+                "connectors and a benchmark published against named competitors. The "
+                "gaps are listed in the repository, not hidden.",
+            ),
         ],
     },
     {
         "kind": "bullets",
         "kicker": "The question",
         "title": "Can you prove this number is right?",
-        "intro": "Every reported figure (a capital ratio, an exposure, a settled balance) "
-        "eventually meets somebody who asks how you know. Most estates can answer only "
-        "with a feeling.",
+        "intro": "Every reported figure (a capital ratio, an exposure, a settled "
+        "balance) eventually meets somebody who asks how you know. Most estates "
+        "can answer only with a feeling.",
         "items": [
             (
                 "“The checks passed”",
-                "Which checks, written by whom, against what declared meaning, on which rows, "
-                "and where is the record?",
+                "Which checks, written by whom, against what declared meaning, on "
+                "which rows, and where is the record?",
             ),
             (
                 "“The dashboard is green”",
-                "Green is the absence of a failure somebody thought to look for. It is not the "
-                "presence of a proof.",
+                "Green is the absence of a failure somebody thought to look for. It "
+                "is not the presence of a proof.",
             ),
             (
                 "“The vendor tool said so”",
-                "A verdict you cannot recompute without trusting the tool that issued it is an "
-                "assertion, not evidence.",
+                "A verdict you cannot recompute without trusting the tool that issued "
+                "it is an assertion, not evidence.",
             ),
         ],
         "note": "pramā (Sanskrit): knowledge that is both true and arrived at by a "
         "reliable means. The product is named for the second half.",
+    },
+    {
+        "kind": "numbered",
+        "kicker": "Principles",
+        "title": "10 principles: why data quality should be evidence-first",
+        "cols": 2,
+        "items": [
+            (
+                "Derive, never restate",
+                "A control derived from a declaration cannot drift from it; a "
+                "restated one always does, in the flattering direction.",
+            ),
+            (
+                "The business owns the meaning",
+                "Owners declare grain, domains and relationships in their own words; "
+                "engineers run the engines.",
+            ),
+            (
+                "Every verdict carries its evidence",
+                "Which rule, which version, which engine, which rows: recorded, "
+                "chained and replayable.",
+            ),
+            (
+                "Verifiable without the vendor",
+                "A standard-library script re-checks the whole chain on an auditor's machine.",
+            ),
+            (
+                "Five verdicts, not two",
+                "Indeterminate and error are not pass; a screen is not a proof.",
+            ),
+            (
+                "Alerts that mean what they say",
+                "Conformal p-values give a false-alarm rate you can state, not a sensitivity dial.",
+            ),
+            (
+                "AI authors, never adjudicates",
+                "Models propose, rank and explain; a deterministic engine decides, "
+                "and a test enforces it.",
+            ),
+            (
+                "Run where the data lives",
+                "SQL pushed down; agents beside data that must not move; only facts "
+                "about data travel.",
+            ),
+            (
+                "Change is a proposal",
+                "Nothing activates without a named approver; a Tier-1 control needs a "
+                "second person.",
+            ),
+            (
+                "Say what is not done",
+                "Coverage gaps, unread code and unclaimed regulations are listed, "
+                "never rounded away.",
+            ),
+        ],
     },
     {
         "kind": "cards",
@@ -62,27 +145,27 @@ SLIDES: list[dict[str, Any]] = [
             (
                 "01",
                 "Rules restated, then drifting",
-                "The meaning of a column lives in a wiki; the check lives in a YAML file; the "
-                "two are edited by different people and diverge, always in the flattering "
-                "direction.",
+                "The meaning of a column lives in a wiki; the check lives in a YAML "
+                "file; the two are edited by different people and diverge, always in "
+                "the flattering direction.",
             ),
             (
                 "02",
                 "Thresholds that mean nothing",
-                "A sensitivity dial of “high” is not a false-alarm rate. Stewards learn to "
-                "ignore the alerts, and then miss the one that mattered.",
+                "A sensitivity dial of “high” is not a false-alarm rate. Stewards "
+                "learn to ignore the alerts, and then miss the one that mattered.",
             ),
             (
                 "03",
                 "Verdicts without evidence",
-                "Results overwritten each run, no record of the rule's version or the data it "
-                "saw, nothing an auditor can re-verify offline.",
+                "Results overwritten each run, no record of the rule's version or the "
+                "data it saw, nothing an auditor can re-verify offline.",
             ),
             (
                 "04",
                 "A model deciding pass or fail",
-                "An LLM that says “this looks fine” is persuasive and unrepeatable. In a "
-                "control, persuasion is the defect.",
+                "An LLM that says “this looks fine” is persuasive and unrepeatable. "
+                "In a control, persuasion is the defect.",
             ),
         ],
     },
@@ -119,8 +202,9 @@ SLIDES: list[dict[str, Any]] = [
             ],
         ],
         "col_w": [1.3, 1.5, 1.5],
-        "note": "Prama is not legal or regulatory advice, and discharges no obligation by "
-        "itself: `prama pack claims` lists what the banking pack does not claim.",
+        "note": "Prama is not legal or regulatory advice, and discharges no obligation "
+        "by itself: `prama pack claims` lists what the banking pack does not "
+        "claim.",
     },
     {
         "kind": "flow",
@@ -134,30 +218,176 @@ SLIDES: list[dict[str, Any]] = [
             ),
             (
                 "Prove it",
-                "A deterministic engine runs each control where the data lives and writes a "
-                "hash-chained, independently verifiable record.",
+                "A deterministic engine runs each control where the data lives and "
+                "writes a hash-chained, independently verifiable record.",
             ),
             (
                 "Trust it",
-                "Calibrated alerts, scores derived from evidence, trust propagated along "
-                "lineage, and every defect traced to what it reaches.",
+                "Calibrated alerts, scores derived from evidence, trust propagated "
+                "along lineage, and every defect traced to what it reaches.",
             ),
         ],
         "items": [
-            "Models author, rank, explain and summarise. A versioned engine decides. "
-            "An architecture test fails the build if a model's output can reach a verdict.",
-            "One application database, two schema files as the authority, no migrations; "
-            "remote agents run checks beside data that must not move.",
+            "Models author, rank, explain and summarise. A versioned engine "
+            "decides. An architecture test fails the build if a model's output can "
+            "reach a verdict.",
+            "One application database, two schema files as the authority, no "
+            "migrations; remote agents run checks beside data that must not move.",
         ],
         "box_h": 2.0,
     },
-    # ------------------------------------------------------------------ part 2
+    {
+        "kind": "divider",
+        "num": "1",
+        "title": "How Prama works",
+        "sub": "From what an owner says the data means to a verdict somebody else can check.",
+        "points": [
+            "The core primitives",
+            "The system in context",
+            "The life of a control",
+            "Five verdicts, not two",
+        ],
+    },
+    {
+        "kind": "table",
+        "kicker": "Core primitives",
+        "title": "Six things, and who writes each one",
+        "rows": [
+            ["Primitive", "What it is", "Written by"],
+            [
+                "Declaration",
+                "What a dataset means: grain, domains, tier, relationships",
+                "The owner",
+            ],
+            ["Control", "One PQL statement, with the reason it exists", "Derived, or a person"],
+            ["Plan", "The control resolved and hashed: what actually runs", "The compiler"],
+            ["Verdict", "pass, fail, indeterminate, error or skipped", "The engine, never a model"],
+            [
+                "Evidence record",
+                "The verdict, its metrics and its plan, hash-chained",
+                "The engine",
+            ],
+            [
+                "Score and trust",
+                "Derived from the latest evidence, along lineage",
+                "Computed, never typed",
+            ],
+        ],
+        "col_w": [1.0, 2.6, 1.3],
+        "note": "Every arrow in this table points one way: from what a person said to "
+        "what the engine proved. Nothing downstream is typed in.",
+    },
+    {
+        "kind": "context",
+        "kicker": "Architecture",
+        "title": "The system in context",
+        "nodes": [
+            {
+                "id": "people",
+                "x": 0.0,
+                "y": 0.0,
+                "w": 0.26,
+                "h": 0.36,
+                "head": "Owners, stewards, auditors",
+                "body": "Console, CLI, API, editor (LSP), assistants (MCP)",
+            },
+            {
+                "id": "core",
+                "x": 0.37,
+                "y": 0.0,
+                "w": 0.26,
+                "h": 0.36,
+                "head": "Prama",
+                "body": "Semantic layer, PQL, derivation, proposals, scoring",
+            },
+            {
+                "id": "llm",
+                "x": 0.74,
+                "y": 0.0,
+                "w": 0.26,
+                "h": 0.36,
+                "head": "LLM gateway",
+                "body": "Purposes, routes, call ledger; mock by default",
+            },
+            {
+                "id": "db",
+                "x": 0.0,
+                "y": 0.6,
+                "w": 0.26,
+                "h": 0.4,
+                "head": "Application database",
+                "body": "SQLite or PostgreSQL; evidence in its own store",
+            },
+            {
+                "id": "exec",
+                "x": 0.37,
+                "y": 0.6,
+                "w": 0.26,
+                "h": 0.4,
+                "head": "Execution",
+                "body": "Compiled SQL pushed down; fused scans; delegates out of process",
+            },
+            {
+                "id": "agent",
+                "x": 0.74,
+                "y": 0.6,
+                "w": 0.26,
+                "h": 0.4,
+                "head": "Remote agents",
+                "body": "Beside the data; only counts, verdicts and hashes return",
+            },
+        ],
+        "edges": [
+            ("people", "core", ""),
+            ("core", "llm", ""),
+            ("core", "exec", ""),
+            ("exec", "db", ""),
+            ("exec", "agent", ""),
+        ],
+    },
+    {
+        "kind": "numbered",
+        "kicker": "End to end",
+        "title": "The life of a control",
+        "cols": 2,
+        "items": [
+            ("Declare", "An owner states grain, rhythm, domains, relationships, metadata."),
+            ("Derive and propose", "Deterministic generators turn each fact into PQL."),
+            ("Approve", "A person accepts; the control version becomes active."),
+            ("Compile", "PQL parses, type-checks and lowers to a hashed plan, then SQL."),
+            ("Execute", "On the server, or beside the data by an agent."),
+            ("Judge", "One deterministic function decides the verdict."),
+            ("Record", "Each verdict becomes a hash-chained evidence record."),
+            ("Score, report, alert", "Everything downstream derives from the evidence."),
+        ],
+    },
+    {
+        "kind": "table",
+        "kicker": "Verdicts",
+        "title": "Five verdicts, because two would lie",
+        "rows": [
+            ["Verdict", "Meaning", "Why it is separate"],
+            ["pass", "The exact test ran and found no violation", "The only green"],
+            ["fail", "Violations found above the threshold", "With counts and a sample"],
+            [
+                "indeterminate",
+                "A screen ran, or the metrics cannot be judged",
+                "Zero from a lower bound is not a pass",
+            ],
+            ["error", "The control could not run", "Checked nothing, and says so"],
+            ["skipped", "Not run in this pass", "Recorded, never counted as a pass"],
+        ],
+        "col_w": [0.9, 2.0, 1.8],
+        "note": "Nulls are UNKNOWN and count as violations by default: an account that "
+        "names nobody does not reference a customer. TREAT UNKNOWN AS PASS says "
+        "otherwise, in the control, where a reviewer can see it.",
+    },
     {
         "kind": "divider",
         "num": "2",
         "title": "Declare it",
-        "sub": "The business semantic layer: say once what data means, and let the controls "
-        "follow from it.",
+        "sub": "The business semantic layer: say once what data means, and let the "
+        "controls follow from it.",
         "points": [
             "Datasets, grain and attributes",
             "Controls derived from declarations",
@@ -195,12 +425,12 @@ SLIDES: list[dict[str, Any]] = [
             ("Control", "Active, versioned, and re-derived when the declaration changes."),
         ],
         "items": [
-            "Change the declaration and the controls change with it. There is no second "
-            "copy of the meaning to fall out of date.",
-            "A rejected proposal stays rejected: its content hash is remembered, so "
-            "regeneration does not refill the queue.",
-            "Mining (keys, dependencies) and declaration can propose the same rule; it "
-            "becomes one corroborated proposal, ranked higher.",
+            "Change the declaration and the controls change with it. There is no "
+            "second copy of the meaning to fall out of date.",
+            "A rejected proposal stays rejected: its content hash is remembered, "
+            "so regeneration does not refill the queue.",
+            "Mining (keys, dependencies) and declaration can propose the same "
+            "rule; it becomes one corroborated proposal, ranked higher.",
         ],
     },
     {
@@ -218,8 +448,8 @@ SLIDES: list[dict[str, Any]] = [
         "right": {
             "head": "An honest finding",
             "items": [
-                "A dataset declaration alone cannot cover its own CDEs: some checks need a "
-                "second dataset",
+                "A dataset declaration alone cannot cover its own CDEs: some "
+                "checks need a second dataset",
                 "Declaring the relationships closes the gap",
                 "Both facts are tests in the suite, so neither can quietly change",
             ],
@@ -232,8 +462,9 @@ SLIDES: list[dict[str, Any]] = [
         "kind": "table",
         "kicker": "Metadata",
         "title": "Rules grow from metadata an owner fills in",
-        "intro": "Templates define typed fields. A field can carry a rule, so filling it in "
-        "proposes a check, with the literal typed and quoted by the engine, never pasted.",
+        "intro": "Templates define typed fields. A field can carry a rule, so filling it "
+        "in proposes a check, with the literal typed and quoted by the engine, "
+        "never pasted.",
         "rows": [
             ["Field on an attribute", "Value", "Proposed control"],
             ["mandatory", "yes", "CHECK t.col IS NOT NULL DIMENSION completeness"],
@@ -244,7 +475,8 @@ SLIDES: list[dict[str, Any]] = [
         ],
         "col_w": [1.1, 1.1, 2.4],
         "note": "Case study 7 declares three datasets with no rules at all; every check "
-        "that runs comes from metadata or correlation, and all four planted defects are found.",
+        "that runs comes from metadata or correlation, and all four planted "
+        "defects are found.",
     },
     {
         "kind": "bullets",
@@ -257,8 +489,8 @@ SLIDES: list[dict[str, Any]] = [
             ),
             (
                 "The owner of a meaning is derived",
-                "A column in the grain, in the declared key, or declared unique owns it; "
-                "the others must reference it.",
+                "A column in the grain, in the declared key, or declared unique owns "
+                "it; the others must reference it.",
             ),
             (
                 "Proposed: a referential check",
@@ -266,8 +498,9 @@ SLIDES: list[dict[str, Any]] = [
             ),
             (
                 "Reported: held inconsistently",
-                "The same identifier marked PII in one dataset and not the other is a finding "
-                "for a steward, not a check: which side is right is a business decision.",
+                "The same identifier marked PII in one dataset and not the other is a "
+                "finding for a steward, not a check: which side is right is a "
+                "business decision.",
             ),
         ],
     },
@@ -278,18 +511,18 @@ SLIDES: list[dict[str, Any]] = [
         "items": [
             (
                 "One channel for every author",
-                "Declarations, mining, metadata, lineage, correlation and models all produce "
-                "proposals. None of them activates a control.",
+                "Declarations, mining, metadata, lineage, correlation and models all "
+                "produce proposals. None of them activates a control.",
             ),
             (
                 "A person approves, by tier",
-                "Nothing activates without a named approver; tier-1 and tier-2 changes "
-                "need approval.",
+                "Nothing activates without a named approver; a Tier-1 control written "
+                "by a person is started by somebody else.",
             ),
             (
                 "Every change is a version",
-                "A control's PQL, its reason and its approver are kept; nothing is edited in "
-                "place.",
+                "A control's PQL, its reason and its approver are kept; nothing is "
+                "edited in place.",
             ),
             (
                 "Discussion sits on the object",
@@ -297,7 +530,6 @@ SLIDES: list[dict[str, Any]] = [
             ),
         ],
     },
-    # ------------------------------------------------------------------ part 3
     {
         "kind": "divider",
         "num": "3",
@@ -306,8 +538,6 @@ SLIDES: list[dict[str, Any]] = [
         "points": [
             "What a control looks like",
             "One IR, several engines",
-            "Fused scans",
-            "Five verdicts, not two",
             "When PQL cannot say it",
         ],
     },
@@ -334,7 +564,8 @@ SLIDES: list[dict[str, Any]] = [
         ],
         "col_w": [1.0, 4.2],
         "note": "Every control ends BECAUSE '…': the reason is part of the control, and "
-        "`prama control explain` reads it back as a sentence an owner can check.",
+        "`prama control explain` reads it back as a sentence an owner can "
+        "check.",
     },
     {
         "kind": "flow",
@@ -347,34 +578,14 @@ SLIDES: list[dict[str, Any]] = [
             ("Metrics", "Scanned and violating rows come back; the engine judges."),
         ],
         "items": [
-            "A conformance suite runs the same IR on each engine and requires the same "
-            "verdict on the same data: assert the executed verdict, not plausible SQL.",
-            "`prama control compile --fuse` groups controls over one table into shared "
-            "scans: in the fusion test, 400 controls run as 160 scans.",
-            "Pushdown coverage is published: `prama control functions` says what runs on "
-            "which engine, and what does not.",
+            "A conformance suite runs the same IR on each engine and requires the "
+            "same verdict on the same data: assert the executed verdict, not "
+            "plausible SQL.",
+            "`prama control compile --fuse` groups controls over one table into "
+            "shared scans: in the fusion test, 400 controls run as 160 scans.",
+            "Pushdown coverage is published: `prama control functions` says what "
+            "runs on which engine, and what does not.",
         ],
-    },
-    {
-        "kind": "table",
-        "kicker": "Verdicts",
-        "title": "Five verdicts, because two would lie",
-        "rows": [
-            ["Verdict", "Meaning", "Why it is separate"],
-            ["pass", "The exact test ran and found no violation", "The only green"],
-            ["fail", "Violations found above the threshold", "With counts and a sample"],
-            [
-                "indeterminate",
-                "A screen ran, or the metrics cannot be judged",
-                "Zero from a lower bound is not a pass",
-            ],
-            ["error", "The control could not run", "Checked nothing, and says so"],
-            ["skipped", "Not run in this pass", "Recorded, never counted as a pass"],
-        ],
-        "col_w": [0.9, 2.0, 1.8],
-        "note": "Nulls are UNKNOWN and count as violations by default: an account that names "
-        "nobody does not reference a customer. TREAT UNKNOWN AS PASS says otherwise, in the "
-        "control, where a reviewer can see it.",
     },
     {
         "kind": "split",
@@ -397,7 +608,7 @@ SLIDES: list[dict[str, Any]] = [
                 "A test kit for the author's own CI; remote agents run them beside the data",
             ],
         },
-        "note": "Case study 5 runs a settlement-cycle delegate locally and on a remote agent; "
-        "the delegate returns counts, and Prama judges them.",
+        "note": "Case study 5 runs a settlement-cycle delegate locally and on a remote "
+        "agent; the delegate returns counts, and Prama judges them.",
     },
 ]

@@ -1,6 +1,9 @@
 """
-Parts 4 to 6 of the Prama deck: evidence and reconciliation, lineage and impact, and
-trust that is calibrated and derived.
+Sections 4 to 7 of the Prama deck: evidence and reconciliation, lineage and impact,
+trust that is calibrated and derived, and AI that authors but never adjudicates.
+
+Every figure is from the code, a test, a case study's run or
+``prama bench run --seed 42``; ``{tests}`` is filled from the README's synced count.
 
 Copyright (c) 2026 Ashutosh Sinha. All rights reserved.
 Proprietary and confidential. See LICENSE and NOTICE at the repository root.
@@ -11,13 +14,12 @@ from __future__ import annotations
 from typing import Any
 
 SLIDES: list[dict[str, Any]] = [
-    # ------------------------------------------------------------------ part 4
     {
         "kind": "divider",
         "num": "4",
         "title": "Prove it",
-        "sub": "A verdict is worth what its record is worth. The record must survive without "
-        "the system that wrote it.",
+        "sub": "A verdict is worth what its record is worth. The record must survive "
+        "without the system that wrote it.",
         "points": [
             "What one piece of evidence holds",
             "A chain, a root, and an offline check",
@@ -39,8 +41,8 @@ SLIDES: list[dict[str, Any]] = [
             ["Previous, content and record hashes", "Append-only: an edit breaks the chain"],
         ],
         "col_w": [1.6, 2.2],
-        "note": "Evidence has its own store (EvidenceBase), its own retention and its own "
-        "immutability, separate from the platform schema.",
+        "note": "Evidence has its own store (EvidenceBase), its own retention and its "
+        "own immutability, separate from the platform schema.",
     },
     {
         "kind": "flow",
@@ -53,12 +55,13 @@ SLIDES: list[dict[str, Any]] = [
             ("Offline verifier", "A standalone script re-derives all of it, importing nothing."),
         ],
         "items": [
-            "python3 scripts/verify_evidence.py bundle/ runs on an auditor's machine with "
-            "only the standard library. It does not import Prama.",
-            "A chain rebuilt by whoever holds the key verifies on its own, and fails against "
-            "its anchor: the signature is checked with openssl ts -verify.",
-            "Exported bundles are HMAC-sealed, optionally Ed25519-signed; prama bundle verify "
-            "exits 3 when one must not be installed.",
+            "python3 scripts/verify_evidence.py bundle/ runs on an auditor's "
+            "machine with only the standard library. It does not import Prama.",
+            "A chain rebuilt by whoever holds the key verifies on its own, and "
+            "fails against its anchor: the signature is checked with openssl ts "
+            "-verify.",
+            "Exported bundles are HMAC-sealed, optionally Ed25519-signed; prama "
+            "bundle verify exits 3 when one must not be installed.",
         ],
     },
     {
@@ -74,8 +77,8 @@ SLIDES: list[dict[str, Any]] = [
             ["OFFSET BY 1 DAY", "The ledger catching up overnight is not a break"],
         ],
         "col_w": [1.8, 2.0],
-        "note": "Breaks are classified as genuine, missing or extra, and each lands in the break "
-        "workbench with an owner: explain it, accept it, or fix it.",
+        "note": "Breaks are classified as genuine, missing or extra, and each lands in "
+        "the break workbench with an owner: explain it, accept it, or fix it.",
     },
     {
         "kind": "stats",
@@ -88,15 +91,17 @@ SLIDES: list[dict[str, Any]] = [
             ("23", "false breaks in the first build: a rounding convention, found and documented"),
         ],
         "items": [
-            "Planted: three manual journals, one day that never reached the ledger, one "
-            "ledger-only account, and two late entries that must not fail the close.",
-            "The counterfactual is part of the study: each late entry without the offset "
-            "becomes one missing and one extra. The allowance removes noise and nothing real.",
-            "The ledger converts each day's total and rounds once; converting each entry "
-            "differs by cents. A real difference between systems, stated, not assumed away.",
+            "Planted: three manual journals, one day that never reached the "
+            "ledger, one ledger-only account, and two late entries that must not "
+            "fail the close.",
+            "The counterfactual is part of the study: each late entry without the "
+            "offset becomes one missing and one extra. The allowance removes noise "
+            "and nothing real.",
+            "The ledger converts each day's total and rounds once; converting each "
+            "entry differs by cents. A real difference between systems, stated, "
+            "not assumed away.",
         ],
     },
-    # ------------------------------------------------------------------ part 5
     {
         "kind": "divider",
         "num": "5",
@@ -124,23 +129,25 @@ SLIDES: list[dict[str, Any]] = [
             ["Manta, Alation exports", "Imported beside Prama's own parse", "as stated"],
         ],
         "col_w": [1.4, 1.6, 0.8],
-        "note": "A ZIP or a repository is extracted into quarantine, parsed in a separate "
-        "process, and deleted. A test plants code that writes a marker file if executed.",
+        "note": "A ZIP or a repository is extracted into quarantine, parsed in a "
+        "separate process, and deleted. A test plants code that writes a marker "
+        "file if executed.",
     },
     {
         "kind": "bullets",
         "kicker": "Impact",
         "title": "Where a defect goes, and how much of it arrives",
-        "intro": "The blast radius follows edges downstream and attenuates by transform: a "
-        "copy carries the whole defect, an aggregation dilutes it.",
+        "intro": "The blast radius follows edges downstream and attenuates by transform: "
+        "a copy carries the whole defect, an aggregation dilutes it.",
         "items": [
             ("raw.trades.notional_amt → stg.trades.notional", "100% of the defect, 1 hop"),
             ("→ mart.positions.exposure_usd", "35%, 2 hops: summed with FX rates"),
             ("→ the Risk Dashboard's Exposure column", "35%, 3 hops: a rename"),
             ("→ its Total Exposure measure", "12%, 4 hops: aggregated again"),
         ],
-        "note": "Case study 8: two SQL scripts and a Power BI model give 14 parsed column "
-        "edges; the defect is traced from the raw feed to the measure a risk committee reads.",
+        "note": "Case study 8: two SQL scripts and a Power BI model give 14 parsed "
+        "column edges; the defect is traced from the raw feed to the measure a "
+        "risk committee reads.",
     },
     {
         "kind": "table",
@@ -158,9 +165,10 @@ SLIDES: list[dict[str, Any]] = [
             ["Join", "Every driving row's key finds its match", "The edge is inferred"],
         ],
         "col_w": [0.9, 2.1, 1.3],
-        "note": "Case study 8 found the defects this slide depends on: a RECONCILE with no "
-        "tolerance, a filtered copy reported as 118 breaks, and a join lineage could not see. "
-        "All are fixed, each with a test that fails on the old code.",
+        "note": "Case study 8 found the defects this slide depends on: a RECONCILE with "
+        "no tolerance, a filtered copy reported as 118 breaks, and a join "
+        "lineage could not see. All are fixed, each with a test that fails on "
+        "the old code.",
     },
     {
         "kind": "split",
@@ -187,13 +195,12 @@ SLIDES: list[dict[str, Any]] = [
         "note": "The first version of case study 8 showed the blast radius stopping at "
         "staging. That negative result is in the paper, with the repair.",
     },
-    # ------------------------------------------------------------------ part 6
     {
         "kind": "divider",
         "num": "6",
         "title": "Trust it",
-        "sub": "An alert level that means what it says, and a score derived from evidence "
-        "rather than asserted beside it.",
+        "sub": "An alert level that means what it says, and a score derived from "
+        "evidence rather than asserted beside it.",
         "points": [
             "Conformal alerting",
             "Scores derived from evidence",
@@ -214,19 +221,20 @@ SLIDES: list[dict[str, Any]] = [
             ),
             (
                 "The +1 is the guarantee",
-                "Drop it and a point beyond everything seen gets p = 0: the false-alarm rate "
-                "becomes 1/n, not \u03b1.",
+                "Drop it and a point beyond everything seen gets p = 0: the "
+                "false-alarm rate becomes 1/n, not \u03b1.",
             ),
             (
                 "Drift, said out loud",
-                "Weighted and adaptive variants trade exactness for robustness, and say by "
-                "how much.",
+                "Weighted and adaptive variants trade exactness for robustness, and "
+                "say by how much.",
             ),
             (
                 "Cold start, labelled",
-                "Before there is history, a monitor starts from priors (semantic type, "
-                "declared rhythm, sibling datasets) and says so on every verdict; it switches "
-                "to calibration when history allows, and announces that too.",
+                "Before there is history, a monitor starts from priors (semantic "
+                "type, declared rhythm, sibling datasets) and says so on every "
+                "verdict; it switches to calibration when history allows, and "
+                "announces that too.",
             ),
         ],
     },
@@ -250,8 +258,82 @@ SLIDES: list[dict[str, Any]] = [
                 "Ranked by trust, a report shows its weakest input",
             ],
         },
-        "note": "Usage signals (from query history) rank what to control next: most used, "
-        "least controlled. They are never an input to a score, since popularity is not "
-        "correctness.",
+        "note": "Usage signals (from query history) rank what to control next: most "
+        "used, least controlled. They are never an input to a score, since "
+        "popularity is not correctness.",
+    },
+    {
+        "kind": "divider",
+        "num": "7",
+        "title": "AI that never adjudicates",
+        "sub": "Models author, rank, explain and summarise. A deterministic, versioned "
+        "engine decides.",
+        "points": [
+            "The line, and the test that holds it",
+            "One gateway for every model call",
+            "Finding the dataset fit for a purpose",
+        ],
+    },
+    {
+        "kind": "split",
+        "kicker": "The line",
+        "title": "What a model may do, and what it may not",
+        "left": {
+            "head": "A model may",
+            "items": [
+                "Author a proposed control from a document or an example",
+                "Suggest lineage for code no reader could parse, marked inferred",
+                "Rank datasets for a purpose, and explain the ranking",
+                "Summarise an incident, or explain a failure in plain words",
+            ],
+        },
+        "right": {
+            "head": "A model may not",
+            "items": [
+                "Pass or fail data, directly or through any code path",
+                "Activate a control: that is a person's approval",
+                "Turn an inferred lineage edge into a parsed one",
+                "Change a score",
+            ],
+        },
+        "note": "tests/architecture/test_layering.py fails the build if model output can "
+        "reach a verdict (CON-007, NFR-AI-002). A guard wired into no test is a "
+        "guard somebody forgets.",
+    },
+    {
+        "kind": "table",
+        "kicker": "The gateway",
+        "title": "One gateway for every model call",
+        "rows": [
+            ["Property", "What it means"],
+            ["Purposes", "author, explain, summarise, lineage, curate, discover, embed"],
+            ["Routes", "Each purpose has an ordered route of provider and model"],
+            ["Providers", "OpenAI-compatible (Ollama, vLLM), Anthropic, Bedrock, Azure, Vertex"],
+            ["Default", "A mock provider: with nothing configured, Prama works and says so"],
+            ["Call ledger", "Every call recorded and hash-chained; prama llm verify checks it"],
+            ["Budgets", "Every call, from any path, checked against them; a refusal is recorded"],
+            ["Evaluation gate", "A route activates only after its evaluation suite passes"],
+            ["Redaction", "Secrets, card numbers, IBANs and emails withheld, both ways"],
+        ],
+        "col_w": [1.0, 3.2],
+    },
+    {
+        "kind": "flow",
+        "kicker": "Fitness for purpose",
+        "title": "Which dataset should I use for this?",
+        "steps": [
+            ("Profile", "Each dataset's name, description, business context, metadata, terms."),
+            ("Rank", "Embeddings when a model is configured; BM25 relevance when not."),
+            ("Evidence", "The attributes whose own text best matches, so the reader sees why."),
+        ],
+        "items": [
+            "The answer always says which ranking was used. Nothing here reads the "
+            "data, and nothing here touches a score.",
+            "Case study 7: “who is the customer and where are they registered, for "
+            "sanctions screening” returns Customers, matching legal_name, "
+            "customer_id and lei.",
+            "The better owners describe their data, the better this works: the "
+            "incentive points the right way.",
+        ],
     },
 ]
