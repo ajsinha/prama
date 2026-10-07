@@ -21,21 +21,32 @@ uv sync --extra dev --extra deck                       # python-pptx
 
 | Deck | Slides | Source |
 |---|---|---|
-| `docs/publications/deck/Prama-Evidence-First-Data-Quality.pptx` | 45 | `prama_deck.py`, then `deck_part1.py` to `deck_part3.py` |
+| `docs/publications/deck/Prama-Evidence-First-Data-Quality.pptx` | 59 | `prama_deck.py`, then `deck_part1.py` to `deck_part3.py` |
 
 It is written for the people who must stand behind a number: a chief data officer, a data
-owner, a head of risk or audit, and the engineer asked to run it. It answers their questions in
-the order they ask them, in nine parts:
+owner, a head of risk or audit, and the engineer asked to run it. Its storytelling is a
+pyramid, the answer first:
 
-1. Why data quality fails.
-2. Declare it: the semantic layer.
-3. The language.
-4. Prove it: evidence and reconciliation.
-5. Lineage and impact.
-6. Trust it.
-7. AI that never adjudicates.
-8. How it runs.
-9. The evidence: eight case studies, the benchmark, and what Prama does not do.
+- **The opening.** A TL;DR in five questions (what is the problem, what is Prama, why it
+  matters, what it does today, where it is going); the question every number must answer;
+  ten principles of evidence-first data quality; the four ways a programme fails; what a
+  supervisor asks for; Prama in one slide.
+- **Ten numbered sections**, each opened by a divider that says what it covers:
+  1. How Prama works: the core primitives, the system in context, the life of a control.
+  2. Declare it: the semantic layer.
+  3. The language.
+  4. Prove it: evidence and reconciliation.
+  5. Lineage and impact.
+  6. Trust it.
+  7. AI that never adjudicates.
+  8. How it runs: deployment, what is built and tested, storage, agents, security.
+  9. Worked examples: three questions somebody actually asks (month-end close, a defect's
+     blast radius, fitness for a purpose), each answered step by step from a case study.
+  10. Where Prama stands: built, coming next, a comparison by category, what it does not
+      do, where to start.
+- **The close.**
+
+Most content slides end with one line in a tinted box: the thing to remember.
 
 **Every figure comes from somewhere a reader can check:** the code, a test, a case study's run,
 or `prama bench run --seed 42`. Where a slide depends on a test, its note names the test. The
@@ -46,8 +57,8 @@ research paper in [`docs/publications/paper/`](../../docs/publications/paper/) i
 | File | Purpose |
 |---|---|
 | `metrics.py` | The text estimator: a greedy word-wrap simulation and paragraph heights. The builder and the geometry audit share it, so the builder never believes a box fits that the audit then reports |
-| `theme.py` | The design system from `docs/reference/brand.md`: Prama Indigo and Refract Blue on a cool white ground, and the prism's six-colour spectrum as the one flourish. It also holds the primitives and `fitted()`, which shrinks a text block until it fits or raises `DoesNotFit` |
-| `layouts.py` | Slide kinds drawn from plain dictionaries: `title`, `divider`, `bullets`, `table`, `cards`, `stats`, `split`, `flow` and `context` (boxes joined by straight arrows) |
+| `theme.py` | The design system: the console's crimson theme, token for token from its light theme (`src/prama/web/static/css/themes.css`), so the deck and the product look like one thing; the console header's gradient on the dark slides; the prism's six-colour spectrum as the one flourish (`docs/reference/brand.md`). It also holds the primitives and `fitted()`, which shrinks a text block until it fits or raises `DoesNotFit` |
+| `layouts.py` | Slide kinds drawn from plain dictionaries: `title`, `divider`, `bullets`, `table`, `cards`, `stats`, `split`, `flow`, `context` (boxes joined by straight arrows), and for the storytelling: `qa` (the TL;DR), `numbered` (principles, steps), `workflow` (a worked example from a quoted question), `compare` (yes, partly, no, coloured) and `thanks` |
 | `prama_deck.py`, `deck_part1.py` … `deck_part3.py` | The deck, as data. Split into parts only to keep each file short; they are one deck, meant to be read in order |
 | `build.py` | Builds the deck and sets the document properties explicitly: the author, and no tool |
 | `audit.py` | The geometry audit, from estimates |

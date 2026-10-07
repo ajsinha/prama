@@ -675,7 +675,7 @@ know.
 
 *Prama is proprietary software by Ashutosh Sinha. The design corpus, a 41-page paper
 (**Data Quality as Justified Belief: Derived Controls, Deterministic Verdicts, and Evidence
-that Verifies Without Its Author**) and a 45-slide deck accompany the code. Figures in this
+that Verifies Without Its Author**) and a 59-slide deck accompany the code. Figures in this
 article come from the test suite, `prama bench run --seed 42`, and the case studies' own runs.*
 
 ---
