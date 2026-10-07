@@ -293,23 +293,46 @@ def content(title: str, kicker: str | None = None) -> tuple[Any, float]:
     return sl, body_top
 
 
+def watermark(
+    sl: Any, x: float, y: float, w: float, h: float, text: str, size: float, alpha: int = 13
+) -> Any:
+    """Very large text at low opacity: a tone-on-tone mark, after DishtaYantra's dividers.
+
+    White at ``alpha`` per cent rather than a fixed colour, because the ground beneath is a
+    gradient: a fixed tint would be too faint on the crimson and too loud on the indigo.
+    """
+    from pptx.oxml.ns import qn
+
+    tf = txt(sl, x, y, w, h, align=PP_ALIGN.RIGHT)
+    p = para(tf, text, size=size, color=WHITE, bold=True, first=True, space_after=0, line=1.0)
+    p.alignment = PP_ALIGN.RIGHT
+    for clr in p.runs[0]._r.iter(qn("a:srgbClr")):
+        fade = clr.makeelement(qn("a:alpha"), {"val": str(alpha * 1000)})
+        clr.append(fade)
+    return tf
+
+
 def divider(num: str, title: str, sub: str, points: list[str]) -> Any:
-    """A section divider on the dark gradient: a large numbered circle, the section's
-    title and its promise, and what it covers on the right."""
+    """A section divider on the dark gradient: the chapter number as a large watermark in
+    the top right, the section's title and its promise on the left, and what it covers
+    beneath the number."""
     _state["chapter"] = title
     _state["n"] += 1
     sl = blank()
     ground(sl)
-    d = 1.45
-    circle(sl, ML + 0.1, 1.15, d, num, fill=REFRACT, size=48)
+    watermark(sl, ML + CW * 0.42, 0.15, CW * 0.58, 2.75, f"{int(num):02d}", 165)
+    tf = txt(sl, ML + 0.1, 3.0, CW * 0.5, 0.3)
+    para(tf, f"SECTION {int(num):02d}", size=12, color=HAZE, bold=True, first=True, space_after=0)
+    # The prism's six rays, short, above the title: the brand's one flourish.
+    spectrum(sl, ML + 0.1, 3.42, 1.9, 0.06)
     tw = CW * 0.56
     size = 40.0
     while size > 26 and est_lines(title, tw * SAFETY, size, True, SANS) > 2:
         size -= 2
     th = text_h(title, tw * SAFETY, size, True, SANS, 1.05)
-    tf = txt(sl, ML + 0.1, 2.95, tw, th + 0.05)
+    tf = txt(sl, ML + 0.1, 3.62, tw, th + 0.05)
     para(tf, title, size=size, color=WHITE, bold=True, first=True, space_after=0, line=1.05)
-    top = 2.95 + th + 0.30
+    top = 3.62 + th + 0.26
     fitted(
         sl,
         ML + 0.1,
@@ -323,7 +346,7 @@ def divider(num: str, title: str, sub: str, points: list[str]) -> Any:
         11,
     )
     x = ML + CW * 0.64
-    tf = txt(sl, x, 1.2, CW * 0.36, 0.3)
+    tf = txt(sl, x, 3.05, CW * 0.36, 0.3)
     para(tf, "IN THIS SECTION", size=10, color=HAZE, bold=True, first=True, space_after=0)
 
     def write(tf: Any, s: float) -> None:
@@ -332,12 +355,12 @@ def divider(num: str, title: str, sub: str, points: list[str]) -> Any:
                 tf,
                 [(f"{i + 1:02d}   ", HAZE, True), (pnt, WHITE, False)],
                 size=s,
-                space_after=9,
+                space_after=8,
                 first=i == 0,
                 line=1.15,
             )
 
-    fitted(sl, x, 1.62, CW * 0.36, 4.6, write, 15, 10)
+    fitted(sl, x, 3.45, CW * 0.36, SH - 0.7 - 3.45, write, 14, 9.5)
     return sl
 
 

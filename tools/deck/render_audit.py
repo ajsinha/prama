@@ -48,8 +48,21 @@ def _pdf(deck: Path, workdir: Path) -> Path:
     soffice = shutil.which("soffice") or shutil.which("libreoffice")
     if soffice is None:
         raise SystemExit("LibreOffice is not installed: the rendered audit cannot run")
+    # A profile of its own, in the scratch directory: LibreOffice allows one instance per
+    # profile, so with the default one a conversion fails outright whenever any other
+    # LibreOffice (a desktop session, another build) is running on the machine.
+    profile = (workdir / "lo-profile").as_uri()
     subprocess.run(
-        [soffice, "--headless", "--convert-to", "pdf", "--outdir", str(workdir), str(deck)],
+        [
+            soffice,
+            f"-env:UserInstallation={profile}",
+            "--headless",
+            "--convert-to",
+            "pdf",
+            "--outdir",
+            str(workdir),
+            str(deck),
+        ],
         check=True,
         capture_output=True,
         timeout=300,

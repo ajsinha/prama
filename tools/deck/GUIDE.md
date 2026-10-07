@@ -31,7 +31,8 @@ pyramid, the answer first:
   matters, what it does today, where it is going); the question every number must answer;
   ten principles of evidence-first data quality; the four ways a programme fails; what a
   supervisor asks for; Prama in one slide.
-- **Ten numbered sections**, each opened by a divider that says what it covers:
+- **Ten numbered sections**, each opened by a divider that says what it covers, its number
+  set large and faint in the corner as a watermark (after DishtaYantra's decks):
   1. How Prama works: the core primitives, the system in context, the life of a control.
   2. Declare it: the semantic layer.
   3. The language.
